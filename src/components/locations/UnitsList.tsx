@@ -1,0 +1,127 @@
+import { useState, useEffect } from 'react';
+import { Database } from '../../types/supabase';
+import { useSupabase } from '../../lib/supabase-context';
+import { Plus, AlertTriangle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+type Unit = Database['public']['Tables']['units']['Row'];
+type Location = Database['public']['Tables']['locations']['Row'];
+
+type UnitsListProps = {
+  location: Location;
+};
+
+const UnitsList = ({ location }: UnitsListProps) => {
+  const { supabase } = useSupabase();
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUnits = async () => {
+      if (!supabase) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('units')
+          .select('*')
+          .eq('location_id', location.id)
+          .order('unit_number');
+
+        if (error) throw error;
+        setUnits(data || []);
+      } catch (err) {
+        console.error('Error fetching units:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUnits();
+  }, [supabase, location.id]);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium">Units</h3>
+        <Link 
+          to={`/units/add?location=${location.id}`}
+          className="btn btn-primary"
+        >
+          <Plus size={16} className="mr-2" />
+          Add Unit
+        </Link>
+      </div>
+
+      {error && (
+        <div className="bg-error-50 border-l-4 border-error-500 p-4 rounded-md">
+          <div className="flex">
+            <AlertTriangle className="h-5 w-5 text-error-500" />
+            <div className="ml-3">
+              <p className="text-sm text-error-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Unit Number
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {units.map((unit) => (
+              <tr key={unit.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {unit.unit_number}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`badge ${unit.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
+                    {unit.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <div className="flex items-center space-x-3">
+                    <Link
+                      to={`/units/${unit.id}/edit`}
+                      className="text-primary-600 hover:text-primary-800"
+                    >
+                      Edit
+                    </Link>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {units.length === 0 && (
+              <tr>
+                <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">
+                  No units found. Click "Add Unit" to create one.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+export default UnitsList;
