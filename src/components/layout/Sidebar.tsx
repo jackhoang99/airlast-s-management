@@ -1,6 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  Home, 
   Briefcase, 
   FileText, 
   Users, 
@@ -20,7 +19,8 @@ import {
   Calendar,
   Wrench,
   ClipboardList,
-  Building2
+  Building2,
+  LayoutDashboard
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSupabase } from '../../lib/supabase-context';
@@ -111,20 +111,6 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
         {/* Main navigation */}
         <nav className="px-4 py-4">
           <ul className="space-y-1">
-            <li>
-              <Link 
-                to="/"
-                className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                  isActive('/') 
-                    ? 'bg-primary-50 text-primary-700' 
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <Home size={18} className="mr-3" />
-                Home
-              </Link>
-            </li>
-
             {/* Customers Section */}
             <li className="pt-4">
               <button 
@@ -147,6 +133,19 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                   isCustomersOpen ? 'max-h-96' : 'max-h-0'
                 }`}
               >
+                <li>
+                  <Link 
+                    to="/"
+                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                      isActive('/') 
+                        ? 'bg-primary-50 text-primary-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <LayoutDashboard size={16} className="mr-3" />
+                    Dashboard
+                  </Link>
+                </li>
                 <li>
                   <Link 
                     to="/companies"
