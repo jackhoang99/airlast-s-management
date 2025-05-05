@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
-import { Briefcase, MapPin, CheckCircle, AlertCircle, Building2 } from 'lucide-react';
+import { Briefcase, MapPin, Building2, Plus } from 'lucide-react';
 
 const Dashboard = () => {
   const { supabase } = useSupabase();
@@ -86,6 +86,7 @@ const Dashboard = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
         <Link to="/companies/new" className="btn btn-primary">
+          <Plus size={16} className="mr-2" />
           Add New Company
         </Link>
       </div>
@@ -149,7 +150,7 @@ const Dashboard = () => {
               <p className="text-3xl font-semibold mt-1">{stats.activeUnits}</p>
             </div>
             <div className="h-12 w-12 bg-success-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="h-6 w-6 text-success-600" />
+              <Building2 className="h-6 w-6 text-success-600" />
             </div>
           </div>
           <div className="mt-4">
@@ -175,7 +176,7 @@ const Dashboard = () => {
               <p className="text-3xl font-semibold mt-1">{stats.inactiveUnits}</p>
             </div>
             <div className="h-12 w-12 bg-error-100 rounded-full flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-error-600" />
+              <Building2 className="h-6 w-6 text-error-600" />
             </div>
           </div>
           <div className="mt-4">
@@ -284,9 +285,6 @@ const RecentCompaniesList = () => {
               {company.city}, {company.state}
             </p>
           </div>
-          <span className={`badge ${company.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
-            {company.status}
-          </span>
         </Link>
       ))}
       <div className="pt-2">
