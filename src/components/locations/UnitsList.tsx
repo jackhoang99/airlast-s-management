@@ -53,7 +53,7 @@ const UnitsList = ({ location }: UnitsListProps) => {
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Units</h3>
         <Link 
-          to={`/units/add?location=${location.id}`}
+          to={`/locations/${location.id}/units/add`}
           className="btn btn-primary"
         >
           <Plus size={16} className="mr-2" />

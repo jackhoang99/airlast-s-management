@@ -33,12 +33,11 @@ function App() {
           </Route>
           <Route path="locations">
             <Route index element={<Locations />} />
-            <Route path="create" element={<CreateLocation />} />
             <Route path=":id/edit" element={<EditLocation />} />
+            <Route path=":locationId/units/add" element={<AddUnit />} />
           </Route>
           <Route path="units">
             <Route index element={<Units />} />
-            <Route path="add" element={<AddUnit />} />
             <Route path=":id/edit" element={<EditUnit />} />
           </Route>
           <Route path="*" element={<NotFound />} />
