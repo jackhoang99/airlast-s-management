@@ -14,8 +14,33 @@ import AddUnit from './pages/AddUnit';
 import EditUnit from './pages/EditUnit';
 import NotFound from './pages/NotFound';
 import RequireAuth from './components/auth/RequireAuth';
+import { useEffect } from 'react';
+import { useSupabase } from './lib/supabase-context';
 
 function App() {
+  const { supabase } = useSupabase();
+
+  useEffect(() => {
+    const fetchLogo = async () => {
+      if (!supabase) return;
+      
+      const { data, error } = await supabase
+        .from('configuration')
+        .select('value')
+        .eq('key', 'logo_url')
+        .single();
+      
+      if (!error && data) {
+        const favicon = document.getElementById('favicon');
+        if (favicon) {
+          favicon.setAttribute('href', data.value);
+        }
+      }
+    };
+    
+    fetchLogo();
+  }, [supabase]);
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
