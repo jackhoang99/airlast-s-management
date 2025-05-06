@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Login from './pages/Login';
+import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Companies from './pages/Companies';
 import CreateCompany from './pages/CreateCompany';
@@ -8,8 +9,10 @@ import EditCompany from './pages/EditCompany';
 import CompanyDetails from './pages/CompanyDetails';
 import CreateLocation from './pages/CreateLocation';
 import EditLocation from './pages/EditLocation';
+import LocationDetails from './pages/LocationDetails';
 import Locations from './pages/Locations';
 import Units from './pages/Units';
+import UnitDetails from './pages/UnitDetails';
 import AddUnit from './pages/AddUnit';
 import EditUnit from './pages/EditUnit';
 import NotFound from './pages/NotFound';
@@ -30,7 +33,7 @@ function App() {
         .eq('key', 'logo_url')
         .single();
       
-      if (!error && data) {
+      if (!error && data?.value) {
         const favicon = document.getElementById('favicon');
         if (favicon) {
           favicon.setAttribute('href', data.value);
@@ -47,7 +50,8 @@ function App() {
       
       <Route element={<RequireAuth />}>
         <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
+          <Route index element={<Home />} />
+          <Route path="dashboard" element={<Dashboard />} />
           <Route path="companies">
             <Route index element={<Companies />} />
             <Route path="create" element={<CreateCompany />} />
@@ -58,11 +62,13 @@ function App() {
           </Route>
           <Route path="locations">
             <Route index element={<Locations />} />
+            <Route path=":id" element={<LocationDetails />} />
             <Route path=":id/edit" element={<EditLocation />} />
             <Route path=":locationId/units/add" element={<AddUnit />} />
           </Route>
           <Route path="units">
             <Route index element={<Units />} />
+            <Route path=":id" element={<UnitDetails />} />
             <Route path=":id/edit" element={<EditUnit />} />
           </Route>
           <Route path="*" element={<NotFound />} />

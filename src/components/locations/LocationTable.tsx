@@ -56,7 +56,12 @@ const LocationTable = ({ locations, companyId, isLoading }: LocationTableProps) 
           {paginatedLocations.map((location) => (
             <tr key={location.id}>
               <td className="font-medium">
-                {location.name}
+                <Link 
+                  to={`/locations/${location.id}`}
+                  className="text-primary-600 hover:text-primary-800"
+                >
+                  {location.name}
+                </Link>
               </td>
               <td>{location.address}</td>
               <td>{location.city}</td>
@@ -69,9 +74,12 @@ const LocationTable = ({ locations, companyId, isLoading }: LocationTableProps) 
               </td>
               <td>
                 <div className="flex space-x-2">
-                  <button className="text-sm text-blue-600 hover:text-blue-800">
+                  <Link 
+                    to={`/locations/${location.id}/edit`}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
                     Edit
-                  </button>
+                  </Link>
                 </div>
               </td>
             </tr>

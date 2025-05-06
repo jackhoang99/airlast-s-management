@@ -90,8 +90,13 @@ const UnitsList = ({ location }: UnitsListProps) => {
           <tbody className="bg-white divide-y divide-gray-200">
             {units.map((unit) => (
               <tr key={unit.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {unit.unit_number}
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <Link
+                    to={`/units/${unit.id}`}
+                    className="text-primary-600 hover:text-primary-800 font-medium"
+                  >
+                    {unit.unit_number}
+                  </Link>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`badge ${unit.status === 'Active' ? 'badge-success' : 'badge-error'}`}>

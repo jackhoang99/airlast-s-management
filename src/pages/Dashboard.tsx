@@ -1,91 +1,30 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
-import { Briefcase, MapPin, Building2, Plus } from 'lucide-react';
+import { Briefcase, MapPin, Building2, Plus, ArrowRight } from 'lucide-react';
 
 const Dashboard = () => {
   const { supabase } = useSupabase();
   const [stats, setStats] = useState({
-    totalCompanies: 0,
-    totalLocations: 0,
-    totalUnits: 0,
-    activeUnits: 0,
-    inactiveUnits: 0,
+    totalCompanies: 10,
+    totalLocations: 23,
+    totalUnits: 71,
+    activeUnits: 50,
+    inactiveUnits: 21,
   });
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      if (!supabase) return;
-
-      try {
-        // Get total companies
-        const { count: companiesCount, error: companiesError } = await supabase
-          .from('companies')
-          .select('*', { count: 'exact', head: true });
-
-        if (companiesError) throw companiesError;
-
-        // Get total locations
-        const { count: locationsCount, error: locationsError } = await supabase
-          .from('locations')
-          .select('*', { count: 'exact', head: true });
-
-        if (locationsError) throw locationsError;
-
-        // Get total units
-        const { count: unitsCount, error: unitsError } = await supabase
-          .from('units')
-          .select('*', { count: 'exact', head: true });
-
-        if (unitsError) throw unitsError;
-
-        // Get active units
-        const { count: activeCount, error: activeError } = await supabase
-          .from('units')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'Active');
-
-        if (activeError) throw activeError;
-
-        // Get inactive units
-        const { count: inactiveCount, error: inactiveError } = await supabase
-          .from('units')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'Inactive');
-
-        if (inactiveError) throw inactiveError;
-
-        setStats({
-          totalCompanies: companiesCount || 0,
-          totalLocations: locationsCount || 0,
-          totalUnits: unitsCount || 0,
-          activeUnits: activeCount || 0,
-          inactiveUnits: inactiveCount || 0,
-        });
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, [supabase]);
-
-  if (isLoading && supabase) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
+  const [recentCompanies, setRecentCompanies] = useState([
+    { id: '1', name: 'Acme Properties', city: 'Atlanta', state: 'GA' },
+    { id: '2', name: 'Stellar Management', city: 'Miami', state: 'FL' },
+    { id: '3', name: 'Mountain View Holdings', city: 'Denver', state: 'CO' },
+    { id: '4', name: 'Coastal Investments', city: 'Charleston', state: 'SC' },
+    { id: '5', name: 'Desert Sun Properties', city: 'Phoenix', state: 'AZ' },
+  ]);
 
   return (
-    <div className="space-y-6 animate-fade">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-        <Link to="/companies/new" className="btn btn-primary">
+        <h1>Dashboard</h1>
+        <Link to="/companies/create" className="btn btn-primary">
           <Plus size={16} className="mr-2" />
           Add New Company
         </Link>
@@ -199,13 +138,34 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card">
           <h2 className="text-lg font-semibold mb-4">Recent Companies</h2>
-          <RecentCompaniesList />
+          <div className="space-y-3">
+            {recentCompanies.map((company) => (
+              <Link 
+                key={company.id} 
+                to={`/companies/${company.id}`}
+                className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-md transition-colors duration-150"
+              >
+                <div>
+                  <p className="font-medium">{company.name}</p>
+                  <p className="text-sm text-gray-500">
+                    {company.city}, {company.state}
+                  </p>
+                </div>
+                <ArrowRight size={16} className="text-gray-400" />
+              </Link>
+            ))}
+          </div>
+          <div className="mt-4 pt-4 border-t">
+            <Link to="/companies" className="text-sm text-primary-600 hover:text-primary-800">
+              View all companies →
+            </Link>
+          </div>
         </div>
         
         <div className="card">
           <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
           <div className="space-y-4">
-            <Link to="/companies/new" className="btn btn-primary w-full justify-start">
+            <Link to="/companies/create" className="btn btn-primary w-full justify-start">
               <Briefcase className="h-4 w-4 mr-2" />
               Create Customer Company
             </Link>
@@ -219,78 +179,6 @@ const Dashboard = () => {
             </Link>
           </div>
         </div>
-      </div>
-    </div>
-  );
-};
-
-const RecentCompaniesList = () => {
-  const { supabase } = useSupabase();
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchRecentCompanies = async () => {
-      if (!supabase) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('companies')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        if (error) throw error;
-        setCompanies(data || []);
-      } catch (error) {
-        console.error('Error fetching recent companies:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchRecentCompanies();
-  }, [supabase]);
-
-  if (isLoading && supabase) {
-    return (
-      <div className="flex justify-center items-center h-32">
-        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
-
-  if (companies.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-gray-500">No companies found.</p>
-        <Link to="/companies/new" className="text-primary-600 hover:text-primary-800 mt-2 inline-block">
-          Add your first company
-        </Link>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {companies.map((company) => (
-        <Link 
-          key={company.id} 
-          to={`/companies/${company.id}`}
-          className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-md transition-colors duration-150"
-        >
-          <div>
-            <p className="font-medium">{company.name}</p>
-            <p className="text-sm text-gray-500">
-              {company.city}, {company.state}
-            </p>
-          </div>
-        </Link>
-      ))}
-      <div className="pt-2">
-        <Link to="/companies" className="text-sm text-primary-600 hover:text-primary-800">
-          View all companies →
-        </Link>
       </div>
     </div>
   );

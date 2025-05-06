@@ -205,7 +205,12 @@ const Locations = () => {
                     <div>
                       <div className="flex items-center">
                         <MapPin size={16} className="text-gray-400 mr-2" />
-                        <h3 className="font-medium">{location.name}</h3>
+                        <Link 
+                          to={`/locations/${location.id}`}
+                          className="text-primary-600 hover:text-primary-800 font-medium"
+                        >
+                          {location.name}
+                        </Link>
                       </div>
                       <Link 
                         to={`/companies/${location.company_id}`}

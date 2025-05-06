@@ -228,7 +228,12 @@ const Units = () => {
                 {filteredUnits.map((unit) => (
                   <tr key={unit.id}>
                     <td className="font-medium">
-                      {unit.unit_number}
+                      <Link 
+                        to={`/units/${unit.id}`}
+                        className="text-primary-600 hover:text-primary-800"
+                      >
+                        {unit.unit_number}
+                      </Link>
                     </td>
                     <td>
                       <Link 

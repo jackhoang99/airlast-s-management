@@ -1,27 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  Briefcase, 
-  FileText, 
-  Users, 
-  MapPin, 
-  Settings, 
-  HelpCircle, 
-  LogOut, 
-  X, 
-  User, 
-  Wind, 
-  Building, 
-  Phone, 
-  Contact as FileContract, 
-  Upload, 
-  ChevronDown,
-  Truck,
-  Calendar,
-  Wrench,
-  ClipboardList,
-  Building2,
-  LayoutDashboard
-} from 'lucide-react';
+import { Briefcase, FileText, Users, MapPin, Settings, HelpCircle, LogOut, X, User, Wind, Building, Phone, Contact as FileContract, Upload, ChevronDown, Truck, Calendar, Wrench, ClipboardList, Building2, Home, FileInput as FileInvoice, DollarSign, FileEdit, FileCheck, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSupabase } from '../../lib/supabase-context';
 
@@ -35,6 +13,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
   const navigate = useNavigate();
   const [isCustomersOpen, setIsCustomersOpen] = useState(false);
   const [isJobsOpen, setIsJobsOpen] = useState(false);
+  const [isQuotesOpen, setIsQuotesOpen] = useState(false);
   const { supabase } = useSupabase();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   
@@ -111,6 +90,20 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
         {/* Main navigation */}
         <nav className="px-4 py-4">
           <ul className="space-y-1">
+            <li>
+              <Link 
+                to="/"
+                className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                  isActive('/') 
+                    ? 'bg-primary-50 text-primary-700' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Home size={16} className="mr-3" />
+                Home
+              </Link>
+            </li>
+
             {/* Customers Section */}
             <li className="pt-4">
               <button 
@@ -135,14 +128,14 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
               >
                 <li>
                   <Link 
-                    to="/"
+                    to="/dashboard"
                     className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      isActive('/') 
+                      location.pathname === '/dashboard'
                         ? 'bg-primary-50 text-primary-700' 
                         : 'text-gray-700 hover:bg-gray-100'
                     }`}
                   >
-                    <LayoutDashboard size={16} className="mr-3" />
+                    <ClipboardList size={16} className="mr-3" />
                     Dashboard
                   </Link>
                 </li>
@@ -317,18 +310,68 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
               </ul>
             </li>
 
-            <li>
-              <Link 
-                to="/quotes"
-                className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                  isActive('/quotes') 
-                    ? 'bg-primary-50 text-primary-700' 
-                    : 'text-gray-700 hover:bg-gray-100'
+            {/* Quotes Section */}
+            <li className="pt-4">
+              <button 
+                onClick={() => setIsQuotesOpen(!isQuotesOpen)}
+                className="w-full px-2 mb-2 flex items-center justify-between text-sm font-medium text-gray-900 hover:bg-gray-50 rounded-md"
+              >
+                <div className="flex items-center">
+                  <FileText size={18} className="mr-3 text-gray-400" />
+                  <span>Quotes</span>
+                </div>
+                <ChevronDown 
+                  size={16} 
+                  className={`text-gray-400 transition-transform duration-200 ${
+                    isQuotesOpen ? 'transform rotate-180' : ''
+                  }`}
+                />
+              </button>
+              <ul 
+                className={`space-y-1 pl-7 overflow-hidden transition-all duration-200 ${
+                  isQuotesOpen ? 'max-h-96' : 'max-h-0'
                 }`}
               >
-                <FileText size={18} className="mr-3" />
-                Quotes
-              </Link>
+                <li>
+                  <Link 
+                    to="/quotes"
+                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                      location.pathname === '/quotes'
+                        ? 'bg-primary-50 text-primary-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <FileText size={16} className="mr-3" />
+                    All Quotes
+                  </Link>
+                </li>
+                <li>
+                  <Link 
+                    to="/quotes/deficiencies"
+                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                      location.pathname.includes('/quotes/deficiencies')
+                        ? 'bg-primary-50 text-primary-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <AlertTriangle size={16} className="mr-3" />
+                    Deficiencies
+                  </Link>
+                </li>
+                <li>
+                  <Link 
+                    to="/quotes/templates"
+                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                      location.pathname.includes('/quotes/templates')
+                        ? 'bg-primary-50 text-primary-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <FileSpreadsheet size={16} className="mr-3" />
+                    Quote Templates
+                  </Link>
+                </li>
+              </ul>
             </li>
           </ul>
         </nav>

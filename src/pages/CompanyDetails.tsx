@@ -18,6 +18,7 @@ const CompanyDetails = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [expandedLocationId, setExpandedLocationId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -62,18 +63,35 @@ const CompanyDetails = () => {
   const handleDeleteCompany = async () => {
     if (!supabase || !company) return;
 
+    setIsDeleting(true);
+    setError(null);
+
     try {
-      const { error: deleteError } = await supabase
+      // First, delete all locations associated with the company
+      // The cascade delete will handle the units automatically due to the ON DELETE CASCADE
+      const { error: locationsDeleteError } = await supabase
+        .from('locations')
+        .delete()
+        .eq('company_id', company.id);
+
+      if (locationsDeleteError) throw locationsDeleteError;
+
+      // Then delete the company
+      const { error: companyDeleteError } = await supabase
         .from('companies')
         .delete()
         .eq('id', company.id);
 
-      if (deleteError) throw deleteError;
+      if (companyDeleteError) throw companyDeleteError;
+
       navigate('/companies');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete company';
       console.error('Error deleting company:', errorMessage);
       setError(errorMessage);
+      setIsDeleteModalOpen(false);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -224,7 +242,12 @@ const CompanyDetails = () => {
               <div className="p-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-medium">{location.name}</h3>
+                    <Link 
+                      to={`/locations/${location.id}`}
+                      className="text-lg font-medium text-primary-600 hover:text-primary-800"
+                    >
+                      {location.name}
+                    </Link>
                     <p className="text-sm text-gray-500">
                       {location.address}
                       <br />
@@ -285,20 +308,30 @@ const CompanyDetails = () => {
             </h3>
             <p className="text-center text-gray-600 mb-6">
               Are you sure you want to delete <strong>{company.name}</strong>? 
-              This will also delete all locations and cannot be undone.
+              This will also delete all {locations.length} location{locations.length !== 1 ? 's' : ''} and their units.
+              This action cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
               <button 
                 className="btn btn-secondary"
                 onClick={() => setIsDeleteModalOpen(false)}
+                disabled={isDeleting}
               >
                 Cancel
               </button>
               <button 
                 className="btn btn-error"
                 onClick={handleDeleteCompany}
+                disabled={isDeleting}
               >
-                Delete
+                {isDeleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
               </button>
             </div>
           </div>
