@@ -15,7 +15,7 @@ const Map = ({ address, city, state, zip, className = '' }: MapProps) => {
 
   useEffect(() => {
     const loader = new Loader({
-      apiKey: 'AIzaSyD_uE4BrfLPIJOvRWb9hcFapAQ4Pd0P-lk',
+      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
       version: 'weekly',
     });
 

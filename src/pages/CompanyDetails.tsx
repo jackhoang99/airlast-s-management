@@ -9,6 +9,9 @@ import Map from '../components/ui/Map';
 type Company = Database['public']['Tables']['companies']['Row'];
 type Location = Database['public']['Tables']['locations']['Row'];
 
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const CompanyDetails = () => {
   const { id } = useParams<{ id: string }>();
   const { supabase, error: supabaseError } = useSupabase();
@@ -25,6 +28,13 @@ const CompanyDetails = () => {
     const fetchCompanyDetails = async () => {
       if (!supabase || !id) {
         setError(supabaseError || 'Supabase client not initialized');
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate UUID format
+      if (!UUID_REGEX.test(id)) {
+        setError('Invalid company ID format');
         setIsLoading(false);
         return;
       }

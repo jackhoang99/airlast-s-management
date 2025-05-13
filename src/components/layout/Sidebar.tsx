@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Briefcase, FileText, Users, MapPin, Settings, HelpCircle, LogOut, X, User, Wind, Building, Phone, Contact as FileContract, Upload, ChevronDown, Truck, Calendar, Wrench, ClipboardList, Building2, Home, FileInput as FileInvoice, DollarSign, FileEdit, FileCheck, FileSpreadsheet, AlertTriangle } from 'lucide-react';
+import { Briefcase, FileText, Users, MapPin, Settings, HelpCircle, LogOut, X, User, Wind, Building, Phone, Contact as FileContract, Upload, ChevronDown, Calendar, Wrench, ClipboardList, Building2, Home, FileInput as FileInvoice, DollarSign, FileEdit, FileCheck, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSupabase } from '../../lib/supabase-context';
 
@@ -227,7 +227,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                 className="w-full px-2 mb-2 flex items-center justify-between text-sm font-medium text-gray-900 hover:bg-gray-50 rounded-md"
               >
                 <div className="flex items-center">
-                  <Truck size={18} className="mr-3 text-gray-400" />
+                  <Briefcase size={18} className="mr-3 text-gray-400" />
                   <span>Jobs</span>
                 </div>
                 <ChevronDown 
@@ -264,21 +264,8 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                         : 'text-gray-700 hover:bg-gray-100'
                     }`}
                   >
-                    <Truck size={16} className="mr-3" />
-                    Dispatch
-                  </Link>
-                </li>
-                <li>
-                  <Link 
-                    to="/jobs/schedule"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes('/jobs/schedule')
-                        ? 'bg-primary-50 text-primary-700' 
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
                     <Calendar size={16} className="mr-3" />
-                    Schedule
+                    Dispatch & Schedule
                   </Link>
                 </li>
                 <li>

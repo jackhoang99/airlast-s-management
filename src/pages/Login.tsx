@@ -41,13 +41,28 @@ const Login = () => {
     setError(null);
 
     try {
-      // Check hardcoded credentials
-      if (credentials.username === 'airlast' && credentials.password === 'hvac') {
-        sessionStorage.setItem('isAuthenticated', 'true');
-        navigate(from, { replace: true });
-      } else {
-        throw new Error('Invalid login credentials');
+      if (!supabase) throw new Error('Supabase client not initialized');
+
+      // First check if user exists
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('username')
+        .eq('username', credentials.username)
+        .single();
+
+      if (userError) {
+        throw new Error('Invalid username or password');
       }
+
+      // Check if password is 'hvac'
+      if (credentials.password !== 'hvac') {
+        throw new Error('Invalid username or password');
+      }
+
+      // If we get here, login is successful
+      sessionStorage.setItem('isAuthenticated', 'true');
+      sessionStorage.setItem('username', credentials.username);
+      navigate(from, { replace: true });
     } catch (err) {
       console.error('Login error:', err);
       setError('Invalid username or password');
@@ -136,29 +151,6 @@ const Login = () => {
               </button>
             </div>
           </form>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Demo Credentials</span>
-              </div>
-            </div>
-            <div className="mt-6 grid grid-cols-2 gap-4 text-center text-sm">
-              <div>
-                <span className="font-medium">Username:</span>
-                <br />
-                airlast
-              </div>
-              <div>
-                <span className="font-medium">Password:</span>
-                <br />
-                hvac
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

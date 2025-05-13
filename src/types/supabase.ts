@@ -15,7 +15,6 @@ export interface Database {
           name: string
           city: string
           state: string
-          status: string
           created_at: string
           address: string | null
           zip: string | null
@@ -26,7 +25,6 @@ export interface Database {
           name: string
           city: string
           state: string
-          status?: string
           created_at?: string
           address?: string | null
           zip?: string | null
@@ -37,7 +35,6 @@ export interface Database {
           name?: string
           city?: string
           state?: string
-          status?: string
           created_at?: string
           address?: string | null
           zip?: string | null
@@ -54,7 +51,6 @@ export interface Database {
           city: string
           state: string
           zip: string
-          status: string
           created_at: string
         }
         Insert: {
@@ -66,7 +62,6 @@ export interface Database {
           city: string
           state: string
           zip: string
-          status?: string
           created_at?: string
         }
         Update: {
@@ -78,7 +73,6 @@ export interface Database {
           city?: string
           state?: string
           zip?: string
-          status?: string
           created_at?: string
         }
       }
@@ -105,41 +99,135 @@ export interface Database {
           created_at?: string
         }
       }
-      configuration: {
+      users: {
         Row: {
           id: string
-          key: string
-          value: string
+          auth_id: string | null
+          username: string
+          email: string
+          first_name: string | null
+          last_name: string | null
+          phone: string | null
+          role: string
+          status: string
+          services: string[]
+          office_id: string | null
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
-          key: string
-          value: string
+          auth_id?: string | null
+          username: string
+          email: string
+          first_name?: string | null
+          last_name?: string | null
+          phone?: string | null
+          role?: string
+          status?: string
+          services?: string[]
+          office_id?: string | null
           created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
-          key?: string
-          value?: string
+          auth_id?: string | null
+          username?: string
+          email?: string
+          first_name?: string | null
+          last_name?: string | null
+          phone?: string | null
+          role?: string
+          status?: string
+          services?: string[]
+          office_id?: string | null
           created_at?: string
+          updated_at?: string
         }
       }
-      tags: {
+      service_lines: {
         Row: {
           id: string
           name: string
+          code: string
+          description: string | null
+          is_active: boolean
           created_at: string
         }
         Insert: {
           id?: string
           name: string
+          code: string
+          description?: string | null
+          is_active?: boolean
           created_at?: string
         }
         Update: {
           id?: string
           name?: string
+          code?: string
+          description?: string | null
+          is_active?: boolean
           created_at?: string
+        }
+      }
+      job_types: {
+        Row: {
+          id: string
+          name: string
+          code: string
+          description: string | null
+          service_line_id: string
+          is_active: boolean
+          created_at: string
+          service_lines?: {
+            name: string
+          }
+        }
+        Insert: {
+          id?: string
+          name: string
+          code: string
+          description?: string | null
+          service_line_id: string
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          code?: string
+          description?: string | null
+          service_line_id?: string
+          is_active?: boolean
+          created_at?: string
+        }
+      }
+      settings: {
+        Row: {
+          id: string
+          key: string
+          value: Json
+          description: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          value: Json
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          value?: Json
+          description?: string | null
+          created_at?: string
+          updated_at?: string
         }
       }
     }
