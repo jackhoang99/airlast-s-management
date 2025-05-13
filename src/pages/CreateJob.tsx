@@ -27,7 +27,6 @@ const CreateJob = () => {
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [presetName, setPresetName] = useState('');
   const [presets, setPresets] = useState<any[]>([]);
-  const [showSuggestedPresets, setShowSuggestedPresets] = useState(true);
   
   const [formData, setFormData] = useState({
     // Service Location
@@ -156,14 +155,23 @@ const CreateJob = () => {
     }
   };
 
-  const handleUnitChange = (unitId: string) => {
-    const unit = selectedLocation?.units.find(u => u.id === unitId);
-    if (unit) {
-      setFormData(prev => ({
-        ...prev,
-        unit_id: unitId,
-        unit_number: unit.unit_number
-      }));
+  const handleLoadPreset = (preset: any) => {
+    // Load all preset data
+    setFormData({
+      ...preset.data,
+      // Keep current dates
+      time_period_start: formData.time_period_start,
+      time_period_due: formData.time_period_due,
+      schedule_start: '',
+      schedule_duration: '1.00'
+    });
+
+    // If the preset has a location_id, load that location's data
+    if (preset.data.location_id) {
+      const location = locations.find(l => l.id === preset.data.location_id);
+      if (location) {
+        setSelectedLocation(location);
+      }
     }
   };
 
@@ -171,11 +179,22 @@ const CreateJob = () => {
     if (!supabase || !presetName) return;
 
     try {
+      // Get the current user's ID from the users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', sessionStorage.getItem('username'))
+        .single();
+
+      if (userError) throw userError;
+      if (!userData) throw new Error('User not found');
+
       const { error } = await supabase
         .from('job_presets')
         .insert({
           name: presetName,
-          data: formData
+          data: formData,
+          user_id: userData.id
         });
 
       if (error) throw error;
@@ -191,26 +210,8 @@ const CreateJob = () => {
       setPresets(data || []);
     } catch (err) {
       console.error('Error saving preset:', err);
+      setError('Failed to save preset. Please try again.');
     }
-  };
-
-  const handleLoadPreset = (preset: any) => {
-    setFormData({
-      ...formData,
-      ...preset.data,
-      // Don't override these fields
-      company_id: formData.company_id,
-      company_name: formData.company_name,
-      location_id: formData.location_id,
-      location_name: formData.location_name,
-      unit_id: formData.unit_id,
-      unit_number: formData.unit_number,
-      service_address: formData.service_address,
-      service_city: formData.service_city,
-      service_state: formData.service_state,
-      service_zip: formData.service_zip
-    });
-    setShowSuggestedPresets(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -269,35 +270,33 @@ const CreateJob = () => {
         </button>
       </div>
 
-      {showSuggestedPresets && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium">Suggested Paths</h2>
-            <button
-              type="button"
-              onClick={() => setShowSuggestedPresets(false)}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {presets.map(preset => (
-              <button
-                key={preset.id}
-                onClick={() => handleLoadPreset(preset)}
-                className="p-4 border rounded-lg hover:bg-gray-50 text-left"
-              >
-                <h3 className="font-medium">{preset.name}</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  {preset.data.type === 'preventative maintenance' ? 'PM' : 'Service Call'}
-                  {preset.data.service_line ? ` • ${preset.data.service_line}` : ''}
-                </p>
-              </button>
-            ))}
-          </div>
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-medium">Suggested Paths</h2>
         </div>
-      )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {presets.map(preset => (
+            <button
+              key={preset.id}
+              onClick={() => handleLoadPreset(preset)}
+              className={`p-4 border rounded-lg hover:bg-gray-50 text-left ${
+                formData.unit_id === preset.data.unit_id ? 'border-primary-500 ring-1 ring-primary-500' : ''
+              }`}
+            >
+              <h3 className="font-medium">{preset.name}</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {preset.data.type === 'preventative maintenance' ? 'PM' : 'Service Call'}
+                {preset.data.service_line ? ` • ${preset.data.service_line}` : ''}
+              </p>
+              {preset.data.unit_number && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Unit: {preset.data.unit_number}
+                </p>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
@@ -351,23 +350,13 @@ const CreateJob = () => {
               <label htmlFor="unit_id" className="block text-sm font-medium text-gray-700 mb-1">
                 Service Unit
               </label>
-              <select
-                id="unit_id"
-                value={formData.unit_id}
-                onChange={(e) => handleUnitChange(e.target.value)}
-                className="select"
-                disabled={!selectedLocation}
-              >
-                <option value="">Select Unit</option>
-                {selectedLocation?.units
-                  .filter(unit => unit.status === 'Active')
-                  .map(unit => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.unit_number}
-                    </option>
-                  ))
-                }
-              </select>
+              <input
+                type="text"
+                value={formData.unit_number}
+                readOnly
+                className="input bg-gray-50"
+                placeholder={selectedLocation ? "Select Unit" : "Select a location first"}
+              />
             </div>
 
             <div className="md:col-span-2">
