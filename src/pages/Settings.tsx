@@ -2,18 +2,20 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
-import { Settings as SettingsIcon, Plus, AlertTriangle, Building, Users, Briefcase, Tag, Edit } from 'lucide-react';
+import { Settings as SettingsIcon, Plus, AlertTriangle, Building, Users, Briefcase, Tag, Edit, Package, DollarSign } from 'lucide-react';
 
 type User = Database['public']['Tables']['users']['Row'];
 type JobType = Database['public']['Tables']['job_types']['Row'];
 type ServiceType = Database['public']['Tables']['service_lines']['Row'];
 type Settings = Database['public']['Tables']['settings']['Row'];
+type JobItemPrice = Database['public']['Tables']['job_item_prices']['Row'];
 
 const Settings = () => {
   const { supabase } = useSupabase();
   const [jobTypes, setJobTypes] = useState<JobType[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [itemPrices, setItemPrices] = useState<JobItemPrice[]>([]);
   const [companySettings, setCompanySettings] = useState<Settings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,15 @@ const Settings = () => {
     name: '',
     code: '',
     description: ''
+  });
+
+  const [newItemPrice, setNewItemPrice] = useState({
+    code: '',
+    name: '',
+    description: '',
+    service_line: '',
+    unit_cost: '',
+    type: 'part' as 'part' | 'labor' | 'item'
   });
 
   const [newUser, setNewUser] = useState({
@@ -97,6 +108,15 @@ const Settings = () => {
 
         if (userError) throw userError;
         setUsers(userData || []);
+
+        // Fetch item prices
+        const { data: itemPriceData, error: itemPriceError } = await supabase
+          .from('job_item_prices')
+          .select('*')
+          .order('code');
+
+        if (itemPriceError) throw itemPriceError;
+        setItemPrices(itemPriceData || []);
 
         // Fetch company settings
         const { data: settingsData, error: settingsError } = await supabase
@@ -173,6 +193,49 @@ const Settings = () => {
     } catch (err) {
       console.error('Error adding job type:', err);
       setError('Failed to add job type');
+    }
+  };
+
+  const handleAddItemPrice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+
+    try {
+      const { error } = await supabase
+        .from('job_item_prices')
+        .insert([{
+          code: newItemPrice.code,
+          name: newItemPrice.name,
+          description: newItemPrice.description,
+          service_line: newItemPrice.service_line,
+          unit_cost: parseFloat(newItemPrice.unit_cost),
+          type: newItemPrice.type
+        }]);
+
+      if (error) throw error;
+
+      // Reset form and refresh data
+      setNewItemPrice({
+        code: '',
+        name: '',
+        description: '',
+        service_line: '',
+        unit_cost: '',
+        type: 'part'
+      });
+      
+      const { data } = await supabase
+        .from('job_item_prices')
+        .select('*')
+        .order('code');
+      
+      setItemPrices(data || []);
+      
+      // Hide the form
+      document.getElementById('addItemPriceForm')?.classList.add('hidden');
+    } catch (err) {
+      console.error('Error adding item price:', err);
+      setError('Failed to add item price');
     }
   };
 
@@ -356,6 +419,7 @@ const Settings = () => {
         )}
       </div>
 
+
       {/* Users Section */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex justify-between items-center mb-6">
@@ -381,67 +445,73 @@ const Settings = () => {
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
                 Username *
               </label>
               <input
                 type="text"
+                id="username"
                 value={newUser.username}
                 onChange={(e) => setNewUser(prev => ({ ...prev, username: e.target.value }))}
-                className="input"
                 required
+                className="input"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email *
               </label>
               <input
                 type="email"
+                id="email"
                 value={newUser.email}
                 onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
-                className="input"
                 required
+                className="input"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">
                 First Name
               </label>
               <input
                 type="text"
+                id="first_name"
                 value={newUser.first_name}
                 onChange={(e) => setNewUser(prev => ({ ...prev, first_name: e.target.value }))}
                 className="input"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-1">
                 Last Name
               </label>
               <input
                 type="text"
+                id="last_name"
                 value={newUser.last_name}
                 onChange={(e) => setNewUser(prev => ({ ...prev, last_name: e.target.value }))}
                 className="input"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
                 Phone
               </label>
               <input
                 type="tel"
+                id="phone"
                 value={newUser.phone}
                 onChange={(e) => setNewUser(prev => ({ ...prev, phone: e.target.value }))}
                 className="input"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
                 Role *
               </label>
               <select
+                id="role"
                 value={newUser.role}
                 onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value }))}
                 className="select"
@@ -461,7 +531,7 @@ const Settings = () => {
               <h3 className="text-lg font-medium mb-4">Technician Information</h3>
               
               {/* Employment Details */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Hire Date *
@@ -493,289 +563,9 @@ const Settings = () => {
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     value={newUser.hourly_rate}
                     onChange={(e) => setNewUser(prev => ({ ...prev, hourly_rate: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-              </div>
-
-              {/* Address */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.address}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, address: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.city}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, city: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    State
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.state}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, state: e.target.value }))}
-                    className="input"
-                    maxLength={2}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ZIP Code
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.zip}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, zip: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-              </div>
-
-              {/* License Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    License Number
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.license_number}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, license_number: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    License Expiry
-                  </label>
-                  <input
-                    type="date"
-                    value={newUser.license_expiry}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, license_expiry: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-              </div>
-
-              {/* Vehicle Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Vehicle Number
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.vehicle_number}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, vehicle_number: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Vehicle Make
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.vehicle_make}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, vehicle_make: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Vehicle Model
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.vehicle_model}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, vehicle_model: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Vehicle Year
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.vehicle_year}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, vehicle_year: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-              </div>
-
-              {/* Equipment Information */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Shirt Size
-                  </label>
-                  <select
-                    value={newUser.shirt_size}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, shirt_size: e.target.value }))}
-                    className="select"
-                  >
-                    <option value="">Select size</option>
-                    <option value="XS">XS</option>
-                    <option value="S">S</option>
-                    <option value="M">M</option>
-                    <option value="L">L</option>
-                    <option value="XL">XL</option>
-                    <option value="2XL">2XL</option>
-                    <option value="3XL">3XL</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Boot Size
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.boot_size}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, boot_size: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Preferred Name
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.preferred_name}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, preferred_name: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-              </div>
-
-              {/* Payment Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tax ID
-                  </label>
-                  <input
-                    type="text"
-                    value={newUser.tax_id}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, tax_id: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-                <div className="flex items-center">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={newUser.direct_deposit}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, direct_deposit: e.target.checked }))}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Direct Deposit</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Bank Information (only shown if direct deposit is enabled) */}
-              {newUser.direct_deposit && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Bank Name
-                    </label>
-                    <input
-                      type="text"
-                      value={newUser.bank_name}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, bank_name: e.target.value }))}
-                      className="input"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Routing Number
-                    </label>
-                    <input
-                      type="text"
-                      value={newUser.bank_routing}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, bank_routing: e.target.value }))}
-                      className="input"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Account Number
-                    </label>
-                    <input
-                      type="text"
-                      value={newUser.bank_account}
-                      onChange={(e) => setNewUser(prev => ({ ...prev, bank_account: e.target.value }))}
-                      className="input"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Compliance Dates */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Background Check Date
-                  </label>
-                  <input
-                    type="date"
-                    value={newUser.background_check_date}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, background_check_date: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Drug Test Date
-                  </label>
-                  <input
-                    type="date"
-                    value={newUser.drug_test_date}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, drug_test_date: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Last Review Date
-                  </label>
-                  <input
-                    type="date"
-                    value={newUser.last_review_date}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, last_review_date: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Next Review Date
-                  </label>
-                  <input
-                    type="date"
-                    value={newUser.next_review_date}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, next_review_date: e.target.value }))}
                     className="input"
                   />
                 </div>

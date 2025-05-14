@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { X, Search, Package, Plus, Info } from 'lucide-react';
+import { X, Search, Package, Plus, Info, PenTool as Tool, ShoppingCart } from 'lucide-react';
 import { useSupabase } from '../../lib/supabase-context';
 import { Database } from '../../types/supabase';
 
 type JobItem = Database['public']['Tables']['job_items']['Row'];
 type ServiceLine = Database['public']['Tables']['service_lines']['Row'];
+type JobItemPrice = Database['public']['Tables']['job_item_prices']['Row'];
 
 type AddJobItemModalProps = {
   isOpen: boolean;
@@ -20,6 +21,9 @@ const AddJobItemModal = ({ isOpen, onClose, jobId, onItemAdded }: AddJobItemModa
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<'part' | 'labor' | 'item'>('part');
+  const [itemPrices, setItemPrices] = useState<JobItemPrice[]>([]);
+  const [filteredItemPrices, setFilteredItemPrices] = useState<JobItemPrice[]>([]);
+  const [selectedItem, setSelectedItem] = useState<JobItemPrice | null>(null);
   
   const [newItem, setNewItem] = useState({
     code: '',
@@ -47,13 +51,64 @@ const AddJobItemModal = ({ isOpen, onClose, jobId, onItemAdded }: AddJobItemModa
       }
     };
 
+    const fetchItemPrices = async () => {
+      if (!supabase) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('job_item_prices')
+          .select('*')
+          .order('code');
+
+        if (error) throw error;
+        setItemPrices(data || []);
+      } catch (err) {
+        console.error('Error fetching item prices:', err);
+      }
+    };
+
     fetchServiceLines();
+    fetchItemPrices();
   }, [supabase]);
 
   useEffect(() => {
     // Update type based on selected tab
     setNewItem(prev => ({ ...prev, type: selectedTab }));
-  }, [selectedTab]);
+    
+    // Filter items based on selected tab
+    if (itemPrices.length > 0) {
+      const filtered = itemPrices.filter(item => item.type === selectedTab);
+      setFilteredItemPrices(filtered);
+    }
+  }, [selectedTab, itemPrices]);
+
+  useEffect(() => {
+    // Filter items based on search term
+    if (searchTerm.trim() === '') {
+      setFilteredItemPrices(itemPrices.filter(item => item.type === selectedTab));
+    } else {
+      const filtered = itemPrices.filter(
+        item => 
+          item.type === selectedTab && 
+          (item.code.toLowerCase().includes(searchTerm.toLowerCase()) || 
+           item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase())))
+      );
+      setFilteredItemPrices(filtered);
+    }
+  }, [searchTerm, itemPrices, selectedTab]);
+
+  const handleItemSelect = (item: JobItemPrice) => {
+    setSelectedItem(item);
+    setNewItem({
+      code: item.code,
+      name: item.name,
+      service_line: item.service_line,
+      quantity: 1,
+      unit_cost: Number(item.unit_cost),
+      type: item.type as 'part' | 'labor' | 'item'
+    });
+  };
 
   const handleSubmit = async () => {
     if (!supabase) return;
@@ -89,6 +144,7 @@ const AddJobItemModal = ({ isOpen, onClose, jobId, onItemAdded }: AddJobItemModa
         unit_cost: 0,
         type: selectedTab
       });
+      setSelectedItem(null);
       
       onItemAdded();
       onClose();
@@ -128,7 +184,10 @@ const AddJobItemModal = ({ isOpen, onClose, jobId, onItemAdded }: AddJobItemModa
               }`}
               onClick={() => setSelectedTab('part')}
             >
-              Parts
+              <div className="flex items-center">
+                <Package size={16} className="mr-2" />
+                Parts
+              </div>
             </button>
             <button
               className={`px-4 py-2 font-medium text-sm ${
@@ -138,7 +197,10 @@ const AddJobItemModal = ({ isOpen, onClose, jobId, onItemAdded }: AddJobItemModa
               }`}
               onClick={() => setSelectedTab('labor')}
             >
-              Labor
+              <div className="flex items-center">
+                <Tool size={16} className="mr-2" />
+                Labor
+              </div>
             </button>
             <button
               className={`px-4 py-2 font-medium text-sm ${
@@ -148,103 +210,154 @@ const AddJobItemModal = ({ isOpen, onClose, jobId, onItemAdded }: AddJobItemModa
               }`}
               onClick={() => setSelectedTab('item')}
             >
-              Items
+              <div className="flex items-center">
+                <ShoppingCart size={16} className="mr-2" />
+                Items
+              </div>
             </button>
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Item Code
-              </label>
-              <input
-                type="text"
-                value={newItem.code}
-                onChange={(e) => setNewItem(prev => ({ ...prev, code: e.target.value }))}
-                className="input"
-                placeholder={selectedTab === 'labor' ? "LABOR-CODE" : selectedTab === 'part' ? "PART-CODE" : "ITEM-CODE"}
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Service Line
-              </label>
-              <select
-                value={newItem.service_line}
-                onChange={(e) => setNewItem(prev => ({ ...prev, service_line: e.target.value }))}
-                className="select"
-                required
-              >
-                {serviceLines.map(line => (
-                  <option key={line.id} value={line.code}>
-                    {line.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Item Name
-            </label>
-            <input
-              type="text"
-              value={newItem.name}
-              onChange={(e) => setNewItem(prev => ({ ...prev, name: e.target.value }))}
-              className="input"
-              placeholder={selectedTab === 'labor' ? "Tech Labor Rate (Regular)" : "Item Description"}
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Quantity
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={newItem.quantity}
-                onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-                className="input"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Unit Cost
-              </label>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Left side - Item selection */}
+          <div className="md:col-span-1 border-r pr-4">
+            <div className="mb-4">
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                  $
-                </span>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={newItem.unit_cost}
-                  onChange={(e) => setNewItem(prev => ({ ...prev, unit_cost: parseFloat(e.target.value) || 0 }))}
-                  className="input pl-7"
-                  required
+                  type="text"
+                  placeholder="Search items..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 input w-full"
                 />
               </div>
             </div>
+            
+            <div className="h-[400px] overflow-y-auto">
+              {filteredItemPrices.length === 0 ? (
+                <div className="text-center py-4 text-gray-500">
+                  No items found
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredItemPrices.map(item => (
+                    <div
+                      key={item.id}
+                      className={`p-2 border rounded cursor-pointer hover:bg-gray-50 ${
+                        selectedItem?.id === item.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
+                      }`}
+                      onClick={() => handleItemSelect(item)}
+                    >
+                      <div className="font-medium">{item.code}</div>
+                      <div className="text-sm">{item.name}</div>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-xs text-gray-500">{item.service_line}</span>
+                        <span className="text-sm font-medium">${Number(item.unit_cost).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Info size={16} className="text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">Total Cost</span>
+          
+          {/* Right side - Item details */}
+          <div className="md:col-span-2">
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Item Code
+                  </label>
+                  <input
+                    type="text"
+                    value={newItem.code}
+                    onChange={(e) => setNewItem(prev => ({ ...prev, code: e.target.value }))}
+                    className="input"
+                    placeholder={selectedTab === 'labor' ? "LABOR-CODE" : selectedTab === 'part' ? "PART-CODE" : "ITEM-CODE"}
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Service Line
+                  </label>
+                  <select
+                    value={newItem.service_line}
+                    onChange={(e) => setNewItem(prev => ({ ...prev, service_line: e.target.value }))}
+                    className="select"
+                    required
+                  >
+                    {serviceLines.map(line => (
+                      <option key={line.id} value={line.code}>
+                        {line.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <span className="text-lg font-semibold">${(newItem.quantity * newItem.unit_cost).toFixed(2)}</span>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Item Name
+                </label>
+                <input
+                  type="text"
+                  value={newItem.name}
+                  onChange={(e) => setNewItem(prev => ({ ...prev, name: e.target.value }))}
+                  className="input"
+                  placeholder={selectedTab === 'labor' ? "Tech Labor Rate (Regular)" : "Item Description"}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newItem.quantity}
+                    onChange={(e) => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                    className="input"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Unit Cost
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newItem.unit_cost}
+                      onChange={(e) => setNewItem(prev => ({ ...prev, unit_cost: parseFloat(e.target.value) || 0 }))}
+                      className="input pl-7"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <Info size={16} className="text-gray-500" />
+                    <span className="text-sm font-medium text-gray-700">Total Cost</span>
+                  </div>
+                  <span className="text-lg font-semibold">${(newItem.quantity * newItem.unit_cost).toFixed(2)}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

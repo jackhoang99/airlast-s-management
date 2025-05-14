@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Briefcase, FileText, Users, MapPin, Settings, HelpCircle, LogOut, X, User, Wind, Building, Phone, Contact as FileContract, Upload, ChevronDown, Calendar, Wrench, ClipboardList, Building2, Home, FileInput as FileInvoice, DollarSign, FileEdit, FileCheck, FileSpreadsheet, AlertTriangle } from 'lucide-react';
+import { Briefcase, FileText, Users, MapPin, Settings, HelpCircle, LogOut, X, User, Wind, Building, Phone, Contact as FileContract, Upload, ChevronDown, Calendar, Wrench, ClipboardList, Building2, Home, FileInput as FileInvoice, DollarSign, FileEdit, FileCheck, FileSpreadsheet, AlertTriangle, Tag, Package } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSupabase } from '../../lib/supabase-context';
 
@@ -191,32 +191,6 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                     Contacts
                   </Link>
                 </li>
-                <li>
-                  <Link 
-                    to="/service-contracts"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes('/service-contracts') 
-                        ? 'bg-primary-50 text-primary-700' 
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <FileContract size={16} className="mr-3" />
-                    Service Contracts
-                  </Link>
-                </li>
-                <li>
-                  <Link 
-                    to="/bulk-import"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes('/bulk-import') 
-                        ? 'bg-primary-50 text-primary-700' 
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Upload size={16} className="mr-3" />
-                    Bulk Import
-                  </Link>
-                </li>
               </ul>
             </li>
 
@@ -360,6 +334,36 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                 </li>
               </ul>
             </li>
+
+            {/* Item Prices */}
+            <li className="pt-4">
+              <Link 
+                to="/item-prices"
+                className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                  location.pathname === '/item-prices'
+                    ? 'bg-primary-50 text-primary-700' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Package size={16} className="mr-3" />
+                Pricing
+              </Link>
+            </li>
+
+            {/* Settings */}
+            <li className="pt-4">
+              <Link 
+                to="/settings"
+                className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                  location.pathname === '/settings'
+                    ? 'bg-primary-50 text-primary-700' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Settings size={16} className="mr-3" />
+                Settings
+              </Link>
+            </li>
           </ul>
         </nav>
         
@@ -374,15 +378,6 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                 >
                   <User size={18} className="mr-3" />
                   My Account
-                </Link>
-              </li>
-              <li>
-                <Link 
-                  to="/settings"
-                  className="flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
-                >
-                  <Settings size={18} className="mr-3" />
-                  Settings
                 </Link>
               </li>
               <li>

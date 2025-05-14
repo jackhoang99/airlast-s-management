@@ -230,6 +230,41 @@ export interface Database {
           updated_at?: string
         }
       }
+      job_item_prices: {
+        Row: {
+          id: string
+          code: string
+          name: string
+          description: string | null
+          service_line: string
+          unit_cost: number
+          type: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          name: string
+          description?: string | null
+          service_line: string
+          unit_cost: number
+          type: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          name?: string
+          description?: string | null
+          service_line?: string
+          unit_cost?: number
+          type?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

@@ -796,7 +796,7 @@ const JobDetails = () => {
                         onClick={() => setShowAddItemModal(true)}
                       >
                         <Package className="h-4 w-4 mr-2" />
-                        Add Item
+                        Add Pricing
                       </button>
                     </div>
                   </div>
@@ -895,7 +895,7 @@ const JobDetails = () => {
                       onClick={() => setShowAddItemModal(true)}
                     >
                       <Plus size={16} className="mr-2" />
-                      Add Item
+                      Add Pricing
                     </button>
                   </div>
                 )}

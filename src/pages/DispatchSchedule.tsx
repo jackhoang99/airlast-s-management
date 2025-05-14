@@ -1,17 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, Plus, Calendar, List, ChevronLeft, ChevronRight, UserPlus, X } from 'lucide-react';
+import { Search, Filter, Plus, Calendar, List, ChevronLeft, ChevronRight, UserPlus, X, MapPin, Clock, Calendar as CalendarIcon, User } from 'lucide-react';
 import { Loader } from '@googlemaps/js-api-loader';
 import { useSupabase } from '../lib/supabase-context';
+import { Database } from '../types/supabase';
 
-type Technician = {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  status: string;
-  job_title: string;
+type User = Database['public']['Tables']['users']['Row'];
+type Technician = Database['public']['Tables']['technicians']['Row'];
+
+type Job = Database['public']['Tables']['jobs']['Row'] & {
+  locations?: {
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    lat?: number;
+    lng?: number;
+  };
+  units?: {
+    unit_number: string;
+  };
+  users?: {
+    first_name: string;
+    last_name: string;
+  };
 };
 
 type MapFilters = {
@@ -37,10 +50,15 @@ const DispatchSchedule = () => {
   const [view, setView] = useState<'day' | 'week' | 'month'>('day');
   const [date, setDate] = useState(new Date());
   const [searchTerm, setSearchTerm] = useState('');
+  const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
+  const [technicians, setTechnicians] = useState<User[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
+  const [technicianJobs, setTechnicianJobs] = useState<{[key: string]: Date[]}>({}); // Store dates with jobs for each technician
   const [filters, setFilters] = useState<MapFilters>({
     tags: [],
     office: 'All Offices',
@@ -51,8 +69,8 @@ const DispatchSchedule = () => {
     filterMapBy: 'Due By Date',
     filterDateRangeBy: 'This Month',
     dateRange: {
-      from: '05/01/25',
-      to: '05/31/25'
+      from: new Date().toISOString().split('T')[0],
+      to: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
     },
     showCompleted: false,
     showSubcontracted: false,
@@ -65,8 +83,9 @@ const DispatchSchedule = () => {
 
       try {
         const { data, error } = await supabase
-          .from('technicians')
+          .from('users')
           .select('*')
+          .eq('role', 'technician')
           .eq('status', 'active')
           .order('first_name');
 
@@ -79,37 +98,262 @@ const DispatchSchedule = () => {
       }
     };
 
+    const fetchJobs = async () => {
+      if (!supabase) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('jobs')
+          .select(`
+            *,
+            locations (
+              name,
+              address,
+              city,
+              state,
+              zip
+            ),
+            units (
+              unit_number
+            ),
+            users:technician_id (
+              first_name,
+              last_name
+            )
+          `)
+          .gte('time_period_start', filters.dateRange.from)
+          .lte('time_period_due', filters.dateRange.to);
+
+        if (error) throw error;
+        
+        // Process jobs to add geocoded locations
+        const jobsWithCoordinates = await Promise.all(data.map(async (job) => {
+          if (job.locations) {
+            const { lat, lng } = await geocodeAddress(
+              `${job.locations.address}, ${job.locations.city}, ${job.locations.state} ${job.locations.zip}`
+            );
+            return {
+              ...job,
+              locations: {
+                ...job.locations,
+                lat,
+                lng
+              }
+            };
+          }
+          return job;
+        }));
+        
+        setJobs(jobsWithCoordinates);
+        
+        // Update map markers
+        if (map) {
+          updateMapMarkers(jobsWithCoordinates);
+        }
+
+        // Build a map of technician IDs to dates with jobs
+        const techJobDates: {[key: string]: Date[]} = {};
+        jobsWithCoordinates.forEach(job => {
+          if (job.technician_id && job.schedule_start) {
+            if (!techJobDates[job.technician_id]) {
+              techJobDates[job.technician_id] = [];
+            }
+            const jobDate = new Date(job.schedule_start);
+            // Only add the date if it's not already in the array
+            if (!techJobDates[job.technician_id].some(d => 
+              d.getDate() === jobDate.getDate() && 
+              d.getMonth() === jobDate.getMonth() && 
+              d.getFullYear() === jobDate.getFullYear()
+            )) {
+              techJobDates[job.technician_id].push(jobDate);
+            }
+          }
+        });
+        setTechnicianJobs(techJobDates);
+      } catch (err) {
+        console.error('Error fetching jobs:', err);
+      }
+    };
+
     fetchTechnicians();
-  }, [supabase]);
+    fetchJobs();
+  }, [supabase, filters.dateRange]);
 
   useEffect(() => {
     const initMap = async () => {
-      const loader = new Loader({
-        apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-        version: 'weekly',
-      });
-
-      const google = await loader.load();
-      const mapElement = document.getElementById('map');
-      
-      if (mapElement) {
-        const map = new google.maps.Map(mapElement, {
-          center: { lat: 33.7489954, lng: -84.3902397 },
-          zoom: 12,
-          styles: [
-            {
-              featureType: 'poi',
-              elementType: 'labels',
-              stylers: [{ visibility: 'off' }]
-            }
-          ]
+      try {
+        const loader = new Loader({
+          apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+          version: 'weekly',
         });
-        setMap(map);
+
+        const google = await loader.load();
+        
+        if (mapRef.current) {
+          const mapInstance = new google.maps.Map(mapRef.current, {
+            center: { lat: 33.7489954, lng: -84.3902397 },
+            zoom: 10,
+            styles: [
+              {
+                featureType: 'poi',
+                elementType: 'labels',
+                stylers: [{ visibility: 'off' }]
+              }
+            ]
+          });
+          
+          setMap(mapInstance);
+          
+          // Add markers for jobs if we have them
+          if (jobs.length > 0) {
+            updateMapMarkers(jobs);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing map:', error);
       }
     };
 
     initMap();
+    
+    return () => {
+      // Clean up markers when component unmounts
+      markers.forEach(marker => marker.setMap(null));
+    };
   }, []);
+
+  // Update map markers when date or selected technician changes
+  useEffect(() => {
+    if (map && jobs.length > 0) {
+      // Filter jobs for the selected date and technician
+      const filteredJobs = jobs.filter(job => {
+        // Filter by technician if one is selected
+        if (selectedTechnician && job.technician_id !== selectedTechnician) {
+          return false;
+        }
+        
+        // Filter by date
+        if (job.schedule_start) {
+          const jobDate = new Date(job.schedule_start);
+          return (
+            jobDate.getDate() === date.getDate() &&
+            jobDate.getMonth() === date.getMonth() &&
+            jobDate.getFullYear() === date.getFullYear()
+          );
+        }
+        return false;
+      });
+      
+      updateMapMarkers(filteredJobs);
+    }
+  }, [date, selectedTechnician, map, jobs]);
+
+  const geocodeAddress = async (address: string): Promise<{lat: number, lng: number}> => {
+    // This is a mock geocoding function since we don't have a real geocoding service
+    // In a real application, you would use Google's Geocoding API or similar
+    
+    // Generate a random point near Atlanta for demo purposes
+    const atlantaLat = 33.7489954;
+    const atlantaLng = -84.3902397;
+    
+    // Random offset within ~5 miles
+    const latOffset = (Math.random() - 0.5) * 0.1;
+    const lngOffset = (Math.random() - 0.5) * 0.1;
+    
+    return {
+      lat: atlantaLat + latOffset,
+      lng: atlantaLng + lngOffset
+    };
+  };
+
+  const updateMapMarkers = (jobsToMark: Job[]) => {
+    // Clear existing markers
+    markers.forEach(marker => marker.setMap(null));
+    
+    if (!map) return;
+    
+    const newMarkers: google.maps.Marker[] = [];
+    const bounds = new google.maps.LatLngBounds();
+    
+    jobsToMark.forEach(job => {
+      if (job.locations?.lat && job.locations?.lng) {
+        const position = { lat: job.locations.lat, lng: job.locations.lng };
+        
+        // Create marker
+        const marker = new google.maps.Marker({
+          position,
+          map,
+          title: job.name,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            fillColor: getJobStatusColor(job.status),
+            fillOpacity: 1,
+            strokeWeight: 1,
+            strokeColor: '#FFFFFF',
+            scale: 8
+          }
+        });
+        
+        // Create info window
+        const infoWindow = new google.maps.InfoWindow({
+          content: `
+            <div style="max-width: 200px;">
+              <h3 style="margin: 0; font-size: 14px; font-weight: 600;">${job.name}</h3>
+              <p style="margin: 4px 0; font-size: 12px;">
+                ${job.locations?.address}<br>
+                ${job.locations?.city}, ${job.locations?.state} ${job.locations?.zip}
+              </p>
+              <p style="margin: 4px 0; font-size: 12px;">
+                <strong>Status:</strong> ${job.status}<br>
+                <strong>Type:</strong> ${job.type}<br>
+                ${job.schedule_start ? `<strong>Scheduled:</strong> ${formatDateTime(job.schedule_start)}<br>` : ''}
+                ${job.users ? `<strong>Technician:</strong> ${job.users.first_name} ${job.users.last_name}` : ''}
+              </p>
+              <a href="/jobs/${job.id}" style="color: #0672be; font-size: 12px; text-decoration: none;">View Job Details</a>
+            </div>
+          `
+        });
+        
+        // Add click listener
+        marker.addListener('click', () => {
+          infoWindow.open(map, marker);
+        });
+        
+        newMarkers.push(marker);
+        bounds.extend(position);
+      }
+    });
+    
+    setMarkers(newMarkers);
+    
+    // Adjust map to fit all markers
+    if (newMarkers.length > 0) {
+      map.fitBounds(bounds);
+      
+      // Don't zoom in too far
+      const listener = google.maps.event.addListener(map, 'idle', () => {
+        if (map.getZoom() > 15) {
+          map.setZoom(15);
+        }
+        google.maps.event.removeListener(listener);
+      });
+    }
+  };
+
+  const getJobStatusColor = (status: string): string => {
+    switch (status) {
+      case 'scheduled':
+        return '#3b82f6'; // blue
+      case 'unscheduled':
+        return '#f59e0b'; // amber
+      case 'completed':
+        return '#10b981'; // green
+      case 'cancelled':
+        return '#ef4444'; // red
+      default:
+        return '#6b7280'; // gray
+    }
+  };
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('en-US', {
@@ -118,6 +362,18 @@ const DispatchSchedule = () => {
       day: 'numeric',
       year: 'numeric'
     }).format(date);
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
   const handlePrevDay = () => {
@@ -161,13 +417,82 @@ const DispatchSchedule = () => {
       filterMapBy: 'Due By Date',
       filterDateRangeBy: 'This Month',
       dateRange: {
-        from: '05/01/25',
-        to: '05/31/25'
+        from: new Date().toISOString().split('T')[0],
+        to: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
       },
       showCompleted: false,
       showSubcontracted: false,
       limitByPrice: false
     });
+  };
+
+  // Filter jobs for the timeline
+  const getJobsForTimeline = () => {
+    return jobs.filter(job => {
+      // Filter by technician if one is selected
+      if (selectedTechnician && job.technician_id !== selectedTechnician) {
+        return false;
+      }
+      
+      // Only show jobs with schedule_start for the timeline
+      if (!job.schedule_start) {
+        return false;
+      }
+      
+      // Check if job is scheduled for the selected date
+      const jobDate = new Date(job.schedule_start);
+      return (
+        jobDate.getDate() === date.getDate() &&
+        jobDate.getMonth() === date.getMonth() &&
+        jobDate.getFullYear() === date.getFullYear()
+      );
+    });
+  };
+
+  // Get unassigned jobs
+  const getUnassignedJobs = () => {
+    return jobs.filter(job => !job.technician_id && job.status !== 'completed' && job.status !== 'cancelled');
+  };
+
+  // Get jobs for a specific technician
+  const getJobsForTechnician = (techId: string) => {
+    return jobs.filter(job => job.technician_id === techId && job.status !== 'completed' && job.status !== 'cancelled');
+  };
+
+  // Calculate position and width for timeline job blocks
+  const getTimelinePosition = (job: Job) => {
+    if (!job.schedule_start) return null;
+    
+    const startTime = new Date(job.schedule_start);
+    const startHour = startTime.getHours() + startTime.getMinutes() / 60;
+    
+    // Calculate duration in hours (default to 1 hour if not specified)
+    let durationHours = 1;
+    if (job.schedule_duration) {
+      const durationMatch = job.schedule_duration.toString().match(/(\d+):(\d+)/);
+      if (durationMatch) {
+        durationHours = parseInt(durationMatch[1]) + parseInt(durationMatch[2]) / 60;
+      }
+    }
+    
+    // Timeline starts at 6 AM (6) and ends at 6 PM (18)
+    const timelineStart = 6;
+    const timelineEnd = 18;
+    const timelineWidth = timelineEnd - timelineStart;
+    
+    // Calculate position and width as percentages
+    const left = ((startHour - timelineStart) / timelineWidth) * 100;
+    const width = (durationHours / timelineWidth) * 100;
+    
+    return {
+      left: `${Math.max(0, Math.min(100, left))}%`,
+      width: `${Math.max(0, Math.min(100 - left, width))}%`
+    };
+  };
+
+  // Handle clicking on a date in the technician's job dates list
+  const handleDateClick = (selectedDate: Date) => {
+    setDate(selectedDate);
   };
 
   return (
@@ -177,7 +502,10 @@ const DispatchSchedule = () => {
         <div className="flex justify-between items-center">
           <h1 className="text-xl font-semibold">Dispatch & Schedule</h1>
           <div className="flex items-center gap-2">
-            <button className="btn btn-secondary">
+            <button 
+              className="btn btn-secondary"
+              onClick={() => setDate(new Date())}
+            >
               <Calendar className="h-4 w-4 mr-2" />
               Today
             </button>
@@ -265,9 +593,11 @@ const DispatchSchedule = () => {
           <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
             Main Office
           </span>
-          <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-            Subcontracted Jobs
-          </span>
+          {filters.showSubcontracted && (
+            <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+              Subcontracted Jobs
+            </span>
+          )}
         </div>
       </div>
 
@@ -291,12 +621,18 @@ const DispatchSchedule = () => {
 
             {/* Unassigned Section */}
             <div className="mb-4">
-              <div className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-md cursor-pointer">
+              <div 
+                className={`flex items-center gap-2 p-2 hover:bg-gray-50 rounded-md cursor-pointer ${
+                  selectedTechnician === null ? 'bg-gray-100' : ''
+                }`}
+                onClick={() => setSelectedTechnician(null)}
+              >
                 <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
                   <span className="text-gray-600 text-sm">U</span>
                 </div>
                 <div>
                   <div className="font-medium">Unassigned</div>
+                  <div className="text-xs text-gray-500">{getUnassignedJobs().length} jobs</div>
                 </div>
               </div>
             </div>
@@ -312,19 +648,57 @@ const DispatchSchedule = () => {
                   No technicians found
                 </div>
               ) : (
-                filteredTechnicians.map(tech => (
-                  <div key={tech.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-md cursor-pointer">
-                    <div className="w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium">
-                        {getInitials(tech.first_name, tech.last_name)}
-                      </span>
+                filteredTechnicians.map(tech => {
+                  const techJobs = getJobsForTechnician(tech.id);
+                  const jobDates = technicianJobs[tech.id] || [];
+                  
+                  return (
+                    <div key={tech.id}>
+                      <div 
+                        className={`flex items-center gap-2 p-2 hover:bg-gray-50 rounded-md cursor-pointer ${
+                          selectedTechnician === tech.id ? 'bg-gray-100' : ''
+                        }`}
+                        onClick={() => setSelectedTechnician(tech.id)}
+                      >
+                        <div className="w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-medium">
+                            {getInitials(tech.first_name, tech.last_name)}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-medium">{`${tech.first_name} ${tech.last_name}`}</div>
+                          <div className="text-xs text-gray-500">
+                            {tech.role === 'technician' ? 'technician' : tech.role} • {techJobs.length} jobs
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Show job dates when technician is selected */}
+                      {selectedTechnician === tech.id && jobDates.length > 0 && (
+                        <div className="ml-10 mt-2 mb-4">
+                          <div className="text-xs font-medium text-gray-500 mb-1">Scheduled Dates:</div>
+                          <div className="space-y-1">
+                            {jobDates.map((jobDate, index) => (
+                              <div 
+                                key={index}
+                                className={`text-xs p-1 rounded cursor-pointer ${
+                                  jobDate.getDate() === date.getDate() && 
+                                  jobDate.getMonth() === date.getMonth() && 
+                                  jobDate.getFullYear() === date.getFullYear()
+                                    ? 'bg-primary-100 text-primary-700'
+                                    : 'hover:bg-gray-100'
+                                }`}
+                                onClick={() => handleDateClick(jobDate)}
+                              >
+                                {jobDate.toLocaleDateString()}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <div className="font-medium">{`${tech.first_name} ${tech.last_name}`}</div>
-                      <div className="text-sm text-gray-500">{tech.job_title}</div>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -334,16 +708,88 @@ const DispatchSchedule = () => {
         <div className="flex flex-col">
           {/* Map */}
           <div className="h-1/2 bg-gray-100 relative">
-            <div id="map" className="absolute inset-0"></div>
+            <div className="absolute inset-0 flex">
+              <div className="flex-1">
+                <div id="map" ref={mapRef} className="h-full w-full"></div>
+              </div>
+            </div>
           </div>
 
           {/* Timeline */}
           <div className="h-1/2 bg-white border-t border-gray-200 overflow-x-auto">
-            <div className="flex">
+            <div className="relative min-w-[1200px]">
               {/* Time labels */}
-              {Array.from({ length: 13 }).map((_, i) => (
-                <div key={i} className="flex-none w-32 border-r border-gray-200 p-2 text-sm text-gray-500">
-                  {`${(i + 6) % 12 || 12}:00 ${i + 6 < 12 ? 'AM' : 'PM'}`}
+              <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+                <div className="w-[200px] border-r border-gray-200 p-2 text-sm font-medium text-gray-500">
+                  Technician
+                </div>
+                {Array.from({ length: 13 }).map((_, i) => (
+                  <div key={i} className="flex-1 border-r border-gray-200 p-2 text-sm text-gray-500 text-center">
+                    {`${(i + 6) % 12 || 12}:00 ${i + 6 < 12 ? 'AM' : 'PM'}`}
+                  </div>
+                ))}
+              </div>
+              
+              {/* Unassigned row */}
+              <div className="flex border-b border-gray-200 hover:bg-gray-50">
+                <div className="w-[200px] border-r border-gray-200 p-2 flex items-center">
+                  <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-2">
+                    <span className="text-gray-600 text-sm">U</span>
+                  </div>
+                  <div>
+                    <div className="font-medium">Unassigned</div>
+                    <div className="text-xs text-gray-500">{getUnassignedJobs().length} jobs</div>
+                  </div>
+                </div>
+                <div className="flex-1 relative h-16">
+                  {/* This is where unassigned jobs would be displayed */}
+                </div>
+              </div>
+              
+              {/* Technician rows */}
+              {filteredTechnicians.map(tech => (
+                <div key={tech.id} className="flex border-b border-gray-200 hover:bg-gray-50">
+                  <div className="w-[200px] border-r border-gray-200 p-2 flex items-center">
+                    <div className="w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center mr-2">
+                      <span className="text-sm font-medium">
+                        {getInitials(tech.first_name, tech.last_name)}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="font-medium">{`${tech.first_name} ${tech.last_name}`}</div>
+                      <div className="text-xs text-gray-500">{tech.role === 'technician' ? 'technician' : tech.role}</div>
+                    </div>
+                  </div>
+                  <div className="flex-1 relative h-16">
+                    {getJobsForTimeline()
+                      .filter(job => job.technician_id === tech.id)
+                      .map(job => {
+                        const position = getTimelinePosition(job);
+                        if (!position) return null;
+                        
+                        return (
+                          <Link
+                            key={job.id}
+                            to={`/jobs/${job.id}`}
+                            className={`absolute top-2 h-12 rounded-md p-1 text-xs text-white overflow-hidden ${
+                              job.status === 'completed' ? 'bg-green-500' : 
+                              job.status === 'cancelled' ? 'bg-red-500' : 
+                              'bg-blue-500'
+                            }`}
+                            style={{
+                              left: position.left,
+                              width: position.width,
+                              minWidth: '80px'
+                            }}
+                          >
+                            <div className="font-medium truncate">{job.name}</div>
+                            <div className="truncate">
+                              {job.locations?.name || 'No location'} {job.units ? `- ${job.units.unit_number}` : ''}
+                            </div>
+                          </Link>
+                        );
+                      })}
+                  </div>
                 </div>
               ))}
             </div>
@@ -363,7 +809,7 @@ const DispatchSchedule = () => {
               </button>
             </div>
 
-            <div className="p-4 space-y-6">
+            <div className="p-4 space-y-6 overflow-y-auto" style={{ height: 'calc(100% - 65px - 73px)' }}>
               {/* Tags */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -405,6 +851,8 @@ const DispatchSchedule = () => {
                   <option>All Job Types</option>
                   <option>Service Call</option>
                   <option>Maintenance</option>
+                  <option>Installation</option>
+                  <option>Repair</option>
                 </select>
               </div>
 
@@ -420,9 +868,6 @@ const DispatchSchedule = () => {
                 >
                   <option>All Job Owners</option>
                   <option>Airlast Inc. (Demo)</option>
-                  <option>Jane Tech</option>
-                  <option>John Tech</option>
-                  <option>ServiceTrade Support User...</option>
                 </select>
               </div>
 

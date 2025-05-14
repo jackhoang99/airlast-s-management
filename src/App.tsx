@@ -19,6 +19,7 @@ import AddUnit from "./pages/AddUnit";
 import EditUnit from "./pages/EditUnit";
 import Units from "./pages/Units";
 import Settings from "./pages/Settings";
+import ItemPrices from "./pages/ItemPrices";
 import NotFound from "./pages/NotFound";
 import RequireAuth from "./components/auth/RequireAuth";
 import { useEffect } from "react";
@@ -93,6 +94,7 @@ function App() {
             <Route path="add" element={<AddTechnician />} />
           </Route>
           <Route path="settings" element={<Settings />} />
+          <Route path="item-prices" element={<ItemPrices />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Route>
