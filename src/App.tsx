@@ -12,6 +12,7 @@ import EditLocation from "./pages/EditLocation";
 import LocationDetails from "./pages/LocationDetails";
 import AllJobs from "./pages/Jobs";
 import CreateJob from "./pages/CreateJob";
+import JobDetails from "./pages/JobDetails";
 import DispatchSchedule from "./pages/DispatchSchedule";
 import UnitDetails from "./pages/UnitDetails";
 import AddUnit from "./pages/AddUnit";
@@ -84,6 +85,7 @@ function App() {
           </Route>
           <Route path="jobs">
             <Route index element={<AllJobs />} />
+            <Route path=":id" element={<JobDetails />} />
             <Route path="create" element={<CreateJob />} />
             <Route path="dispatch" element={<DispatchSchedule />} />
           </Route>

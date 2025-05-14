@@ -1,40 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useSupabase } from '../lib/supabase-context';
+import { Database } from '../types/supabase';
 import { ArrowLeft, Filter, Plus, Calendar, List } from 'lucide-react';
 
-type Job = {
-  id: string;
-  number: string;
-  name: string;
-  status: 'scheduled' | 'unscheduled' | 'completed';
-  type: 'preventative maintenance' | 'service call';
-  location: {
+type Job = Database['public']['Tables']['jobs']['Row'] & {
+  locations?: {
     name: string;
     address: string;
     city: string;
     state: string;
+    companies: {
+      name: string;
+    };
   };
-  schedule: {
-    start: string;
-    duration: string;
+  users?: {
+    first_name: string;
+    last_name: string;
   };
-  cost?: number;
-  invoiced?: boolean;
-  training?: boolean;
-  timePeriod: {
-    start: string;
-    due: string;
+  job_items?: {
+    total_cost: number;
+  }[];
+  units?: {
+    unit_number: string;
   };
 };
 
 const Jobs = () => {
+  const { supabase } = useSupabase();
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<'list' | 'calendar'>('list');
   const [filters, setFilters] = useState({
     jobNumber: '',
     jobName: '',
     company: '',
     location: '',
-    owner: '',
     technician: 'All',
     status: 'All',
     type: 'All',
@@ -45,96 +46,76 @@ const Jobs = () => {
     showSubcontracted: false,
   });
 
-  const mockJobs: Job[] = [
-    {
-      id: '40753953',
-      number: '0001',
-      name: 'NAME OF MALL',
-      status: 'scheduled',
-      type: 'preventative maintenance',
-      location: {
-        name: 'NAME OF MALL',
-        address: '1030 Grant Street Southeast',
-        city: 'Atlanta',
-        state: 'GA'
-      },
-      schedule: {
-        start: '05/03/2025 08:00 AM EDT',
-        duration: '1.00 hour'
-      },
-      timePeriod: {
-        start: '05/01/2025',
-        due: '05/31/2025'
+  useEffect(() => {
+    const fetchJobs = async () => {
+      if (!supabase) return;
+
+      try {
+        let query = supabase
+          .from('jobs')
+          .select(`
+            *,
+            locations (
+              name,
+              address,
+              city,
+              state,
+              companies (
+                name
+              )
+            ),
+            users:technician_id (
+              first_name,
+              last_name
+            ),
+            job_items (
+              total_cost
+            ),
+            units (
+              unit_number
+            )
+          `)
+          .order('created_at', { ascending: false });
+
+        // Apply filters
+        if (filters.jobNumber) {
+          query = query.ilike('number', `%${filters.jobNumber}%`);
+        }
+        if (filters.jobName) {
+          query = query.ilike('name', `%${filters.jobName}%`);
+        }
+        if (filters.status !== 'All') {
+          query = query.eq('status', filters.status.toLowerCase());
+        }
+        if (filters.type !== 'All') {
+          query = query.eq('type', filters.type.toLowerCase());
+        }
+        if (filters.dueFrom) {
+          query = query.gte('time_period_due', filters.dueFrom);
+        }
+        if (filters.dueTo) {
+          query = query.lte('time_period_due', filters.dueTo);
+        }
+        if (filters.scheduleFrom) {
+          query = query.gte('schedule_start', filters.scheduleFrom);
+        }
+        if (filters.scheduleTo) {
+          query = query.lte('schedule_start', filters.scheduleTo);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        setJobs(data || []);
+      } catch (err) {
+        console.error('Error fetching jobs:', err);
+      } finally {
+        setIsLoading(false);
       }
-    },
-    {
-      id: '40751566',
-      number: '0002',
-      name: 'Plomeek & Gespar',
-      status: 'unscheduled',
-      type: 'preventative maintenance',
-      location: {
-        name: 'Plomeek & Gespar',
-        address: '3500 John A Merrit Blvd',
-        city: 'Nashville',
-        state: 'TN'
-      },
-      schedule: {
-        start: '05/01/2025',
-        duration: ''
-      },
-      cost: 500,
-      training: true,
-      timePeriod: {
-        start: '05/01/2025',
-        due: '05/31/2025'
-      }
-    },
-    {
-      id: '40529020',
-      number: '0003',
-      name: 'Grant Street Suite 2',
-      status: 'completed',
-      type: 'service call',
-      location: {
-        name: 'Grant Street Suite 2',
-        address: '1030 Grant Street Southeast',
-        city: 'Atlanta',
-        state: 'GA'
-      },
-      schedule: {
-        start: '04/24/2025 08:00 AM EDT',
-        duration: '1.00 hour'
-      },
-      invoiced: true,
-      timePeriod: {
-        start: '04/24/2025',
-        due: '04/24/2025'
-      }
-    },
-    {
-      id: '40528942',
-      number: '0004',
-      name: 'Grant Street Suite 7',
-      status: 'scheduled',
-      type: 'service call',
-      location: {
-        name: 'Grant Street Suite 7',
-        address: '1030 Grant Street SE',
-        city: 'Atlanta',
-        state: 'GA'
-      },
-      schedule: {
-        start: '04/24/2025 08:00 AM EDT',
-        duration: '1.00 hour'
-      },
-      cost: 180,
-      timePeriod: {
-        start: '04/24/2025',
-        due: '04/24/2025'
-      }
-    }
-  ];
+    };
+
+    fetchJobs();
+  }, [supabase, filters]);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -150,7 +131,6 @@ const Jobs = () => {
       jobName: '',
       company: '',
       location: '',
-      owner: '',
       technician: 'All',
       status: 'All',
       type: 'All',
@@ -162,7 +142,19 @@ const Jobs = () => {
     });
   };
 
-  const getStatusColor = (status: string) => {
+  const formatDateTime = (date: string) => {
+    return new Date(date).toLocaleString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZoneName: 'short'
+    });
+  };
+
+  const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case 'scheduled':
         return 'bg-blue-100 text-blue-800';
@@ -170,12 +162,14 @@ const Jobs = () => {
         return 'bg-yellow-100 text-yellow-800';
       case 'completed':
         return 'bg-green-100 text-green-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getTypeColor = (type: string) => {
+  const getTypeBadgeClass = (type: string) => {
     switch (type) {
       case 'preventative maintenance':
         return 'bg-purple-100 text-purple-800';
@@ -186,50 +180,11 @@ const Jobs = () => {
     }
   };
 
-  const filteredJobs = mockJobs.filter(job => {
-    // Job Number filter
-    if (filters.jobNumber && !job.number.toLowerCase().includes(filters.jobNumber.toLowerCase())) {
-      return false;
-    }
-
-    // Job Name filter
-    if (filters.jobName && !job.name.toLowerCase().includes(filters.jobName.toLowerCase())) {
-      return false;
-    }
-
-    // Location filter
-    if (filters.location && !job.location.name.toLowerCase().includes(filters.location.toLowerCase())) {
-      return false;
-    }
-
-    // Status filter
-    if (filters.status !== 'All' && job.status !== filters.status.toLowerCase()) {
-      return false;
-    }
-
-    // Type filter
-    if (filters.type !== 'All' && job.type !== filters.type.toLowerCase()) {
-      return false;
-    }
-
-    // Due date range filter
-    if (filters.dueFrom && new Date(job.timePeriod.due) < new Date(filters.dueFrom)) {
-      return false;
-    }
-    if (filters.dueTo && new Date(job.timePeriod.due) > new Date(filters.dueTo)) {
-      return false;
-    }
-
-    // Schedule date range filter
-    if (filters.scheduleFrom && new Date(job.schedule.start) < new Date(filters.scheduleFrom)) {
-      return false;
-    }
-    if (filters.scheduleTo && new Date(job.schedule.start) > new Date(filters.scheduleTo)) {
-      return false;
-    }
-
-    return true;
-  });
+  // Calculate total cost from job items
+  const getJobTotalCost = (job: Job) => {
+    if (!job.job_items || job.job_items.length === 0) return 0;
+    return job.job_items.reduce((sum, item) => sum + Number(item.total_cost), 0);
+  };
 
   return (
     <div className="space-y-6">
@@ -304,65 +259,6 @@ const Jobs = () => {
           </div>
 
           <div>
-            <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
-              Company
-            </label>
-            <input
-              type="text"
-              id="company"
-              name="company"
-              value={filters.company}
-              onChange={handleFilterChange}
-              className="input"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-              Location
-            </label>
-            <input
-              type="text"
-              id="location"
-              name="location"
-              value={filters.location}
-              onChange={handleFilterChange}
-              className="input"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="owner" className="block text-sm font-medium text-gray-700 mb-1">
-              Owner
-            </label>
-            <input
-              type="text"
-              id="owner"
-              name="owner"
-              value={filters.owner}
-              onChange={handleFilterChange}
-              className="input"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="technician" className="block text-sm font-medium text-gray-700 mb-1">
-              Technician
-            </label>
-            <select
-              id="technician"
-              name="technician"
-              value={filters.technician}
-              onChange={handleFilterChange}
-              className="select"
-            >
-              <option value="All">All</option>
-              <option value="Jane">Jane Tech</option>
-              <option value="John">John Tech</option>
-            </select>
-          </div>
-
-          <div>
             <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
               Status
             </label>
@@ -377,6 +273,7 @@ const Jobs = () => {
               <option value="Scheduled">Scheduled</option>
               <option value="Unscheduled">Unscheduled</option>
               <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
             </select>
           </div>
 
@@ -392,8 +289,8 @@ const Jobs = () => {
               className="select"
             >
               <option value="All">All</option>
-              <option value="Preventative Maintenance">Preventative Maintenance</option>
-              <option value="Service Call">Service Call</option>
+              <option value="preventative maintenance">Preventative Maintenance</option>
+              <option value="service call">Service Call</option>
             </select>
           </div>
 
@@ -479,63 +376,80 @@ const Jobs = () => {
 
         {view === 'list' ? (
           <div className="space-y-4">
-            {filteredJobs.map((job) => (
-              <div key={job.id} className="bg-white border rounded-lg shadow-sm">
-                <div className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-medium text-gray-500">Job #{job.number}</span>
-                        <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusColor(job.status)}`}>
-                          {job.status}
-                        </span>
-                        <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getTypeColor(job.type)}`}>
-                          {job.type}
-                        </span>
-                        {job.cost && (
-                          <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
-                            ${job.cost}
+            {isLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+              </div>
+            ) : jobs.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No jobs found. Try adjusting your filters or create a new job.
+              </div>
+            ) : (
+              jobs.map((job) => (
+                <div key={job.id} className="bg-white border rounded-lg shadow-sm">
+                  <div className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm font-medium text-gray-500">Job #{job.number}</span>
+                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(job.status)}`}>
+                            {job.status}
                           </span>
-                        )}
-                        {job.invoiced && (
-                          <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                            invoiced
+                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getTypeBadgeClass(job.type)}`}>
+                            {job.type}
                           </span>
-                        )}
-                        {job.training && (
-                          <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                            training
-                          </span>
-                        )}
-                      </div>
-                      <Link 
-                        to={`/jobs/${job.id}`}
-                        className="text-lg font-medium text-primary-600 hover:text-primary-800"
-                      >
-                        {job.name}
-                      </Link>
-                      <div className="text-sm text-gray-500">
-                        {job.location.address} • {job.location.city}, {job.location.state}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-medium">
-                        Start: {job.timePeriod.start}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        Due: {job.timePeriod.due}
-                      </div>
-                      {job.schedule.start && (
-                        <div className="text-sm text-gray-500">
-                          Schedule: {job.schedule.start}
-                          {job.schedule.duration && ` (${job.schedule.duration})`}
+                          {job.is_training && (
+                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                              training
+                            </span>
+                          )}
+                          {job.job_items && job.job_items.length > 0 && (
+                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
+                              ${getJobTotalCost(job).toFixed(2)}
+                            </span>
+                          )}
+                          {job.units && (
+                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                              Unit: {job.units.unit_number}
+                            </span>
+                          )}
                         </div>
-                      )}
+                        <Link 
+                          to={`/jobs/${job.id}`}
+                          className="text-lg font-medium text-primary-600 hover:text-primary-800"
+                        >
+                          {job.name}
+                        </Link>
+                        {job.locations && (
+                          <div className="text-sm text-gray-500">
+                            {job.locations.address} • {job.locations.city}, {job.locations.state}
+                          </div>
+                        )}
+                        {job.users && (
+                          <div className="text-sm text-gray-500 mt-1">
+                            Technician: {job.users.first_name} {job.users.last_name}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium">
+                          Start: {job.time_period_start}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Due: {job.time_period_due}
+                        </div>
+                        {job.schedule_start && (
+                          <div className="text-sm text-gray-500">
+                            Schedule: {formatDateTime(job.schedule_start)}
+                            {job.schedule_duration && ` (${job.schedule_duration})`}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         ) : (
           <div className="bg-gray-50 p-8 rounded-lg text-center">

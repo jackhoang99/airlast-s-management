@@ -73,7 +73,6 @@ const CreateJob = () => {
     
     // Additional Details
     type: 'preventative maintenance',
-    estimated_cost: '',
     is_training: false,
     status: 'unscheduled'
   });
@@ -176,6 +175,10 @@ const CreateJob = () => {
 
     if (preset.data.technician) {
       setSelectedTechnician(preset.data.technician);
+      setFormData(prev => ({
+        ...prev,
+        technician_id: preset.data.technician.id
+      }));
     }
   };
 
@@ -293,9 +296,15 @@ const CreateJob = () => {
           name: `${formData.service_line} - ${formData.description}`.trim(),
           type: formData.type,
           location_id: formData.location_id,
+          unit_id: formData.unit_id || null,
           contact_name: `${formData.contact_first_name} ${formData.contact_last_name}`.trim(),
           contact_phone: formData.contact_phone,
-          estimated_cost: formData.estimated_cost ? parseFloat(formData.estimated_cost) : null,
+          contact_email: formData.contact_email,
+          contact_type: formData.contact_type,
+          service_line: formData.service_line,
+          description: formData.description,
+          problem_description: formData.problem_description,
+          customer_po: formData.customer_po,
           is_training: formData.is_training,
           time_period_start: formData.time_period_start,
           time_period_due: formData.time_period_due,
@@ -303,7 +312,8 @@ const CreateJob = () => {
           schedule_duration: formData.schedule_duration ? `${formData.schedule_duration} hours` : null,
           status: scheduleStart ? 'scheduled' : 'unscheduled',
           office: formData.office,
-          contract_name: formData.service_contract
+          service_contract: formData.service_contract,
+          technician_id: formData.technician_id || null
         });
 
       if (insertError) throw insertError;
@@ -659,7 +669,7 @@ const CreateJob = () => {
               >
                 <option value="">Select Service Line</option>
                 {serviceLines.map(line => (
-                  <option key={line.id} value={line.name}>
+                  <option key={line.id} value={line.code}>
                     {line.name}
                   </option>
                 ))}
@@ -834,21 +844,6 @@ const CreateJob = () => {
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label htmlFor="estimated_cost" className="block text-sm font-medium text-gray-700 mb-1">
-                Estimated Cost
-              </label>
-              <input
-                type="number"
-                id="estimated_cost"
-                value={formData.estimated_cost}
-                onChange={(e) => setFormData(prev => ({ ...prev, estimated_cost: e.target.value }))}
-                step="0.01"
-                min="0"
-                className="input"
-              />
             </div>
 
             <div className="flex items-center">

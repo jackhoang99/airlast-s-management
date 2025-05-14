@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Building2, MapPin, Building, Wrench, FileText, Contact as FileContract, MessageSquare, Paperclip, Plus } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Building, Wrench, FileText, Contact as FileContract, MessageSquare, Paperclip, Plus, Calendar, Clock, Tag } from 'lucide-react';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
 import Map from '../components/ui/Map';
@@ -20,10 +20,17 @@ type Unit = Database['public']['Tables']['units']['Row'] & {
   };
 };
 
+type Job = Database['public']['Tables']['jobs']['Row'] & {
+  job_items?: {
+    total_cost: number;
+  }[];
+};
+
 const UnitDetails = () => {
   const { id } = useParams<{ id: string }>();
   const { supabase } = useSupabase();
   const [unit, setUnit] = useState<Unit | null>(null);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,8 +69,75 @@ const UnitDetails = () => {
       }
     };
 
+    const fetchJobs = async () => {
+      if (!supabase || !id) return;
+
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('jobs')
+          .select(`
+            *,
+            job_items (
+              total_cost
+            )
+          `)
+          .eq('unit_id', id)
+          .order('created_at', { ascending: false });
+
+        if (fetchError) throw fetchError;
+        setJobs(data || []);
+      } catch (err) {
+        console.error('Error fetching jobs for unit:', err);
+      }
+    };
+
     fetchUnit();
+    fetchJobs();
   }, [supabase, id]);
+
+  const formatDateTime = (date: string) => {
+    return new Date(date).toLocaleString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZoneName: 'short'
+    });
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'scheduled':
+        return 'bg-blue-100 text-blue-800';
+      case 'unscheduled':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getTypeBadgeClass = (type: string) => {
+    switch (type) {
+      case 'preventative maintenance':
+        return 'bg-purple-100 text-purple-800';
+      case 'service call':
+        return 'bg-cyan-100 text-cyan-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Calculate total cost from job items
+  const getJobTotalCost = (job: Job) => {
+    if (!job.job_items || job.job_items.length === 0) return 0;
+    return job.job_items.reduce((sum, item) => sum + Number(item.total_cost), 0);
+  };
 
   if (isLoading) {
     return (
@@ -176,6 +250,94 @@ const UnitDetails = () => {
             </div>
           </div>
 
+          {/* Jobs Section */}
+          <div className="card">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-gray-400" />
+                Jobs
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className="badge">{jobs.length} Jobs</span>
+                <Link to={`/jobs/create`} className="btn btn-primary btn-sm">
+                  <Plus size={14} className="mr-1" />
+                  Create Job
+                </Link>
+              </div>
+            </div>
+            {jobs.length > 0 ? (
+              <div className="space-y-4">
+                {jobs.map((job) => (
+                  <div key={job.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                    <div className="flex justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium text-gray-500">Job #{job.number}</span>
+                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(job.status)}`}>
+                            {job.status}
+                          </span>
+                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getTypeBadgeClass(job.type)}`}>
+                            {job.type}
+                          </span>
+                          {job.is_training && (
+                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                              training
+                            </span>
+                          )}
+                          {job.job_items && job.job_items.length > 0 && (
+                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
+                              ${getJobTotalCost(job).toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                        <Link 
+                          to={`/jobs/${job.id}`}
+                          className="text-lg font-medium text-primary-600 hover:text-primary-800"
+                        >
+                          {job.name}
+                        </Link>
+                        <div className="text-sm text-gray-500 mt-1">
+                          {job.service_line && (
+                            <div className="flex items-center gap-1">
+                              <Tag size={14} />
+                              <span>{job.service_line}</span>
+                            </div>
+                          )}
+                          {job.description && (
+                            <p className="mt-1 line-clamp-2">{job.description}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium">
+                          Start: {job.time_period_start}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Due: {job.time_period_due}
+                        </div>
+                        {job.schedule_start && (
+                          <div className="text-sm text-gray-500 flex items-center justify-end gap-1 mt-1">
+                            <Clock size={14} />
+                            <span>{formatDateTime(job.schedule_start)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 mb-4">No jobs found for this unit</p>
+                <Link to="/jobs/create" className="btn btn-primary">
+                  <Plus size={16} className="mr-2" />
+                  Create Job
+                </Link>
+              </div>
+            )}
+          </div>
+
           {/* Services Section */}
           <div className="card">
             <div className="flex justify-between items-center mb-4">
@@ -186,18 +348,6 @@ const UnitDetails = () => {
               </button>
             </div>
             <p className="text-gray-500 text-center py-4">No services found</p>
-          </div>
-
-          {/* Jobs Section */}
-          <div className="card">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Jobs</h2>
-              <button className="btn btn-primary">
-                <Plus size={16} className="mr-2" />
-                Create Job
-              </button>
-            </div>
-            <p className="text-gray-500 text-center py-4">No jobs found</p>
           </div>
 
           {/* Assets Section */}
@@ -277,7 +427,17 @@ const UnitDetails = () => {
           <div className="card">
             <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
             <div className="space-y-3">
-              <button className="btn btn-primary w-full justify-start">
+              <Link 
+                to={{
+                  pathname: "/jobs/create",
+                  search: `?unitId=${unit.id}`
+                }}
+                className="btn btn-primary w-full justify-start"
+              >
+                <Calendar size={16} className="mr-2" />
+                Create Job
+              </Link>
+              <button className="btn btn-secondary w-full justify-start">
                 <Wrench size={16} className="mr-2" />
                 Create Service
               </button>
@@ -299,6 +459,37 @@ const UnitDetails = () => {
               </button>
             </div>
           </div>
+
+          {/* Job Statistics */}
+          {jobs.length > 0 && (
+            <div className="card mt-6">
+              <h2 className="text-lg font-semibold mb-4">Job Statistics</h2>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Total Jobs</span>
+                  <span className="font-medium">{jobs.length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Completed Jobs</span>
+                  <span className="font-medium">{jobs.filter(job => job.status === 'completed').length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Scheduled Jobs</span>
+                  <span className="font-medium">{jobs.filter(job => job.status === 'scheduled').length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Unscheduled Jobs</span>
+                  <span className="font-medium">{jobs.filter(job => job.status === 'unscheduled').length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Total Cost</span>
+                  <span className="font-medium">
+                    ${jobs.reduce((sum, job) => sum + getJobTotalCost(job), 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
