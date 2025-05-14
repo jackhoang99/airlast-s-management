@@ -1,29 +1,29 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/layout/Layout';
-import Login from './pages/Login';
-import Home from './pages/Home';
-import Dashboard from './pages/Dashboard';
-import Companies from './pages/Companies';
-import CreateCompany from './pages/CreateCompany';
-import EditCompany from './pages/EditCompany';
-import CompanyDetails from './pages/CompanyDetails';
-import CreateLocation from './pages/CreateLocation';
-import EditLocation from './pages/EditLocation';
-import LocationDetails from './pages/LocationDetails';
-import AllJobs from './pages/Jobs';
-import CreateJob from './pages/CreateJob';
-import DispatchSchedule from './pages/DispatchSchedule';
-import UnitDetails from './pages/UnitDetails';
-import AddUnit from './pages/AddUnit';
-import EditUnit from './pages/EditUnit';
-import Units from './pages/Units';
-import Settings from './pages/Settings';
-import NotFound from './pages/NotFound';
-import RequireAuth from './components/auth/RequireAuth';
-import { useEffect } from 'react';
-import { useSupabase } from './lib/supabase-context';
-import AddTechnician from './pages/AddTechnician';
-import Locations from './pages/Locations';
+import { Routes, Route } from "react-router-dom";
+import Layout from "./components/layout/Layout";
+import Login from "./pages/Login";
+import Home from "./pages/Home";
+import Dashboard from "./pages/Dashboard";
+import Companies from "./pages/Companies";
+import CreateCompany from "./pages/CreateCompany";
+import EditCompany from "./pages/EditCompany";
+import CompanyDetails from "./pages/CompanyDetails";
+import CreateLocation from "./pages/CreateLocation";
+import EditLocation from "./pages/EditLocation";
+import LocationDetails from "./pages/LocationDetails";
+import AllJobs from "./pages/Jobs";
+import CreateJob from "./pages/CreateJob";
+import DispatchSchedule from "./pages/DispatchSchedule";
+import UnitDetails from "./pages/UnitDetails";
+import AddUnit from "./pages/AddUnit";
+import EditUnit from "./pages/EditUnit";
+import Units from "./pages/Units";
+import Settings from "./pages/Settings";
+import NotFound from "./pages/NotFound";
+import RequireAuth from "./components/auth/RequireAuth";
+import { useEffect } from "react";
+import { useSupabase } from "./lib/supabase-context";
+import AddTechnician from "./pages/AddTechnician";
+import Locations from "./pages/Locations";
 
 function App() {
   const { supabase } = useSupabase();
@@ -31,47 +31,45 @@ function App() {
   useEffect(() => {
     const fetchLogo = async () => {
       if (!supabase) return;
-      
+
       const { data, error } = await supabase
-        .from('configuration')
-        .select('value')
-        .eq('key', 'logo_url')
+        .from("configuration")
+        .select("value")
+        .eq("key", "logo_url")
         .single();
-      
+
       if (!error && data?.value) {
-        const favicon = document.getElementById('favicon');
+        const favicon = document.getElementById("favicon");
         if (favicon) {
-          favicon.setAttribute('href', data.value);
+          favicon.setAttribute("href", data.value);
         }
       }
     };
-    
+
     fetchLogo();
   }, [supabase]);
 
   return (
     <Routes>
-      {/* Public routes */}
       <Route path="/login" element={<Login />} />
-      
-      {/* Redirect root to login if not authenticated */}
-      <Route path="/" element={
-        sessionStorage.getItem('isAuthenticated') === 'true' ? 
-        <Navigate to="/dashboard" replace /> : 
-        <Navigate to="/login" replace />
-      } />
 
-      {/* Protected routes */}
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
+          <Route index element={<Home />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="companies">
             <Route index element={<Companies />} />
             <Route path="create" element={<CreateCompany />} />
             <Route path=":id" element={<CompanyDetails />} />
             <Route path=":id/edit" element={<EditCompany />} />
-            <Route path=":companyId/location/new" element={<CreateLocation />} />
-            <Route path=":companyId/locations/:locationId/edit" element={<EditLocation />} />
+            <Route
+              path=":companyId/location/new"
+              element={<CreateLocation />}
+            />
+            <Route
+              path=":companyId/locations/:locationId/edit"
+              element={<EditLocation />}
+            />
           </Route>
           <Route path="locations">
             <Route index element={<Locations />} />
@@ -93,10 +91,9 @@ function App() {
             <Route path="add" element={<AddTechnician />} />
           </Route>
           <Route path="settings" element={<Settings />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Route>
-
-      {/* Catch all route */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

@@ -32,8 +32,6 @@ const CreateJob = () => {
   const [presetName, setPresetName] = useState('');
   const [presets, setPresets] = useState<any[]>([]);
   const [selectedTechnician, setSelectedTechnician] = useState<User | null>(null);
-  const [scheduledDate, setScheduledDate] = useState<string>('');
-  const [scheduledDuration, setScheduledDuration] = useState<string>('');
   const [jobTypes, setJobTypes] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
@@ -67,8 +65,11 @@ const CreateJob = () => {
     // Schedule
     time_period_start: new Date().toISOString().split('T')[0],
     time_period_due: new Date().toISOString().split('T')[0],
+    schedule_date: '',
+    schedule_time: '',
+    schedule_duration: '1:00',
     schedule_start: '',
-    schedule_duration: '1.00',
+    technician_id: '',
     
     // Additional Details
     type: 'preventative maintenance',
@@ -163,9 +164,7 @@ const CreateJob = () => {
     setFormData({
       ...preset.data,
       time_period_start: formData.time_period_start,
-      time_period_due: formData.time_period_due,
-      schedule_start: '',
-      schedule_duration: '1.00'
+      time_period_due: formData.time_period_due
     });
 
     if (preset.data.location_id) {
@@ -173,6 +172,10 @@ const CreateJob = () => {
       if (location) {
         setSelectedLocation(location);
       }
+    }
+
+    if (preset.data.technician) {
+      setSelectedTechnician(preset.data.technician);
     }
   };
 
@@ -213,11 +216,16 @@ const CreateJob = () => {
       if (userError) throw userError;
       if (!userData) throw new Error('User not found');
 
+      const presetData = {
+        ...formData,
+        technician: selectedTechnician
+      };
+
       const { error } = await supabase
         .from('job_presets')
         .insert({
           name: presetName,
-          data: formData,
+          data: presetData,
           user_id: userData.id
         });
 
@@ -240,9 +248,6 @@ const CreateJob = () => {
 
   const handleScheduleAppointment = async (appointment: {
     technicianId: string;
-    date: string;
-    time: string;
-    duration: string;
   }) => {
     if (!supabase) return;
 
@@ -256,19 +261,10 @@ const CreateJob = () => {
 
       if (techError) throw techError;
       setSelectedTechnician(techData);
-
-      // Convert appointment time to ISO string
-      const scheduleDateTime = new Date(`${appointment.date}T${appointment.time}`);
-      
       setFormData(prev => ({
         ...prev,
-        schedule_start: scheduleDateTime.toISOString(),
-        schedule_duration: appointment.duration
+        technician_id: appointment.technicianId
       }));
-
-      // Store scheduled date and duration for display
-      setScheduledDate(`${appointment.date} ${appointment.time}`);
-      setScheduledDuration(appointment.duration);
 
       setShowAppointmentModal(false);
     } catch (err) {
@@ -285,6 +281,12 @@ const CreateJob = () => {
     setError(null);
 
     try {
+      // Convert schedule date and time to ISO string if both are provided
+      let scheduleStart = null;
+      if (formData.schedule_date && formData.schedule_time) {
+        scheduleStart = new Date(`${formData.schedule_date}T${formData.schedule_time}`).toISOString();
+      }
+
       const { error: insertError } = await supabase
         .from('jobs')
         .insert({
@@ -297,9 +299,9 @@ const CreateJob = () => {
           is_training: formData.is_training,
           time_period_start: formData.time_period_start,
           time_period_due: formData.time_period_due,
-          schedule_start: formData.schedule_start || null,
+          schedule_start: scheduleStart,
           schedule_duration: formData.schedule_duration ? `${formData.schedule_duration} hours` : null,
-          status: formData.schedule_start ? 'scheduled' : 'unscheduled',
+          status: scheduleStart ? 'scheduled' : 'unscheduled',
           office: formData.office,
           contract_name: formData.service_contract
         });
@@ -356,15 +358,27 @@ const CreateJob = () => {
                 className="w-full text-left"
               >
                 <h3 className="font-medium">{preset.name}</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  {preset.data.type === 'preventative maintenance' ? 'PM' : 'Service Call'}
-                  {preset.data.service_line ? ` • ${preset.data.service_line}` : ''}
-                </p>
-                {preset.data.unit_number && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    Unit: {preset.data.unit_number}
-                  </p>
-                )}
+                <div className="text-sm text-gray-500 mt-1">
+                  <div>
+                    {preset.data.type === 'preventative maintenance' ? 'PM' : 'Service Call'}
+                    {preset.data.service_line ? ` • ${preset.data.service_line}` : ''}
+                  </div>
+                  {preset.data.technician && (
+                    <div className="mt-1 text-gray-600">
+                      {preset.data.technician.first_name} {preset.data.technician.last_name}
+                    </div>
+                  )}
+                  {preset.data.location_name && (
+                    <div className="mt-1 text-gray-400">
+                      {preset.data.location_name}
+                    </div>
+                  )}
+                  {preset.data.unit_number && (
+                    <div className="text-gray-400">
+                      Unit: {preset.data.unit_number}
+                    </div>
+                  )}
+                </div>
               </button>
             </div>
           ))}
@@ -691,7 +705,7 @@ const CreateJob = () => {
               onClick={() => setShowAppointmentModal(true)}
             >
               <Calendar className="h-4 w-4 mr-2" />
-              Schedule Appointment
+              Select Technician
             </button>
           </div>
           
@@ -723,6 +737,52 @@ const CreateJob = () => {
                 className="input"
               />
             </div>
+
+            <div>
+              <label htmlFor="schedule_date" className="block text-sm font-medium text-gray-700 mb-1">
+                Schedule Date
+              </label>
+              <input
+                type="date"
+                id="schedule_date"
+                value={formData.schedule_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, schedule_date: e.target.value }))}
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="schedule_time" className="block text-sm font-medium text-gray-700 mb-1">
+                Schedule Time
+              </label>
+              <input
+                type="time"
+                id="schedule_time"
+                value={formData.schedule_time}
+                onChange={(e) => setFormData(prev => ({ ...prev, schedule_time: e.target.value }))}
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="schedule_duration" className="block text-sm font-medium text-gray-700 mb-1">
+                Duration
+              </label>
+              <select
+                id="schedule_duration"
+                value={formData.schedule_duration}
+                onChange={(e) => setFormData(prev => ({ ...prev, schedule_duration: e.target.value }))}
+                className="select"
+              >
+                <option value="1:00">1:00 hr</option>
+                <option value="1:30">1:30 hr</option>
+                <option value="2:00">2:00 hr</option>
+                <option value="2:30">2:30 hr</option>
+                <option value="3:00">3:00 hr</option>
+                <option value="3:30">3:30 hr</option>
+                <option value="4:00">4:00 hr</option>
+              </select>
+            </div>
           </div>
 
           {selectedTechnician && (
@@ -744,14 +804,6 @@ const CreateJob = () => {
                     <div className="flex items-center gap-2">
                       <Mail size={14} />
                       {selectedTechnician.email}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} />
-                      Scheduled: {scheduledDate}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock size={14} />
-                      Duration: {scheduledDuration} hours
                     </div>
                   </div>
                 </div>
@@ -830,9 +882,9 @@ const CreateJob = () => {
                 <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
                 Creating...
               </>
-            ) : (
-              'Create Job'
-            )}
+            )
+              : 'Create Job'
+            }
           </button>
         </div>
       </form>
@@ -880,7 +932,7 @@ const CreateJob = () => {
         </div>
       )}
 
-      {/*  Appointment Modal */}
+      {/* Appointment Modal */}
       <AppointmentModal
         isOpen={showAppointmentModal}
         onClose={() => setShowAppointmentModal(false)}

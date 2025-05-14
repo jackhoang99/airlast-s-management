@@ -1,8 +1,18 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
-import { Building2, Plus, Filter } from 'lucide-react';
-import { Calendar, Clock, ClipboardList, AlertTriangle, FileCheck2, Bell, FileInput as FileInvoice, CalendarClock, Send } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useSupabase } from "../lib/supabase-context";
+import { Building2, Plus, Filter } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  ClipboardList,
+  AlertTriangle,
+  FileCheck2,
+  Bell,
+  FileInput as FileInvoice,
+  CalendarClock,
+  Send,
+} from "lucide-react";
 
 const Home = () => {
   const { supabase } = useSupabase();
@@ -15,13 +25,13 @@ const Home = () => {
     unsentInvoices: 0,
     jobsToSchedule: 0,
     jobsToInvoice: 0,
-    submittedQuotes: 0
+    submittedQuotes: 0,
   });
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1>Dashboard</h1>
+        <h1>Airlast's Management</h1>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <select className="select">
@@ -74,7 +84,9 @@ const Home = () => {
               <ClipboardList size={16} />
               Jobs with No Appointment
             </h3>
-            <span className="text-2xl font-semibold">{stats.jobsNoAppointment}</span>
+            <span className="text-2xl font-semibold">
+              {stats.jobsNoAppointment}
+            </span>
           </div>
         </div>
 
@@ -84,7 +96,9 @@ const Home = () => {
               <AlertTriangle size={16} />
               Overdue Jobs
             </h3>
-            <span className="text-2xl font-semibold text-error-600">{stats.overdueJobs}</span>
+            <span className="text-2xl font-semibold text-error-600">
+              {stats.overdueJobs}
+            </span>
           </div>
         </div>
 
@@ -117,7 +131,9 @@ const Home = () => {
               <AlertTriangle size={16} />
               Open Deficiencies
             </h3>
-            <span className="text-2xl font-semibold">{stats.openDeficiencies}</span>
+            <span className="text-2xl font-semibold">
+              {stats.openDeficiencies}
+            </span>
           </div>
           <div className="text-center py-12 text-gray-500">
             No data to display.
@@ -132,7 +148,9 @@ const Home = () => {
               <FileInvoice size={16} />
               Total Unsent Invoices
             </h3>
-            <span className="text-2xl font-semibold">{stats.unsentInvoices}</span>
+            <span className="text-2xl font-semibold">
+              {stats.unsentInvoices}
+            </span>
           </div>
           <div className="flex items-center justify-between text-sm text-gray-500">
             <span>In value</span>
@@ -146,7 +164,9 @@ const Home = () => {
               <CalendarClock size={16} />
               Jobs Ready to Schedule
             </h3>
-            <span className="text-2xl font-semibold">{stats.jobsToSchedule}</span>
+            <span className="text-2xl font-semibold">
+              {stats.jobsToSchedule}
+            </span>
           </div>
           <div className="flex items-center justify-between text-sm text-gray-500">
             <span>In estimated revenue</span>
@@ -160,7 +180,9 @@ const Home = () => {
               <Send size={16} />
               Total Submitted Quotes
             </h3>
-            <span className="text-2xl font-semibold">{stats.submittedQuotes}</span>
+            <span className="text-2xl font-semibold">
+              {stats.submittedQuotes}
+            </span>
           </div>
           <div className="flex items-center justify-between text-sm text-gray-500">
             <span>In value</span>

@@ -4,31 +4,30 @@ import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
 import { Settings as SettingsIcon, Plus, AlertTriangle, Building, Users, Briefcase, Tag, Edit } from 'lucide-react';
 
-type ServiceLine = Database['public']['Tables']['service_lines']['Row'];
-type JobType = Database['public']['Tables']['job_types']['Row'];
 type User = Database['public']['Tables']['users']['Row'];
+type JobType = Database['public']['Tables']['job_types']['Row'];
+type ServiceType = Database['public']['Tables']['service_lines']['Row'];
 type Settings = Database['public']['Tables']['settings']['Row'];
 
 const Settings = () => {
   const { supabase } = useSupabase();
-  const [serviceLines, setServiceLines] = useState<ServiceLine[]>([]);
   const [jobTypes, setJobTypes] = useState<JobType[]>([]);
+  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [companySettings, setCompanySettings] = useState<Settings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const [newServiceLine, setNewServiceLine] = useState({
+  const [newServiceType, setNewServiceType] = useState({
     name: '',
     code: '',
     description: ''
   });
-  
+
   const [newJobType, setNewJobType] = useState({
     name: '',
     code: '',
-    description: '',
-    service_line_id: ''
+    description: ''
   });
 
   const [newUser, setNewUser] = useState({
@@ -72,24 +71,19 @@ const Settings = () => {
       if (!supabase) return;
 
       try {
-        // Fetch service lines
-        const { data: serviceLineData, error: serviceLineError } = await supabase
+        // Fetch service types
+        const { data: serviceTypeData, error: serviceTypeError } = await supabase
           .from('service_lines')
           .select('*')
           .order('name');
 
-        if (serviceLineError) throw serviceLineError;
-        setServiceLines(serviceLineData || []);
+        if (serviceTypeError) throw serviceTypeError;
+        setServiceTypes(serviceTypeData || []);
 
         // Fetch job types
         const { data: jobTypeData, error: jobTypeError } = await supabase
           .from('job_types')
-          .select(`
-            *,
-            service_lines (
-              name
-            )
-          `)
+          .select('*')
           .order('name');
 
         if (jobTypeError) throw jobTypeError;
@@ -124,6 +118,64 @@ const Settings = () => {
     fetchData();
   }, [supabase]);
 
+  const handleAddServiceType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+
+    try {
+      const { error } = await supabase
+        .from('service_lines')
+        .insert([{
+          name: newServiceType.name,
+          code: newServiceType.code,
+          description: newServiceType.description
+        }]);
+
+      if (error) throw error;
+
+      // Reset form and refresh data
+      setNewServiceType({ name: '', code: '', description: '' });
+      const { data } = await supabase
+        .from('service_lines')
+        .select('*')
+        .order('name');
+      
+      setServiceTypes(data || []);
+    } catch (err) {
+      console.error('Error adding service type:', err);
+      setError('Failed to add service type');
+    }
+  };
+
+  const handleAddJobType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+
+    try {
+      const { error } = await supabase
+        .from('job_types')
+        .insert([{
+          name: newJobType.name,
+          code: newJobType.code,
+          description: newJobType.description
+        }]);
+
+      if (error) throw error;
+
+      // Reset form and refresh data
+      setNewJobType({ name: '', code: '', description: '' });
+      const { data } = await supabase
+        .from('job_types')
+        .select('*')
+        .order('name');
+      
+      setJobTypes(data || []);
+    } catch (err) {
+      console.error('Error adding job type:', err);
+      setError('Failed to add job type');
+    }
+  };
+
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) return;
@@ -147,7 +199,7 @@ const Settings = () => {
       if (userError) throw userError;
 
       // If the role is technician, create a technician record
-      if (newUser.role === 'technician') {
+      if (newUser.role === 'technician' && userData) {
         const { error: techError } = await supabase
           .from('technicians')
           .insert([{
@@ -221,6 +273,7 @@ const Settings = () => {
         next_review_date: ''
       });
 
+      // Refresh users list
       const { data } = await supabase
         .from('users')
         .select('*')
@@ -233,70 +286,6 @@ const Settings = () => {
     } catch (err) {
       console.error('Error adding user:', err);
       setError('Failed to add user');
-    }
-  };
-
-  const handleAddServiceLine = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase) return;
-
-    try {
-      const { error } = await supabase
-        .from('service_lines')
-        .insert([{
-          name: newServiceLine.name,
-          code: newServiceLine.code,
-          description: newServiceLine.description
-        }]);
-
-      if (error) throw error;
-
-      // Reset form and refresh data
-      setNewServiceLine({ name: '', code: '', description: '' });
-      const { data } = await supabase
-        .from('service_lines')
-        .select('*')
-        .order('name');
-      
-      setServiceLines(data || []);
-    } catch (err) {
-      console.error('Error adding service line:', err);
-      setError('Failed to add service line');
-    }
-  };
-
-  const handleAddJobType = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase) return;
-
-    try {
-      const { error } = await supabase
-        .from('job_types')
-        .insert([{
-          name: newJobType.name,
-          code: newJobType.code,
-          description: newJobType.description,
-          service_line_id: newJobType.service_line_id
-        }]);
-
-      if (error) throw error;
-
-      // Reset form and refresh data
-      setNewJobType({ name: '', code: '', description: '', service_line_id: '' });
-      const { data } = await supabase
-        .from('job_types')
-        .select(`
-          *,
-          service_lines (
-            name
-          )
-        `)
-        .order('name');
-      
-      setJobTypes(data || []);
-    } catch (err) {
-      console.error('Error adding job type:', err);
-      setError('Failed to add job type');
     }
   };
 
@@ -844,6 +833,7 @@ const Settings = () => {
           </div>
         </form>
 
+        {/* Users Table */}
         <div className="overflow-x-auto">
           <table className="table">
             <thead>
@@ -890,27 +880,27 @@ const Settings = () => {
         </div>
       </div>
 
-      {/* Service Lines Section */}
+      {/* Service Types Section */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2">
             <Briefcase className="h-5 w-5 text-gray-500" />
-            <h2 className="text-lg font-semibold">Service Lines</h2>
+            <h2 className="text-lg font-semibold">Service Types</h2>
           </div>
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => document.getElementById('addServiceLineForm')?.classList.remove('hidden')}
+            onClick={() => document.getElementById('addServiceTypeForm')?.classList.remove('hidden')}
           >
             <Plus size={16} className="mr-2" />
-            Add Service Line
+            Add Service Type
           </button>
         </div>
 
-        {/* Add Service Line Form */}
+        {/* Add Service Type Form */}
         <form
-          id="addServiceLineForm"
-          onSubmit={handleAddServiceLine}
+          id="addServiceTypeForm"
+          onSubmit={handleAddServiceType}
           className="hidden mb-6 p-4 bg-gray-50 rounded-lg"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -920,8 +910,8 @@ const Settings = () => {
               </label>
               <input
                 type="text"
-                value={newServiceLine.name}
-                onChange={(e) => setNewServiceLine(prev => ({ ...prev, name: e.target.value }))}
+                value={newServiceType.name}
+                onChange={(e) => setNewServiceType(prev => ({ ...prev, name: e.target.value }))}
                 className="input"
                 required
               />
@@ -932,8 +922,8 @@ const Settings = () => {
               </label>
               <input
                 type="text"
-                value={newServiceLine.code}
-                onChange={(e) => setNewServiceLine(prev => ({ ...prev, code: e.target.value }))}
+                value={newServiceType.code}
+                onChange={(e) => setNewServiceType(prev => ({ ...prev, code: e.target.value }))}
                 className="input"
                 required
               />
@@ -944,8 +934,8 @@ const Settings = () => {
               </label>
               <input
                 type="text"
-                value={newServiceLine.description}
-                onChange={(e) => setNewServiceLine(prev => ({ ...prev, description: e.target.value }))}
+                value={newServiceType.description}
+                onChange={(e) => setNewServiceType(prev => ({ ...prev, description: e.target.value }))}
                 className="input"
               />
             </div>
@@ -955,19 +945,19 @@ const Settings = () => {
               type="button"
               className="btn btn-secondary"
               onClick={() => {
-                document.getElementById('addServiceLineForm')?.classList.add('hidden');
-                setNewServiceLine({ name: '', code: '', description: '' });
+                document.getElementById('addServiceTypeForm')?.classList.add('hidden');
+                setNewServiceType({ name: '', code: '', description: '' });
               }}
             >
               Cancel
             </button>
             <button type="submit" className="btn btn-primary">
-              Add Service Line
+              Add Service Type
             </button>
           </div>
         </form>
 
-        {/* Service Lines Table */}
+        {/* Service Types Table */}
         <div className="overflow-x-auto">
           <table className="table">
             <thead>
@@ -979,14 +969,14 @@ const Settings = () => {
               </tr>
             </thead>
             <tbody>
-              {serviceLines.map((line) => (
-                <tr key={line.id}>
-                  <td>{line.name}</td>
-                  <td>{line.code}</td>
-                  <td>{line.description}</td>
+              {serviceTypes.map((type) => (
+                <tr key={type.id}>
+                  <td>{type.name}</td>
+                  <td>{type.code}</td>
+                  <td>{type.description}</td>
                   <td>
-                    <span className={`badge ${line.is_active ? 'badge-success' : 'badge-error'}`}>
-                      {line.is_active ? 'Active' : 'Inactive'}
+                    <span className={`badge ${type.is_active ? 'badge-success' : 'badge-error'}`}>
+                      {type.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                 </tr>
@@ -1019,7 +1009,7 @@ const Settings = () => {
           onSubmit={handleAddJobType}
           className="hidden mb-6 p-4 bg-gray-50 rounded-lg"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Name
@@ -1046,24 +1036,6 @@ const Settings = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Service Line
-              </label>
-              <select
-                value={newJobType.service_line_id}
-                onChange={(e) => setNewJobType(prev => ({ ...prev, service_line_id: e.target.value }))}
-                className="select"
-                required
-              >
-                <option value="">Select a service line</option>
-                {serviceLines.map((line) => (
-                  <option key={line.id} value={line.id}>
-                    {line.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Description
               </label>
               <input
@@ -1080,7 +1052,7 @@ const Settings = () => {
               className="btn btn-secondary"
               onClick={() => {
                 document.getElementById('addJobTypeForm')?.classList.add('hidden');
-                setNewJobType({ name: '', code: '', description: '', service_line_id: '' });
+                setNewJobType({ name: '', code: '', description: '' });
               }}
             >
               Cancel
@@ -1098,7 +1070,6 @@ const Settings = () => {
               <tr>
                 <th>Name</th>
                 <th>Code</th>
-                <th>Service Line</th>
                 <th>Description</th>
                 <th>Status</th>
               </tr>
@@ -1108,7 +1079,6 @@ const Settings = () => {
                 <tr key={type.id}>
                   <td>{type.name}</td>
                   <td>{type.code}</td>
-                  <td>{type.service_lines?.name}</td>
                   <td>{type.description}</td>
                   <td>
                     <span className={`badge ${type.is_active ? 'badge-success' : 'badge-error'}`}>
