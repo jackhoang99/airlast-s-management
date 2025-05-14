@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Plus, Star, X } from 'lucide-react';
+import { ArrowLeft, Filter, Plus, Calendar, List, ChevronLeft, ChevronRight, X, Star, Phone, Mail, Clock } from 'lucide-react';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
+import AppointmentModal from '../components/jobs/AppointmentModal';
 
 type Location = Database['public']['Tables']['locations']['Row'] & {
   companies: {
@@ -16,6 +17,8 @@ type Location = Database['public']['Tables']['locations']['Row'] & {
   }[];
 };
 
+type User = Database['public']['Tables']['users']['Row'];
+
 const CreateJob = () => {
   const { supabase } = useSupabase();
   const navigate = useNavigate();
@@ -25,8 +28,13 @@ const CreateJob = () => {
   const [serviceLines, setServiceLines] = useState<any[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [showPresetModal, setShowPresetModal] = useState(false);
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [presetName, setPresetName] = useState('');
   const [presets, setPresets] = useState<any[]>([]);
+  const [selectedTechnician, setSelectedTechnician] = useState<User | null>(null);
+  const [scheduledDate, setScheduledDate] = useState<string>('');
+  const [scheduledDuration, setScheduledDuration] = useState<string>('');
+  const [jobTypes, setJobTypes] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
     // Service Location
@@ -70,11 +78,12 @@ const CreateJob = () => {
   });
 
   useEffect(() => {
-    const fetchLocations = async () => {
+    const fetchData = async () => {
       if (!supabase) return;
 
       try {
-        const { data, error } = await supabase
+        // Fetch locations
+        const { data: locationsData, error: locationsError } = await supabase
           .from('locations')
           .select(`
             *,
@@ -90,52 +99,47 @@ const CreateJob = () => {
           `)
           .order('name');
 
-        if (error) throw error;
-        setLocations(data || []);
-      } catch (err) {
-        console.error('Error fetching locations:', err);
-      }
-    };
+        if (locationsError) throw locationsError;
+        setLocations(locationsData || []);
 
-    const fetchServiceLines = async () => {
-      if (!supabase) return;
-
-      try {
-        const { data, error } = await supabase
+        // Fetch service lines
+        const { data: serviceLinesData, error: serviceLinesError } = await supabase
           .from('service_lines')
           .select('*')
           .eq('is_active', true)
           .order('name');
 
-        if (error) throw error;
-        setServiceLines(data || []);
-      } catch (err) {
-        console.error('Error fetching service lines:', err);
-      }
-    };
+        if (serviceLinesError) throw serviceLinesError;
+        setServiceLines(serviceLinesData || []);
 
-    const fetchPresets = async () => {
-      if (!supabase) return;
+        // Fetch job types
+        const { data: jobTypesData, error: jobTypesError } = await supabase
+          .from('job_types')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
 
-      try {
-        const { data, error } = await supabase
+        if (jobTypesError) throw jobTypesError;
+        setJobTypes(jobTypesData || []);
+
+        // Fetch presets
+        const { data: presetsData, error: presetsError } = await supabase
           .from('job_presets')
           .select('*')
           .order('name');
 
-        if (error) throw error;
-        setPresets(data || []);
+        if (presetsError) throw presetsError;
+        setPresets(presetsData || []);
       } catch (err) {
-        console.error('Error fetching presets:', err);
+        console.error('Error fetching data:', err);
+        setError('Failed to fetch data');
       }
     };
 
-    fetchLocations();
-    fetchServiceLines();
-    fetchPresets();
+    fetchData();
   }, [supabase]);
 
-  const handleLocationChange = (locationId: string) => {
+  const handleLocationChange = async (locationId: string) => {
     const location = locations.find(l => l.id === locationId);
     if (location) {
       setSelectedLocation(location);
@@ -156,17 +160,14 @@ const CreateJob = () => {
   };
 
   const handleLoadPreset = (preset: any) => {
-    // Load all preset data
     setFormData({
       ...preset.data,
-      // Keep current dates
       time_period_start: formData.time_period_start,
       time_period_due: formData.time_period_due,
       schedule_start: '',
       schedule_duration: '1.00'
     });
 
-    // If the preset has a location_id, load that location's data
     if (preset.data.location_id) {
       const location = locations.find(l => l.id === preset.data.location_id);
       if (location) {
@@ -175,11 +176,34 @@ const CreateJob = () => {
     }
   };
 
+  const handleDeletePreset = async (presetId: string) => {
+    if (!supabase) return;
+
+    try {
+      const { error } = await supabase
+        .from('job_presets')
+        .delete()
+        .eq('id', presetId);
+
+      if (error) throw error;
+      
+      // Refresh presets
+      const { data } = await supabase
+        .from('job_presets')
+        .select('*')
+        .order('name');
+      
+      setPresets(data || []);
+    } catch (err) {
+      console.error('Error deleting preset:', err);
+      setError('Failed to delete preset. Please try again.');
+    }
+  };
+
   const handleSavePreset = async () => {
     if (!supabase || !presetName) return;
 
     try {
-      // Get the current user's ID from the users table
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id')
@@ -211,6 +235,45 @@ const CreateJob = () => {
     } catch (err) {
       console.error('Error saving preset:', err);
       setError('Failed to save preset. Please try again.');
+    }
+  };
+
+  const handleScheduleAppointment = async (appointment: {
+    technicianId: string;
+    date: string;
+    time: string;
+    duration: string;
+  }) => {
+    if (!supabase) return;
+
+    try {
+      // Get technician details
+      const { data: techData, error: techError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', appointment.technicianId)
+        .single();
+
+      if (techError) throw techError;
+      setSelectedTechnician(techData);
+
+      // Convert appointment time to ISO string
+      const scheduleDateTime = new Date(`${appointment.date}T${appointment.time}`);
+      
+      setFormData(prev => ({
+        ...prev,
+        schedule_start: scheduleDateTime.toISOString(),
+        schedule_duration: appointment.duration
+      }));
+
+      // Store scheduled date and duration for display
+      setScheduledDate(`${appointment.date} ${appointment.time}`);
+      setScheduledDuration(appointment.duration);
+
+      setShowAppointmentModal(false);
+    } catch (err) {
+      console.error('Error fetching technician details:', err);
+      setError('Failed to fetch technician details. Please try again.');
     }
   };
 
@@ -276,24 +339,34 @@ const CreateJob = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {presets.map(preset => (
-            <button
+            <div
               key={preset.id}
-              onClick={() => handleLoadPreset(preset)}
-              className={`p-4 border rounded-lg hover:bg-gray-50 text-left ${
+              className={`p-4 border rounded-lg hover:bg-gray-50 text-left relative ${
                 formData.unit_id === preset.data.unit_id ? 'border-primary-500 ring-1 ring-primary-500' : ''
               }`}
             >
-              <h3 className="font-medium">{preset.name}</h3>
-              <p className="text-sm text-gray-500 mt-1">
-                {preset.data.type === 'preventative maintenance' ? 'PM' : 'Service Call'}
-                {preset.data.service_line ? ` • ${preset.data.service_line}` : ''}
-              </p>
-              {preset.data.unit_number && (
-                <p className="text-xs text-gray-400 mt-1">
-                  Unit: {preset.data.unit_number}
+              <button
+                onClick={() => handleDeletePreset(preset.id)}
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+              >
+                <X size={16} />
+              </button>
+              <button
+                onClick={() => handleLoadPreset(preset)}
+                className="w-full text-left"
+              >
+                <h3 className="font-medium">{preset.name}</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {preset.data.type === 'preventative maintenance' ? 'PM' : 'Service Call'}
+                  {preset.data.service_line ? ` • ${preset.data.service_line}` : ''}
                 </p>
-              )}
-            </button>
+                {preset.data.unit_number && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Unit: {preset.data.unit_number}
+                  </p>
+                )}
+              </button>
+            </div>
           ))}
         </div>
       </div>
@@ -350,13 +423,26 @@ const CreateJob = () => {
               <label htmlFor="unit_id" className="block text-sm font-medium text-gray-700 mb-1">
                 Service Unit
               </label>
-              <input
-                type="text"
-                value={formData.unit_number}
-                readOnly
-                className="input bg-gray-50"
-                placeholder={selectedLocation ? "Select Unit" : "Select a location first"}
-              />
+              <select
+                id="unit_id"
+                value={formData.unit_id}
+                onChange={(e) => {
+                  const unit = selectedLocation?.units?.find(u => u.id === e.target.value);
+                  setFormData(prev => ({
+                    ...prev,
+                    unit_id: e.target.value,
+                    unit_number: unit?.unit_number || ''
+                  }));
+                }}
+                className="select"
+              >
+                <option value="">Select Unit</option>
+                {selectedLocation?.units?.map(unit => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.unit_number}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="md:col-span-2">
@@ -595,16 +681,14 @@ const CreateJob = () => {
           </div>
         </div>
 
-        {/* Schedule */}
+        {/* Appointment */}
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-medium">Appointment</h2>
             <button
               type="button"
-              className="btn btn-secondary"
-              onClick={() => {
-                // Open schedule modal or navigate to scheduling page
-              }}
+              className="btn btn-primary"
+              onClick={() => setShowAppointmentModal(true)}
             >
               <Calendar className="h-4 w-4 mr-2" />
               Schedule Appointment
@@ -639,35 +723,41 @@ const CreateJob = () => {
                 className="input"
               />
             </div>
-
-            <div>
-              <label htmlFor="schedule_start" className="block text-sm font-medium text-gray-700 mb-1">
-                Schedule Date/Time
-              </label>
-              <input
-                type="datetime-local"
-                id="schedule_start"
-                value={formData.schedule_start}
-                onChange={(e) => setFormData(prev => ({ ...prev, schedule_start: e.target.value }))}
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="schedule_duration" className="block text-sm font-medium text-gray-700 mb-1">
-                Duration (hours)
-              </label>
-              <input
-                type="number"
-                id="schedule_duration"
-                value={formData.schedule_duration}
-                onChange={(e) => setFormData(prev => ({ ...prev, schedule_duration: e.target.value }))}
-                step="0.25"
-                min="0.25"
-                className="input"
-              />
-            </div>
           </div>
+
+          {selectedTechnician && (
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Assigned Technician</h3>
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
+                  <span className="text-sm font-medium">
+                    {selectedTechnician.first_name[0]}{selectedTechnician.last_name[0]}
+                  </span>
+                </div>
+                <div>
+                  <div className="font-medium">{selectedTechnician.first_name} {selectedTechnician.last_name}</div>
+                  <div className="text-sm text-gray-500 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Phone size={14} />
+                      {selectedTechnician.phone}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Mail size={14} />
+                      {selectedTechnician.email}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar size={14} />
+                      Scheduled: {scheduledDate}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock size={14} />
+                      Duration: {scheduledDuration} hours
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Additional Details */}
@@ -686,8 +776,11 @@ const CreateJob = () => {
                 required
                 className="select"
               >
-                <option value="preventative maintenance">Preventative Maintenance</option>
-                <option value="service call">Service Call</option>
+                {jobTypes.map(type => (
+                  <option key={type.id} value={type.name.toLowerCase()}>
+                    {type.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -786,6 +879,13 @@ const CreateJob = () => {
           </div>
         </div>
       )}
+
+      {/*  Appointment Modal */}
+      <AppointmentModal
+        isOpen={showAppointmentModal}
+        onClose={() => setShowAppointmentModal(false)}
+        onSave={handleScheduleAppointment}
+      />
     </div>
   );
 };
