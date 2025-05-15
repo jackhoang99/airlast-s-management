@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, Plus, Calendar, List, ChevronLeft, ChevronRight, UserPlus, X, MapPin, Clock, Calendar as CalendarIcon, User } from 'lucide-react';
+import { Search, Filter, Plus, Calendar, List, ChevronLeft, ChevronRight, UserPlus, X, MapPin, Clock, Calendar as CalendarIcon, User, CheckCircle } from 'lucide-react';
 import { Loader } from '@googlemaps/js-api-loader';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
@@ -55,10 +55,12 @@ const DispatchSchedule = () => {
   const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
   const [technicians, setTechnicians] = useState<User[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [completedJobs, setCompletedJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
   const [technicianJobs, setTechnicianJobs] = useState<{[key: string]: Date[]}>({}); // Store dates with jobs for each technician
+  const [showCompletedJobs, setShowCompletedJobs] = useState(false);
   const [filters, setFilters] = useState<MapFilters>({
     tags: [],
     office: 'All Offices',
@@ -144,16 +146,23 @@ const DispatchSchedule = () => {
           return job;
         }));
         
-        setJobs(jobsWithCoordinates);
+        // Separate completed and non-completed jobs
+        const completed = jobsWithCoordinates.filter(job => job.status === 'completed');
+        const active = jobsWithCoordinates.filter(job => job.status !== 'completed');
+        
+        setJobs(active);
+        setCompletedJobs(completed);
         
         // Update map markers
         if (map) {
-          updateMapMarkers(jobsWithCoordinates);
+          updateMapMarkers(active);
         }
 
         // Build a map of technician IDs to dates with jobs
         const techJobDates: {[key: string]: Date[]} = {};
-        jobsWithCoordinates.forEach(job => {
+        
+        // Only include non-completed jobs for the dates
+        active.forEach(job => {
           if (job.technician_id && job.schedule_start) {
             if (!techJobDates[job.technician_id]) {
               techJobDates[job.technician_id] = [];
@@ -169,6 +178,7 @@ const DispatchSchedule = () => {
             }
           }
         });
+        
         setTechnicianJobs(techJobDates);
       } catch (err) {
         console.error('Error fetching jobs:', err);
@@ -428,7 +438,9 @@ const DispatchSchedule = () => {
 
   // Filter jobs for the timeline
   const getJobsForTimeline = () => {
-    return jobs.filter(job => {
+    const jobsToShow = showCompletedJobs ? [...jobs, ...completedJobs] : jobs;
+    
+    return jobsToShow.filter(job => {
       // Filter by technician if one is selected
       if (selectedTechnician && job.technician_id !== selectedTechnician) {
         return false;
@@ -458,6 +470,11 @@ const DispatchSchedule = () => {
   const getJobsForTechnician = (techId: string) => {
     return jobs.filter(job => job.technician_id === techId && job.status !== 'completed' && job.status !== 'cancelled');
   };
+  
+  // Get completed jobs for a specific technician
+  const getCompletedJobsForTechnician = (techId: string) => {
+    return completedJobs.filter(job => job.technician_id === techId);
+  };
 
   // Calculate position and width for timeline job blocks
   const getTimelinePosition = (job: Job) => {
@@ -475,9 +492,9 @@ const DispatchSchedule = () => {
       }
     }
     
-    // Timeline starts at 6 AM (6) and ends at 6 PM (18)
-    const timelineStart = 6;
-    const timelineEnd = 18;
+    // Timeline starts at 12 AM (0) and ends at 12 PM (24)
+    const timelineStart = 0;
+    const timelineEnd = 24;
     const timelineWidth = timelineEnd - timelineStart;
     
     // Calculate position and width as percentages
@@ -609,9 +626,18 @@ const DispatchSchedule = () => {
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-medium">Main Office</h2>
               <div className="flex items-center gap-2">
-                <button className="text-sm text-gray-500">
-                  Hide Unassigned Jobs
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="showCompletedJobs"
+                    checked={showCompletedJobs}
+                    onChange={() => setShowCompletedJobs(!showCompletedJobs)}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <label htmlFor="showCompletedJobs" className="text-sm text-gray-500">
+                    Show Completed
+                  </label>
+                </div>
                 <Link to="/technicians/add" className="btn btn-primary btn-sm">
                   <UserPlus className="h-4 w-4 mr-1" />
                   Add Tech
@@ -650,6 +676,7 @@ const DispatchSchedule = () => {
               ) : (
                 filteredTechnicians.map(tech => {
                   const techJobs = getJobsForTechnician(tech.id);
+                  const completedTechJobs = getCompletedJobsForTechnician(tech.id);
                   const jobDates = technicianJobs[tech.id] || [];
                   
                   return (
@@ -669,6 +696,7 @@ const DispatchSchedule = () => {
                           <div className="font-medium">{`${tech.first_name} ${tech.last_name}`}</div>
                           <div className="text-xs text-gray-500">
                             {tech.role === 'technician' ? 'technician' : tech.role} • {techJobs.length} jobs
+                            {showCompletedJobs && completedTechJobs.length > 0 && ` • ${completedTechJobs.length} completed`}
                           </div>
                         </div>
                       </div>
@@ -692,6 +720,25 @@ const DispatchSchedule = () => {
                               >
                                 {jobDate.toLocaleDateString()}
                               </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Show completed jobs when technician is selected and showCompletedJobs is true */}
+                      {selectedTechnician === tech.id && showCompletedJobs && completedTechJobs.length > 0 && (
+                        <div className="ml-10 mt-2 mb-4">
+                          <div className="text-xs font-medium text-gray-500 mb-1">Completed Jobs:</div>
+                          <div className="space-y-1 max-h-40 overflow-y-auto">
+                            {completedTechJobs.map(job => (
+                              <Link 
+                                key={job.id}
+                                to={`/jobs/${job.id}`}
+                                className="text-xs p-1 rounded hover:bg-gray-100 flex items-center gap-1"
+                              >
+                                <CheckCircle size={12} className="text-success-500" />
+                                <span className="truncate">{job.name}</span>
+                              </Link>
                             ))}
                           </div>
                         </div>
@@ -723,9 +770,9 @@ const DispatchSchedule = () => {
                 <div className="w-[200px] border-r border-gray-200 p-2 text-sm font-medium text-gray-500">
                   Technician
                 </div>
-                {Array.from({ length: 13 }).map((_, i) => (
+                {Array.from({ length: 24 }).map((_, i) => (
                   <div key={i} className="flex-1 border-r border-gray-200 p-2 text-sm text-gray-500 text-center">
-                    {`${(i + 6) % 12 || 12}:00 ${i + 6 < 12 ? 'AM' : 'PM'}`}
+                    {`${i % 12 || 12}:00 ${i < 12 ? 'AM' : 'PM'}`}
                   </div>
                 ))}
               </div>

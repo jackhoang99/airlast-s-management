@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Filter, Plus, Calendar, List, ChevronLeft, ChevronRight, X, Star, Phone, Mail, Clock } from 'lucide-react';
+import { ArrowLeft, Filter, Plus, Calendar, List, ChevronLeft, ChevronRight, X, Star, Phone, Mail, Clock, AlertTriangle } from 'lucide-react';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
 import AppointmentModal from '../components/jobs/AppointmentModal';

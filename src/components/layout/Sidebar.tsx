@@ -14,6 +14,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
   const [isCustomersOpen, setIsCustomersOpen] = useState(false);
   const [isJobsOpen, setIsJobsOpen] = useState(false);
   const [isQuotesOpen, setIsQuotesOpen] = useState(false);
+  const [isInvoicesOpen, setIsInvoicesOpen] = useState(false);
   const { supabase } = useSupabase();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   
@@ -335,6 +336,83 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
               </ul>
             </li>
 
+            {/* Invoices Section */}
+            <li className="pt-4 mt-4">
+              <button 
+                onClick={() => setIsInvoicesOpen(!isInvoicesOpen)}
+                className="w-full px-2 mb-2 flex items-center justify-between text-sm font-medium text-gray-900 hover:bg-gray-50 rounded-md"
+              >
+                <div className="flex items-center">
+                  <FileInvoice size={18} className="mr-3 text-gray-400" />
+                  <span>Invoices</span>
+                </div>
+                <ChevronDown 
+                  size={16} 
+                  className={`text-gray-400 transition-transform duration-200 ${
+                    isInvoicesOpen ? 'transform rotate-180' : ''
+                  }`}
+                />
+              </button>
+              <ul 
+                className={`space-y-1 pl-7 overflow-hidden transition-all duration-200 ${
+                  isInvoicesOpen ? 'max-h-96' : 'max-h-0'
+                }`}
+              >
+                <li>
+                  <Link 
+                    to="/invoices"
+                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                      location.pathname === '/invoices'
+                        ? 'bg-primary-50 text-primary-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <FileInvoice size={16} className="mr-3" />
+                    All Invoices
+                  </Link>
+                </li>
+                <li>
+                  <Link 
+                    to="/invoices/pending"
+                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                      location.pathname.includes('/invoices/pending')
+                        ? 'bg-primary-50 text-primary-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <FileEdit size={16} className="mr-3" />
+                    Pending Invoices
+                  </Link>
+                </li>
+                <li>
+                  <Link 
+                    to="/invoices/paid"
+                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                      location.pathname.includes('/invoices/paid')
+                        ? 'bg-primary-50 text-primary-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <FileCheck size={16} className="mr-3" />
+                    Paid Invoices
+                  </Link>
+                </li>
+                <li>
+                  <Link 
+                    to="/invoices/reports"
+                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                      location.pathname.includes('/invoices/reports')
+                        ? 'bg-primary-50 text-primary-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <DollarSign size={16} className="mr-3" />
+                    Financial Reports
+                  </Link>
+                </li>
+              </ul>
+            </li>
+
             {/* Item Prices */}
             <li className="pt-4 mt-4">
               <Link 
@@ -368,7 +446,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
         </nav>
         
         {/* Account and settings */}
-        <div className="absolute bottom-0 left-0 right-0 border-t border-gray-200">
+        <div className="absolute bottom-0 left-0 right-0 border-t border-gray-200 mt-8">
           <div className="px-4 py-4">
             <ul className="space-y-1">
               <li>

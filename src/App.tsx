@@ -26,6 +26,10 @@ import { useEffect } from "react";
 import { useSupabase } from "./lib/supabase-context";
 import AddTechnician from "./pages/AddTechnician";
 import Locations from "./pages/Locations";
+import Invoices from "./pages/Invoices";
+import PendingInvoices from "./pages/PendingInvoices";
+import PaidInvoices from "./pages/PaidInvoices";
+import InvoiceReports from "./pages/InvoiceReports";
 
 function App() {
   const { supabase } = useSupabase();
@@ -89,6 +93,12 @@ function App() {
             <Route path=":id" element={<JobDetails />} />
             <Route path="create" element={<CreateJob />} />
             <Route path="dispatch" element={<DispatchSchedule />} />
+          </Route>
+          <Route path="invoices">
+            <Route index element={<Invoices />} />
+            <Route path="pending" element={<PendingInvoices />} />
+            <Route path="paid" element={<PaidInvoices />} />
+            <Route path="reports" element={<InvoiceReports />} />
           </Route>
           <Route path="technicians">
             <Route path="add" element={<AddTechnician />} />

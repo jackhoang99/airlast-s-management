@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
 import { 
   ArrowLeft, MapPin, Calendar, DollarSign, FileText, Clock, Package, 
   AlertTriangle, FileInput as FileInvoice, MessageSquare, Paperclip, 
   Building2, Tag, Send, Copy, Plus, Phone, Mail, Globe, Building,
-  Settings, ChevronDown, User, PenTool as Tool, Filter, Search, Trash2
+  Settings, ChevronDown, User, PenTool as Tool, Filter, Search, Trash2,
+  CheckCircle
 } from 'lucide-react';
 import Map from '../components/ui/Map';
 import AddJobItemModal from '../components/jobs/AddJobItemModal';
@@ -51,6 +52,7 @@ type JobAttachment = Database['public']['Tables']['job_attachments']['Row'];
 const JobDetails = () => {
   const { id } = useParams<{ id: string }>();
   const { supabase } = useSupabase();
+  const navigate = useNavigate();
   const [job, setJob] = useState<Job | null>(null);
   const [items, setItems] = useState<JobItem[]>([]);
   const [clockEvents, setClockEvents] = useState<JobClockEvent[]>([]);
@@ -65,6 +67,10 @@ const JobDetails = () => {
   const [itemsFilter, setItemsFilter] = useState('');
   const [groupByService, setGroupByService] = useState(false);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [isCompletingJob, setIsCompletingJob] = useState(false);
+  const [isCancellingJob, setIsCancellingJob] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   useEffect(() => {
     const fetchJobDetails = async () => {
@@ -207,6 +213,62 @@ const JobDetails = () => {
     }
   };
 
+  const handleCompleteJob = async () => {
+    if (!supabase || !job) return;
+    
+    setIsCompletingJob(true);
+    
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ 
+          status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', job.id);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setJob(prev => prev ? { ...prev, status: 'completed' } : null);
+      setShowCompleteModal(false);
+      
+    } catch (err) {
+      console.error('Error completing job:', err);
+      setError('Failed to complete job. Please try again.');
+    } finally {
+      setIsCompletingJob(false);
+    }
+  };
+
+  const handleCancelJob = async () => {
+    if (!supabase || !job) return;
+    
+    setIsCancellingJob(true);
+    
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ 
+          status: 'cancelled',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', job.id);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setJob(prev => prev ? { ...prev, status: 'cancelled' } : null);
+      setShowCancelModal(false);
+      
+    } catch (err) {
+      console.error('Error cancelling job:', err);
+      setError('Failed to cancel job. Please try again.');
+    } finally {
+      setIsCancellingJob(false);
+    }
+  };
+
   const formatDateTime = (date: string) => {
     return new Date(date).toLocaleString('en-US', {
       month: '2-digit',
@@ -325,6 +387,9 @@ const JobDetails = () => {
                   Unit: {job.units.unit_number}
                 </span>
               )}
+              <span className={`badge ${getStatusBadgeClass(job.status)}`}>
+                {job.status}
+              </span>
             </div>
             <h1 className="text-2xl font-bold mt-1">Job {job.number}</h1>
           </div>
@@ -992,10 +1057,15 @@ const JobDetails = () => {
           <div className="card">
             <h2 className="text-lg font-semibold mb-4">Act on this Job</h2>
             <div className="space-y-3">
-              <button className="btn btn-primary w-full justify-start">
-                <Calendar className="h-4 w-4 mr-2" />
-                Complete Job
-              </button>
+              {job.status !== 'completed' && job.status !== 'cancelled' && (
+                <button 
+                  className="btn btn-primary w-full justify-start"
+                  onClick={() => setShowCompleteModal(true)}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Complete Job
+                </button>
+              )}
               <button className="btn btn-secondary w-full justify-start">
                 <Send className="h-4 w-4 mr-2" />
                 Send Service Link
@@ -1004,10 +1074,15 @@ const JobDetails = () => {
                 <FileInvoice className="h-4 w-4 mr-2" />
                 Invoice Job
               </button>
-              <button className="btn btn-error w-full justify-start">
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                Cancel Job
-              </button>
+              {job.status !== 'completed' && job.status !== 'cancelled' && (
+                <button 
+                  className="btn btn-error w-full justify-start"
+                  onClick={() => setShowCancelModal(true)}
+                >
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Cancel Job
+                </button>
+              )}
               <button className="btn btn-secondary w-full justify-start">
                 <Copy className="h-4 w-4 mr-2" />
                 Copy Job
@@ -1061,6 +1136,86 @@ const JobDetails = () => {
         jobId={id || ''}
         onItemAdded={refreshItems}
       />
+
+      {/* Complete Job Confirmation Modal */}
+      {showCompleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center justify-center text-success-600 mb-4">
+              <CheckCircle size={40} />
+            </div>
+            <h3 className="text-lg font-semibold text-center mb-4">
+              Complete Job
+            </h3>
+            <p className="text-center text-gray-600 mb-6">
+              Are you sure you want to mark this job as completed? This will update the job status and notify relevant parties.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowCompleteModal(false)}
+                disabled={isCompletingJob}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-success"
+                onClick={handleCompleteJob}
+                disabled={isCompletingJob}
+              >
+                {isCompletingJob ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                    Completing...
+                  </>
+                ) : (
+                  'Complete Job'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Job Confirmation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center justify-center text-error-600 mb-4">
+              <AlertTriangle size={40} />
+            </div>
+            <h3 className="text-lg font-semibold text-center mb-4">
+              Cancel Job
+            </h3>
+            <p className="text-center text-gray-600 mb-6">
+              Are you sure you want to cancel this job? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowCancelModal(false)}
+                disabled={isCancellingJob}
+              >
+                Go Back
+              </button>
+              <button 
+                className="btn btn-error"
+                onClick={handleCancelJob}
+                disabled={isCancellingJob}
+              >
+                {isCancellingJob ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                    Cancelling...
+                  </>
+                ) : (
+                  'Cancel Job'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
