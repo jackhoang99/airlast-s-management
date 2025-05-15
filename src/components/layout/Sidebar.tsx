@@ -105,7 +105,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
             </li>
 
             {/* Customers Section */}
-            <li className="pt-4">
+            <li className="pt-4 mt-4">
               <button 
                 onClick={() => setIsCustomersOpen(!isCustomersOpen)}
                 className="w-full px-2 mb-2 flex items-center justify-between text-sm font-medium text-gray-900 hover:bg-gray-50 rounded-md"
@@ -195,7 +195,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
             </li>
 
             {/* Jobs Section */}
-            <li className="pt-4">
+            <li className="pt-4 mt-4">
               <button 
                 onClick={() => setIsJobsOpen(!isJobsOpen)}
                 className="w-full px-2 mb-2 flex items-center justify-between text-sm font-medium text-gray-900 hover:bg-gray-50 rounded-md"
@@ -272,7 +272,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
             </li>
 
             {/* Quotes Section */}
-            <li className="pt-4">
+            <li className="pt-4 mt-4">
               <button 
                 onClick={() => setIsQuotesOpen(!isQuotesOpen)}
                 className="w-full px-2 mb-2 flex items-center justify-between text-sm font-medium text-gray-900 hover:bg-gray-50 rounded-md"
@@ -336,7 +336,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
             </li>
 
             {/* Item Prices */}
-            <li className="pt-4">
+            <li className="pt-4 mt-4">
               <Link 
                 to="/item-prices"
                 className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
@@ -351,7 +351,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
             </li>
 
             {/* Settings */}
-            <li className="pt-4">
+            <li className="pt-4 mt-4">
               <Link 
                 to="/settings"
                 className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${

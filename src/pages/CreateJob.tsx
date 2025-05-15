@@ -33,6 +33,7 @@ const CreateJob = () => {
   const [presets, setPresets] = useState<any[]>([]);
   const [selectedTechnician, setSelectedTechnician] = useState<User | null>(null);
   const [jobTypes, setJobTypes] = useState<any[]>([]);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   
   const [formData, setFormData] = useState({
     // Service Location
@@ -276,9 +277,32 @@ const CreateJob = () => {
     }
   };
 
+  const validateForm = () => {
+    const errors: {[key: string]: string} = {};
+    
+    // Required fields
+    if (!formData.location_id) errors.location_id = "Service location is required";
+    if (!formData.service_address) errors.service_address = "Service address is required";
+    if (!formData.service_city) errors.service_city = "Service city is required";
+    if (!formData.service_state) errors.service_state = "Service state is required";
+    if (!formData.service_zip) errors.service_zip = "Service zip is required";
+    if (!formData.service_line) errors.service_line = "Service line is required";
+    if (!formData.description) errors.description = "Description is required";
+    if (!formData.contact_type) errors.contact_type = "Contact type is required";
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) return;
+
+    // Validate form
+    if (!validateForm()) {
+      setError('Please fill in all required fields.');
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -431,7 +455,7 @@ const CreateJob = () => {
                 value={formData.location_id}
                 onChange={(e) => handleLocationChange(e.target.value)}
                 required
-                className="select"
+                className={`select ${validationErrors.location_id ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               >
                 <option value="">Select Location</option>
                 {locations.map(location => (
@@ -440,6 +464,9 @@ const CreateJob = () => {
                   </option>
                 ))}
               </select>
+              {validationErrors.location_id && (
+                <p className="mt-1 text-sm text-error-600">{validationErrors.location_id}</p>
+              )}
             </div>
 
             {/* Unit Selection */}
@@ -479,8 +506,11 @@ const CreateJob = () => {
                 value={formData.service_address}
                 onChange={(e) => setFormData(prev => ({ ...prev, service_address: e.target.value }))}
                 required
-                className="input"
+                className={`input ${validationErrors.service_address ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               />
+              {validationErrors.service_address && (
+                <p className="mt-1 text-sm text-error-600">{validationErrors.service_address}</p>
+              )}
             </div>
 
             <div>
@@ -493,8 +523,11 @@ const CreateJob = () => {
                 value={formData.service_city}
                 onChange={(e) => setFormData(prev => ({ ...prev, service_city: e.target.value }))}
                 required
-                className="input"
+                className={`input ${validationErrors.service_city ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               />
+              {validationErrors.service_city && (
+                <p className="mt-1 text-sm text-error-600">{validationErrors.service_city}</p>
+              )}
             </div>
 
             <div>
@@ -508,8 +541,11 @@ const CreateJob = () => {
                 onChange={(e) => setFormData(prev => ({ ...prev, service_state: e.target.value }))}
                 required
                 maxLength={2}
-                className="input"
+                className={`input ${validationErrors.service_state ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               />
+              {validationErrors.service_state && (
+                <p className="mt-1 text-sm text-error-600">{validationErrors.service_state}</p>
+              )}
             </div>
 
             <div>
@@ -522,8 +558,11 @@ const CreateJob = () => {
                 value={formData.service_zip}
                 onChange={(e) => setFormData(prev => ({ ...prev, service_zip: e.target.value }))}
                 required
-                className="input"
+                className={`input ${validationErrors.service_zip ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               />
+              {validationErrors.service_zip && (
+                <p className="mt-1 text-sm text-error-600">{validationErrors.service_zip}</p>
+              )}
             </div>
 
             <div>
@@ -608,19 +647,22 @@ const CreateJob = () => {
 
             <div>
               <label htmlFor="contact_type" className="block text-sm font-medium text-gray-700 mb-1">
-                Contact Type
+                Contact Type *
               </label>
               <select
                 id="contact_type"
                 value={formData.contact_type}
                 onChange={(e) => setFormData(prev => ({ ...prev, contact_type: e.target.value }))}
-                className="select"
+                className={`select ${validationErrors.contact_type ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               >
                 <option value="">Select Type</option>
                 <option value="primary">Primary</option>
                 <option value="secondary">Secondary</option>
                 <option value="emergency">Emergency</option>
               </select>
+              {validationErrors.contact_type && (
+                <p className="mt-1 text-sm text-error-600">{validationErrors.contact_type}</p>
+              )}
             </div>
 
             <div>
@@ -665,7 +707,7 @@ const CreateJob = () => {
                 value={formData.service_line}
                 onChange={(e) => setFormData(prev => ({ ...prev, service_line: e.target.value }))}
                 required
-                className="select"
+                className={`select ${validationErrors.service_line ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               >
                 <option value="">Select Service Line</option>
                 {serviceLines.map(line => (
@@ -674,6 +716,9 @@ const CreateJob = () => {
                   </option>
                 ))}
               </select>
+              {validationErrors.service_line && (
+                <p className="mt-1 text-sm text-error-600">{validationErrors.service_line}</p>
+              )}
             </div>
 
             <div>
@@ -686,8 +731,11 @@ const CreateJob = () => {
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 required
                 rows={4}
-                className="input"
+                className={`input ${validationErrors.description ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               />
+              {validationErrors.description && (
+                <p className="mt-1 text-sm text-error-600">{validationErrors.description}</p>
+              )}
             </div>
 
             <div>
