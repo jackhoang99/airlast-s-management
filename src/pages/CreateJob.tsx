@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Filter, Plus, Calendar, List, ChevronLeft, ChevronRight, X, Star, Phone, Mail, Clock, AlertTriangle } from 'lucide-react';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
@@ -22,6 +22,10 @@ type User = Database['public']['Tables']['users']['Row'];
 const CreateJob = () => {
   const { supabase } = useSupabase();
   const navigate = useNavigate();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const unitIdFromUrl = searchParams.get('unitId');
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -34,6 +38,7 @@ const CreateJob = () => {
   const [selectedTechnician, setSelectedTechnician] = useState<User | null>(null);
   const [jobTypes, setJobTypes] = useState<any[]>([]);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+  const [isLoadingUnitDetails, setIsLoadingUnitDetails] = useState(false);
   
   const [formData, setFormData] = useState({
     // Service Location
@@ -139,6 +144,80 @@ const CreateJob = () => {
 
     fetchData();
   }, [supabase]);
+
+  // Load unit details if unitId is provided in URL
+  useEffect(() => {
+    const loadUnitDetails = async () => {
+      if (!supabase || !unitIdFromUrl) return;
+      
+      setIsLoadingUnitDetails(true);
+      
+      try {
+        // Fetch unit details
+        const { data: unitData, error: unitError } = await supabase
+          .from('units')
+          .select(`
+            *,
+            locations (
+              id,
+              name,
+              address,
+              city,
+              state,
+              zip,
+              company_id,
+              companies (
+                id,
+                name
+              )
+            )
+          `)
+          .eq('id', unitIdFromUrl)
+          .single();
+          
+        if (unitError) throw unitError;
+        
+        if (unitData && unitData.locations) {
+          // Set location data
+          const locationData = unitData.locations;
+          
+          // Find the full location object with units
+          const fullLocation = locations.find(loc => loc.id === locationData.id);
+          
+          if (fullLocation) {
+            setSelectedLocation(fullLocation);
+          }
+          
+          // Update form data with unit and location details
+          setFormData(prev => ({
+            ...prev,
+            company_id: locationData.company_id,
+            company_name: locationData.companies?.name || '',
+            location_id: locationData.id,
+            location_name: locationData.name,
+            unit_id: unitData.id,
+            unit_number: unitData.unit_number,
+            service_address: locationData.address,
+            service_city: locationData.city,
+            service_state: locationData.state,
+            service_zip: locationData.zip
+          }));
+          
+          // Scroll to top of page
+          window.scrollTo(0, 0);
+        }
+      } catch (err) {
+        console.error('Error loading unit details:', err);
+        setError('Failed to load unit details');
+      } finally {
+        setIsLoadingUnitDetails(false);
+      }
+    };
+    
+    if (unitIdFromUrl && locations.length > 0) {
+      loadUnitDetails();
+    }
+  }, [supabase, unitIdFromUrl, locations]);
 
   const handleLocationChange = async (locationId: string) => {
     const location = locations.find(l => l.id === locationId);
@@ -456,6 +535,7 @@ const CreateJob = () => {
                 onChange={(e) => handleLocationChange(e.target.value)}
                 required
                 className={`select ${validationErrors.location_id ? 'border-error-500 ring-1 ring-error-500' : ''}`}
+                disabled={isLoadingUnitDetails}
               >
                 <option value="">Select Location</option>
                 {locations.map(location => (
@@ -486,6 +566,7 @@ const CreateJob = () => {
                   }));
                 }}
                 className="select"
+                disabled={isLoadingUnitDetails || !selectedLocation}
               >
                 <option value="">Select Unit</option>
                 {selectedLocation?.units?.map(unit => (

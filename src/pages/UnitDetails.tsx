@@ -259,7 +259,7 @@ const UnitDetails = () => {
               </h2>
               <div className="flex items-center gap-2">
                 <span className="badge">{jobs.length} Jobs</span>
-                <Link to={`/jobs/create`} className="btn btn-primary btn-sm">
+                <Link to={`/jobs/create?unitId=${unit.id}`} className="btn btn-primary btn-sm">
                   <Plus size={14} className="mr-1" />
                   Create Job
                 </Link>
@@ -330,7 +330,7 @@ const UnitDetails = () => {
               <div className="text-center py-8 bg-gray-50 rounded-lg">
                 <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-gray-500 mb-4">No jobs found for this unit</p>
-                <Link to="/jobs/create" className="btn btn-primary">
+                <Link to={`/jobs/create?unitId=${unit.id}`} className="btn btn-primary">
                   <Plus size={16} className="mr-2" />
                   Create Job
                 </Link>
@@ -428,10 +428,7 @@ const UnitDetails = () => {
             <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
             <div className="space-y-3">
               <Link 
-                to={{
-                  pathname: "/jobs/create",
-                  search: `?unitId=${unit.id}`
-                }}
+                to={`/jobs/create?unitId=${unit.id}`}
                 className="btn btn-primary w-full justify-start"
               >
                 <Calendar size={16} className="mr-2" />

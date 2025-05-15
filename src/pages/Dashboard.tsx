@@ -20,6 +20,67 @@ const Dashboard = () => {
     { id: '5', name: 'Desert Sun Properties', city: 'Phoenix', state: 'AZ' },
   ]);
 
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!supabase) return;
+      
+      try {
+        // Fetch companies count
+        const { count: companiesCount, error: companiesError } = await supabase
+          .from('companies')
+          .select('*', { count: 'exact', head: true });
+        
+        // Fetch locations count
+        const { count: locationsCount, error: locationsError } = await supabase
+          .from('locations')
+          .select('*', { count: 'exact', head: true });
+        
+        // Fetch units count
+        const { count: unitsCount, error: unitsError } = await supabase
+          .from('units')
+          .select('*', { count: 'exact', head: true });
+        
+        // Fetch active units count
+        const { count: activeUnitsCount, error: activeUnitsError } = await supabase
+          .from('units')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'Active');
+        
+        // Fetch inactive units count
+        const { count: inactiveUnitsCount, error: inactiveUnitsError } = await supabase
+          .from('units')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'Inactive');
+        
+        // Fetch recent companies
+        const { data: recentCompaniesData, error: recentCompaniesError } = await supabase
+          .from('companies')
+          .select('id, name, city, state')
+          .order('created_at', { ascending: false })
+          .limit(5);
+        
+        if (!companiesError && !locationsError && !unitsError && 
+            !activeUnitsError && !inactiveUnitsError) {
+          setStats({
+            totalCompanies: companiesCount || 0,
+            totalLocations: locationsCount || 0,
+            totalUnits: unitsCount || 0,
+            activeUnits: activeUnitsCount || 0,
+            inactiveUnits: inactiveUnitsCount || 0,
+          });
+        }
+        
+        if (!recentCompaniesError && recentCompaniesData) {
+          setRecentCompanies(recentCompaniesData);
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard stats:', err);
+      }
+    };
+    
+    fetchStats();
+  }, [supabase]);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
