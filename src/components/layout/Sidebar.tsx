@@ -16,25 +16,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
   const [isQuotesOpen, setIsQuotesOpen] = useState(false);
   const [isInvoicesOpen, setIsInvoicesOpen] = useState(false);
   const { supabase } = useSupabase();
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  
-  useEffect(() => {
-    const fetchLogo = async () => {
-      if (!supabase) return;
-      
-      const { data, error } = await supabase
-        .from('configuration')
-        .select('value')
-        .eq('key', 'logo_url')
-        .single();
-      
-      if (!error && data) {
-        setLogoUrl(data.value);
-      }
-    };
-    
-    fetchLogo();
-  }, [supabase]);
+  const [logoUrl, setLogoUrl] = useState<string | null>('/airlast-logo.svg');
   
   const isActive = (path: string) => {
     return location.pathname === path;

@@ -14,10 +14,14 @@ type Job = Database['public']['Tables']['jobs']['Row'] & {
       name: string;
     };
   };
-  users?: {
-    first_name: string;
-    last_name: string;
-  };
+  job_technicians?: {
+    technician_id: string;
+    is_primary: boolean;
+    users: {
+      first_name: string;
+      last_name: string;
+    };
+  }[];
   job_items?: {
     total_cost: number;
   }[];
@@ -80,9 +84,13 @@ const Jobs = () => {
                 name
               )
             ),
-            users:technician_id (
-              first_name,
-              last_name
+            job_technicians (
+              technician_id,
+              is_primary,
+              users:technician_id (
+                first_name,
+                last_name
+              )
             ),
             job_items (
               total_cost
@@ -459,6 +467,17 @@ const Jobs = () => {
     }
   };
 
+  // Get technician names for a job
+  const getTechnicianNames = (job: Job) => {
+    if (!job.job_technicians || job.job_technicians.length === 0) {
+      return 'No technicians assigned';
+    }
+    
+    return job.job_technicians.map(jt => 
+      `${jt.users.first_name} ${jt.users.last_name}`
+    ).join(', ');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -777,9 +796,9 @@ const Jobs = () => {
                             </div>
                           </div>
                         )}
-                        {job.users && (
+                        {job.job_technicians && job.job_technicians.length > 0 && (
                           <div className="text-sm text-gray-500 mt-1">
-                            Technician: {job.users.first_name} {job.users.last_name}
+                            Technicians: {getTechnicianNames(job)}
                           </div>
                         )}
                       </div>

@@ -21,10 +21,14 @@ type Job = Database['public']['Tables']['jobs']['Row'] & {
   units?: {
     unit_number: string;
   };
-  users?: {
-    first_name: string;
-    last_name: string;
-  };
+  job_technicians?: {
+    technician_id: string;
+    is_primary: boolean;
+    users: {
+      first_name: string;
+      last_name: string;
+    };
+  }[];
 };
 
 type MapFilters = {
@@ -104,7 +108,7 @@ const DispatchSchedule = () => {
       if (!supabase) return;
 
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('jobs')
           .select(`
             *,
@@ -118,13 +122,22 @@ const DispatchSchedule = () => {
             units (
               unit_number
             ),
-            users:technician_id (
-              first_name,
-              last_name
+            job_technicians (
+              technician_id,
+              is_primary,
+              users:technician_id (
+                first_name,
+                last_name
+              )
+            ),
+            job_items (
+              total_cost
             )
           `)
           .gte('time_period_start', filters.dateRange.from)
           .lte('time_period_due', filters.dateRange.to);
+
+        const { data, error } = await query;
 
         if (error) throw error;
         
@@ -163,18 +176,28 @@ const DispatchSchedule = () => {
         
         // Only include non-completed jobs for the dates
         active.forEach(job => {
-          if (job.technician_id && job.schedule_start) {
-            if (!techJobDates[job.technician_id]) {
-              techJobDates[job.technician_id] = [];
-            }
-            const jobDate = new Date(job.schedule_start);
-            // Only add the date if it's not already in the array
-            if (!techJobDates[job.technician_id].some(d => 
-              d.getDate() === jobDate.getDate() && 
-              d.getMonth() === jobDate.getMonth() && 
-              d.getFullYear() === jobDate.getFullYear()
-            )) {
-              techJobDates[job.technician_id].push(jobDate);
+          // Check the job_technicians array
+          if (job.job_technicians && job.job_technicians.length > 0) {
+            const technicianIds = job.job_technicians.map(jt => jt.technician_id);
+            
+            // For each technician, add the job date
+            if (job.schedule_start) {
+              const jobDate = new Date(job.schedule_start);
+              
+              technicianIds.forEach(techId => {
+                if (!techJobDates[techId]) {
+                  techJobDates[techId] = [];
+                }
+                
+                // Only add the date if it's not already in the array
+                if (!techJobDates[techId].some(d => 
+                  d.getDate() === jobDate.getDate() && 
+                  d.getMonth() === jobDate.getMonth() && 
+                  d.getFullYear() === jobDate.getFullYear()
+                )) {
+                  techJobDates[techId].push(jobDate);
+                }
+              });
             }
           }
         });
@@ -238,8 +261,14 @@ const DispatchSchedule = () => {
       // Filter jobs for the selected date and technician
       const filteredJobs = jobs.filter(job => {
         // Filter by technician if one is selected
-        if (selectedTechnician && job.technician_id !== selectedTechnician) {
-          return false;
+        if (selectedTechnician) {
+          // Check the job_technicians array
+          const hasTechnician = job.job_technicians && 
+            job.job_technicians.some(jt => jt.technician_id === selectedTechnician);
+            
+          if (!hasTechnician) {
+            return false;
+          }
         }
         
         // Filter by date
@@ -317,7 +346,10 @@ const DispatchSchedule = () => {
                 <strong>Status:</strong> ${job.status}<br>
                 <strong>Type:</strong> ${job.type}<br>
                 ${job.schedule_start ? `<strong>Scheduled:</strong> ${formatDateTime(job.schedule_start)}<br>` : ''}
-                ${job.users ? `<strong>Technician:</strong> ${job.users.first_name} ${job.users.last_name}` : ''}
+                ${job.job_technicians && job.job_technicians.length > 0 
+                  ? `<strong>Technicians:</strong> ${job.job_technicians.map(jt => 
+                      `${jt.users.first_name} ${jt.users.last_name}`).join(', ')}` 
+                  : ''}
               </p>
               <a href="/jobs/${job.id}" style="color: #0672be; font-size: 12px; text-decoration: none;">View Job Details</a>
             </div>
@@ -442,8 +474,14 @@ const DispatchSchedule = () => {
     
     return jobsToShow.filter(job => {
       // Filter by technician if one is selected
-      if (selectedTechnician && job.technician_id !== selectedTechnician) {
-        return false;
+      if (selectedTechnician) {
+        // Check the job_technicians array
+        const hasTechnician = job.job_technicians && 
+          job.job_technicians.some(jt => jt.technician_id === selectedTechnician);
+          
+        if (!hasTechnician) {
+          return false;
+        }
       }
       
       // Only show jobs with schedule_start for the timeline
@@ -463,17 +501,33 @@ const DispatchSchedule = () => {
 
   // Get unassigned jobs
   const getUnassignedJobs = () => {
-    return jobs.filter(job => !job.technician_id && job.status !== 'completed' && job.status !== 'cancelled');
+    return jobs.filter(job => 
+      (!job.job_technicians || job.job_technicians.length === 0) && 
+      job.status !== 'completed' && 
+      job.status !== 'cancelled'
+    );
   };
 
   // Get jobs for a specific technician
   const getJobsForTechnician = (techId: string) => {
-    return jobs.filter(job => job.technician_id === techId && job.status !== 'completed' && job.status !== 'cancelled');
+    return jobs.filter(job => {
+      // Check the job_technicians array
+      const hasTechnician = job.job_technicians && 
+        job.job_technicians.some(jt => jt.technician_id === techId);
+        
+      return hasTechnician && job.status !== 'completed' && job.status !== 'cancelled';
+    });
   };
   
   // Get completed jobs for a specific technician
   const getCompletedJobsForTechnician = (techId: string) => {
-    return completedJobs.filter(job => job.technician_id === techId);
+    return completedJobs.filter(job => {
+      // Check the job_technicians array
+      const hasTechnician = job.job_technicians && 
+        job.job_technicians.some(jt => jt.technician_id === techId);
+        
+      return hasTechnician;
+    });
   };
 
   // Calculate position and width for timeline job blocks
@@ -809,7 +863,11 @@ const DispatchSchedule = () => {
                   </div>
                   <div className="flex-1 relative h-16">
                     {getJobsForTimeline()
-                      .filter(job => job.technician_id === tech.id)
+                      .filter(job => {
+                        // Check the job_technicians array
+                        return job.job_technicians && 
+                          job.job_technicians.some(jt => jt.technician_id === tech.id);
+                      })
                       .map(job => {
                         const position = getTimelinePosition(job);
                         if (!position) return null;

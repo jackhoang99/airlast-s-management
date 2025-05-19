@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Filter, Plus, Calendar, List, ChevronLeft, ChevronRight, X, Star, Phone, Mail, Clock, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Filter, Plus, Calendar, List, ChevronLeft, ChevronRight, X, Star, Phone, Mail, Clock, AlertTriangle, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
 import AppointmentModal from '../components/jobs/AppointmentModal';
@@ -35,10 +35,11 @@ const CreateJob = () => {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [presetName, setPresetName] = useState('');
   const [presets, setPresets] = useState<any[]>([]);
-  const [selectedTechnician, setSelectedTechnician] = useState<User | null>(null);
+  const [selectedTechnicians, setSelectedTechnicians] = useState<User[]>([]);
   const [jobTypes, setJobTypes] = useState<any[]>([]);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [isLoadingUnitDetails, setIsLoadingUnitDetails] = useState(false);
+  const [isContractJob, setIsContractJob] = useState(true);
   
   const [formData, setFormData] = useState({
     // Service Location
@@ -75,7 +76,7 @@ const CreateJob = () => {
     schedule_time: '',
     schedule_duration: '1:00',
     schedule_start: '',
-    technician_id: '',
+    technician_ids: [] as string[],
     
     // Additional Details
     type: 'preventative maintenance',
@@ -253,11 +254,11 @@ const CreateJob = () => {
       }
     }
 
-    if (preset.data.technician) {
-      setSelectedTechnician(preset.data.technician);
+    if (preset.data.technicians) {
+      setSelectedTechnicians(preset.data.technicians);
       setFormData(prev => ({
         ...prev,
-        technician_id: preset.data.technician.id
+        technician_ids: preset.data.technicians.map((tech: User) => tech.id)
       }));
     }
   };
@@ -301,7 +302,7 @@ const CreateJob = () => {
 
       const presetData = {
         ...formData,
-        technician: selectedTechnician
+        technicians: selectedTechnicians
       };
 
       const { error } = await supabase
@@ -313,6 +314,8 @@ const CreateJob = () => {
         });
 
       if (error) throw error;
+      
+      // Reset form and close modal
       setShowPresetModal(false);
       setPresetName('');
       
@@ -330,7 +333,7 @@ const CreateJob = () => {
   };
 
   const handleScheduleAppointment = async (appointment: {
-    technicianId: string;
+    technicianIds: string[];
   }) => {
     if (!supabase) return;
 
@@ -339,14 +342,13 @@ const CreateJob = () => {
       const { data: techData, error: techError } = await supabase
         .from('users')
         .select('*')
-        .eq('id', appointment.technicianId)
-        .single();
+        .in('id', appointment.technicianIds);
 
       if (techError) throw techError;
-      setSelectedTechnician(techData);
+      setSelectedTechnicians(techData || []);
       setFormData(prev => ({
         ...prev,
-        technician_id: appointment.technicianId
+        technician_ids: appointment.technicianIds
       }));
 
       setShowAppointmentModal(false);
@@ -393,7 +395,8 @@ const CreateJob = () => {
         scheduleStart = new Date(`${formData.schedule_date}T${formData.schedule_time}`).toISOString();
       }
 
-      const { error: insertError } = await supabase
+      // Create the job
+      const { data: jobData, error: insertError } = await supabase
         .from('jobs')
         .insert({
           name: `${formData.service_line} - ${formData.description}`.trim(),
@@ -415,11 +418,28 @@ const CreateJob = () => {
           schedule_duration: formData.schedule_duration ? `${formData.schedule_duration} hours` : null,
           status: scheduleStart ? 'scheduled' : 'unscheduled',
           office: formData.office,
-          service_contract: formData.service_contract,
-          technician_id: formData.technician_id || null
-        });
+          service_contract: isContractJob ? formData.service_contract : 'Non-Contract'
+        })
+        .select()
+        .single();
 
       if (insertError) throw insertError;
+      
+      // If there are technicians, add them to the job_technicians table
+      if (formData.technician_ids.length > 0 && jobData) {
+        const technicianEntries = formData.technician_ids.map((techId, index) => ({
+          job_id: jobData.id,
+          technician_id: techId,
+          is_primary: index === 0 // First technician is primary
+        }));
+        
+        const { error: techError } = await supabase
+          .from('job_technicians')
+          .insert(technicianEntries);
+          
+        if (techError) throw techError;
+      }
+      
       navigate('/jobs');
     } catch (err) {
       console.error('Error creating job:', err);
@@ -476,9 +496,11 @@ const CreateJob = () => {
                     {preset.data.type === 'preventative maintenance' ? 'PM' : 'Service Call'}
                     {preset.data.service_line ? ` • ${preset.data.service_line}` : ''}
                   </div>
-                  {preset.data.technician && (
+                  {preset.data.technicians && preset.data.technicians.length > 0 && (
                     <div className="mt-1 text-gray-600">
-                      {preset.data.technician.first_name} {preset.data.technician.last_name}
+                      {preset.data.technicians.map((tech: User) => 
+                        `${tech.first_name} ${tech.last_name}`
+                      ).join(', ')}
                     </div>
                   )}
                   {preset.data.location_name && (
@@ -675,22 +697,50 @@ const CreateJob = () => {
             </div>
 
             <div>
-              <label htmlFor="service_contract" className="block text-sm font-medium text-gray-700 mb-1">
-                Service Contract
-              </label>
-              <select
-                id="service_contract"
-                value={formData.service_contract}
-                onChange={(e) => setFormData(prev => ({ ...prev, service_contract: e.target.value }))}
-                className="select"
-              >
-                <option value="Standard">Standard</option>
-                <option value="Financial">Financial</option>
-                <option value="Management">Management</option>
-                <option value="On-site">On-site</option>
-                <option value="Owner">Owner</option>
-                <option value="Sales">Sales</option>
-              </select>
+              <div className="flex justify-between items-center mb-1">
+                <label htmlFor="service_contract" className="block text-sm font-medium text-gray-700">
+                  Service Contract
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsContractJob(!isContractJob)}
+                  className="flex items-center text-sm text-primary-600"
+                >
+                  {isContractJob ? (
+                    <>
+                      <ToggleRight className="h-5 w-5 mr-1" />
+                      Contract
+                    </>
+                  ) : (
+                    <>
+                      <ToggleLeft className="h-5 w-5 mr-1" />
+                      Non-Contract
+                    </>
+                  )}
+                </button>
+              </div>
+              {isContractJob ? (
+                <select
+                  id="service_contract"
+                  value={formData.service_contract}
+                  onChange={(e) => setFormData(prev => ({ ...prev, service_contract: e.target.value }))}
+                  className="select"
+                >
+                  <option value="Standard">Standard</option>
+                  <option value="Financial">Financial</option>
+                  <option value="Management">Management</option>
+                  <option value="On-site">On-site</option>
+                  <option value="Owner">Owner</option>
+                  <option value="Sales">Sales</option>
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value="Non-Contract"
+                  readOnly
+                  className="input bg-gray-50"
+                />
+              )}
             </div>
           </div>
         </div>
@@ -844,7 +894,7 @@ const CreateJob = () => {
               onClick={() => setShowAppointmentModal(true)}
             >
               <Calendar className="h-4 w-4 mr-2" />
-              Select Technician
+              Select Technicians
             </button>
           </div>
           
@@ -924,28 +974,32 @@ const CreateJob = () => {
             </div>
           </div>
 
-          {selectedTechnician && (
+          {selectedTechnicians.length > 0 && (
             <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Assigned Technician</h3>
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-medium">
-                    {selectedTechnician.first_name[0]}{selectedTechnician.last_name[0]}
-                  </span>
-                </div>
-                <div>
-                  <div className="font-medium">{selectedTechnician.first_name} {selectedTechnician.last_name}</div>
-                  <div className="text-sm text-gray-500 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Phone size={14} />
-                      {selectedTechnician.phone}
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Assigned Technicians</h3>
+              <div className="space-y-3">
+                {selectedTechnicians.map(tech => (
+                  <div key={tech.id} className="flex items-start gap-4">
+                    <div className="w-10 h-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium">
+                        {tech.first_name?.[0] || '?'}{tech.last_name?.[0] || '?'}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Mail size={14} />
-                      {selectedTechnician.email}
+                    <div>
+                      <div className="font-medium">{tech.first_name} {tech.last_name}</div>
+                      <div className="text-sm text-gray-500 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Phone size={14} />
+                          {tech.phone}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Mail size={14} />
+                          {tech.email}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ))}
               </div>
             </div>
           )}
@@ -1061,6 +1115,7 @@ const CreateJob = () => {
         isOpen={showAppointmentModal}
         onClose={() => setShowAppointmentModal(false)}
         onSave={handleScheduleAppointment}
+        selectedTechnicianIds={formData.technician_ids}
       />
     </div>
   );

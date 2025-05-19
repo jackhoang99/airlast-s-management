@@ -35,25 +35,15 @@ function App() {
   const { supabase } = useSupabase();
 
   useEffect(() => {
-    const fetchLogo = async () => {
-      if (!supabase) return;
-
-      const { data, error } = await supabase
-        .from("configuration")
-        .select("value")
-        .eq("key", "logo_url")
-        .single();
-
-      if (!error && data?.value) {
-        const favicon = document.getElementById("favicon");
-        if (favicon) {
-          favicon.setAttribute("href", data.value);
-        }
+    const updateFavicon = () => {
+      const favicon = document.getElementById("favicon");
+      if (favicon) {
+        favicon.setAttribute("href", "/airlast-logo.svg");
       }
     };
 
-    fetchLogo();
-  }, [supabase]);
+    updateFavicon();
+  }, []);
 
   return (
     <Routes>

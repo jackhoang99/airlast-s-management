@@ -11,29 +11,11 @@ const Login = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>('/airlast-logo.svg');
   const [credentials, setCredentials] = useState({
     username: "",
     password: "",
   });
-
-  useEffect(() => {
-    const fetchLogo = async () => {
-      if (!supabase) return;
-
-      const { data, error } = await supabase
-        .from("configuration")
-        .select("value")
-        .eq("key", "logo_url")
-        .single();
-
-      if (!error && data) {
-        setLogoUrl(data.value);
-      }
-    };
-
-    fetchLogo();
-  }, [supabase]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
