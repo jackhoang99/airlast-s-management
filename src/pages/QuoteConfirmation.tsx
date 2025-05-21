@@ -190,8 +190,8 @@ const QuoteConfirmation = () => {
               margin-bottom: 5px;
             }
             .signature {
-              font-family: cursive;
-              font-size: 24px;
+              font-family: "Brush Script MT", "Brush Script Std", "Lucida Calligraphy", "Lucida Handwriting", "Apple Chancery", "URW Chancery L", cursive;
+              font-size: 28px;
               position: relative;
               top: -15px;
               text-align: center;
@@ -324,7 +324,7 @@ const QuoteConfirmation = () => {
               <div>
                 <p><strong>Airlast HVAC:</strong></p>
                 <div class="signature-line">
-                  <div class="signature">JH</div>
+                  <div class="signature">Airlast</div>
                 </div>
                 <p>Representative</p>
                 <div class="signature-line">

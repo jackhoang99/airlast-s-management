@@ -299,17 +299,38 @@ const JobDetails = () => {
 
       if (error) throw error;
       
-      // In a real application, you would send an email here
-      // For demo purposes, we'll just simulate it
-      console.log(`Quote sent to ${customerEmail} with confirmation token: ${confirmationToken}`);
+      // Call the Supabase Edge Function to send the email
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-quote-email`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          jobId: job.id,
+          customerEmail: customerEmail,
+          quoteToken: confirmationToken,
+          jobNumber: job.number,
+          jobName: job.name,
+          customerName: job.contact_name,
+          totalAmount: calculateTotalCost().toFixed(2)
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send email');
+      }
       
       // Show success message
-      alert(`Quote has been sent to ${customerEmail}. In a real application, the customer would receive an email with a confirmation link.`);
+      alert(`Quote has been sent to ${customerEmail}. The customer will receive an email with a confirmation link.`);
       
       setShowSendQuoteModal(false);
     } catch (err) {
       console.error('Error sending quote:', err);
-      setError('Failed to send quote');
+      setError('Failed to send quote: ' + (err.message || 'Unknown error'));
     } finally {
       setIsSendingQuote(false);
     }
@@ -498,8 +519,8 @@ const JobDetails = () => {
               margin-bottom: 5px;
             }
             .signature {
-              font-family: cursive;
-              font-size: 24px;
+              font-family: "Brush Script MT", "Brush Script Std", "Lucida Calligraphy", "Lucida Handwriting", "Apple Chancery", "URW Chancery L", cursive;
+              font-size: 28px;
               position: relative;
               top: -15px;
               text-align: center;
@@ -633,7 +654,7 @@ const JobDetails = () => {
               <div>
                 <p><strong>Airlast HVAC:</strong></p>
                 <div class="signature-line">
-                  <div class="signature">JH</div>
+                  <div class="signature">Airlast</div>
                 </div>
                 <p>Representative</p>
                 <div class="signature-line">

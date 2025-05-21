@@ -183,7 +183,7 @@ const QuotePDFTemplate: React.FC<QuotePDFTemplateProps> = ({ job, jobItems }) =>
           <div>
             <p className="font-bold">Airlast HVAC:</p>
             <div className="mt-4 border-b border-black flex items-end justify-center" style={{ height: '1px', width: '80%' }}>
-              <span className="text-lg font-cursive relative" style={{ top: '10px', fontFamily: 'cursive' }}>JH</span>
+              <span className="text-xl relative" style={{ top: '10px', fontFamily: 'cursive, Brush Script MT, Brush Script Std, Lucida Calligraphy, Lucida Handwriting, Apple Chancery, URW Chancery L, Comic Sans MS' }}>Airlast</span>
             </div>
             <p className="mt-1">Representative</p>
             <div className="mt-4 border-b border-black flex items-end justify-center" style={{ height: '1px', width: '80%' }}>
