@@ -329,6 +329,7 @@ const JobDetails = () => {
       alert(`Quote has been sent to ${customerEmail}. The customer will receive an email with a confirmation link.`);
       
       setShowSendQuoteModal(false);
+      
     } catch (err) {
       console.error('Error sending quote:', err);
       setError('Failed to send quote: ' + (err.message || 'Unknown error'));
@@ -587,8 +588,6 @@ const JobDetails = () => {
               <p><strong>Service Line:</strong> ${job.service_line || 'N/A'}</p>
               <p><strong>Description:</strong> ${job.description || 'N/A'}</p>
               ${job.problem_description ? `<p><strong>Problem Description:</strong> ${job.problem_description}</p>` : ''}
-              ${job.schedule_date ? `<p><strong>Scheduled Date:</strong> ${job.schedule_date}</p>` : ''}
-              ${job.schedule_time ? `<p><strong>Scheduled Time:</strong> ${job.schedule_time}</p>` : ''}
               ${job.schedule_start ? `<p><strong>Scheduled:</strong> ${formatDateTime(job.schedule_start)}</p>` : ''}
             </div>
 

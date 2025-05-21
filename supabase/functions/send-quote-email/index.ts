@@ -78,7 +78,7 @@ serve(async (req) => {
     // Create email message
     const msg = {
       to: customerEmail,
-      from: "jackhoang.99@gmail.com", // Replace with your verified sender
+      from: "jackhoang.99@gmail.com", // Use your verified sender email
       subject: `Quote #${jobNumber} from Airlast HVAC`,
       text: `Dear ${customerName || "Customer"},\n\nThank you for your interest in Airlast HVAC services. Please find your quote for job #${jobNumber} - ${jobName || "HVAC Service"} attached.\n\n${itemsText}Total Amount: $${totalAmount || "0.00"}\n\nTo confirm this quote, please click the following link:\n${confirmationUrl}\n\nThis quote is valid for 30 days from the date of issue.\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\nAirlast HVAC Team`,
       html: `

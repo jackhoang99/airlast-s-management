@@ -4,6 +4,16 @@ import { useSupabase } from '../lib/supabase-context';
 import { CheckCircle, AlertTriangle, FileText, ArrowLeft, Download } from 'lucide-react';
 import QuotePDFTemplate from '../components/quotes/QuotePDFTemplate';
 
+type JobItem = {
+  id: string;
+  code: string;
+  name: string;
+  quantity: number;
+  unit_cost: number;
+  total_cost: number;
+  type: string;
+};
+
 const QuoteConfirmation = () => {
   const { token } = useParams<{ token: string }>();
   const { supabase } = useSupabase();
@@ -11,88 +21,97 @@ const QuoteConfirmation = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [jobDetails, setJobDetails] = useState<any>(null);
-  const [jobItems, setJobItems] = useState<any[]>([]);
+  const [jobItems, setJobItems] = useState<JobItem[]>([]);
 
   useEffect(() => {
     const confirmQuote = async () => {
-      if (!supabase || !token) {
+      if (!token) {
         setError('Invalid confirmation link');
         setIsLoading(false);
         return;
       }
 
       try {
-        // Find the job with this token
-        const { data: jobData, error: jobError } = await supabase
-          .from('jobs')
-          .select(`
-            *,
-            locations (
-              name,
-              address,
-              city,
-              state,
-              zip,
-              companies (
-                name
+        // First, fetch the job details to display
+        if (supabase) {
+          const { data: jobData, error: jobError } = await supabase
+            .from('jobs')
+            .select(`
+              *,
+              locations (
+                name,
+                address,
+                city,
+                state,
+                zip,
+                companies (
+                  name
+                )
+              ),
+              units (
+                unit_number
+              ),
+              job_technicians (
+                id,
+                technician_id,
+                is_primary,
+                users:technician_id (
+                  first_name,
+                  last_name,
+                  email,
+                  phone
+                )
               )
-            ),
-            units (
-              unit_number
-            ),
-            job_technicians (
-              id,
-              technician_id,
-              is_primary,
-              users:technician_id (
-                first_name,
-                last_name,
-                email,
-                phone
-              )
-            )
-          `)
-          .eq('quote_token', token)
-          .single();
+            `)
+            .eq('quote_token', token)
+            .single();
 
-        if (jobError) {
-          throw new Error('Invalid or expired confirmation link');
-        }
+          if (jobError) {
+            throw new Error('Invalid or expired confirmation link');
+          }
 
-        if (!jobData) {
-          throw new Error('Quote not found');
-        }
+          if (!jobData) {
+            throw new Error('Quote not found');
+          }
 
-        // Fetch job items
-        const { data: itemsData, error: itemsError } = await supabase
-          .from('job_items')
-          .select('*')
-          .eq('job_id', jobData.id)
-          .order('created_at');
-
-        if (itemsError) throw itemsError;
-        setJobItems(itemsData || []);
-
-        // If already confirmed, just show success
-        if (jobData.quote_confirmed) {
           setJobDetails(jobData);
-          setSuccess(true);
-          setIsLoading(false);
-          return;
+
+          // Fetch job items
+          const { data: itemsData, error: itemsError } = await supabase
+            .from('job_items')
+            .select('*')
+            .eq('job_id', jobData.id)
+            .order('created_at');
+
+          if (itemsError) throw itemsError;
+          setJobItems(itemsData || []);
+
+          // If already confirmed, just show success
+          if (jobData.quote_confirmed) {
+            setSuccess(true);
+            setIsLoading(false);
+            return;
+          }
         }
 
-        // Update the job to mark quote as confirmed
-        const { error: updateError } = await supabase
-          .from('jobs')
-          .update({
-            quote_confirmed: true,
-            quote_confirmed_at: new Date().toISOString()
-          })
-          .eq('id', jobData.id);
-
-        if (updateError) throw updateError;
-
-        setJobDetails(jobData);
+        // Call the Supabase Edge Function to confirm the quote
+        const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/confirm-quote`;
+        
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({ token })
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to confirm quote');
+        }
+        
         setSuccess(true);
       } catch (err) {
         console.error('Error confirming quote:', err);
@@ -108,7 +127,7 @@ const QuoteConfirmation = () => {
   // Calculate total cost
   const calculateTotalCost = () => {
     if (!jobItems) return 0;
-    return jobItems.reduce((total: number, item: any) => total + Number(item.total_cost), 0);
+    return jobItems.reduce((total, item) => total + Number(item.total_cost), 0);
   };
 
   const generatePDF = () => {
@@ -257,8 +276,7 @@ const QuoteConfirmation = () => {
               <p><strong>Service Line:</strong> ${jobDetails.service_line || 'N/A'}</p>
               <p><strong>Description:</strong> ${jobDetails.description || 'N/A'}</p>
               ${jobDetails.problem_description ? `<p><strong>Problem Description:</strong> ${jobDetails.problem_description}</p>` : ''}
-              ${jobDetails.schedule_date ? `<p><strong>Scheduled Date:</strong> ${jobDetails.schedule_date}</p>` : ''}
-              ${jobDetails.schedule_time ? `<p><strong>Scheduled Time:</strong> ${jobDetails.schedule_time}</p>` : ''}
+              ${jobDetails.schedule_start ? `<p><strong>Scheduled:</strong> ${new Date(jobDetails.schedule_start).toLocaleString()}</p>` : ''}
             </div>
 
             <div class="section">
@@ -426,7 +444,7 @@ const QuoteConfirmation = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {jobItems?.map((item: any) => (
+                      {jobItems?.map((item) => (
                         <tr key={item.id}>
                           <td className="px-4 py-2">{item.name}</td>
                           <td className="px-4 py-2 text-right">{item.quantity}</td>
