@@ -264,7 +264,7 @@ const QuoteConfirmation = () => {
             <div class="section">
               <h3>Technicians</h3>
               ${jobDetails.job_technicians && jobDetails.job_technicians.length > 0 
-                ? `<ul>${jobDetails.job_technicians.map((tech: any) => 
+                ? `<ul>${jobDetails.job_technicians.map(tech => 
                     `<li>${tech.users.first_name} ${tech.users.last_name}${tech.is_primary ? ' (Primary)' : ''}</li>`
                   ).join('')}</ul>` 
                 : '<p>No technicians assigned</p>'}
@@ -283,7 +283,7 @@ const QuoteConfirmation = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  ${jobItems.map((item: any) => `
+                  ${jobItems?.map((item) => `
                     <tr>
                       <td style="text-transform: capitalize;">${item.type}</td>
                       <td>${item.name}</td>

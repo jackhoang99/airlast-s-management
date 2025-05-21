@@ -315,7 +315,8 @@ const JobDetails = () => {
           jobNumber: job.number,
           jobName: job.name,
           customerName: job.contact_name,
-          totalAmount: calculateTotalCost().toFixed(2)
+          totalAmount: calculateTotalCost().toFixed(2),
+          jobItems: jobItems
         })
       });
       
