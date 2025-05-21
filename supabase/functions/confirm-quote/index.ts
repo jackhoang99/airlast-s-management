@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js";
 
 const corsHeaders = {
@@ -6,21 +5,25 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req: Request) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
   }
 
   try {
-    // Get Supabase client
+    // Get environment variables
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    
+
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Missing Supabase credentials");
+      throw new Error("Supabase environment variables are not set");
     }
-    
+
+    // Create Supabase client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get request body
@@ -29,7 +32,7 @@ serve(async (req: Request) => {
     // Validate required fields
     if (!token) {
       return new Response(
-        JSON.stringify({ error: "Missing token" }),
+        JSON.stringify({ error: "Token is required" }),
         { 
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -40,7 +43,7 @@ serve(async (req: Request) => {
     // Find the job with this token
     const { data: jobData, error: jobError } = await supabase
       .from('jobs')
-      .select('*')
+      .select('id, quote_confirmed')
       .eq('quote_token', token)
       .single();
 
@@ -54,10 +57,20 @@ serve(async (req: Request) => {
       );
     }
 
+    if (!jobData) {
+      return new Response(
+        JSON.stringify({ error: "Quote not found" }),
+        { 
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+
     // If already confirmed, just return success
     if (jobData.quote_confirmed) {
       return new Response(
-        JSON.stringify({ success: true, message: "Quote already confirmed", jobId: jobData.id }),
+        JSON.stringify({ success: true, message: "Quote already confirmed" }),
         { 
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -86,11 +99,7 @@ serve(async (req: Request) => {
 
     // Return success response
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: "Quote confirmed successfully",
-        jobId: jobData.id
-      }),
+      JSON.stringify({ success: true, message: "Quote confirmed successfully" }),
       { 
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" }

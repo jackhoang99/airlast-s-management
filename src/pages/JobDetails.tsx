@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
-import { ArrowLeft, Calendar, Clock, MapPin, Building, Building2, User, Phone, Mail, Tag, FileText, Plus, Trash2, CheckCircle, AlertTriangle, Edit, Package, PenTool as Tool, ShoppingCart, DollarSign, Send, Download, FileCheck } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, Building, Building2, User, Phone, Mail, Tag, FileText, Plus, Trash2, CheckCircle, AlertTriangle, Edit, Package, PenTool as Tool, ShoppingCart, DollarSign, Send, Download, FileCheck, Eye } from 'lucide-react';
 import AppointmentModal from '../components/jobs/AppointmentModal';
 import AddJobPricingModal from '../components/jobs/AddJobPricingModal';
 import QuotePDFTemplate from '../components/quotes/QuotePDFTemplate';
@@ -42,6 +42,8 @@ const JobDetails = () => {
   const navigate = useNavigate();
   const [job, setJob] = useState<Job | null>(null);
   const [jobItems, setJobItems] = useState<JobItem[]>([]);
+  const [confirmedJobItems, setConfirmedJobItems] = useState<JobItem[]>([]);
+  const [newJobItems, setNewJobItems] = useState<JobItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
@@ -49,12 +51,14 @@ const JobDetails = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
+  const [showViewQuoteModal, setShowViewQuoteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isSendingQuote, setIsSendingQuote] = useState(false);
   const [customerEmail, setCustomerEmail] = useState('');
   const [quoteConfirmed, setQuoteConfirmed] = useState(false);
   const [quoteConfirmedAt, setQuoteConfirmedAt] = useState<string | null>(null);
+  const [hasNewItems, setHasNewItems] = useState(false);
   const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -117,6 +121,19 @@ const JobDetails = () => {
 
         if (itemsError) throw itemsError;
         setJobItems(itemsData || []);
+
+        // If quote is confirmed, check if there are new items added after confirmation
+        if (data?.quote_confirmed && data.quote_confirmed_at && itemsData) {
+          const confirmedDate = new Date(data.quote_confirmed_at);
+          
+          // Separate items into confirmed and new
+          const confirmed = itemsData.filter(item => new Date(item.created_at) <= confirmedDate);
+          const newItems = itemsData.filter(item => new Date(item.created_at) > confirmedDate);
+          
+          setConfirmedJobItems(confirmed);
+          setNewJobItems(newItems);
+          setHasNewItems(newItems.length > 0);
+        }
 
       } catch (err) {
         console.error('Error fetching job details:', err);
@@ -329,10 +346,74 @@ const JobDetails = () => {
       alert(`Quote has been sent to ${customerEmail}. The customer will receive an email with a confirmation link.`);
       
       setShowSendQuoteModal(false);
-      
     } catch (err) {
       console.error('Error sending quote:', err);
       setError('Failed to send quote: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsSendingQuote(false);
+    }
+  };
+
+  const handleSendUpdatedQuote = async () => {
+    if (!supabase || !job || !customerEmail) return;
+
+    setIsSendingQuote(true);
+    try {
+      // Generate a unique token for the confirmation link
+      const confirmationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
+      // Update job with quote information
+      const { error } = await supabase
+        .from('jobs')
+        .update({ 
+          quote_sent: true,
+          quote_sent_at: new Date().toISOString(),
+          quote_token: confirmationToken,
+          quote_confirmed: false, // Reset confirmation status for the new quote
+          quote_confirmed_at: null,
+          contact_email: customerEmail
+        })
+        .eq('id', job.id);
+
+      if (error) throw error;
+      
+      // Call the Supabase Edge Function to send the email
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-quote-email`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          jobId: job.id,
+          customerEmail: customerEmail,
+          quoteToken: confirmationToken,
+          jobNumber: job.number,
+          jobName: job.name,
+          customerName: job.contact_name,
+          totalAmount: calculateTotalCost().toFixed(2),
+          jobItems: jobItems
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send email');
+      }
+      
+      // Show success message
+      alert(`Updated quote has been sent to ${customerEmail}. The customer will receive an email with a confirmation link.`);
+      
+      // Reset the new items flag
+      setHasNewItems(false);
+      
+      // Refresh the page to update the UI
+      window.location.reload();
+    } catch (err) {
+      console.error('Error sending updated quote:', err);
+      setError('Failed to send updated quote: ' + (err.message || 'Unknown error'));
     } finally {
       setIsSendingQuote(false);
     }
@@ -378,6 +459,19 @@ const JobDetails = () => {
         
       if (error) throw error;
       setJobItems(data || []);
+      
+      // If quote is confirmed, check if there are new items added after confirmation
+      if (job?.quote_confirmed && job.quote_confirmed_at) {
+        const confirmedDate = new Date(job.quote_confirmed_at);
+        
+        // Separate items into confirmed and new
+        const confirmed = data?.filter(item => new Date(item.created_at) <= confirmedDate) || [];
+        const newItems = data?.filter(item => new Date(item.created_at) > confirmedDate) || [];
+        
+        setConfirmedJobItems(confirmed);
+        setNewJobItems(newItems);
+        setHasNewItems(newItems.length > 0);
+      }
     } catch (err) {
       console.error('Error refreshing job items:', err);
     }
@@ -439,6 +533,11 @@ const JobDetails = () => {
   // Calculate total cost of all job items
   const calculateTotalCost = () => {
     return jobItems.reduce((total, item) => total + Number(item.total_cost), 0);
+  };
+
+  // Calculate total cost of confirmed job items
+  const calculateConfirmedTotalCost = () => {
+    return confirmedJobItems.reduce((total, item) => total + Number(item.total_cost), 0);
   };
 
   // Generate PDF for the quote
@@ -613,7 +712,7 @@ const JobDetails = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  ${jobItems.map((item) => `
+                  ${(quoteConfirmed && !hasNewItems ? confirmedJobItems : jobItems).map((item) => `
                     <tr>
                       <td style="text-transform: capitalize;">${item.type}</td>
                       <td>${item.name}</td>
@@ -626,7 +725,7 @@ const JobDetails = () => {
                 <tfoot>
                   <tr>
                     <td colspan="4" class="text-right"><strong>Total:</strong></td>
-                    <td class="text-right"><strong>$${calculateTotalCost().toFixed(2)}</strong></td>
+                    <td class="text-right"><strong>$${(quoteConfirmed && !hasNewItems ? calculateConfirmedTotalCost() : calculateTotalCost()).toFixed(2)}</strong></td>
                   </tr>
                 </tfoot>
               </table>
@@ -1042,39 +1141,75 @@ const JobDetails = () => {
               </div>
             </div>
             
-            {quoteConfirmed ? (
-              <div className="bg-success-50 border border-success-200 rounded-lg p-4 flex items-center gap-3">
-                <div className="bg-success-100 rounded-full p-2">
-                  <FileCheck className="h-6 w-6 text-success-600" />
+            {/* Quote Confirmed Banner */}
+            {quoteConfirmed && (
+              <div className="bg-success-50 border border-success-200 rounded-lg p-4 flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-success-100 rounded-full p-2">
+                    <FileCheck className="h-6 w-6 text-success-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-success-800">Quote Confirmed by Customer</h3>
+                    <p className="text-success-600 text-sm">
+                      Confirmed on {quoteConfirmedAt ? new Date(quoteConfirmedAt).toLocaleDateString() : 'N/A'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-medium text-success-800">Quote Confirmed by Customer</h3>
-                  <p className="text-success-600 text-sm">
-                    Confirmed on {quoteConfirmedAt ? new Date(quoteConfirmedAt).toLocaleDateString() : 'N/A'}
-                  </p>
-                </div>
+                <button
+                  onClick={() => setShowViewQuoteModal(true)}
+                  className="btn btn-success"
+                >
+                  <Eye size={16} className="mr-2" />
+                  View Confirmed Quote
+                </button>
               </div>
-            ) : (
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium mb-2">Quote Summary</h3>
-                  <p className="text-gray-600">
-                    This quote includes all items, labor, and parts required for the job.
-                  </p>
+            )}
+            
+            {/* New Items Added Banner */}
+            {quoteConfirmed && hasNewItems && (
+              <div className="bg-warning-50 border border-warning-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="bg-warning-100 rounded-full p-2">
+                    <AlertTriangle className="h-6 w-6 text-warning-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-warning-800">New items added after quote confirmation</h3>
+                    <p className="text-warning-600">
+                      Items have been added to this job after the customer confirmed the quote. Consider sending an updated quote to the customer.
+                    </p>
+                  </div>
                 </div>
-                
-                {jobItems.length > 0 ? (
-                  <div className="space-y-4">
-                    <div className="border-t border-gray-200 pt-4">
-                      <div className="flex justify-between font-medium">
-                        <span>Total Quote Amount:</span>
-                        <span className="text-lg">${calculateTotalCost().toFixed(2)}</span>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-2">
-                        This quote is valid for 30 days from the date of issue.
-                      </p>
+                <button
+                  onClick={handleSendUpdatedQuote}
+                  className="btn btn-warning mt-2"
+                >
+                  <Send size={16} className="mr-2" />
+                  Send Updated Quote
+                </button>
+              </div>
+            )}
+            
+            <div className="bg-gray-50 rounded-lg p-6">
+              <div className="mb-6">
+                <h3 className="text-lg font-medium mb-2">Quote Summary</h3>
+                <p className="text-gray-600">
+                  This quote includes all items, labor, and parts required for the job.
+                </p>
+              </div>
+              
+              {jobItems.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="border-t border-gray-200 pt-4">
+                    <div className="flex justify-between font-medium">
+                      <span>Total Quote Amount:</span>
+                      <span className="text-lg">${calculateTotalCost().toFixed(2)}</span>
                     </div>
-                    
+                    <p className="text-sm text-gray-500 mt-2">
+                      This quote is valid for 30 days from the date of issue.
+                    </p>
+                  </div>
+                  
+                  {!quoteConfirmed && (
                     <div className="flex justify-end">
                       <button
                         onClick={handleConfirmQuote}
@@ -1084,20 +1219,20 @@ const JobDetails = () => {
                         Confirm Quote (Demo)
                       </button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <p className="text-gray-500">No items added to this quote yet.</p>
-                    <button
-                      onClick={() => setShowAddPricingModal(true)}
-                      className="mt-2 text-primary-600 hover:text-primary-800"
-                    >
-                      Add items to create a quote
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-gray-500">No items added to this quote yet.</p>
+                  <button
+                    onClick={() => setShowAddPricingModal(true)}
+                    className="mt-2 text-primary-600 hover:text-primary-800"
+                  >
+                    Add items to create a quote
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1135,6 +1270,15 @@ const JobDetails = () => {
                 <Send size={16} className="mr-2" />
                 Send Quote
               </button>
+              {quoteConfirmed && (
+                <button
+                  onClick={() => setShowViewQuoteModal(true)}
+                  className="btn btn-success w-full justify-start"
+                >
+                  <Eye size={16} className="mr-2" />
+                  View Confirmed Quote
+                </button>
+              )}
               {job.status !== 'completed' && job.status !== 'cancelled' && (
                 <button
                   onClick={() => setShowCompleteModal(true)}
@@ -1351,6 +1495,123 @@ const JobDetails = () => {
                   'Send Quote'
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Confirmed Quote Modal */}
+      {showViewQuoteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold">Confirmed Quote</h3>
+              <button 
+                onClick={() => setShowViewQuoteModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 border rounded-lg">
+              <div className="flex justify-between items-start mb-8 border-b pb-6">
+                <div>
+                  <h1 className="text-2xl font-bold">Airlast HVAC</h1>
+                  <p>1650 Marietta Boulevard Northwest</p>
+                  <p>Atlanta, GA 30318</p>
+                  <p>(404) 632-9074</p>
+                </div>
+                <div className="text-right">
+                  <h2 className="text-xl font-bold">Quote</h2>
+                  <p>Job #: {job.number}</p>
+                  <p>Date: {quoteConfirmedAt ? new Date(quoteConfirmedAt).toLocaleDateString() : 'N/A'}</p>
+                </div>
+              </div>
+
+              <div className="mb-8">
+                <h3 className="text-lg font-bold mb-2">Customer Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="font-bold">Bill To:</p>
+                    <p>{job.locations?.companies.name}</p>
+                    <p>{job.locations?.address}</p>
+                    <p>{job.locations?.city}, {job.locations?.state} {job.locations?.zip}</p>
+                  </div>
+                  <div>
+                    <p className="font-bold">Contact:</p>
+                    <p>{job.contact_name || 'N/A'}</p>
+                    <p>{job.contact_phone || 'N/A'}</p>
+                    <p>{job.contact_email || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-8">
+                <h3 className="text-lg font-bold mb-2">Service Location</h3>
+                <p>{job.locations?.name}</p>
+                <p>{job.locations?.address}</p>
+                <p>{job.locations?.city}, {job.locations?.state} {job.locations?.zip}</p>
+                {job.units && <p>Unit: {job.units.unit_number}</p>}
+              </div>
+
+              <div className="mb-8">
+                <h3 className="text-lg font-bold mb-2">Service Details</h3>
+                <p><strong>Service Type:</strong> {job.type}</p>
+                <p><strong>Service Line:</strong> {job.service_line || 'N/A'}</p>
+                <p><strong>Description:</strong> {job.description || 'N/A'}</p>
+                {job.problem_description && (
+                  <p><strong>Problem Description:</strong> {job.problem_description}</p>
+                )}
+                {job.schedule_start && (
+                  <p><strong>Scheduled:</strong> {formatDateTime(job.schedule_start)}</p>
+                )}
+              </div>
+
+              <div className="mb-8">
+                <h3 className="text-lg font-bold mb-2">Items & Pricing</h3>
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border p-2 text-left">Type</th>
+                      <th className="border p-2 text-left">Item</th>
+                      <th className="border p-2 text-right">Quantity</th>
+                      <th className="border p-2 text-right">Unit Price</th>
+                      <th className="border p-2 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {confirmedJobItems.map((item, index) => (
+                      <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="border p-2 capitalize">{item.type}</td>
+                        <td className="border p-2">{item.name}</td>
+                        <td className="border p-2 text-right">{item.quantity}</td>
+                        <td className="border p-2 text-right">${Number(item.unit_cost).toFixed(2)}</td>
+                        <td className="border p-2 text-right">${Number(item.total_cost).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-gray-100 font-bold">
+                      <td className="border p-2" colSpan={4} align="right">Total:</td>
+                      <td className="border p-2 text-right">${calculateConfirmedTotalCost().toFixed(2)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => {
+                    setShowViewQuoteModal(false);
+                    generatePDF();
+                  }}
+                  className="btn btn-primary"
+                >
+                  <Download size={16} className="mr-2" />
+                  Download PDF
+                </button>
+              </div>
             </div>
           </div>
         </div>
