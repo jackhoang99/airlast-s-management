@@ -23,6 +23,7 @@ type Job = Database['public']['Tables']['jobs']['Row'] & {
     };
   }[];
   job_items?: {
+    id: string;
     total_cost: number;
   }[];
   units?: {
@@ -92,7 +93,8 @@ const Jobs = () => {
                 last_name
               )
             ),
-            job_items (
+            job_items!job_items_job_id_fkey (
+              id,
               total_cost
             ),
             units (

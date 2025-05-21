@@ -1,17 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
-import { 
-  ArrowLeft, MapPin, Calendar, DollarSign, FileText, Clock, Package, 
-  AlertTriangle, FileInput as FileInvoice, MessageSquare, Paperclip, 
-  Building2, Tag, Send, Copy, Plus, Phone, Mail, Globe, Building,
-  Settings, ChevronDown, User, PenTool as Tool, Filter, Search, Trash2,
-  CheckCircle
-} from 'lucide-react';
-import Map from '../components/ui/Map';
-import AddJobItemModal from '../components/jobs/AddJobItemModal';
+import { ArrowLeft, Calendar, Clock, MapPin, Building, Building2, User, Phone, Mail, Tag, FileText, Plus, Trash2, CheckCircle, AlertTriangle, Edit, Package, PenTool as Tool, ShoppingCart, DollarSign, Send, Download, FileCheck } from 'lucide-react';
 import AppointmentModal from '../components/jobs/AppointmentModal';
+import AddJobPricingModal from '../components/jobs/AddJobPricingModal';
 
 type Job = Database['public']['Tables']['jobs']['Row'] & {
   locations?: {
@@ -22,70 +15,53 @@ type Job = Database['public']['Tables']['jobs']['Row'] & {
     zip: string;
     companies: {
       name: string;
-      address: string;
-      city: string;
-      state: string;
-      zip: string;
-      phone: string;
     };
   };
   units?: {
-    id: string;
     unit_number: string;
-    status: string;
   };
+  job_technicians?: {
+    id: string;
+    technician_id: string;
+    is_primary: boolean;
+    users: {
+      first_name: string;
+      last_name: string;
+      email: string;
+      phone: string;
+    };
+  }[];
 };
 
 type JobItem = Database['public']['Tables']['job_items']['Row'];
-type JobClockEvent = Database['public']['Tables']['job_clock_events']['Row'];
-type JobAsset = Database['public']['Tables']['job_assets']['Row'];
-type JobDeficiency = Database['public']['Tables']['job_deficiencies']['Row'];
-type JobInvoice = Database['public']['Tables']['job_invoices']['Row'];
-type JobComment = Database['public']['Tables']['job_comments']['Row'];
-type JobAttachment = Database['public']['Tables']['job_attachments']['Row'];
-type User = Database['public']['Tables']['users']['Row'];
-
-type JobTechnician = {
-  id: string;
-  job_id: string;
-  technician_id: string;
-  is_primary: boolean;
-  created_at: string;
-  users: User;
-};
 
 const JobDetails = () => {
   const { id } = useParams<{ id: string }>();
   const { supabase } = useSupabase();
   const navigate = useNavigate();
   const [job, setJob] = useState<Job | null>(null);
-  const [items, setItems] = useState<JobItem[]>([]);
-  const [clockEvents, setClockEvents] = useState<JobClockEvent[]>([]);
-  const [assets, setAssets] = useState<JobAsset[]>([]);
-  const [deficiencies, setDeficiencies] = useState<JobDeficiency[]>([]);
-  const [invoices, setInvoices] = useState<JobInvoice[]>([]);
-  const [comments, setComments] = useState<JobComment[]>([]);
-  const [attachments, setAttachments] = useState<JobAttachment[]>([]);
-  const [technicians, setTechnicians] = useState<JobTechnician[]>([]);
+  const [jobItems, setJobItems] = useState<JobItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('details');
-  const [itemsFilter, setItemsFilter] = useState('');
-  const [groupByService, setGroupByService] = useState(false);
-  const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
-  const [isCompletingJob, setIsCompletingJob] = useState(false);
-  const [isCancellingJob, setIsCancellingJob] = useState(false);
+  const [showAddPricingModal, setShowAddPricingModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [isSendingQuote, setIsSendingQuote] = useState(false);
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [quoteConfirmed, setQuoteConfirmed] = useState(false);
+  const [quoteConfirmedAt, setQuoteConfirmedAt] = useState<string | null>(null);
+  const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchJobDetails = async () => {
       if (!supabase || !id) return;
 
       try {
-        // Fetch job details
-        const { data: jobData, error: jobError } = await supabase
+        const { data, error: jobError } = await supabase
           .from('jobs')
           .select(`
             *,
@@ -96,119 +72,54 @@ const JobDetails = () => {
               state,
               zip,
               companies (
-                name,
-                address,
-                city,
-                state,
-                zip,
-                phone
+                name
               )
             ),
             units (
+              unit_number
+            ),
+            job_technicians (
               id,
-              unit_number,
-              status
+              technician_id,
+              is_primary,
+              users:technician_id (
+                first_name,
+                last_name,
+                email,
+                phone
+              )
             )
           `)
           .eq('id', id)
           .single();
 
         if (jobError) throw jobError;
-        setJob(jobData);
+        setJob(data);
+        
+        // Set customer email from job data if available
+        if (data?.contact_email) {
+          setCustomerEmail(data.contact_email);
+        }
+        
+        // Check if quote is confirmed
+        if (data?.quote_confirmed) {
+          setQuoteConfirmed(true);
+          setQuoteConfirmedAt(data.quote_confirmed_at);
+        }
 
-        // Fetch technicians assigned to this job
-        const { data: techData, error: techError } = await supabase
-          .from('job_technicians')
-          .select(`
-            *,
-            users:technician_id (
-              id,
-              first_name,
-              last_name,
-              email,
-              phone,
-              role
-            )
-          `)
-          .eq('job_id', id)
-          .order('is_primary', { ascending: false });
-
-        if (techError) throw techError;
-        setTechnicians(techData || []);
-
-        // Fetch items
-        const { data: itemData, error: itemError } = await supabase
+        // Fetch job items
+        const { data: itemsData, error: itemsError } = await supabase
           .from('job_items')
           .select('*')
           .eq('job_id', id)
           .order('created_at');
 
-        if (itemError) throw itemError;
-        setItems(itemData || []);
-
-        // Fetch clock events
-        const { data: clockData, error: clockError } = await supabase
-          .from('job_clock_events')
-          .select('*')
-          .eq('job_id', id)
-          .order('event_time');
-
-        if (clockError) throw clockError;
-        setClockEvents(clockData || []);
-
-        // Fetch assets
-        const { data: assetData, error: assetError } = await supabase
-          .from('job_assets')
-          .select('*')
-          .eq('job_id', id)
-          .order('created_at');
-
-        if (assetError) throw assetError;
-        setAssets(assetData || []);
-
-        // Fetch deficiencies
-        const { data: deficiencyData, error: deficiencyError } = await supabase
-          .from('job_deficiencies')
-          .select('*')
-          .eq('job_id', id)
-          .order('created_at');
-
-        if (deficiencyError) throw deficiencyError;
-        setDeficiencies(deficiencyData || []);
-
-        // Fetch invoices
-        const { data: invoiceData, error: invoiceError } = await supabase
-          .from('job_invoices')
-          .select('*')
-          .eq('job_id', id)
-          .order('created_at');
-
-        if (invoiceError) throw invoiceError;
-        setInvoices(invoiceData || []);
-
-        // Fetch comments
-        const { data: commentData, error: commentError } = await supabase
-          .from('job_comments')
-          .select('*')
-          .eq('job_id', id)
-          .order('created_at');
-
-        if (commentError) throw commentError;
-        setComments(commentData || []);
-
-        // Fetch attachments
-        const { data: attachmentData, error: attachmentError } = await supabase
-          .from('job_attachments')
-          .select('*')
-          .eq('job_id', id)
-          .order('created_at');
-
-        if (attachmentError) throw attachmentError;
-        setAttachments(attachmentData || []);
+        if (itemsError) throw itemsError;
+        setJobItems(itemsData || []);
 
       } catch (err) {
         console.error('Error fetching job details:', err);
-        setError('Error fetching job details');
+        setError('Failed to load job details');
       } finally {
         setIsLoading(false);
       }
@@ -217,28 +128,100 @@ const JobDetails = () => {
     fetchJobDetails();
   }, [supabase, id]);
 
-  const refreshItems = async () => {
-    if (!supabase || !id) return;
+  const handleScheduleAppointment = async (appointment: {
+    technicianIds: string[];
+  }) => {
+    if (!supabase || !job) return;
 
     try {
-      const { data, error } = await supabase
-        .from('job_items')
-        .select('*')
-        .eq('job_id', id)
-        .order('created_at');
+      // First, remove existing technicians
+      const { error: deleteError } = await supabase
+        .from('job_technicians')
+        .delete()
+        .eq('job_id', job.id);
+
+      if (deleteError) throw deleteError;
+
+      // Then add new technicians
+      const technicianEntries = appointment.technicianIds.map((techId, index) => ({
+        job_id: job.id,
+        technician_id: techId,
+        is_primary: index === 0 // First technician is primary
+      }));
+
+      const { error: insertError } = await supabase
+        .from('job_technicians')
+        .insert(technicianEntries);
+
+      if (insertError) throw insertError;
+
+      // Refresh job data
+      const { data, error: jobError } = await supabase
+        .from('jobs')
+        .select(`
+          *,
+          locations (
+            name,
+            address,
+            city,
+            state,
+            zip,
+            companies (
+              name
+            )
+          ),
+          units (
+            unit_number
+          ),
+          job_technicians (
+            id,
+            technician_id,
+            is_primary,
+            users:technician_id (
+              first_name,
+              last_name,
+              email,
+              phone
+            )
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (jobError) throw jobError;
+      setJob(data);
+      setShowAppointmentModal(false);
+    } catch (err) {
+      console.error('Error updating technicians:', err);
+      setError('Failed to update technicians');
+    }
+  };
+
+  const handleDeleteJob = async () => {
+    if (!supabase || !job) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .delete()
+        .eq('id', job.id);
 
       if (error) throw error;
-      setItems(data || []);
+      navigate('/jobs');
     } catch (err) {
-      console.error('Error refreshing items:', err);
+      console.error('Error deleting job:', err);
+      setError('Failed to delete job');
+      setShowDeleteModal(false);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleCompleteJob = async () => {
     if (!supabase || !job) return;
-    
-    setIsCompletingJob(true);
-    
+
+    setIsCompleting(true);
     try {
       const { error } = await supabase
         .from('jobs')
@@ -247,112 +230,144 @@ const JobDetails = () => {
           updated_at: new Date().toISOString()
         })
         .eq('id', job.id);
-      
+
       if (error) throw error;
       
-      // Update local state
-      setJob(prev => prev ? { ...prev, status: 'completed' } : null);
+      // Refresh job data
+      const { data, error: jobError } = await supabase
+        .from('jobs')
+        .select(`
+          *,
+          locations (
+            name,
+            address,
+            city,
+            state,
+            zip,
+            companies (
+              name
+            )
+          ),
+          units (
+            unit_number
+          ),
+          job_technicians (
+            id,
+            technician_id,
+            is_primary,
+            users:technician_id (
+              first_name,
+              last_name,
+              email,
+              phone
+            )
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (jobError) throw jobError;
+      setJob(data);
       setShowCompleteModal(false);
-      
     } catch (err) {
       console.error('Error completing job:', err);
-      setError('Failed to complete job. Please try again.');
+      setError('Failed to complete job');
     } finally {
-      setIsCompletingJob(false);
+      setIsCompleting(false);
     }
   };
 
-  const handleCancelJob = async () => {
-    if (!supabase || !job) return;
-    
-    setIsCancellingJob(true);
-    
+  const handleSendQuote = async () => {
+    if (!supabase || !job || !customerEmail) return;
+
+    setIsSendingQuote(true);
     try {
+      // Generate a unique token for the confirmation link
+      const confirmationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
+      // Update job with quote information
       const { error } = await supabase
         .from('jobs')
         .update({ 
-          status: 'cancelled',
-          updated_at: new Date().toISOString()
+          quote_sent: true,
+          quote_sent_at: new Date().toISOString(),
+          quote_token: confirmationToken,
+          contact_email: customerEmail
         })
         .eq('id', job.id);
+
+      if (error) throw error;
       
+      // In a real application, you would send an email here
+      // For demo purposes, we'll just simulate it
+      console.log(`Quote sent to ${customerEmail} with confirmation token: ${confirmationToken}`);
+      
+      // Show success message
+      alert(`Quote has been sent to ${customerEmail}. In a real application, the customer would receive an email with a confirmation link.`);
+      
+      setShowSendQuoteModal(false);
+    } catch (err) {
+      console.error('Error sending quote:', err);
+      setError('Failed to send quote');
+    } finally {
+      setIsSendingQuote(false);
+    }
+  };
+
+  const handleConfirmQuote = async () => {
+    if (!supabase || !job) return;
+
+    try {
+      // Update job with confirmation information
+      const { error } = await supabase
+        .from('jobs')
+        .update({ 
+          quote_confirmed: true,
+          quote_confirmed_at: new Date().toISOString()
+        })
+        .eq('id', job.id);
+
       if (error) throw error;
       
       // Update local state
-      setJob(prev => prev ? { ...prev, status: 'cancelled' } : null);
-      setShowCancelModal(false);
+      setQuoteConfirmed(true);
+      setQuoteConfirmedAt(new Date().toISOString());
       
+      // Show success message
+      alert('Quote has been confirmed successfully!');
     } catch (err) {
-      console.error('Error cancelling job:', err);
-      setError('Failed to cancel job. Please try again.');
-    } finally {
-      setIsCancellingJob(false);
+      console.error('Error confirming quote:', err);
+      setError('Failed to confirm quote');
     }
   };
 
-  const handleUpdateTechnicians = async (appointment: { technicianIds: string[] }) => {
-    if (!supabase || !job) return;
+  const handlePriceAdded = async () => {
+    if (!supabase || !id) return;
     
     try {
-      // First, delete existing technician assignments
-      const { error: deleteError } = await supabase
-        .from('job_technicians')
-        .delete()
-        .eq('job_id', job.id);
+      // Refresh job items
+      const { data, error } = await supabase
+        .from('job_items')
+        .select('*')
+        .eq('job_id', id)
+        .order('created_at');
         
-      if (deleteError) throw deleteError;
-      
-      // Then, add new technician assignments
-      if (appointment.technicianIds.length > 0) {
-        const technicianEntries = appointment.technicianIds.map((techId, index) => ({
-          job_id: job.id,
-          technician_id: techId,
-          is_primary: index === 0 // First technician is primary
-        }));
-        
-        const { error: insertError } = await supabase
-          .from('job_technicians')
-          .insert(technicianEntries);
-          
-        if (insertError) throw insertError;
-      }
-      
-      // Fetch updated technician data
-      const { data: techData, error: techError } = await supabase
-        .from('job_technicians')
-        .select(`
-          *,
-          users:technician_id (
-            id,
-            first_name,
-            last_name,
-            email,
-            phone,
-            role
-          )
-        `)
-        .eq('job_id', job.id)
-        .order('is_primary', { ascending: false });
-        
-      if (techError) throw techError;
-      
-      setTechnicians(techData || []);
-      setShowAppointmentModal(false);
+      if (error) throw error;
+      setJobItems(data || []);
     } catch (err) {
-      console.error('Error updating technicians:', err);
-      setError('Failed to update technicians');
+      console.error('Error refreshing job items:', err);
     }
   };
 
-  const formatDateTime = (date: string) => {
-    return new Date(date).toLocaleString('en-US', {
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
       month: '2-digit',
       day: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true,
-      timeZoneName: 'short'
+      hour12: true
     });
   };
 
@@ -371,55 +386,268 @@ const JobDetails = () => {
     }
   };
 
-  const getTypeBadgeClass = (type: string) => {
+  const getItemTypeBadgeClass = (type: string) => {
     switch (type) {
-      case 'preventative maintenance':
+      case 'part':
+        return 'bg-blue-100 text-blue-800';
+      case 'labor':
+        return 'bg-green-100 text-green-800';
+      case 'item':
         return 'bg-purple-100 text-purple-800';
-      case 'service call':
-        return 'bg-cyan-100 text-cyan-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const filteredItems = items.filter(item => {
-    if (!itemsFilter) return true;
-    return (
-      item.code.toLowerCase().includes(itemsFilter.toLowerCase()) ||
-      item.name.toLowerCase().includes(itemsFilter.toLowerCase()) ||
-      item.service_line.toLowerCase().includes(itemsFilter.toLowerCase())
-    );
-  });
-
-  // Group items by service line if groupByService is true
-  const groupedItems = groupByService 
-    ? filteredItems.reduce((groups, item) => {
-        const key = item.service_line;
-        if (!groups[key]) {
-          groups[key] = [];
-        }
-        groups[key].push(item);
-        return groups;
-      }, {} as Record<string, JobItem[]>)
-    : { 'All Items': filteredItems };
-
-  // Calculate total cost
-  const totalCost = filteredItems.reduce((sum, item) => sum + Number(item.total_cost), 0);
-
-  const handleDeleteItem = async (itemId: string) => {
-    if (!supabase) return;
-
-    try {
-      const { error } = await supabase
-        .from('job_items')
-        .delete()
-        .eq('id', itemId);
-
-      if (error) throw error;
-      refreshItems();
-    } catch (err) {
-      console.error('Error deleting item:', err);
+  const getItemTypeIcon = (type: string) => {
+    switch (type) {
+      case 'part':
+        return <Package size={14} className="mr-1" />;
+      case 'labor':
+        return <Tool size={14} className="mr-1" />;
+      case 'item':
+        return <ShoppingCart size={14} className="mr-1" />;
+      default:
+        return null;
     }
+  };
+
+  // Calculate total cost of all job items
+  const calculateTotalCost = () => {
+    return jobItems.reduce((total, item) => total + Number(item.total_cost), 0);
+  };
+
+  // Generate PDF for the quote
+  const generatePDF = () => {
+    if (!pdfRef.current) return;
+    
+    // In a real application, you would use a library like jsPDF or html2pdf
+    // For this demo, we'll just use the browser's print functionality
+    const printContent = document.getElementById('pdf-template');
+    const originalDisplay = document.body.style.display;
+    
+    // Hide everything except the PDF content
+    document.body.style.display = 'none';
+    
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    // Write the PDF content to the new window
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Quote - ${job?.name || 'Job Quote'}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              margin: 0;
+              padding: 20px;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 30px;
+              border-bottom: 1px solid #ddd;
+              padding-bottom: 20px;
+            }
+            .company-info {
+              margin-bottom: 20px;
+            }
+            .quote-info {
+              text-align: right;
+            }
+            h1 {
+              font-size: 24px;
+              margin-bottom: 10px;
+              color: #0672be;
+            }
+            h2 {
+              font-size: 18px;
+              margin-top: 20px;
+              margin-bottom: 10px;
+              color: #0672be;
+              border-bottom: 1px solid #eee;
+              padding-bottom: 5px;
+            }
+            .section {
+              margin-bottom: 30px;
+            }
+            .grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th, td {
+              border: 1px solid #ddd;
+              padding: 8px 12px;
+              text-align: left;
+            }
+            th {
+              background-color: #f5f5f5;
+            }
+            .total-row {
+              font-weight: bold;
+              background-color: #f5f5f5;
+            }
+            .signature-area {
+              margin-top: 50px;
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 50px;
+            }
+            .signature-line {
+              border-top: 1px solid #000;
+              margin-top: 50px;
+              width: 80%;
+            }
+            .terms {
+              margin-top: 30px;
+              font-size: 12px;
+              border-top: 1px solid #ddd;
+              padding-top: 20px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-info">
+              <h1>Airlast HVAC</h1>
+              <p>1650 Marietta Boulevard Northwest<br>
+              Atlanta, GA 30318<br>
+              (404) 632-9074</p>
+            </div>
+            <div class="quote-info">
+              <h1>QUOTE</h1>
+              <p><strong>Job #:</strong> ${job?.number || 'N/A'}</p>
+              <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+              <p><strong>Valid Until:</strong> ${new Date(new Date().setDate(new Date().getDate() + 30)).toLocaleDateString()}</p>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Customer Information</h2>
+            <div class="grid">
+              <div>
+                <p><strong>Bill To:</strong><br>
+                ${job?.locations?.companies.name || 'N/A'}<br>
+                ${job?.locations?.address || 'N/A'}<br>
+                ${job?.locations?.city || 'N/A'}, ${job?.locations?.state || 'N/A'} ${job?.locations?.zip || 'N/A'}</p>
+              </div>
+              <div>
+                <p><strong>Contact:</strong><br>
+                ${job?.contact_name || 'N/A'}<br>
+                ${job?.contact_phone || 'N/A'}<br>
+                ${job?.contact_email || 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Service Location</h2>
+            <p><strong>${job?.locations?.name || 'N/A'}</strong></p>
+            <p>${job?.locations?.address || 'N/A'}<br>
+            ${job?.locations?.city || 'N/A'}, ${job?.locations?.state || 'N/A'} ${job?.locations?.zip || 'N/A'}</p>
+            ${job?.units ? `<p><strong>Unit:</strong> ${job.units.unit_number}</p>` : ''}
+          </div>
+
+          <div class="section">
+            <h2>Service Details</h2>
+            <p><strong>Service Type:</strong> ${job?.type || 'N/A'}</p>
+            <p><strong>Service Line:</strong> ${job?.service_line || 'N/A'}</p>
+            <p><strong>Description:</strong> ${job?.description || 'N/A'}</p>
+            ${job?.schedule_start ? `<p><strong>Scheduled Date:</strong> ${formatDateTime(job.schedule_start)}</p>` : ''}
+            ${job?.schedule_duration ? `<p><strong>Estimated Duration:</strong> ${job.schedule_duration}</p>` : ''}
+          </div>
+
+          <div class="section">
+            <h2>Technicians</h2>
+            ${job?.job_technicians && job.job_technicians.length > 0 ? 
+              `<ul>${job.job_technicians.map(tech => 
+                `<li>${tech.users.first_name} ${tech.users.last_name}${tech.is_primary ? ' (Primary)' : ''}</li>`
+              ).join('')}</ul>` : 
+              '<p>No technicians assigned</p>'
+            }
+          </div>
+
+          <div class="section">
+            <h2>Items & Pricing</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Item</th>
+                  <th>Quantity</th>
+                  <th>Unit Price</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${jobItems.map(item => `
+                  <tr>
+                    <td>${item.type.charAt(0).toUpperCase() + item.type.slice(1)}</td>
+                    <td>${item.name}</td>
+                    <td>${item.quantity}</td>
+                    <td>$${Number(item.unit_cost).toFixed(2)}</td>
+                    <td>$${Number(item.total_cost).toFixed(2)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+              <tfoot>
+                <tr class="total-row">
+                  <td colspan="4" align="right">Total:</td>
+                  <td>$${calculateTotalCost().toFixed(2)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="terms">
+            <h2>Terms & Conditions</h2>
+            <ol>
+              <li>This quote is valid for 30 days from the date of issue.</li>
+              <li>Payment is due upon completion of work unless otherwise specified.</li>
+              <li>Any additional work not specified in this quote will require a separate quote.</li>
+              <li>Airlast HVAC provides a 90-day warranty on all parts and labor.</li>
+              <li>Cancellations must be made at least 24 hours before scheduled service.</li>
+            </ol>
+          </div>
+
+          <div class="signature-area">
+            <div>
+              <p><strong>Customer Acceptance:</strong></p>
+              <div class="signature-line"></div>
+              <p>Signature</p>
+              <div class="signature-line"></div>
+              <p>Date</p>
+            </div>
+            <div>
+              <p><strong>Airlast HVAC:</strong></p>
+              <div class="signature-line"></div>
+              <p>Representative</p>
+              <div class="signature-line"></div>
+              <p>Date</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    
+    // Print the window
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+    
+    // Restore original display
+    document.body.style.display = originalDisplay;
   };
 
   if (isLoading) {
@@ -443,684 +671,238 @@ const JobDetails = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link to="/jobs" className="text-gray-500 hover:text-gray-700">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className={`badge ${getTypeBadgeClass(job.type)}`}>
-                {job.type}
-              </span>
-              {job.is_training && (
-                <span className="badge badge-purple">training</span>
-              )}
-              {job.units && (
-                <span className="badge bg-green-100 text-green-800">
-                  Unit: {job.units.unit_number}
-                </span>
-              )}
-              <span className={`badge ${getStatusBadgeClass(job.status)}`}>
-                {job.status}
-              </span>
-            </div>
-            <h1 className="text-2xl font-bold mt-1">Job {job.number}</h1>
-          </div>
+          <h1>Job #{job.number}</h1>
         </div>
-        <div className="flex items-center gap-4">
-          <button className="btn btn-secondary">
-            <Tag className="h-4 w-4 mr-2" />
-            Edit Tags
-          </button>
-          <button className="btn btn-primary">
-            <Send className="h-4 w-4 mr-2" />
-            Send Service Link
+        <div className="flex gap-2">
+          {job.status !== 'completed' && job.status !== 'cancelled' && (
+            <button
+              onClick={() => setShowCompleteModal(true)}
+              className="btn btn-success"
+            >
+              <CheckCircle size={16} className="mr-2" />
+              Complete Job
+            </button>
+          )}
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="btn btn-error"
+          >
+            <Trash2 size={16} className="mr-2" />
+            Delete
           </button>
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Job Details */}
-          <div className="card">
-            <h2 className="text-lg font-semibold mb-4">Job Details</h2>
-            <div className="grid grid-cols-2 gap-6">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-start mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-500">Job Contact</label>
-                <p>{job.contact_name || 'Not specified'}</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(job.status)}`}>
+                    {job.status}
+                  </span>
+                  <span className="text-sm font-medium text-gray-500">{job.type}</span>
+                  {job.is_training && (
+                    <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">
+                      Training
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-xl font-semibold">{job.name}</h2>
+                {job.description && (
+                  <p className="text-gray-600 mt-2">{job.description}</p>
+                )}
+                {job.problem_description && (
+                  <div className="mt-4">
+                    <h3 className="text-sm font-medium text-gray-700">Problem Description:</h3>
+                    <p className="text-gray-600">{job.problem_description}</p>
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="text-sm">
+                  <span className="font-medium">Created:</span> {new Date(job.created_at).toLocaleDateString()}
+                </div>
+                {job.updated_at && (
+                  <div className="text-sm text-gray-500">
+                    <span className="font-medium">Updated:</span> {new Date(job.updated_at).toLocaleDateString()}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Schedule</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={16} className="text-gray-400" />
+                    <div>
+                      <span className="font-medium">Start Date:</span> {job.time_period_start}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar size={16} className="text-gray-400" />
+                    <div>
+                      <span className="font-medium">Due Date:</span> {job.time_period_due}
+                    </div>
+                  </div>
+                  {job.schedule_start && (
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-gray-400" />
+                      <div>
+                        <span className="font-medium">Scheduled:</span> {formatDateTime(job.schedule_start)}
+                        {job.schedule_duration && ` (${job.schedule_duration})`}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Details</h3>
+                <div className="space-y-2">
+                  {job.service_line && (
+                    <div className="flex items-center gap-2">
+                      <Tag size={16} className="text-gray-400" />
+                      <div>
+                        <span className="font-medium">Service Line:</span> {job.service_line}
+                      </div>
+                    </div>
+                  )}
+                  {job.service_contract && (
+                    <div className="flex items-center gap-2">
+                      <FileText size={16} className="text-gray-400" />
+                      <div>
+                        <span className="font-medium">Service Contract:</span> {job.service_contract}
+                      </div>
+                    </div>
+                  )}
+                  {job.customer_po && (
+                    <div className="flex items-center gap-2">
+                      <FileText size={16} className="text-gray-400" />
+                      <div>
+                        <span className="font-medium">Customer PO:</span> {job.customer_po}
+                      </div>
+                    </div>
+                  )}
+                  {job.office && (
+                    <div className="flex items-center gap-2">
+                      <Building size={16} className="text-gray-400" />
+                      <div>
+                        <span className="font-medium">Office:</span> {job.office}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Location Information */}
+          {job.locations && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold mb-4">Location</h2>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <Building className="h-5 w-5 text-gray-400 mt-1" />
+                  <div>
+                    <div className="font-medium">{job.locations.companies.name}</div>
+                    <div>{job.locations.name}</div>
+                    {job.units && (
+                      <div className="text-gray-600">Unit: {job.units.unit_number}</div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-5 w-5 text-gray-400 mt-1" />
+                  <div>
+                    <div>{job.locations.address}</div>
+                    <div>{job.locations.city}, {job.locations.state} {job.locations.zip}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Contact Information */}
+          {job.contact_name && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold mb-4">Contact</h2>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <User className="h-5 w-5 text-gray-400 mt-1" />
+                  <div>
+                    <div className="font-medium">{job.contact_name}</div>
+                    {job.contact_type && (
+                      <div className="text-gray-600 capitalize">{job.contact_type} Contact</div>
+                    )}
+                  </div>
+                </div>
                 {job.contact_phone && (
-                  <p className="text-sm text-gray-500">{job.contact_phone}</p>
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-5 w-5 text-gray-400" />
+                    <div>{job.contact_phone}</div>
+                  </div>
                 )}
                 {job.contact_email && (
-                  <p className="text-sm text-gray-500">{job.contact_email}</p>
-                )}
-              </div>
-
-              {job.locations?.companies && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-500">Company</label>
-                  <p>{job.locations.companies.name}</p>
-                  <p className="text-sm text-gray-500">{job.locations.companies.phone}</p>
-                </div>
-              )}
-
-              {job.service_contract && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-500">Contract</label>
-                  <p className="text-primary-600 hover:text-primary-800 cursor-pointer">
-                    {job.service_contract}
-                  </p>
-                </div>
-              )}
-
-              {job.office && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-500">Office</label>
-                  <p>{job.office}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Unit Information */}
-          {job.units && (
-            <div className="card bg-gray-50 border border-gray-200">
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-primary-100 rounded-md">
-                  <Building2 className="h-6 w-6 text-primary-600" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold">Unit Information</h2>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-700 font-medium">Unit Number:</span>
-                      <Link 
-                        to={`/units/${job.units.id}`}
-                        className="text-primary-600 hover:text-primary-800 font-medium"
-                      >
-                        {job.units.unit_number}
-                      </Link>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-700 font-medium">Status:</span>
-                      <span className={`badge ${job.units.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
-                        {job.units.status}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Link 
-                        to={`/units/${job.units.id}`}
-                        className="text-primary-600 hover:text-primary-800 text-sm"
-                      >
-                        View Unit Details
-                      </Link>
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                    <div>{job.contact_email}</div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* Location */}
-          {job.locations && (
-            <div className="card">
-              <h2 className="text-lg font-semibold mb-4">Location</h2>
-              <div className="flex items-start gap-2 mb-4">
-                <MapPin className="h-5 w-5 text-gray-400 mt-1" />
-                <div>
-                  <p className="font-medium">{job.locations.name}</p>
-                  <p>{job.locations.address}</p>
-                  <p>{job.locations.city}, {job.locations.state} {job.locations.zip}</p>
-                </div>
-              </div>
-              <Map 
-                address={job.locations.address}
-                city={job.locations.city}
-                state={job.locations.state}
-                zip={job.locations.zip}
-                className="h-[300px] rounded-lg"
-              />
-            </div>
-          )}
-
-          {/* Description */}
-          <div className="card">
-            <h2 className="text-lg font-semibold mb-4">Job Description</h2>
-            {job.description ? (
-              <p className="text-gray-700">{job.description}</p>
-            ) : (
-              <div className="flex justify-center items-center py-4 bg-gray-50 rounded-md">
-                <button className="text-primary-600 hover:text-primary-800 flex items-center gap-1">
-                  <Plus size={16} />
-                  Add Description
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Tabs Navigation */}
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
-              <button
-                onClick={() => setActiveTab('details')}
-                className={`${
-                  activeTab === 'details'
-                    ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm`}
-              >
-                Details
-              </button>
-              <button
-                onClick={() => setActiveTab('items')}
-                className={`${
-                  activeTab === 'items'
-                    ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm`}
-              >
-                Parts | Labor | Items
-              </button>
-            </nav>
-          </div>
-
-          {/* Tab Content */}
-          <div className="space-y-6">
-            {activeTab === 'details' && (
-              <>
-                {/* Clock Events */}
-                <div className="card">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <Clock className="h-5 w-5 text-gray-400" />
-                      Clock Events
-                    </h2>
-                    <span className="badge">{clockEvents.length} Events</span>
-                  </div>
-                  {clockEvents.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="table">
-                        <thead>
-                          <tr>
-                            <th>Event</th>
-                            <th>User</th>
-                            <th>Time</th>
-                            <th>Notes</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {clockEvents.map((event) => (
-                            <tr key={event.id}>
-                              <td>{event.event_type}</td>
-                              <td>{event.user_id}</td>
-                              <td>{formatDateTime(event.event_time)}</td>
-                              <td>{event.notes}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">No clock events found</p>
-                  )}
-                </div>
-
-                {/* Assets */}
-                <div className="card">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <Building2 className="h-5 w-5 text-gray-400" />
-                      Assets
-                    </h2>
-                    <div className="flex items-center gap-2">
-                      <span className="badge">{assets.length} Assets</span>
-                      <button className="btn btn-primary btn-sm">
-                        <Plus size={14} className="mr-1" />
-                        Add Asset
-                      </button>
-                    </div>
-                  </div>
-                  {assets.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="table">
-                        <thead>
-                          <tr>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {assets.map((asset) => (
-                            <tr key={asset.id}>
-                              <td>{asset.name}</td>
-                              <td>{asset.type}</td>
-                              <td>{asset.status}</td>
-                              <td>
-                                <button className="text-primary-600 hover:text-primary-800">
-                                  View
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">No assets found</p>
-                  )}
-                </div>
-
-                {/* Deficiencies */}
-                <div className="card">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-gray-400" />
-                      Deficiencies
-                    </h2>
-                    <div className="flex items-center gap-2">
-                      <span className="badge">{deficiencies.length} Deficiencies</span>
-                      <button className="btn btn-primary btn-sm">
-                        <Plus size={14} className="mr-1" />
-                        Add Deficiency
-                      </button>
-                    </div>
-                  </div>
-                  {deficiencies.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="table">
-                        <thead>
-                          <tr>
-                            <th>Title</th>
-                            <th>Priority</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {deficiencies.map((deficiency) => (
-                            <tr key={deficiency.id}>
-                              <td>{deficiency.title}</td>
-                              <td>
-                                <span className={`badge ${
-                                  deficiency.priority === 'high' ? 'badge-error' :
-                                  deficiency.priority === 'medium' ? 'badge-warning' :
-                                  'badge-info'
-                                }`}>
-                                  {deficiency.priority}
-                                </span>
-                              </td>
-                              <td>
-                                <span className={`badge ${
-                                  deficiency.status === 'open' ? 'badge-error' :
-                                  deficiency.status === 'in_progress' ? 'badge-warning' :
-                                  deficiency.status === 'resolved' ? 'badge-success' :
-                                  'badge-info'
-                                }`}>
-                                  {deficiency.status}
-                                </span>
-                              </td>
-                              <td>
-                                <button className="text-primary-600 hover:text-primary-800">
-                                  View
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">No deficiencies found</p>
-                  )}
-                </div>
-
-                {/* Invoices */}
-                <div className="card">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <FileInvoice className="h-5 w-5 text-gray-400" />
-                      Invoices
-                    </h2>
-                    <div className="flex items-center gap-2">
-                      <span className="badge">{invoices.length} Invoices</span>
-                      <span className="badge badge-success">
-                        ${invoices.reduce((sum, invoice) => sum + Number(invoice.amount), 0).toFixed(2)}
-                      </span>
-                      <button className="btn btn-primary btn-sm">
-                        <Plus size={14} className="mr-1" />
-                        Create Invoice
-                      </button>
-                    </div>
-                  </div>
-                  {invoices.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="table">
-                        <thead>
-                          <tr>
-                            <th>Invoice #</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                            <th>Issued Date</th>
-                            <th>Due Date</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {invoices.map((invoice) => (
-                            <tr key={invoice.id}>
-                              <td>{invoice.invoice_number}</td>
-                              <td>${Number(invoice.amount).toFixed(2)}</td>
-                              <td>
-                                <span className={`badge ${
-                                  invoice.status === 'paid' ? 'badge-success' :
-                                  invoice.status === 'issued' ? 'badge-warning' :
-                                  invoice.status === 'void' ? 'badge-error' :
-                                  'badge-info'
-                                }`}>
-                                  {invoice.status}
-                                </span>
-                              </td>
-                              <td>{invoice.issued_date}</td>
-                              <td>{invoice.due_date}</td>
-                              <td>
-                                <button className="text-primary-600 hover:text-primary-800">
-                                  View
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">No invoices found</p>
-                  )}
-                </div>
-
-                {/* Comments */}
-                <div className="card">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <MessageSquare className="h-5 w-5 text-gray-400" />
-                      Comments
-                    </h2>
-                    <div className="flex items-center gap-2">
-                      <span className="badge">{comments.length} Comments</span>
-                      <button className="btn btn-primary btn-sm">
-                        <Plus size={14} className="mr-1" />
-                        Add Comment
-                      </button>
-                    </div>
-                  </div>
-                  {comments.length > 0 ? (
-                    <div className="space-y-4">
-                      {comments.map((comment) => (
-                        <div key={comment.id} className="p-4 bg-gray-50 rounded-lg">
-                          <div className="flex justify-between">
-                            <div className="font-medium">{comment.user_id}</div>
-                            <div className="text-sm text-gray-500">
-                              {new Date(comment.created_at).toLocaleString()}
-                            </div>
-                          </div>
-                          <p className="mt-2">{comment.content}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">No comments found</p>
-                  )}
-                </div>
-
-                {/* Attachments */}
-                <div className="card">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <Paperclip className="h-5 w-5 text-gray-400" />
-                      Attachments
-                    </h2>
-                    <div className="flex items-center gap-2">
-                      <span className="badge">{attachments.length} Attachments</span>
-                      <button className="btn btn-primary btn-sm">
-                        <Plus size={14} className="mr-1" />
-                        Add Attachment
-                      </button>
-                    </div>
-                  </div>
-                  {attachments.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {attachments.map((attachment) => (
-                        <div key={attachment.id} className="flex items-center p-3 border rounded-lg">
-                          <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center mr-3">
-                            <FileText className="h-5 w-5 text-gray-500" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {attachment.name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {(attachment.file_size / 1024).toFixed(2)} KB • {attachment.file_type}
-                            </p>
-                          </div>
-                          <a 
-                            href={attachment.file_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-primary-600 hover:text-primary-800"
-                          >
-                            View
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">No attachments found</p>
-                  )}
-                </div>
-              </>
-            )}
-
-            {activeTab === 'items' && (
-              <div className="card">
-                <div className="flex flex-col space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold">Parts | Labor | Items</h2>
-                    <div className="flex items-center gap-2">
-                      <span className="badge bg-blue-100 text-blue-800">{filteredItems.length} Items</span>
-                      <button 
-                        className="btn btn-primary"
-                        onClick={() => setShowAddItemModal(true)}
-                      >
-                        <Package className="h-4 w-4 mr-2" />
-                        Add Pricing
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="relative w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Filter items..."
-                        value={itemsFilter}
-                        onChange={(e) => setItemsFilter(e.target.value)}
-                        className="pl-9 input w-full"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600">Group by service</span>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          checked={groupByService}
-                          onChange={() => setGroupByService(!groupByService)}
-                          className="sr-only peer" 
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                {filteredItems.length > 0 ? (
-                  <div className="mt-4">
-                    {Object.entries(groupedItems).map(([groupName, groupItems]) => (
-                      <div key={groupName} className="mb-4">
-                        {groupByService && groupName !== 'All Items' && (
-                          <div className="bg-gray-50 p-2 font-medium text-gray-700 rounded-t-lg border border-gray-200">
-                            {groupName}
-                          </div>
-                        )}
-                        <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                          <table className="w-full">
-                            <thead className="bg-gray-50 text-left">
-                              <tr>
-                                <th className="px-4 py-3 text-sm font-medium text-gray-500">CODE</th>
-                                <th className="px-4 py-3 text-sm font-medium text-gray-500">ITEM</th>
-                                <th className="px-4 py-3 text-sm font-medium text-gray-500">SERVICE LINE</th>
-                                <th className="px-4 py-3 text-sm font-medium text-gray-500">QUANTITY</th>
-                                <th className="px-4 py-3 text-sm font-medium text-gray-500">UNIT COST</th>
-                                <th className="px-4 py-3 text-sm font-medium text-gray-500">TOTAL</th>
-                                <th className="px-4 py-3 text-sm font-medium text-gray-500">ACTIONS</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {groupItems.map((item, index) => (
-                                <tr key={item.id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                                  <td className="px-4 py-3 text-sm">{item.code}</td>
-                                  <td className="px-4 py-3 text-sm">{item.name}</td>
-                                  <td className="px-4 py-3 text-sm">
-                                    <div className="flex items-center">
-                                      <Package className="h-4 w-4 mr-2 text-gray-500" />
-                                      {item.service_line}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-sm">{item.quantity}</td>
-                                  <td className="px-4 py-3 text-sm">${Number(item.unit_cost).toFixed(2)}</td>
-                                  <td className="px-4 py-3 text-sm">${Number(item.total_cost).toFixed(2)}</td>
-                                  <td className="px-4 py-3 text-sm">
-                                    <button 
-                                      onClick={() => handleDeleteItem(item.id)}
-                                      className="text-red-600 hover:text-red-800"
-                                    >
-                                      <Trash2 size={16} />
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    ))}
-                    
-                    <div className="flex justify-end mt-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-700">TOTAL COST</span>
-                        <span className="text-lg font-semibold">${totalCost.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No items found</p>
-                    <button 
-                      className="mt-4 btn btn-primary"
-                      onClick={() => setShowAddItemModal(true)}
-                    >
-                      <Plus size={16} className="mr-2" />
-                      Add Pricing
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Sidebar */}
-        <div className="space-y-6">
-          {/* Job Status */}
-          <div className="card">
-            <h2 className="text-lg font-semibold mb-4">Job Status</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-500">Status</label>
-                <span className={`badge ${getStatusBadgeClass(job.status)}`}>
-                  {job.status}
-                </span>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-500">Time Period</label>
-                <p>Start: {job.time_period_start}</p>
-                <p>Due: {job.time_period_due}</p>
-              </div>
-              {job.schedule_start && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-500">Schedule</label>
-                  <p>{formatDateTime(job.schedule_start)}</p>
-                  {job.schedule_duration && (
-                    <p className="text-sm text-gray-500">Duration: {job.schedule_duration}</p>
-                  )}
-                </div>
-              )}
-              
-              {/* Total Cost from Items */}
-              <div>
-                <label className="block text-sm font-medium text-gray-500">Total Cost</label>
-                <p className="text-xl font-semibold">${totalCost.toFixed(2)}</p>
-                <p className="text-xs text-gray-500">From {items.length} items</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Assigned Technicians */}
-          <div className="card">
+          {/* Technicians */}
+          <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Assigned Technicians</h2>
+              <h2 className="text-lg font-semibold">Technicians</h2>
               <button
                 onClick={() => setShowAppointmentModal(true)}
-                className="btn btn-primary btn-sm"
+                className="btn btn-primary"
               >
-                <Plus size={14} className="mr-1" />
-                Assign
+                <Plus size={16} className="mr-2" />
+                Assign Technicians
               </button>
             </div>
             
-            {technicians.length > 0 ? (
+            {job.job_technicians && job.job_technicians.length > 0 ? (
               <div className="space-y-4">
-                {technicians.map(tech => (
-                  <div key={tech.id} className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
+                {job.job_technicians.map(tech => (
+                  <div key={tech.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="w-10 h-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
                       <span className="text-sm font-medium">
                         {tech.users.first_name?.[0] || '?'}{tech.users.last_name?.[0] || '?'}
                       </span>
                     </div>
-                    <div>
-                      <div className="font-medium">
-                        {tech.users.first_name} {tech.users.last_name}
+                    <div className="flex-1">
+                      <div className="flex items-center">
+                        <div className="font-medium">{tech.users.first_name} {tech.users.last_name}</div>
                         {tech.is_primary && (
-                          <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                          <span className="ml-2 bg-primary-100 text-primary-800 text-xs px-2 py-0.5 rounded-full">
                             Primary
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-sm text-gray-500 space-y-1 mt-1">
                         {tech.users.phone && (
-                          <div className="flex items-center gap-1">
-                            <Phone size={12} />
+                          <div className="flex items-center gap-2">
+                            <Phone size={14} />
                             {tech.users.phone}
                           </div>
                         )}
                         {tech.users.email && (
-                          <div className="flex items-center gap-1">
-                            <Mail size={12} />
+                          <div className="flex items-center gap-2">
+                            <Mail size={14} />
                             {tech.users.email}
                           </div>
                         )}
@@ -1130,133 +912,458 @@ const JobDetails = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-4 text-gray-500">
-                No technicians assigned
+              <div className="text-center py-6 bg-gray-50 rounded-lg">
+                <p className="text-gray-500">No technicians assigned</p>
+                <button
+                  onClick={() => setShowAppointmentModal(true)}
+                  className="mt-2 text-primary-600 hover:text-primary-800"
+                >
+                  Assign technicians
+                </button>
               </div>
             )}
           </div>
 
-          {/* Unit Information Card */}
-          {job.units && (
-            <div className="card">
-              <h2 className="text-lg font-semibold mb-4">Unit Details</h2>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Unit Number</span>
-                  <span className="font-medium">{job.units.unit_number}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Status</span>
-                  <span className={`badge ${job.units.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
-                    {job.units.status}
-                  </span>
-                </div>
-                <div className="pt-2">
-                  <Link 
-                    to={`/units/${job.units.id}`}
-                    className="btn btn-secondary w-full justify-center"
-                  >
-                    <Building2 className="h-4 w-4 mr-2" />
-                    View Unit Details
-                  </Link>
+          {/* Job Items/Pricing */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Items & Pricing</h2>
+              <button
+                onClick={() => setShowAddPricingModal(true)}
+                className="btn btn-primary"
+              >
+                <Plus size={16} className="mr-2" />
+                Add Item
+              </button>
+            </div>
+            
+            {jobItems.length > 0 ? (
+              <div className="space-y-4">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 text-left">
+                      <tr>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-500">Type</th>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-500">Code</th>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-500">Name</th>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-500">Quantity</th>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-500">Unit Cost</th>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-500">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {jobItems.map((item, index) => (
+                        <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="px-4 py-3 text-sm">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getItemTypeBadgeClass(item.type)}`}>
+                              {getItemTypeIcon(item.type)}
+                              {item.type}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium">{item.code}</td>
+                          <td className="px-4 py-3 text-sm">{item.name}</td>
+                          <td className="px-4 py-3 text-sm">{item.quantity}</td>
+                          <td className="px-4 py-3 text-sm">${Number(item.unit_cost).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-sm font-medium">${Number(item.total_cost).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50">
+                      <tr>
+                        <td colSpan={5} className="px-4 py-3 text-sm font-medium text-right">Total:</td>
+                        <td className="px-4 py-3 text-sm font-bold">${calculateTotalCost().toFixed(2)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Quick Actions */}
-          <div className="card">
-            <h2 className="text-lg font-semibold mb-4">Act on this Job</h2>
-            <div className="space-y-3">
-              {job.status !== 'completed' && job.status !== 'cancelled' && (
-                <button 
-                  className="btn btn-primary w-full justify-start"
-                  onClick={() => setShowCompleteModal(true)}
+            ) : (
+              <div className="text-center py-6 bg-gray-50 rounded-lg">
+                <p className="text-gray-500">No items added</p>
+                <button
+                  onClick={() => setShowAddPricingModal(true)}
+                  className="mt-2 text-primary-600 hover:text-primary-800"
                 >
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Add items
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Quote Section */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Quote</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={generatePDF}
+                  className="btn btn-secondary"
+                  disabled={jobItems.length === 0}
+                >
+                  <Download size={16} className="mr-2" />
+                  Download PDF
+                </button>
+                <button
+                  onClick={() => setShowSendQuoteModal(true)}
+                  className="btn btn-primary"
+                  disabled={jobItems.length === 0}
+                >
+                  <Send size={16} className="mr-2" />
+                  Send to Customer
+                </button>
+              </div>
+            </div>
+            
+            {quoteConfirmed ? (
+              <div className="bg-success-50 border border-success-200 rounded-lg p-4 flex items-center gap-3">
+                <div className="bg-success-100 rounded-full p-2">
+                  <FileCheck className="h-6 w-6 text-success-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-success-800">Quote Confirmed by Customer</h3>
+                  <p className="text-success-600 text-sm">
+                    Confirmed on {quoteConfirmedAt ? new Date(quoteConfirmedAt).toLocaleDateString() : 'N/A'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-lg p-6">
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium mb-2">Quote Summary</h3>
+                  <p className="text-gray-600">
+                    This quote includes all items, labor, and parts required for the job.
+                  </p>
+                </div>
+                
+                {jobItems.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="border-t border-gray-200 pt-4">
+                      <div className="flex justify-between font-medium">
+                        <span>Total Quote Amount:</span>
+                        <span className="text-lg">${calculateTotalCost().toFixed(2)}</span>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-2">
+                        This quote is valid for 30 days from the date of issue.
+                      </p>
+                    </div>
+                    
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleConfirmQuote}
+                        className="btn btn-success"
+                      >
+                        <CheckCircle size={16} className="mr-2" />
+                        Confirm Quote (Demo)
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <p className="text-gray-500">No items added to this quote yet.</p>
+                    <button
+                      onClick={() => setShowAddPricingModal(true)}
+                      className="mt-2 text-primary-600 hover:text-primary-800"
+                    >
+                      Add items to create a quote
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div>
+          {/* Quick Actions */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+            <div className="space-y-3">
+              <button
+                onClick={() => setShowAppointmentModal(true)}
+                className="btn btn-primary w-full justify-start"
+              >
+                <Calendar size={16} className="mr-2" />
+                Assign Technicians
+              </button>
+              <button
+                onClick={() => setShowAddPricingModal(true)}
+                className="btn btn-primary w-full justify-start"
+              >
+                <DollarSign size={16} className="mr-2" />
+                Add Items
+              </button>
+              <Link
+                to={`/jobs/${job.id}/edit`}
+                className="btn btn-secondary w-full justify-start"
+              >
+                <Edit size={16} className="mr-2" />
+                Edit Job
+              </Link>
+              <button
+                onClick={() => setShowSendQuoteModal(true)}
+                className="btn btn-secondary w-full justify-start"
+                disabled={jobItems.length === 0}
+              >
+                <Send size={16} className="mr-2" />
+                Send Quote
+              </button>
+              {job.status !== 'completed' && job.status !== 'cancelled' && (
+                <button
+                  onClick={() => setShowCompleteModal(true)}
+                  className="btn btn-success w-full justify-start"
+                >
+                  <CheckCircle size={16} className="mr-2" />
                   Complete Job
                 </button>
               )}
-              <button className="btn btn-secondary w-full justify-start">
-                <Send className="h-4 w-4 mr-2" />
-                Send Service Link
-              </button>
-              <button className="btn btn-success w-full justify-start">
-                <FileInvoice className="h-4 w-4 mr-2" />
-                Invoice Job
-              </button>
-              {job.status !== 'completed' && job.status !== 'cancelled' && (
-                <button 
-                  className="btn btn-error w-full justify-start"
-                  onClick={() => setShowCancelModal(true)}
-                >
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  Cancel Job
-                </button>
-              )}
-              <button className="btn btn-secondary w-full justify-start">
-                <Copy className="h-4 w-4 mr-2" />
-                Copy Job
-              </button>
-              <button className="btn btn-secondary w-full justify-start">
-                <Tool className="h-4 w-4 mr-2" />
-                Edit Job
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="btn btn-error w-full justify-start"
+              >
+                <Trash2 size={16} className="mr-2" />
+                Delete Job
               </button>
             </div>
           </div>
 
-          {/* Job Information */}
-          {(job.service_line || job.description || job.problem_description) && (
-            <div className="card">
-              <h2 className="text-lg font-semibold mb-4">Service Information</h2>
-              <div className="space-y-4">
-                {job.service_line && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500">Service Line</label>
-                    <p>{job.service_line}</p>
-                  </div>
-                )}
-                {job.description && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500">Description</label>
-                    <p>{job.description}</p>
-                  </div>
-                )}
-                {job.problem_description && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500">Problem Description</label>
-                    <p>{job.problem_description}</p>
-                  </div>
-                )}
-                {job.customer_po && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500">Customer PO</label>
-                    <p>{job.customer_po}</p>
-                  </div>
-                )}
+          {/* Job Summary */}
+          <div className="bg-white rounded-lg shadow p-6 mt-6">
+            <h2 className="text-lg font-semibold mb-4">Job Summary</h2>
+            <div className="space-y-4">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Status:</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(job.status)}`}>
+                  {job.status}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Type:</span>
+                <span>{job.type}</span>
+              </div>
+              {job.service_line && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Service Line:</span>
+                  <span>{job.service_line}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-gray-600">Start Date:</span>
+                <span>{job.time_period_start}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Due Date:</span>
+                <span>{job.time_period_due}</span>
+              </div>
+              {job.schedule_start && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Scheduled:</span>
+                  <span>{formatDateTime(job.schedule_start)}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-gray-600">Items:</span>
+                <span>{jobItems.length}</span>
+              </div>
+              <div className="flex justify-between font-medium">
+                <span>Total Cost:</span>
+                <span>${calculateTotalCost().toFixed(2)}</span>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
-      {/* Add Item Modal */}
-      <AddJobItemModal 
-        isOpen={showAddItemModal}
-        onClose={() => setShowAddItemModal(false)}
-        jobId={id || ''}
-        onItemAdded={refreshItems}
-      />
+      {/* Hidden PDF template */}
+      <div id="pdf-template" ref={pdfRef} className="hidden print:block">
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h1 className="text-2xl font-bold">Airlast HVAC</h1>
+              <p>1650 Marietta Boulevard Northwest</p>
+              <p>Atlanta, GA 30318</p>
+              <p>(404) 632-9074</p>
+            </div>
+            <div className="text-right">
+              <h2 className="text-xl font-bold">Quote</h2>
+              <p>Job #: {job.number}</p>
+              <p>Date: {new Date().toLocaleDateString()}</p>
+              <p>Valid Until: {new Date(new Date().setDate(new Date().getDate() + 30)).toLocaleDateString()}</p>
+            </div>
+          </div>
+
+          <div className="mb-8">
+            <h3 className="text-lg font-bold mb-2">Customer Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="font-bold">Bill To:</p>
+                <p>{job.locations?.companies.name}</p>
+                <p>{job.locations?.address}</p>
+                <p>{job.locations?.city}, {job.locations?.state} {job.locations?.zip}</p>
+              </div>
+              <div>
+                <p className="font-bold">Contact:</p>
+                <p>{job.contact_name}</p>
+                <p>{job.contact_phone}</p>
+                <p>{job.contact_email}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-8">
+            <h3 className="text-lg font-bold mb-2">Service Location</h3>
+            <p>{job.locations?.name}</p>
+            <p>{job.locations?.address}</p>
+            <p>{job.locations?.city}, {job.locations?.state} {job.locations?.zip}</p>
+            {job.units && <p>Unit: {job.units.unit_number}</p>}
+          </div>
+
+          <div className="mb-8">
+            <h3 className="text-lg font-bold mb-2">Service Details</h3>
+            <p><strong>Service Type:</strong> {job.type}</p>
+            <p><strong>Service Line:</strong> {job.service_line}</p>
+            <p><strong>Description:</strong> {job.description}</p>
+            {job.schedule_date && (
+              <p><strong>Scheduled Date:</strong> {job.schedule_date}</p>
+            )}
+            {job.schedule_time && (
+              <p><strong>Scheduled Time:</strong> {job.schedule_time}</p>
+            )}
+          </div>
+
+          <div className="mb-8">
+            <h3 className="text-lg font-bold mb-2">Technicians</h3>
+            {job.job_technicians && job.job_technicians.length > 0 ? (
+              <ul>
+                {job.job_technicians.map(tech => (
+                  <li key={tech.id}>
+                    {tech.users.first_name} {tech.users.last_name}
+                    {tech.is_primary && " (Primary)"}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No technicians assigned</p>
+            )}
+          </div>
+
+          <div className="mb-8">
+            <h3 className="text-lg font-bold mb-2">Items & Pricing</h3>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border p-2 text-left">Type</th>
+                  <th className="border p-2 text-left">Item</th>
+                  <th className="border p-2 text-right">Quantity</th>
+                  <th className="border p-2 text-right">Unit Price</th>
+                  <th className="border p-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobItems.map((item, index) => (
+                  <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="border p-2 capitalize">{item.type}</td>
+                    <td className="border p-2">{item.name}</td>
+                    <td className="border p-2 text-right">{item.quantity}</td>
+                    <td className="border p-2 text-right">${Number(item.unit_cost).toFixed(2)}</td>
+                    <td className="border p-2 text-right">${Number(item.total_cost).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-100 font-bold">
+                  <td className="border p-2" colSpan={4} align="right">Total:</td>
+                  <td className="border p-2 text-right">${calculateTotalCost().toFixed(2)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div className="mb-8">
+            <h3 className="text-lg font-bold mb-2">Terms & Conditions</h3>
+            <p>1. This quote is valid for 30 days from the date of issue.</p>
+            <p>2. Payment is due upon completion of work unless otherwise specified.</p>
+            <p>3. Any additional work not specified in this quote will require a separate quote.</p>
+            <p>4. Airlast HVAC provides a 90-day warranty on all parts and labor.</p>
+          </div>
+
+          <div className="mt-12 border-t pt-4">
+            <div className="grid grid-cols-2 gap-8">
+              <div>
+                <p className="font-bold">Customer Acceptance:</p>
+                <div className="mt-4 border-b border-black" style={{ height: '1px', width: '80%' }}></div>
+                <p className="mt-1">Signature</p>
+                <div className="mt-4 border-b border-black" style={{ height: '1px', width: '80%' }}></div>
+                <p className="mt-1">Date</p>
+              </div>
+              <div>
+                <p className="font-bold">Airlast HVAC:</p>
+                <div className="mt-4 border-b border-black" style={{ height: '1px', width: '80%' }}></div>
+                <p className="mt-1">Representative</p>
+                <div className="mt-4 border-b border-black" style={{ height: '1px', width: '80%' }}></div>
+                <p className="mt-1">Date</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Appointment Modal */}
       <AppointmentModal
         isOpen={showAppointmentModal}
         onClose={() => setShowAppointmentModal(false)}
-        onSave={handleUpdateTechnicians}
-        selectedTechnicianIds={technicians.map(tech => tech.technician_id)}
+        onSave={handleScheduleAppointment}
+        selectedTechnicianIds={job.job_technicians?.map(jt => jt.technician_id) || []}
       />
 
-      {/* Complete Job Confirmation Modal */}
+      {/* Add Pricing Modal */}
+      <AddJobPricingModal
+        isOpen={showAddPricingModal}
+        onClose={() => setShowAddPricingModal(false)}
+        onPriceAdded={handlePriceAdded}
+        jobId={job.id}
+      />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center justify-center text-error-600 mb-4">
+              <AlertTriangle size={40} />
+            </div>
+            <h3 className="text-lg font-semibold text-center mb-4">
+              Delete Job
+            </h3>
+            <p className="text-center text-gray-600 mb-6">
+              Are you sure you want to delete Job #{job.number}? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-error"
+                onClick={handleDeleteJob}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Confirmation Modal */}
       {showCompleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
@@ -1267,24 +1374,24 @@ const JobDetails = () => {
               Complete Job
             </h3>
             <p className="text-center text-gray-600 mb-6">
-              Are you sure you want to mark this job as completed? This will update the job status and notify relevant parties.
+              Are you sure you want to mark Job #{job.number} as completed?
             </p>
             <div className="flex justify-end space-x-3">
               <button 
                 className="btn btn-secondary"
                 onClick={() => setShowCompleteModal(false)}
-                disabled={isCompletingJob}
+                disabled={isCompleting}
               >
                 Cancel
               </button>
               <button 
                 className="btn btn-success"
                 onClick={handleCompleteJob}
-                disabled={isCompletingJob}
+                disabled={isCompleting}
               >
-                {isCompletingJob ? (
+                {isCompleting ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
                     Completing...
                   </>
                 ) : (
@@ -1296,39 +1403,53 @@ const JobDetails = () => {
         </div>
       )}
 
-      {/* Cancel Job Confirmation Modal */}
-      {showCancelModal && (
+      {/* Send Quote Modal */}
+      {showSendQuoteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-            <div className="flex items-center justify-center text-error-600 mb-4">
-              <AlertTriangle size={40} />
+            <div className="flex items-center justify-center text-primary-600 mb-4">
+              <Send size={40} />
             </div>
             <h3 className="text-lg font-semibold text-center mb-4">
-              Cancel Job
+              Send Quote to Customer
             </h3>
-            <p className="text-center text-gray-600 mb-6">
-              Are you sure you want to cancel this job? This action cannot be undone.
-            </p>
+            <div className="mb-6">
+              <label htmlFor="customerEmail" className="block text-sm font-medium text-gray-700 mb-1">
+                Customer Email
+              </label>
+              <input
+                type="email"
+                id="customerEmail"
+                value={customerEmail}
+                onChange={(e) => setCustomerEmail(e.target.value)}
+                className="input w-full"
+                placeholder="customer@example.com"
+                required
+              />
+              <p className="text-sm text-gray-500 mt-2">
+                The customer will receive an email with a link to view and confirm this quote.
+              </p>
+            </div>
             <div className="flex justify-end space-x-3">
               <button 
                 className="btn btn-secondary"
-                onClick={() => setShowCancelModal(false)}
-                disabled={isCancellingJob}
+                onClick={() => setShowSendQuoteModal(false)}
+                disabled={isSendingQuote}
               >
-                Go Back
+                Cancel
               </button>
               <button 
-                className="btn btn-error"
-                onClick={handleCancelJob}
-                disabled={isCancellingJob}
+                className="btn btn-primary"
+                onClick={handleSendQuote}
+                disabled={isSendingQuote || !customerEmail}
               >
-                {isCancellingJob ? (
+                {isSendingQuote ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-                    Cancelling...
+                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                    Sending...
                   </>
                 ) : (
-                  'Cancel Job'
+                  'Send Quote'
                 )}
               </button>
             </div>

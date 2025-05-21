@@ -30,6 +30,7 @@ import Invoices from "./pages/Invoices";
 import PendingInvoices from "./pages/PendingInvoices";
 import PaidInvoices from "./pages/PaidInvoices";
 import InvoiceReports from "./pages/InvoiceReports";
+import QuoteConfirmation from "./pages/QuoteConfirmation";
 
 function App() {
   const { supabase } = useSupabase();
@@ -48,6 +49,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/quote/confirm/:token" element={<QuoteConfirmation />} />
 
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
