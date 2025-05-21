@@ -5,6 +5,7 @@ import { Database } from '../types/supabase';
 import { ArrowLeft, Calendar, Clock, MapPin, Building, Building2, User, Phone, Mail, Tag, FileText, Plus, Trash2, CheckCircle, AlertTriangle, Edit, Package, PenTool as Tool, ShoppingCart, DollarSign, Send, Download, FileCheck } from 'lucide-react';
 import AppointmentModal from '../components/jobs/AppointmentModal';
 import AddJobPricingModal from '../components/jobs/AddJobPricingModal';
+import QuotePDFTemplate from '../components/quotes/QuotePDFTemplate';
 
 type Job = Database['public']['Tables']['jobs']['Row'] & {
   locations?: {
@@ -419,25 +420,23 @@ const JobDetails = () => {
 
   // Generate PDF for the quote
   const generatePDF = () => {
-    if (!pdfRef.current) return;
+    if (!job) return;
     
-    // In a real application, you would use a library like jsPDF or html2pdf
-    // For this demo, we'll just use the browser's print functionality
-    const printContent = document.getElementById('pdf-template');
-    const originalDisplay = document.body.style.display;
-    
-    // Hide everything except the PDF content
-    document.body.style.display = 'none';
-    
-    // Create a new window for printing
+    // Open a new window for the PDF
     const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    if (!printWindow) {
+      alert('Please allow pop-ups to generate the PDF');
+      return;
+    }
     
     // Write the PDF content to the new window
     printWindow.document.write(`
+      <!DOCTYPE html>
       <html>
         <head>
-          <title>Quote - ${job?.name || 'Job Quote'}</title>
+          <title>Quote #${job.number} - ${job.name}</title>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <style>
             body {
               font-family: Arial, sans-serif;
@@ -446,39 +445,31 @@ const JobDetails = () => {
               margin: 0;
               padding: 20px;
             }
+            .container {
+              max-width: 800px;
+              margin: 0 auto;
+            }
             .header {
               display: flex;
               justify-content: space-between;
               margin-bottom: 30px;
-              border-bottom: 1px solid #ddd;
               padding-bottom: 20px;
-            }
-            .company-info {
-              margin-bottom: 20px;
-            }
-            .quote-info {
-              text-align: right;
-            }
-            h1 {
-              font-size: 24px;
-              margin-bottom: 10px;
-              color: #0672be;
-            }
-            h2 {
-              font-size: 18px;
-              margin-top: 20px;
-              margin-bottom: 10px;
-              color: #0672be;
-              border-bottom: 1px solid #eee;
-              padding-bottom: 5px;
+              border-bottom: 1px solid #ddd;
             }
             .section {
               margin-bottom: 30px;
             }
-            .grid {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 20px;
+            h1 {
+              font-size: 24px;
+              margin: 0 0 5px 0;
+            }
+            h2 {
+              font-size: 20px;
+              margin: 0 0 15px 0;
+            }
+            h3 {
+              font-size: 16px;
+              margin: 0 0 10px 0;
             }
             table {
               width: 100%;
@@ -487,167 +478,183 @@ const JobDetails = () => {
             }
             th, td {
               border: 1px solid #ddd;
-              padding: 8px 12px;
+              padding: 8px;
               text-align: left;
             }
             th {
-              background-color: #f5f5f5;
+              background-color: #f2f2f2;
             }
-            .total-row {
-              font-weight: bold;
-              background-color: #f5f5f5;
+            .text-right {
+              text-align: right;
             }
             .signature-area {
+              display: flex;
+              justify-content: space-between;
               margin-top: 50px;
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 50px;
             }
             .signature-line {
-              border-top: 1px solid #000;
-              margin-top: 50px;
-              width: 80%;
+              width: 200px;
+              border-bottom: 1px solid #000;
+              margin-bottom: 5px;
             }
-            .terms {
-              margin-top: 30px;
-              font-size: 12px;
-              border-top: 1px solid #ddd;
-              padding-top: 20px;
+            .signature {
+              font-family: cursive;
+              font-size: 24px;
+              position: relative;
+              top: -15px;
+              text-align: center;
+            }
+            @media print {
+              body {
+                padding: 0;
+              }
+              .no-print {
+                display: none;
+              }
             }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div class="company-info">
-              <h1>Airlast HVAC</h1>
-              <p>1650 Marietta Boulevard Northwest<br>
-              Atlanta, GA 30318<br>
-              (404) 632-9074</p>
-            </div>
-            <div class="quote-info">
-              <h1>QUOTE</h1>
-              <p><strong>Job #:</strong> ${job?.number || 'N/A'}</p>
-              <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-              <p><strong>Valid Until:</strong> ${new Date(new Date().setDate(new Date().getDate() + 30)).toLocaleDateString()}</p>
-            </div>
-          </div>
-
-          <div class="section">
-            <h2>Customer Information</h2>
-            <div class="grid">
+          <div class="container">
+            <div class="header">
               <div>
-                <p><strong>Bill To:</strong><br>
-                ${job?.locations?.companies.name || 'N/A'}<br>
-                ${job?.locations?.address || 'N/A'}<br>
-                ${job?.locations?.city || 'N/A'}, ${job?.locations?.state || 'N/A'} ${job?.locations?.zip || 'N/A'}</p>
+                <h1>Airlast HVAC</h1>
+                <p>1650 Marietta Boulevard Northwest<br>
+                Atlanta, GA 30318<br>
+                (404) 632-9074</p>
               </div>
-              <div>
-                <p><strong>Contact:</strong><br>
-                ${job?.contact_name || 'N/A'}<br>
-                ${job?.contact_phone || 'N/A'}<br>
-                ${job?.contact_email || 'N/A'}</p>
+              <div style="text-align: right;">
+                <h2>Quote</h2>
+                <p>Job #: ${job.number}<br>
+                Date: ${new Date().toLocaleDateString()}<br>
+                Valid Until: ${new Date(new Date().setDate(new Date().getDate() + 30)).toLocaleDateString()}</p>
               </div>
             </div>
-          </div>
 
-          <div class="section">
-            <h2>Service Location</h2>
-            <p><strong>${job?.locations?.name || 'N/A'}</strong></p>
-            <p>${job?.locations?.address || 'N/A'}<br>
-            ${job?.locations?.city || 'N/A'}, ${job?.locations?.state || 'N/A'} ${job?.locations?.zip || 'N/A'}</p>
-            ${job?.units ? `<p><strong>Unit:</strong> ${job.units.unit_number}</p>` : ''}
-          </div>
+            <div class="section">
+              <h3>Customer Information</h3>
+              <div style="display: flex; justify-content: space-between;">
+                <div style="width: 48%;">
+                  <p><strong>Bill To:</strong><br>
+                  ${job.locations?.companies.name}<br>
+                  ${job.locations?.address}<br>
+                  ${job.locations?.city}, ${job.locations?.state} ${job.locations?.zip}</p>
+                </div>
+                <div style="width: 48%;">
+                  <p><strong>Contact:</strong><br>
+                  ${job.contact_name || 'N/A'}<br>
+                  ${job.contact_phone || 'N/A'}<br>
+                  ${job.contact_email || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
 
-          <div class="section">
-            <h2>Service Details</h2>
-            <p><strong>Service Type:</strong> ${job?.type || 'N/A'}</p>
-            <p><strong>Service Line:</strong> ${job?.service_line || 'N/A'}</p>
-            <p><strong>Description:</strong> ${job?.description || 'N/A'}</p>
-            ${job?.schedule_start ? `<p><strong>Scheduled Date:</strong> ${formatDateTime(job.schedule_start)}</p>` : ''}
-            ${job?.schedule_duration ? `<p><strong>Estimated Duration:</strong> ${job.schedule_duration}</p>` : ''}
-          </div>
+            <div class="section">
+              <h3>Service Location</h3>
+              <p>
+                ${job.locations?.name}<br>
+                ${job.locations?.address}<br>
+                ${job.locations?.city}, ${job.locations?.state} ${job.locations?.zip}
+                ${job.units ? `<br>Unit: ${job.units.unit_number}` : ''}
+              </p>
+            </div>
 
-          <div class="section">
-            <h2>Technicians</h2>
-            ${job?.job_technicians && job.job_technicians.length > 0 ? 
-              `<ul>${job.job_technicians.map(tech => 
-                `<li>${tech.users.first_name} ${tech.users.last_name}${tech.is_primary ? ' (Primary)' : ''}</li>`
-              ).join('')}</ul>` : 
-              '<p>No technicians assigned</p>'
-            }
-          </div>
+            <div class="section">
+              <h3>Service Details</h3>
+              <p><strong>Service Type:</strong> ${job.type}</p>
+              <p><strong>Service Line:</strong> ${job.service_line || 'N/A'}</p>
+              <p><strong>Description:</strong> ${job.description || 'N/A'}</p>
+              ${job.problem_description ? `<p><strong>Problem Description:</strong> ${job.problem_description}</p>` : ''}
+              ${job.schedule_date ? `<p><strong>Scheduled Date:</strong> ${job.schedule_date}</p>` : ''}
+              ${job.schedule_time ? `<p><strong>Scheduled Time:</strong> ${job.schedule_time}</p>` : ''}
+              ${job.schedule_start ? `<p><strong>Scheduled:</strong> ${formatDateTime(job.schedule_start)}</p>` : ''}
+            </div>
 
-          <div class="section">
-            <h2>Items & Pricing</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Item</th>
-                  <th>Quantity</th>
-                  <th>Unit Price</th>
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${jobItems.map(item => `
+            <div class="section">
+              <h3>Technicians</h3>
+              ${job.job_technicians && job.job_technicians.length > 0 
+                ? `<ul>${job.job_technicians.map(tech => 
+                    `<li>${tech.users.first_name} ${tech.users.last_name}${tech.is_primary ? ' (Primary)' : ''}</li>`
+                  ).join('')}</ul>` 
+                : '<p>No technicians assigned</p>'}
+            </div>
+
+            <div class="section">
+              <h3>Items & Pricing</h3>
+              <table>
+                <thead>
                   <tr>
-                    <td>${item.type.charAt(0).toUpperCase() + item.type.slice(1)}</td>
-                    <td>${item.name}</td>
-                    <td>${item.quantity}</td>
-                    <td>$${Number(item.unit_cost).toFixed(2)}</td>
-                    <td>$${Number(item.total_cost).toFixed(2)}</td>
+                    <th>Type</th>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                    <th class="text-right">Unit Price</th>
+                    <th class="text-right">Total</th>
                   </tr>
-                `).join('')}
-              </tbody>
-              <tfoot>
-                <tr class="total-row">
-                  <td colspan="4" align="right">Total:</td>
-                  <td>$${calculateTotalCost().toFixed(2)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          <div class="terms">
-            <h2>Terms & Conditions</h2>
-            <ol>
-              <li>This quote is valid for 30 days from the date of issue.</li>
-              <li>Payment is due upon completion of work unless otherwise specified.</li>
-              <li>Any additional work not specified in this quote will require a separate quote.</li>
-              <li>Airlast HVAC provides a 90-day warranty on all parts and labor.</li>
-              <li>Cancellations must be made at least 24 hours before scheduled service.</li>
-            </ol>
-          </div>
-
-          <div class="signature-area">
-            <div>
-              <p><strong>Customer Acceptance:</strong></p>
-              <div class="signature-line"></div>
-              <p>Signature</p>
-              <div class="signature-line"></div>
-              <p>Date</p>
+                </thead>
+                <tbody>
+                  ${jobItems.map((item) => `
+                    <tr>
+                      <td style="text-transform: capitalize;">${item.type}</td>
+                      <td>${item.name}</td>
+                      <td>${item.quantity}</td>
+                      <td class="text-right">$${Number(item.unit_cost).toFixed(2)}</td>
+                      <td class="text-right">$${Number(item.total_cost).toFixed(2)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="4" class="text-right"><strong>Total:</strong></td>
+                    <td class="text-right"><strong>$${calculateTotalCost().toFixed(2)}</strong></td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
-            <div>
-              <p><strong>Airlast HVAC:</strong></p>
-              <div class="signature-line"></div>
-              <p>Representative</p>
-              <div class="signature-line"></div>
-              <p>Date</p>
+
+            <div class="section">
+              <h3>Terms & Conditions</h3>
+              <ol>
+                <li>This quote is valid for 30 days from the date of issue.</li>
+                <li>Payment is due upon completion of work unless otherwise specified.</li>
+                <li>Any additional work not specified in this quote will require a separate quote.</li>
+                <li>Airlast HVAC provides a 90-day warranty on all parts and labor.</li>
+                <li>Customer is responsible for providing access to the work area.</li>
+              </ol>
+            </div>
+
+            <div class="signature-area">
+              <div>
+                <p><strong>Customer Acceptance:</strong></p>
+                <div class="signature-line"></div>
+                <p>Signature</p>
+                <div class="signature-line"></div>
+                <p>Date</p>
+              </div>
+              <div>
+                <p><strong>Airlast HVAC:</strong></p>
+                <div class="signature-line">
+                  <div class="signature">JH</div>
+                </div>
+                <p>Representative</p>
+                <div class="signature-line">
+                  <div class="signature" style="font-size: 16px;">${new Date().toLocaleDateString()}</div>
+                </div>
+                <p>Date</p>
+              </div>
+            </div>
+            
+            <div class="no-print" style="margin-top: 30px; text-align: center;">
+              <button onclick="window.print();" style="padding: 10px 20px; background-color: #0672be; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Print Quote
+              </button>
             </div>
           </div>
         </body>
       </html>
     `);
     
-    // Print the window
+    // Finish loading the document
     printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.close();
-    
-    // Restore original display
-    document.body.style.display = originalDisplay;
   };
 
   if (isLoading) {
@@ -1175,136 +1182,7 @@ const JobDetails = () => {
 
       {/* Hidden PDF template */}
       <div id="pdf-template" ref={pdfRef} className="hidden print:block">
-        <div className="p-8">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-2xl font-bold">Airlast HVAC</h1>
-              <p>1650 Marietta Boulevard Northwest</p>
-              <p>Atlanta, GA 30318</p>
-              <p>(404) 632-9074</p>
-            </div>
-            <div className="text-right">
-              <h2 className="text-xl font-bold">Quote</h2>
-              <p>Job #: {job.number}</p>
-              <p>Date: {new Date().toLocaleDateString()}</p>
-              <p>Valid Until: {new Date(new Date().setDate(new Date().getDate() + 30)).toLocaleDateString()}</p>
-            </div>
-          </div>
-
-          <div className="mb-8">
-            <h3 className="text-lg font-bold mb-2">Customer Information</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="font-bold">Bill To:</p>
-                <p>{job.locations?.companies.name}</p>
-                <p>{job.locations?.address}</p>
-                <p>{job.locations?.city}, {job.locations?.state} {job.locations?.zip}</p>
-              </div>
-              <div>
-                <p className="font-bold">Contact:</p>
-                <p>{job.contact_name}</p>
-                <p>{job.contact_phone}</p>
-                <p>{job.contact_email}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-8">
-            <h3 className="text-lg font-bold mb-2">Service Location</h3>
-            <p>{job.locations?.name}</p>
-            <p>{job.locations?.address}</p>
-            <p>{job.locations?.city}, {job.locations?.state} {job.locations?.zip}</p>
-            {job.units && <p>Unit: {job.units.unit_number}</p>}
-          </div>
-
-          <div className="mb-8">
-            <h3 className="text-lg font-bold mb-2">Service Details</h3>
-            <p><strong>Service Type:</strong> {job.type}</p>
-            <p><strong>Service Line:</strong> {job.service_line}</p>
-            <p><strong>Description:</strong> {job.description}</p>
-            {job.schedule_date && (
-              <p><strong>Scheduled Date:</strong> {job.schedule_date}</p>
-            )}
-            {job.schedule_time && (
-              <p><strong>Scheduled Time:</strong> {job.schedule_time}</p>
-            )}
-          </div>
-
-          <div className="mb-8">
-            <h3 className="text-lg font-bold mb-2">Technicians</h3>
-            {job.job_technicians && job.job_technicians.length > 0 ? (
-              <ul>
-                {job.job_technicians.map(tech => (
-                  <li key={tech.id}>
-                    {tech.users.first_name} {tech.users.last_name}
-                    {tech.is_primary && " (Primary)"}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No technicians assigned</p>
-            )}
-          </div>
-
-          <div className="mb-8">
-            <h3 className="text-lg font-bold mb-2">Items & Pricing</h3>
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="border p-2 text-left">Type</th>
-                  <th className="border p-2 text-left">Item</th>
-                  <th className="border p-2 text-right">Quantity</th>
-                  <th className="border p-2 text-right">Unit Price</th>
-                  <th className="border p-2 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {jobItems.map((item, index) => (
-                  <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="border p-2 capitalize">{item.type}</td>
-                    <td className="border p-2">{item.name}</td>
-                    <td className="border p-2 text-right">{item.quantity}</td>
-                    <td className="border p-2 text-right">${Number(item.unit_cost).toFixed(2)}</td>
-                    <td className="border p-2 text-right">${Number(item.total_cost).toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-gray-100 font-bold">
-                  <td className="border p-2" colSpan={4} align="right">Total:</td>
-                  <td className="border p-2 text-right">${calculateTotalCost().toFixed(2)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          <div className="mb-8">
-            <h3 className="text-lg font-bold mb-2">Terms & Conditions</h3>
-            <p>1. This quote is valid for 30 days from the date of issue.</p>
-            <p>2. Payment is due upon completion of work unless otherwise specified.</p>
-            <p>3. Any additional work not specified in this quote will require a separate quote.</p>
-            <p>4. Airlast HVAC provides a 90-day warranty on all parts and labor.</p>
-          </div>
-
-          <div className="mt-12 border-t pt-4">
-            <div className="grid grid-cols-2 gap-8">
-              <div>
-                <p className="font-bold">Customer Acceptance:</p>
-                <div className="mt-4 border-b border-black" style={{ height: '1px', width: '80%' }}></div>
-                <p className="mt-1">Signature</p>
-                <div className="mt-4 border-b border-black" style={{ height: '1px', width: '80%' }}></div>
-                <p className="mt-1">Date</p>
-              </div>
-              <div>
-                <p className="font-bold">Airlast HVAC:</p>
-                <div className="mt-4 border-b border-black" style={{ height: '1px', width: '80%' }}></div>
-                <p className="mt-1">Representative</p>
-                <div className="mt-4 border-b border-black" style={{ height: '1px', width: '80%' }}></div>
-                <p className="mt-1">Date</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <QuotePDFTemplate job={job} jobItems={jobItems} />
       </div>
 
       {/* Appointment Modal */}
