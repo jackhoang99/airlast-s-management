@@ -19,6 +19,7 @@ const Locations = () => {
   const [expandedLocationId, setExpandedLocationId] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     name: '',
+    building_name: '',
     city: '',
     state: '',
     zipcode: '',
@@ -39,6 +40,9 @@ const Locations = () => {
         // Apply filters
         if (filters.name) {
           query = query.ilike('name', `%${filters.name}%`);
+        }
+        if (filters.building_name) {
+          query = query.ilike('building_name', `%${filters.building_name}%`);
         }
         if (filters.city) {
           query = query.ilike('city', `%${filters.city}%`);
@@ -72,6 +76,7 @@ const Locations = () => {
   const resetFilters = () => {
     setFilters({
       name: '',
+      building_name: '',
       city: '',
       state: '',
       zipcode: '',
@@ -85,6 +90,7 @@ const Locations = () => {
   const filteredLocations = searchQuery 
     ? locations.filter(location => 
         location.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        location.building_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         location.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
         location.state.toLowerCase().includes(searchQuery.toLowerCase()) ||
         location.zip.toLowerCase().includes(searchQuery.toLowerCase())
@@ -116,7 +122,7 @@ const Locations = () => {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mb-6">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
               Name
@@ -126,6 +132,19 @@ const Locations = () => {
               id="name"
               name="name"
               value={filters.name}
+              onChange={handleFilterChange}
+              className="input"
+            />
+          </div>
+          <div>
+            <label htmlFor="building_name" className="block text-sm font-medium text-gray-700 mb-1">
+              Building Name
+            </label>
+            <input
+              type="text"
+              id="building_name"
+              name="building_name"
+              value={filters.building_name}
               onChange={handleFilterChange}
               className="input"
             />
@@ -211,6 +230,9 @@ const Locations = () => {
                         >
                           {location.name}
                         </Link>
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Building: {location.building_name}
                       </div>
                       <Link 
                         to={`/companies/${location.company_id}`}

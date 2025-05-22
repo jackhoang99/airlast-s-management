@@ -1,0 +1,70 @@
+import { Building, MapPin, User, Phone, Mail } from 'lucide-react';
+import { Job } from '../../types/job';
+
+type JobLocationContactProps = {
+  job: Job;
+};
+
+const JobLocationContact = ({ job }: JobLocationContactProps) => {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <h3 className="text-lg font-medium mb-4">Location</h3>
+        {job.locations ? (
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <Building className="h-5 w-5 text-gray-400 mt-1" />
+              <div>
+                <p className="font-medium">{job.locations.companies.name}</p>
+                <p>{job.locations.name}</p>
+                {job.units && <p>Unit: {job.units.unit_number}</p>}
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <MapPin className="h-5 w-5 text-gray-400 mt-1" />
+              <div>
+                <p>{job.locations.address}</p>
+                <p>{job.locations.city}, {job.locations.state} {job.locations.zip}</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-500">No location assigned</p>
+        )}
+      </div>
+
+      <div>
+        <h3 className="text-lg font-medium mb-4">Contact</h3>
+        {job.contact_name ? (
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <User className="h-5 w-5 text-gray-400 mt-1" />
+              <div>
+                <p className="font-medium">{job.contact_name}</p>
+                {job.contact_type && (
+                  <p className="text-sm text-gray-500 capitalize">{job.contact_type} Contact</p>
+                )}
+              </div>
+            </div>
+            {job.contact_phone && (
+              <div className="flex items-start gap-2">
+                <Phone className="h-5 w-5 text-gray-400 mt-1" />
+                <p>{job.contact_phone}</p>
+              </div>
+            )}
+            {job.contact_email && (
+              <div className="flex items-start gap-2">
+                <Mail className="h-5 w-5 text-gray-400 mt-1" />
+                <p>{job.contact_email}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-gray-500">No contact information</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default JobLocationContact;

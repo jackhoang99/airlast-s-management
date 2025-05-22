@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
-import { CheckCircle, AlertTriangle, FileText, ArrowLeft, Download, Eye } from 'lucide-react';
+import { CheckCircle, AlertTriangle, FileText, ArrowLeft, Download, Eye, Printer } from 'lucide-react';
 import QuotePDFTemplate from '../components/quotes/QuotePDFTemplate';
 
 type JobItem = {
@@ -66,13 +66,15 @@ const QuoteConfirmation = () => {
               )
             `)
             .eq('quote_token', token)
-            .maybeSingle(); // Use maybeSingle instead of single to handle no results gracefully
+            .maybeSingle();
 
           if (jobError) {
+            console.error('Error fetching job:', jobError);
             throw new Error('Error fetching quote details');
           }
 
           if (!jobData) {
+            console.log('No job found for token:', token);
             throw new Error('Quote not found or has expired');
           }
 
@@ -85,7 +87,10 @@ const QuoteConfirmation = () => {
             .eq('job_id', jobData.id)
             .order('created_at');
 
-          if (itemsError) throw itemsError;
+          if (itemsError) {
+            console.error('Error fetching items:', itemsError);
+            throw itemsError;
+          }
           setJobItems(itemsData || []);
 
           // If already confirmed, just return success
@@ -110,6 +115,7 @@ const QuoteConfirmation = () => {
         
         if (!response.ok) {
           const errorData = await response.json();
+          console.error('Error response from confirm-quote:', errorData);
           throw new Error(errorData.error || 'Failed to confirm quote');
         }
         
@@ -218,7 +224,7 @@ const QuoteConfirmation = () => {
             onClick={() => window.print()}
             className="btn btn-primary"
           >
-            <FileText size={16} className="mr-2" />
+            <Printer size={16} className="mr-2" />
             Print Quote
           </button>
         </div>

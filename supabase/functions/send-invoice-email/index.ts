@@ -51,6 +51,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Format dates
+    const formattedIssuedDate = issuedDate ? new Date(issuedDate).toLocaleDateString() : 'N/A';
+    const formattedDueDate = dueDate ? new Date(dueDate).toLocaleDateString() : 'N/A';
+
+    // Create a view invoice URL (this would be your frontend URL)
+    const origin = req.headers.get("origin") || "https://airlast-hvac-admin.netlify.app";
+    const viewInvoiceUrl = `${origin}/invoices/view/${invoiceId}`;
+
     // Format job items for email
     let itemsHtml = '';
     let itemsText = '';
@@ -84,16 +92,12 @@ Deno.serve(async (req) => {
       itemsText += `\nTotal: $${amount}\n\n`;
     }
 
-    // Format dates
-    const formattedIssuedDate = issuedDate ? new Date(issuedDate).toLocaleDateString() : 'N/A';
-    const formattedDueDate = dueDate ? new Date(dueDate).toLocaleDateString() : 'N/A';
-
     // Create email message
     const msg = {
       to: customerEmail,
       from: "jackhoang.99@gmail.com", // Use your verified sender email
       subject: `Invoice #${invoiceNumber} from Airlast HVAC`,
-      text: `Dear ${customerName || "Customer"},\n\nPlease find your invoice for job #${jobNumber} - ${jobName || "HVAC Service"} attached.\n\n${itemsText}Total Amount: $${amount || "0.00"}\n\nInvoice Number: ${invoiceNumber}\nIssued Date: ${formattedIssuedDate}\nDue Date: ${formattedDueDate}\n\nPlease remit payment by the due date.\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\nAirlast HVAC Team`,
+      text: `Dear ${customerName || "Customer"},\n\nPlease find your invoice for job #${jobNumber} - ${jobName || "HVAC Service"} attached.\n\n${itemsText}Total Amount: $${amount || "0.00"}\n\nInvoice Number: ${invoiceNumber}\nIssued Date: ${formattedIssuedDate}\nDue Date: ${formattedDueDate}\n\nTo view your invoice, please visit: ${viewInvoiceUrl}\n\nPlease remit payment by the due date.\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\nAirlast HVAC Team`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #0672be; padding: 20px; text-align: center;">
@@ -112,6 +116,9 @@ Deno.serve(async (req) => {
               ${itemsHtml}
               <p><strong>Total Amount:</strong> $${amount || "0.00"}</p>
             </div>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${viewInvoiceUrl}" style="background-color: #0672be; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Invoice PDF</a>
+            </div>
             <p>Please remit payment by the due date.</p>
             <p>If you have any questions, please don't hesitate to contact us.</p>
             <p>Best regards,<br>Airlast HVAC Team</p>
@@ -122,6 +129,15 @@ Deno.serve(async (req) => {
           </div>
         </div>
       `,
+      // In a real implementation, you would attach the PDF here
+      // attachments: [
+      //   {
+      //     content: base64EncodedPdf,
+      //     filename: `invoice-${invoiceNumber}.pdf`,
+      //     type: 'application/pdf',
+      //     disposition: 'attachment'
+      //   }
+      // ]
     };
 
     // Send email

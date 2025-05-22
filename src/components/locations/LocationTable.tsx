@@ -44,6 +44,7 @@ const LocationTable = ({ locations, companyId, isLoading }: LocationTableProps) 
         <thead>
           <tr>
             <th>Name</th>
+            <th>Building Name</th>
             <th>Address</th>
             <th>City</th>
             <th>State</th>
@@ -63,6 +64,7 @@ const LocationTable = ({ locations, companyId, isLoading }: LocationTableProps) 
                   {location.name}
                 </Link>
               </td>
+              <td>{location.building_name}</td>
               <td>{location.address}</td>
               <td>{location.city}</td>
               <td>{location.state}</td>

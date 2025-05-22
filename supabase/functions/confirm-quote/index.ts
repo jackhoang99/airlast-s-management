@@ -43,13 +43,25 @@ Deno.serve(async (req) => {
     // Find the job with this token
     const { data: jobData, error: jobError } = await supabase
       .from('jobs')
-      .select('id, quote_confirmed')
+      .select('id, quote_confirmed, quote_token')
       .eq('quote_token', token)
-      .single();
+      .maybeSingle();
 
     if (jobError) {
+      console.error('Error fetching job:', jobError);
       return new Response(
-        JSON.stringify({ error: "Invalid or expired confirmation link" }),
+        JSON.stringify({ error: "Error fetching quote details" }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+
+    if (!jobData) {
+      console.log('No job found for token:', token);
+      return new Response(
+        JSON.stringify({ error: "Quote not found" }),
         { 
           status: 404,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -57,11 +69,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!jobData) {
+    // Verify token matches
+    if (jobData.quote_token !== token) {
+      console.log('Token mismatch:', { stored: jobData.quote_token, received: token });
       return new Response(
-        JSON.stringify({ error: "Quote not found" }),
+        JSON.stringify({ error: "Invalid confirmation token" }),
         { 
-          status: 404,
+          status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         }
       );
@@ -88,6 +102,7 @@ Deno.serve(async (req) => {
       .eq('id', jobData.id);
 
     if (updateError) {
+      console.error('Error updating job:', updateError);
       return new Response(
         JSON.stringify({ error: "Failed to confirm quote" }),
         { 
@@ -106,6 +121,7 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error) {
+    console.error('Unexpected error:', error);
     // Return error response
     return new Response(
       JSON.stringify({ error: error.message }),

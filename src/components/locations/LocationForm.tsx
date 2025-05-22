@@ -26,6 +26,7 @@ const LocationForm = ({ companyId: initialCompanyId, initialData, onSuccess }: L
   
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
+    building_name: initialData?.building_name || '',
     address: initialData?.address || '',
     city: initialData?.city || '',
     state: initialData?.state || '',
@@ -255,6 +256,22 @@ const LocationForm = ({ companyId: initialCompanyId, initialData, onSuccess }: L
             onChange={handleChange}
             required
             className="input"
+          />
+        </div>
+        
+        <div>
+          <label htmlFor="building_name" className="block text-sm font-medium text-gray-700 mb-1">
+            Building Name *
+          </label>
+          <input
+            type="text"
+            id="building_name"
+            name="building_name"
+            value={formData.building_name}
+            onChange={handleChange}
+            required
+            className="input"
+            placeholder="e.g., Main Office Building, North Tower, etc."
           />
         </div>
         
