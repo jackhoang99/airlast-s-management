@@ -170,23 +170,16 @@ const QuotePDFTemplate: React.FC<QuotePDFTemplateProps> = ({ job, jobItems }) =>
         <p>3. Any additional work not specified in this quote will require a separate quote.</p>
       </div>
 
-      {/* Signatures */}
+      {/* Airlast Signature */}
       <div className="mt-12 border-t pt-4">
-        <div className="grid grid-cols-2 gap-8">
-          <div>
-            <p className="font-bold">Customer Acceptance:</p>
-            <div className="mt-4 border-b border-black" style={{ height: '1px', width: '80%' }}></div>
-            <p className="mt-1">Signature</p>
-            <div className="mt-4 border-b border-black" style={{ height: '1px', width: '80%' }}></div>
-            <p className="mt-1">Date</p>
-          </div>
+        <div className="flex justify-end">
           <div>
             <p className="font-bold">Airlast HVAC:</p>
-            <div className="mt-4 border-b border-black flex items-end justify-center" style={{ height: '1px', width: '80%' }}>
+            <div className="mt-4 border-b border-black flex items-end justify-center" style={{ height: '1px', width: '200px' }}>
               <span className="text-xl relative" style={{ top: '10px', fontFamily: 'cursive, Brush Script MT, Brush Script Std, Lucida Calligraphy, Lucida Handwriting, Apple Chancery, URW Chancery L, Comic Sans MS' }}>Airlast</span>
             </div>
             <p className="mt-1">Representative</p>
-            <div className="mt-4 border-b border-black flex items-end justify-center" style={{ height: '1px', width: '80%' }}>
+            <div className="mt-4 border-b border-black flex items-end justify-center" style={{ height: '1px', width: '200px' }}>
               <span className="relative" style={{ top: '10px' }}>{getCurrentDate()}</span>
             </div>
             <p className="mt-1">Date</p>

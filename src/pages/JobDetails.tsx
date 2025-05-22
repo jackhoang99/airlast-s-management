@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
-import { ArrowLeft, Calendar, Clock, MapPin, Building, Building2, User, Phone, Mail, Tag, FileText, Plus, Trash2, CheckCircle, AlertTriangle, Edit, Package, PenTool as Tool, ShoppingCart, DollarSign, Send, Download, FileCheck, Eye } from 'lucide-react';
-import AppointmentModal from '../components/jobs/AppointmentModal';
+import { ArrowLeft, Calendar, Clock, MapPin, Building, Phone, Mail, Tag, FileText, CheckCircle, Send, AlertTriangle, Plus, Edit, Trash2, Eye, Download, FileInvoice, DollarSign } from 'lucide-react';
 import AddJobPricingModal from '../components/jobs/AddJobPricingModal';
+import EditJobItemModal from '../components/jobs/EditJobItemModal';
+import AppointmentModal from '../components/jobs/AppointmentModal';
 import QuotePDFTemplate from '../components/quotes/QuotePDFTemplate';
+import InvoicePDFTemplate from '../components/invoices/InvoicePDFTemplate';
 
 type Job = Database['public']['Tables']['jobs']['Row'] & {
   locations?: {
@@ -26,6 +28,7 @@ type Job = Database['public']['Tables']['jobs']['Row'] & {
     technician_id: string;
     is_primary: boolean;
     users: {
+      id: string;
       first_name: string;
       last_name: string;
       email: string;
@@ -35,31 +38,40 @@ type Job = Database['public']['Tables']['jobs']['Row'] & {
 };
 
 type JobItem = Database['public']['Tables']['job_items']['Row'];
+type JobInvoice = Database['public']['Tables']['job_invoices']['Row'];
 
 const JobDetails = () => {
   const { id } = useParams<{ id: string }>();
   const { supabase } = useSupabase();
   const navigate = useNavigate();
+  
   const [job, setJob] = useState<Job | null>(null);
   const [jobItems, setJobItems] = useState<JobItem[]>([]);
-  const [confirmedJobItems, setConfirmedJobItems] = useState<JobItem[]>([]);
-  const [newJobItems, setNewJobItems] = useState<JobItem[]>([]);
+  const [jobInvoices, setJobInvoices] = useState<JobInvoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showAddPricingModal, setShowAddPricingModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showCompleteModal, setShowCompleteModal] = useState(false);
-  const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
-  const [showViewQuoteModal, setShowViewQuoteModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isCompleting, setIsCompleting] = useState(false);
+  const [showEditItemModal, setShowEditItemModal] = useState(false);
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [showQuotePreview, setShowQuotePreview] = useState(false);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [showDeleteItemModal, setShowDeleteItemModal] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<JobItem | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<JobInvoice | null>(null);
   const [isSendingQuote, setIsSendingQuote] = useState(false);
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [quoteConfirmed, setQuoteConfirmed] = useState(false);
-  const [quoteConfirmedAt, setQuoteConfirmedAt] = useState<string | null>(null);
-  const [hasNewItems, setHasNewItems] = useState(false);
-  const pdfRef = useRef<HTMLDivElement>(null);
+  const [isSendingInvoice, setIsSendingInvoice] = useState(false);
+  const [quoteEmailSent, setQuoteEmailSent] = useState(false);
+  const [invoiceEmailSent, setInvoiceEmailSent] = useState(false);
+  const [newItemsAfterConfirmation, setNewItemsAfterConfirmation] = useState(false);
+  const [showConfirmedQuote, setShowConfirmedQuote] = useState(false);
+  const [showCreateInvoiceModal, setShowCreateInvoiceModal] = useState(false);
+  const [invoiceFormData, setInvoiceFormData] = useState({
+    invoiceNumber: '',
+    amount: 0,
+    issuedDate: new Date().toISOString().split('T')[0],
+    dueDate: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0]
+  });
 
   useEffect(() => {
     const fetchJobDetails = async () => {
@@ -88,6 +100,7 @@ const JobDetails = () => {
               technician_id,
               is_primary,
               users:technician_id (
+                id,
                 first_name,
                 last_name,
                 email,
@@ -100,17 +113,6 @@ const JobDetails = () => {
 
         if (jobError) throw jobError;
         setJob(data);
-        
-        // Set customer email from job data if available
-        if (data?.contact_email) {
-          setCustomerEmail(data.contact_email);
-        }
-        
-        // Check if quote is confirmed
-        if (data?.quote_confirmed) {
-          setQuoteConfirmed(true);
-          setQuoteConfirmedAt(data.quote_confirmed_at);
-        }
 
         // Fetch job items
         const { data: itemsData, error: itemsError } = await supabase
@@ -122,22 +124,32 @@ const JobDetails = () => {
         if (itemsError) throw itemsError;
         setJobItems(itemsData || []);
 
-        // If quote is confirmed, check if there are new items added after confirmation
-        if (data?.quote_confirmed && data.quote_confirmed_at && itemsData) {
-          const confirmedDate = new Date(data.quote_confirmed_at);
+        // Fetch job invoices
+        const { data: invoicesData, error: invoicesError } = await supabase
+          .from('job_invoices')
+          .select('*')
+          .eq('job_id', id)
+          .order('created_at', { ascending: false });
+
+        if (invoicesError) throw invoicesError;
+        setJobInvoices(invoicesData || []);
+
+        // Check if there are new items after quote confirmation
+        if (data.quote_confirmed && data.quote_confirmed_at) {
+          const confirmationDate = new Date(data.quote_confirmed_at);
           
-          // Separate items into confirmed and new
-          const confirmed = itemsData.filter(item => new Date(item.created_at) <= confirmedDate);
-          const newItems = itemsData.filter(item => new Date(item.created_at) > confirmedDate);
+          // Check if any items were added after confirmation
+          const newItems = itemsData?.some(item => {
+            const itemDate = new Date(item.created_at);
+            return itemDate > confirmationDate;
+          });
           
-          setConfirmedJobItems(confirmed);
-          setNewJobItems(newItems);
-          setHasNewItems(newItems.length > 0);
+          setNewItemsAfterConfirmation(newItems || false);
         }
 
       } catch (err) {
         console.error('Error fetching job details:', err);
-        setError('Failed to load job details');
+        setError('Failed to fetch job details');
       } finally {
         setIsLoading(false);
       }
@@ -146,309 +158,18 @@ const JobDetails = () => {
     fetchJobDetails();
   }, [supabase, id]);
 
-  const handleScheduleAppointment = async (appointment: {
-    technicianIds: string[];
-  }) => {
-    if (!supabase || !job) return;
-
-    try {
-      // First, remove existing technicians
-      const { error: deleteError } = await supabase
-        .from('job_technicians')
-        .delete()
-        .eq('job_id', job.id);
-
-      if (deleteError) throw deleteError;
-
-      // Then add new technicians
-      const technicianEntries = appointment.technicianIds.map((techId, index) => ({
-        job_id: job.id,
-        technician_id: techId,
-        is_primary: index === 0 // First technician is primary
-      }));
-
-      const { error: insertError } = await supabase
-        .from('job_technicians')
-        .insert(technicianEntries);
-
-      if (insertError) throw insertError;
-
-      // Refresh job data
-      const { data, error: jobError } = await supabase
-        .from('jobs')
-        .select(`
-          *,
-          locations (
-            name,
-            address,
-            city,
-            state,
-            zip,
-            companies (
-              name
-            )
-          ),
-          units (
-            unit_number
-          ),
-          job_technicians (
-            id,
-            technician_id,
-            is_primary,
-            users:technician_id (
-              first_name,
-              last_name,
-              email,
-              phone
-            )
-          )
-        `)
-        .eq('id', id)
-        .single();
-
-      if (jobError) throw jobError;
-      setJob(data);
-      setShowAppointmentModal(false);
-    } catch (err) {
-      console.error('Error updating technicians:', err);
-      setError('Failed to update technicians');
-    }
+  const handleAddPricing = () => {
+    setShowAddPricingModal(true);
   };
 
-  const handleDeleteJob = async () => {
-    if (!supabase || !job) return;
-
-    setIsDeleting(true);
-    try {
-      const { error } = await supabase
-        .from('jobs')
-        .delete()
-        .eq('id', job.id);
-
-      if (error) throw error;
-      navigate('/jobs');
-    } catch (err) {
-      console.error('Error deleting job:', err);
-      setError('Failed to delete job');
-      setShowDeleteModal(false);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleCompleteJob = async () => {
-    if (!supabase || !job) return;
-
-    setIsCompleting(true);
-    try {
-      const { error } = await supabase
-        .from('jobs')
-        .update({ 
-          status: 'completed',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', job.id);
-
-      if (error) throw error;
-      
-      // Refresh job data
-      const { data, error: jobError } = await supabase
-        .from('jobs')
-        .select(`
-          *,
-          locations (
-            name,
-            address,
-            city,
-            state,
-            zip,
-            companies (
-              name
-            )
-          ),
-          units (
-            unit_number
-          ),
-          job_technicians (
-            id,
-            technician_id,
-            is_primary,
-            users:technician_id (
-              first_name,
-              last_name,
-              email,
-              phone
-            )
-          )
-        `)
-        .eq('id', id)
-        .single();
-
-      if (jobError) throw jobError;
-      setJob(data);
-      setShowCompleteModal(false);
-    } catch (err) {
-      console.error('Error completing job:', err);
-      setError('Failed to complete job');
-    } finally {
-      setIsCompleting(false);
-    }
-  };
-
-  const handleSendQuote = async () => {
-    if (!supabase || !job || !customerEmail) return;
-
-    setIsSendingQuote(true);
-    try {
-      // Generate a unique token for the confirmation link
-      const confirmationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      
-      // Update job with quote information
-      const { error } = await supabase
-        .from('jobs')
-        .update({ 
-          quote_sent: true,
-          quote_sent_at: new Date().toISOString(),
-          quote_token: confirmationToken,
-          contact_email: customerEmail
-        })
-        .eq('id', job.id);
-
-      if (error) throw error;
-      
-      // Call the Supabase Edge Function to send the email
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-quote-email`;
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          jobId: job.id,
-          customerEmail: customerEmail,
-          quoteToken: confirmationToken,
-          jobNumber: job.number,
-          jobName: job.name,
-          customerName: job.contact_name,
-          totalAmount: calculateTotalCost().toFixed(2),
-          jobItems: jobItems
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send email');
-      }
-      
-      // Show success message
-      alert(`Quote has been sent to ${customerEmail}. The customer will receive an email with a confirmation link.`);
-      
-      setShowSendQuoteModal(false);
-    } catch (err) {
-      console.error('Error sending quote:', err);
-      setError('Failed to send quote: ' + (err.message || 'Unknown error'));
-    } finally {
-      setIsSendingQuote(false);
-    }
-  };
-
-  const handleSendUpdatedQuote = async () => {
-    if (!supabase || !job || !customerEmail) return;
-
-    setIsSendingQuote(true);
-    try {
-      // Generate a unique token for the confirmation link
-      const confirmationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      
-      // Update job with quote information
-      const { error } = await supabase
-        .from('jobs')
-        .update({ 
-          quote_sent: true,
-          quote_sent_at: new Date().toISOString(),
-          quote_token: confirmationToken,
-          quote_confirmed: false, // Reset confirmation status for the new quote
-          quote_confirmed_at: null,
-          contact_email: customerEmail
-        })
-        .eq('id', job.id);
-
-      if (error) throw error;
-      
-      // Call the Supabase Edge Function to send the email
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-quote-email`;
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          jobId: job.id,
-          customerEmail: customerEmail,
-          quoteToken: confirmationToken,
-          jobNumber: job.number,
-          jobName: job.name,
-          customerName: job.contact_name,
-          totalAmount: calculateTotalCost().toFixed(2),
-          jobItems: jobItems
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send email');
-      }
-      
-      // Show success message
-      alert(`Updated quote has been sent to ${customerEmail}. The customer will receive an email with a confirmation link.`);
-      
-      // Reset the new items flag
-      setHasNewItems(false);
-      
-      // Refresh the page to update the UI
-      window.location.reload();
-    } catch (err) {
-      console.error('Error sending updated quote:', err);
-      setError('Failed to send updated quote: ' + (err.message || 'Unknown error'));
-    } finally {
-      setIsSendingQuote(false);
-    }
-  };
-
-  const handleConfirmQuote = async () => {
-    if (!supabase || !job) return;
-
-    try {
-      // Update job with confirmation information
-      const { error } = await supabase
-        .from('jobs')
-        .update({ 
-          quote_confirmed: true,
-          quote_confirmed_at: new Date().toISOString()
-        })
-        .eq('id', job.id);
-
-      if (error) throw error;
-      
-      // Update local state
-      setQuoteConfirmed(true);
-      setQuoteConfirmedAt(new Date().toISOString());
-      
-      // Show success message
-      alert('Quote has been confirmed successfully!');
-    } catch (err) {
-      console.error('Error confirming quote:', err);
-      setError('Failed to confirm quote');
-    }
+  const handleEditItem = (item: JobItem) => {
+    setSelectedItem(item);
+    setShowEditItemModal(true);
   };
 
   const handlePriceAdded = async () => {
     if (!supabase || !id) return;
-    
+
     try {
       // Refresh job items
       const { data, error } = await supabase
@@ -456,37 +177,428 @@ const JobDetails = () => {
         .select('*')
         .eq('job_id', id)
         .order('created_at');
-        
+
       if (error) throw error;
       setJobItems(data || []);
-      
-      // If quote is confirmed, check if there are new items added after confirmation
-      if (job?.quote_confirmed && job.quote_confirmed_at) {
-        const confirmedDate = new Date(job.quote_confirmed_at);
+
+      // Check if there are new items after quote confirmation
+      if (job?.quote_confirmed && job?.quote_confirmed_at) {
+        const confirmationDate = new Date(job.quote_confirmed_at);
         
-        // Separate items into confirmed and new
-        const confirmed = data?.filter(item => new Date(item.created_at) <= confirmedDate) || [];
-        const newItems = data?.filter(item => new Date(item.created_at) > confirmedDate) || [];
+        // Check if any items were added after confirmation
+        const newItems = data?.some(item => {
+          const itemDate = new Date(item.created_at);
+          return itemDate > confirmationDate;
+        });
         
-        setConfirmedJobItems(confirmed);
-        setNewJobItems(newItems);
-        setHasNewItems(newItems.length > 0);
+        setNewItemsAfterConfirmation(newItems || false);
+      }
+
+    } catch (err) {
+      console.error('Error refreshing job items:', err);
+    }
+  };
+
+  const handleItemUpdated = async (wasUpdated: boolean) => {
+    if (!supabase || !id) return;
+
+    try {
+      // Refresh job items
+      const { data, error } = await supabase
+        .from('job_items')
+        .select('*')
+        .eq('job_id', id)
+        .order('created_at');
+
+      if (error) throw error;
+      setJobItems(data || []);
+
+      // If the item was updated and there's a confirmed quote, mark as needing update
+      if (wasUpdated && job?.quote_confirmed && job?.quote_confirmed_at) {
+        setNewItemsAfterConfirmation(true);
       }
     } catch (err) {
       console.error('Error refreshing job items:', err);
     }
   };
 
+  const handleDeleteItem = async () => {
+    if (!supabase || !selectedItemId) return;
+
+    try {
+      const { error } = await supabase
+        .from('job_items')
+        .delete()
+        .eq('id', selectedItemId);
+
+      if (error) throw error;
+
+      // Refresh job items
+      setJobItems(prev => prev.filter(item => item.id !== selectedItemId));
+      setShowDeleteItemModal(false);
+      setSelectedItemId(null);
+      
+      // If there's a confirmed quote, mark as needing update
+      if (job?.quote_confirmed && job?.quote_confirmed_at) {
+        setNewItemsAfterConfirmation(true);
+      }
+    } catch (err) {
+      console.error('Error deleting job item:', err);
+      setError('Failed to delete item');
+    }
+  };
+
+  const handleSendQuote = async () => {
+    if (!supabase || !job || !job.contact_email) {
+      setError('Contact email is required to send a quote');
+      return;
+    }
+
+    setIsSendingQuote(true);
+    setError(null);
+
+    try {
+      // Generate a unique token for quote confirmation
+      const quoteToken = crypto.randomUUID();
+
+      // Update the job with the quote token and sent status
+      const { error: updateError } = await supabase
+        .from('jobs')
+        .update({
+          quote_token: quoteToken,
+          quote_sent: true,
+          quote_sent_at: new Date().toISOString()
+        })
+        .eq('id', job.id);
+
+      if (updateError) throw updateError;
+
+      // Call the Supabase Edge Function to send the email
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-quote-email`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          jobId: job.id,
+          customerEmail: job.contact_email,
+          quoteToken: quoteToken,
+          jobNumber: job.number,
+          jobName: job.name,
+          customerName: job.contact_name,
+          totalAmount: calculateTotalCost().toFixed(2),
+          jobItems: jobItems
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send quote email');
+      }
+      
+      // Update local state
+      setJob(prev => prev ? { ...prev, quote_sent: true, quote_token: quoteToken } : null);
+      setQuoteEmailSent(true);
+      
+      // Refresh the job data
+      const { data: updatedJob, error: fetchError } = await supabase
+        .from('jobs')
+        .select(`
+          *,
+          locations (
+            name,
+            address,
+            city,
+            state,
+            zip,
+            companies (
+              name
+            )
+          ),
+          units (
+            unit_number
+          ),
+          job_technicians (
+            id,
+            technician_id,
+            is_primary,
+            users:technician_id (
+              id,
+              first_name,
+              last_name,
+              email,
+              phone
+            )
+          )
+        `)
+        .eq('id', job.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      setJob(updatedJob);
+
+    } catch (err) {
+      console.error('Error sending quote:', err);
+      setError(err instanceof Error ? err.message : 'Failed to send quote');
+    } finally {
+      setIsSendingQuote(false);
+    }
+  };
+
+  const handleSendUpdatedQuote = async () => {
+    if (!supabase || !job || !job.contact_email) {
+      setError('Contact email is required to send a quote');
+      return;
+    }
+
+    setIsSendingQuote(true);
+    setError(null);
+
+    try {
+      // Generate a new unique token for quote confirmation
+      const quoteToken = crypto.randomUUID();
+
+      // Update the job with the new quote token and reset confirmation status
+      const { error: updateError } = await supabase
+        .from('jobs')
+        .update({
+          quote_token: quoteToken,
+          quote_sent: true,
+          quote_sent_at: new Date().toISOString(),
+          quote_confirmed: false,
+          quote_confirmed_at: null
+        })
+        .eq('id', job.id);
+
+      if (updateError) throw updateError;
+
+      // Call the Supabase Edge Function to send the email
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-quote-email`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          jobId: job.id,
+          customerEmail: job.contact_email,
+          quoteToken: quoteToken,
+          jobNumber: job.number,
+          jobName: job.name,
+          customerName: job.contact_name,
+          totalAmount: calculateTotalCost().toFixed(2),
+          jobItems: jobItems
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send updated quote email');
+      }
+      
+      // Update local state
+      setJob(prev => prev ? { 
+        ...prev, 
+        quote_sent: true, 
+        quote_token: quoteToken,
+        quote_confirmed: false,
+        quote_confirmed_at: null
+      } : null);
+      
+      setQuoteEmailSent(true);
+      setNewItemsAfterConfirmation(false);
+      
+      // Refresh the job data
+      const { data: updatedJob, error: fetchError } = await supabase
+        .from('jobs')
+        .select(`
+          *,
+          locations (
+            name,
+            address,
+            city,
+            state,
+            zip,
+            companies (
+              name
+            )
+          ),
+          units (
+            unit_number
+          ),
+          job_technicians (
+            id,
+            technician_id,
+            is_primary,
+            users:technician_id (
+              id,
+              first_name,
+              last_name,
+              email,
+              phone
+            )
+          )
+        `)
+        .eq('id', job.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      setJob(updatedJob);
+
+    } catch (err) {
+      console.error('Error sending updated quote:', err);
+      setError(err instanceof Error ? err.message : 'Failed to send updated quote');
+    } finally {
+      setIsSendingQuote(false);
+    }
+  };
+
+  const handleCreateInvoice = async () => {
+    if (!supabase || !job) return;
+
+    try {
+      // Generate invoice number
+      const invoiceNumber = `${job.number}-INV-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+      
+      // Calculate total amount from job items
+      const totalAmount = calculateTotalCost();
+      
+      // Set form data
+      setInvoiceFormData({
+        invoiceNumber,
+        amount: totalAmount,
+        issuedDate: new Date().toISOString().split('T')[0],
+        dueDate: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0]
+      });
+      
+      // Show create invoice modal
+      setShowCreateInvoiceModal(true);
+    } catch (err) {
+      console.error('Error preparing invoice:', err);
+      setError('Failed to prepare invoice');
+    }
+  };
+
+  const handleSaveInvoice = async () => {
+    if (!supabase || !job) return;
+
+    try {
+      // Create invoice record
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from('job_invoices')
+        .insert({
+          job_id: job.id,
+          invoice_number: invoiceFormData.invoiceNumber,
+          amount: invoiceFormData.amount,
+          status: 'draft',
+          issued_date: invoiceFormData.issuedDate,
+          due_date: invoiceFormData.dueDate
+        })
+        .select()
+        .single();
+
+      if (invoiceError) throw invoiceError;
+      
+      // Update job invoices list
+      setJobInvoices(prev => [invoiceData, ...prev]);
+      
+      // Close modal
+      setShowCreateInvoiceModal(false);
+    } catch (err) {
+      console.error('Error creating invoice:', err);
+      setError('Failed to create invoice');
+    }
+  };
+
+  const handleSendInvoice = async (invoice: JobInvoice) => {
+    if (!supabase || !job || !job.contact_email) {
+      setError('Contact email is required to send an invoice');
+      return;
+    }
+
+    setIsSendingInvoice(true);
+    setError(null);
+
+    try {
+      // Update the invoice status to issued
+      const { error: updateError } = await supabase
+        .from('job_invoices')
+        .update({
+          status: 'issued'
+        })
+        .eq('id', invoice.id);
+
+      if (updateError) throw updateError;
+
+      // Call the Supabase Edge Function to send the email
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice-email`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          jobId: job.id,
+          invoiceId: invoice.id,
+          customerEmail: job.contact_email,
+          jobNumber: job.number,
+          jobName: job.name,
+          customerName: job.contact_name,
+          invoiceNumber: invoice.invoice_number,
+          amount: invoice.amount,
+          issuedDate: invoice.issued_date,
+          dueDate: invoice.due_date,
+          jobItems: jobItems
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send invoice email');
+      }
+      
+      // Update local state
+      setJobInvoices(prev => 
+        prev.map(inv => 
+          inv.id === invoice.id ? { ...inv, status: 'issued' } : inv
+        )
+      );
+      
+      setInvoiceEmailSent(true);
+      setSelectedInvoice(null);
+      setShowInvoicePreview(false);
+      
+      // Refresh the invoices data
+      const { data: updatedInvoices, error: fetchError } = await supabase
+        .from('job_invoices')
+        .select('*')
+        .eq('job_id', job.id)
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+      setJobInvoices(updatedInvoices || []);
+
+    } catch (err) {
+      console.error('Error sending invoice:', err);
+      setError(err instanceof Error ? err.message : 'Failed to send invoice');
+    } finally {
+      setIsSendingInvoice(false);
+    }
+  };
+
+  const calculateTotalCost = () => {
+    return jobItems.reduce((total, item) => total + Number(item.total_cost), 0);
+  };
+
   const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
+    return new Date(dateString).toLocaleString();
   };
 
   const getStatusBadgeClass = (status: string) => {
@@ -504,277 +616,47 @@ const JobDetails = () => {
     }
   };
 
-  const getItemTypeBadgeClass = (type: string) => {
+  const getTypeBadgeClass = (type: string) => {
     switch (type) {
-      case 'part':
-        return 'bg-blue-100 text-blue-800';
-      case 'labor':
-        return 'bg-green-100 text-green-800';
-      case 'item':
+      case 'preventative maintenance':
         return 'bg-purple-100 text-purple-800';
+      case 'service call':
+        return 'bg-cyan-100 text-cyan-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getItemTypeIcon = (type: string) => {
-    switch (type) {
-      case 'part':
-        return <Package size={14} className="mr-1" />;
-      case 'labor':
-        return <Tool size={14} className="mr-1" />;
-      case 'item':
-        return <ShoppingCart size={14} className="mr-1" />;
+  const getContractBadgeClass = (isContract: boolean) => {
+    return isContract 
+      ? 'bg-green-100 text-green-800' 
+      : 'bg-orange-100 text-orange-800';
+  };
+
+  const getQuoteBadgeClass = (isConfirmed: boolean) => {
+    return isConfirmed 
+      ? 'bg-green-100 text-green-800' 
+      : 'bg-blue-100 text-blue-800';
+  };
+
+  const getInvoiceStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'draft':
+        return 'bg-gray-100 text-gray-800';
+      case 'issued':
+        return 'bg-blue-100 text-blue-800';
+      case 'paid':
+        return 'bg-green-100 text-green-800';
+      case 'void':
+        return 'bg-red-100 text-red-800';
       default:
-        return null;
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
-  // Calculate total cost of all job items
-  const calculateTotalCost = () => {
-    return jobItems.reduce((total, item) => total + Number(item.total_cost), 0);
-  };
-
-  // Calculate total cost of confirmed job items
-  const calculateConfirmedTotalCost = () => {
-    return confirmedJobItems.reduce((total, item) => total + Number(item.total_cost), 0);
-  };
-
-  // Generate PDF for the quote
-  const generatePDF = () => {
-    if (!job) return;
-    
-    // Open a new window for the PDF
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('Please allow pop-ups to generate the PDF');
-      return;
-    }
-    
-    // Write the PDF content to the new window
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Quote #${job.number} - ${job.name}</title>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              line-height: 1.6;
-              color: #333;
-              margin: 0;
-              padding: 20px;
-            }
-            .container {
-              max-width: 800px;
-              margin: 0 auto;
-            }
-            .header {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 30px;
-              padding-bottom: 20px;
-              border-bottom: 1px solid #ddd;
-            }
-            .section {
-              margin-bottom: 30px;
-            }
-            h1 {
-              font-size: 24px;
-              margin: 0 0 5px 0;
-            }
-            h2 {
-              font-size: 20px;
-              margin: 0 0 15px 0;
-            }
-            h3 {
-              font-size: 16px;
-              margin: 0 0 10px 0;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-            }
-            th, td {
-              border: 1px solid #ddd;
-              padding: 8px;
-              text-align: left;
-            }
-            th {
-              background-color: #f2f2f2;
-            }
-            .text-right {
-              text-align: right;
-            }
-            .signature-area {
-              display: flex;
-              justify-content: space-between;
-              margin-top: 50px;
-            }
-            .signature-line {
-              width: 200px;
-              border-bottom: 1px solid #000;
-              margin-bottom: 5px;
-            }
-            .signature {
-              font-family: "Brush Script MT", "Brush Script Std", "Lucida Calligraphy", "Lucida Handwriting", "Apple Chancery", "URW Chancery L", cursive;
-              font-size: 28px;
-              position: relative;
-              top: -15px;
-              text-align: center;
-            }
-            @media print {
-              body {
-                padding: 0;
-              }
-              .no-print {
-                display: none;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div>
-                <h1>Airlast HVAC</h1>
-                <p>1650 Marietta Boulevard Northwest<br>
-                Atlanta, GA 30318<br>
-                (404) 632-9074</p>
-              </div>
-              <div style="text-align: right;">
-                <h2>Quote</h2>
-                <p>Job #: ${job.number}<br>
-                Date: ${new Date().toLocaleDateString()}<br>
-                Valid Until: ${new Date(new Date().setDate(new Date().getDate() + 30)).toLocaleDateString()}</p>
-              </div>
-            </div>
-
-            <div class="section">
-              <h3>Customer Information</h3>
-              <div style="display: flex; justify-content: space-between;">
-                <div style="width: 48%;">
-                  <p><strong>Bill To:</strong><br>
-                  ${job.locations?.companies.name}<br>
-                  ${job.locations?.address}<br>
-                  ${job.locations?.city}, ${job.locations?.state} ${job.locations?.zip}</p>
-                </div>
-                <div style="width: 48%;">
-                  <p><strong>Contact:</strong><br>
-                  ${job.contact_name || 'N/A'}<br>
-                  ${job.contact_phone || 'N/A'}<br>
-                  ${job.contact_email || 'N/A'}</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="section">
-              <h3>Service Location</h3>
-              <p>
-                ${job.locations?.name}<br>
-                ${job.locations?.address}<br>
-                ${job.locations?.city}, ${job.locations?.state} ${job.locations?.zip}
-                ${job.units ? `<br>Unit: ${job.units.unit_number}` : ''}
-              </p>
-            </div>
-
-            <div class="section">
-              <h3>Service Details</h3>
-              <p><strong>Service Type:</strong> ${job.type}</p>
-              <p><strong>Service Line:</strong> ${job.service_line || 'N/A'}</p>
-              <p><strong>Description:</strong> ${job.description || 'N/A'}</p>
-              ${job.problem_description ? `<p><strong>Problem Description:</strong> ${job.problem_description}</p>` : ''}
-              ${job.schedule_start ? `<p><strong>Scheduled:</strong> ${formatDateTime(job.schedule_start)}</p>` : ''}
-            </div>
-
-            <div class="section">
-              <h3>Technicians</h3>
-              ${job.job_technicians && job.job_technicians.length > 0 
-                ? `<ul>${job.job_technicians.map(tech => 
-                    `<li>${tech.users.first_name} ${tech.users.last_name}${tech.is_primary ? ' (Primary)' : ''}</li>`
-                  ).join('')}</ul>` 
-                : '<p>No technicians assigned</p>'}
-            </div>
-
-            <div class="section">
-              <h3>Items & Pricing</h3>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Type</th>
-                    <th>Item</th>
-                    <th>Quantity</th>
-                    <th class="text-right">Unit Price</th>
-                    <th class="text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${(quoteConfirmed && !hasNewItems ? confirmedJobItems : jobItems).map((item) => `
-                    <tr>
-                      <td style="text-transform: capitalize;">${item.type}</td>
-                      <td>${item.name}</td>
-                      <td>${item.quantity}</td>
-                      <td class="text-right">$${Number(item.unit_cost).toFixed(2)}</td>
-                      <td class="text-right">$${Number(item.total_cost).toFixed(2)}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colspan="4" class="text-right"><strong>Total:</strong></td>
-                    <td class="text-right"><strong>$${(quoteConfirmed && !hasNewItems ? calculateConfirmedTotalCost() : calculateTotalCost()).toFixed(2)}</strong></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            <div class="section">
-              <h3>Terms & Conditions</h3>
-              <ol>
-                <li>This quote is valid for 30 days from the date of issue.</li>
-                <li>Payment is due upon completion of work unless otherwise specified.</li>
-                <li>Any additional work not specified in this quote will require a separate quote.</li>
-                <li>Airlast HVAC provides a 90-day warranty on all parts and labor.</li>
-                <li>Customer is responsible for providing access to the work area.</li>
-              </ol>
-            </div>
-
-            <div class="signature-area">
-              <div>
-                <p><strong>Customer Acceptance:</strong></p>
-                <div class="signature-line"></div>
-                <p>Signature</p>
-                <div class="signature-line"></div>
-                <p>Date</p>
-              </div>
-              <div>
-                <p><strong>Airlast HVAC:</strong></p>
-                <div class="signature-line">
-                  <div class="signature">Airlast</div>
-                </div>
-                <p>Representative</p>
-                <div class="signature-line">
-                  <div class="signature" style="font-size: 16px;">${new Date().toLocaleDateString()}</div>
-                </div>
-                <p>Date</p>
-              </div>
-            </div>
-            
-            <div class="no-print" style="margin-top: 30px; text-align: center;">
-              <button onclick="window.print();" style="padding: 10px 20px; background-color: #0672be; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                Print Quote
-              </button>
-            </div>
-          </div>
-        </body>
-      </html>
-    `);
-    
-    // Finish loading the document
-    printWindow.document.close();
+  // Check if job is contract or non-contract
+  const isContractJob = (job: Job) => {
+    return job.service_contract !== 'Non-Contract';
   };
 
   if (isLoading) {
@@ -796,6 +678,108 @@ const JobDetails = () => {
     );
   }
 
+  if (showQuotePreview) {
+    return (
+      <div className="p-4">
+        <div className="flex justify-between items-center mb-6">
+          <button 
+            onClick={() => setShowQuotePreview(false)}
+            className="flex items-center text-gray-600 hover:text-gray-900"
+          >
+            <ArrowLeft size={16} className="mr-1" />
+            Back to Job Details
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="btn btn-primary"
+          >
+            <FileText size={16} className="mr-2" />
+            Print Quote
+          </button>
+        </div>
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <QuotePDFTemplate job={job} jobItems={jobItems} />
+        </div>
+      </div>
+    );
+  }
+
+  if (showInvoicePreview && selectedInvoice) {
+    return (
+      <div className="p-4">
+        <div className="flex justify-between items-center mb-6">
+          <button 
+            onClick={() => {
+              setShowInvoicePreview(false);
+              setSelectedInvoice(null);
+            }}
+            className="flex items-center text-gray-600 hover:text-gray-900"
+          >
+            <ArrowLeft size={16} className="mr-1" />
+            Back to Job Details
+          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => window.print()}
+              className="btn btn-secondary"
+            >
+              <Download size={16} className="mr-2" />
+              Download PDF
+            </button>
+            {selectedInvoice.status === 'draft' && job.contact_email && (
+              <button
+                onClick={() => handleSendInvoice(selectedInvoice)}
+                className="btn btn-primary"
+                disabled={isSendingInvoice}
+              >
+                {isSendingInvoice ? (
+                  <>
+                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} className="mr-2" />
+                    Send to Customer
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <InvoicePDFTemplate job={job} jobItems={jobItems} invoice={selectedInvoice} />
+        </div>
+      </div>
+    );
+  }
+
+  if (showConfirmedQuote) {
+    return (
+      <div className="p-4">
+        <div className="flex justify-between items-center mb-6">
+          <button 
+            onClick={() => setShowConfirmedQuote(false)}
+            className="flex items-center text-gray-600 hover:text-gray-900"
+          >
+            <ArrowLeft size={16} className="mr-1" />
+            Back to Job Details
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="btn btn-primary"
+          >
+            <FileText size={16} className="mr-2" />
+            Print Quote
+          </button>
+        </div>
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <QuotePDFTemplate job={job} jobItems={jobItems} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -806,193 +790,265 @@ const JobDetails = () => {
           <h1>Job #{job.number}</h1>
         </div>
         <div className="flex gap-2">
-          {job.status !== 'completed' && job.status !== 'cancelled' && (
-            <button
-              onClick={() => setShowCompleteModal(true)}
-              className="btn btn-success"
-            >
-              <CheckCircle size={16} className="mr-2" />
-              Complete Job
-            </button>
-          )}
           <button
-            onClick={() => setShowDeleteModal(true)}
-            className="btn btn-error"
+            onClick={() => setShowQuotePreview(true)}
+            className="btn btn-secondary"
           >
-            <Trash2 size={16} className="mr-2" />
-            Delete
+            <FileText size={16} className="mr-2" />
+            Preview Quote
+          </button>
+          <button
+            onClick={() => navigate(`/jobs/${job.id}/edit`)}
+            className="btn btn-primary"
+          >
+            <Edit size={16} className="mr-2" />
+            Edit Job
           </button>
         </div>
       </div>
+
+      {/* Quote Status Alerts */}
+      {job.quote_confirmed && (
+        <div className="bg-success-50 border border-success-200 rounded-lg p-4 flex justify-between items-center">
+          <div className="flex items-center">
+            <div className="bg-success-100 rounded-full p-2 mr-4">
+              <CheckCircle className="h-6 w-6 text-success-600" />
+            </div>
+            <div>
+              <h3 className="font-medium text-success-800">Quote Confirmed by Customer</h3>
+              <p className="text-success-700">Confirmed on {job.quote_confirmed_at ? new Date(job.quote_confirmed_at).toLocaleDateString() : 'N/A'}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowConfirmedQuote(true)}
+            className="btn btn-success"
+          >
+            <Eye size={16} className="mr-2" />
+            View Confirmed Quote
+          </button>
+        </div>
+      )}
+
+      {newItemsAfterConfirmation && (
+        <div className="bg-warning-50 border border-warning-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <div className="bg-warning-100 rounded-full p-2 mr-4 mt-1">
+              <AlertTriangle className="h-6 w-6 text-warning-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-medium text-warning-800">New items added after quote confirmation</h3>
+              <p className="text-warning-700 mb-4">Items have been added to this job after the customer confirmed the quote. Consider sending an updated quote to the customer.</p>
+              <button
+                onClick={handleSendUpdatedQuote}
+                className="btn btn-warning"
+                disabled={isSendingQuote}
+              >
+                {isSendingQuote ? (
+                  <>
+                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} className="mr-2" />
+                    Send Updated Quote
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {job.quote_sent && !job.quote_confirmed && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <div className="bg-blue-100 rounded-full p-2 mr-4">
+              <Send className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-medium text-blue-800">Quote Sent to Customer</h3>
+              <p className="text-blue-700">Sent on {job.quote_sent_at ? new Date(job.quote_sent_at).toLocaleDateString() : 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {quoteEmailSent && (
+        <div className="bg-success-50 border border-success-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <div className="bg-success-100 rounded-full p-2 mr-4">
+              <CheckCircle className="h-6 w-6 text-success-600" />
+            </div>
+            <div>
+              <h3 className="font-medium text-success-800">Quote Email Sent Successfully</h3>
+              <p className="text-success-700">The quote has been sent to {job.contact_email}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {invoiceEmailSent && (
+        <div className="bg-success-50 border border-success-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <div className="bg-success-100 rounded-full p-2 mr-4">
+              <CheckCircle className="h-6 w-6 text-success-600" />
+            </div>
+            <div>
+              <h3 className="font-medium text-success-800">Invoice Email Sent Successfully</h3>
+              <p className="text-success-700">The invoice has been sent to {job.contact_email}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Job Details */}
           <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-start mb-4">
+            <h2 className="text-xl font-semibold mb-4">Job Details</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(job.status)}`}>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Job Name</h3>
+                <p className="text-lg font-medium">{job.name}</p>
+              </div>
+              
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Status</h3>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClass(job.status)}`}>
                     {job.status}
                   </span>
-                  <span className="text-sm font-medium text-gray-500">{job.type}</span>
-                  {job.is_training && (
-                    <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">
-                      Training
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getTypeBadgeClass(job.type)}`}>
+                    {job.type}
+                  </span>
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getContractBadgeClass(isContractJob(job))}`}>
+                    {isContractJob(job) ? 'Contract' : 'Non-Contract'}
+                  </span>
+                  {job.quote_sent && (
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getQuoteBadgeClass(job.quote_confirmed || false)}`}>
+                      {job.quote_confirmed ? 'Quote Confirmed' : 'Quote Sent'}
                     </span>
                   )}
                 </div>
-                <h2 className="text-xl font-semibold">{job.name}</h2>
-                {job.description && (
-                  <p className="text-gray-600 mt-2">{job.description}</p>
-                )}
-                {job.problem_description && (
-                  <div className="mt-4">
-                    <h3 className="text-sm font-medium text-gray-700">Problem Description:</h3>
-                    <p className="text-gray-600">{job.problem_description}</p>
-                  </div>
-                )}
               </div>
-              <div className="text-right">
-                <div className="text-sm">
-                  <span className="font-medium">Created:</span> {new Date(job.created_at).toLocaleDateString()}
-                </div>
-                {job.updated_at && (
-                  <div className="text-sm text-gray-500">
-                    <span className="font-medium">Updated:</span> {new Date(job.updated_at).toLocaleDateString()}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Schedule</h3>
-                <div className="space-y-2">
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Service Line</h3>
+                <div className="flex items-center gap-2">
+                  <Tag size={16} className="text-gray-400" />
+                  <span>{job.service_line || 'Not specified'}</span>
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Time Period</h3>
+                <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Calendar size={16} className="text-gray-400" />
-                    <div>
-                      <span className="font-medium">Start Date:</span> {job.time_period_start}
-                    </div>
+                    <span>Start: {job.time_period_start}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar size={16} className="text-gray-400" />
-                    <div>
-                      <span className="font-medium">Due Date:</span> {job.time_period_due}
-                    </div>
+                    <span>Due: {job.time_period_due}</span>
                   </div>
-                  {job.schedule_start && (
-                    <div className="flex items-center gap-2">
-                      <Clock size={16} className="text-gray-400" />
-                      <div>
-                        <span className="font-medium">Scheduled:</span> {formatDateTime(job.schedule_start)}
-                        {job.schedule_duration && ` (${job.schedule_duration})`}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
-
+              
+              {job.schedule_start && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Schedule</h3>
+                  <div className="flex items-center gap-2">
+                    <Clock size={16} className="text-gray-400" />
+                    <span>{formatDateTime(job.schedule_start)}</span>
+                  </div>
+                </div>
+              )}
+              
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Details</h3>
-                <div className="space-y-2">
-                  {job.service_line && (
-                    <div className="flex items-center gap-2">
-                      <Tag size={16} className="text-gray-400" />
-                      <div>
-                        <span className="font-medium">Service Line:</span> {job.service_line}
-                      </div>
-                    </div>
-                  )}
-                  {job.service_contract && (
-                    <div className="flex items-center gap-2">
-                      <FileText size={16} className="text-gray-400" />
-                      <div>
-                        <span className="font-medium">Service Contract:</span> {job.service_contract}
-                      </div>
-                    </div>
-                  )}
-                  {job.customer_po && (
-                    <div className="flex items-center gap-2">
-                      <FileText size={16} className="text-gray-400" />
-                      <div>
-                        <span className="font-medium">Customer PO:</span> {job.customer_po}
-                      </div>
-                    </div>
-                  )}
-                  {job.office && (
-                    <div className="flex items-center gap-2">
-                      <Building size={16} className="text-gray-400" />
-                      <div>
-                        <span className="font-medium">Office:</span> {job.office}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Description</h3>
+                <p>{job.description || 'No description provided'}</p>
               </div>
+              
+              {job.problem_description && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Problem Description</h3>
+                  <p>{job.problem_description}</p>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Location Information */}
-          {job.locations && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Location</h2>
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Location Information</h2>
+            
+            {job.locations ? (
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
                   <Building className="h-5 w-5 text-gray-400 mt-1" />
                   <div>
-                    <div className="font-medium">{job.locations.companies.name}</div>
-                    <div>{job.locations.name}</div>
-                    {job.units && (
-                      <div className="text-gray-600">Unit: {job.units.unit_number}</div>
-                    )}
+                    <p className="font-medium">{job.locations.companies.name}</p>
+                    <p>{job.locations.name}</p>
+                    {job.units && <p>Unit: {job.units.unit_number}</p>}
                   </div>
                 </div>
+                
                 <div className="flex items-start gap-3">
                   <MapPin className="h-5 w-5 text-gray-400 mt-1" />
                   <div>
-                    <div>{job.locations.address}</div>
-                    <div>{job.locations.city}, {job.locations.state} {job.locations.zip}</div>
+                    <p>{job.locations.address}</p>
+                    <p>{job.locations.city}, {job.locations.state} {job.locations.zip}</p>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-gray-500">No location information available</p>
+            )}
+          </div>
 
           {/* Contact Information */}
-          {job.contact_name && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Contact</h2>
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Contact Information</h2>
+            
+            {job.contact_name ? (
               <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <User className="h-5 w-5 text-gray-400 mt-1" />
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium">
+                      {job.contact_name.split(' ').map(n => n[0]).join('')}
+                    </span>
+                  </div>
                   <div>
-                    <div className="font-medium">{job.contact_name}</div>
-                    {job.contact_type && (
-                      <div className="text-gray-600 capitalize">{job.contact_type} Contact</div>
-                    )}
+                    <p className="font-medium">{job.contact_name}</p>
+                    <p className="text-sm text-gray-500">{job.contact_type || 'Primary'} Contact</p>
                   </div>
                 </div>
+                
                 {job.contact_phone && (
                   <div className="flex items-center gap-3">
                     <Phone className="h-5 w-5 text-gray-400" />
-                    <div>{job.contact_phone}</div>
+                    <span>{job.contact_phone}</span>
                   </div>
                 )}
+                
                 {job.contact_email && (
                   <div className="flex items-center gap-3">
                     <Mail className="h-5 w-5 text-gray-400" />
-                    <div>{job.contact_email}</div>
+                    <span>{job.contact_email}</span>
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-gray-500">No contact information available</p>
+            )}
+          </div>
 
           {/* Technicians */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Technicians</h2>
+              <h2 className="text-xl font-semibold">Technicians</h2>
               <button
                 onClick={() => setShowAppointmentModal(true)}
                 className="btn btn-primary"
@@ -1005,58 +1061,50 @@ const JobDetails = () => {
             {job.job_technicians && job.job_technicians.length > 0 ? (
               <div className="space-y-4">
                 {job.job_technicians.map(tech => (
-                  <div key={tech.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
-                    <div className="w-10 h-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
+                  <div key={tech.id} className="flex items-start gap-4 p-4 border rounded-lg">
+                    <div className="h-10 w-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
                       <span className="text-sm font-medium">
-                        {tech.users.first_name?.[0] || '?'}{tech.users.last_name?.[0] || '?'}
+                        {tech.users.first_name[0]}{tech.users.last_name[0]}
                       </span>
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center">
-                        <div className="font-medium">{tech.users.first_name} {tech.users.last_name}</div>
-                        {tech.is_primary && (
-                          <span className="ml-2 bg-primary-100 text-primary-800 text-xs px-2 py-0.5 rounded-full">
-                            Primary
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-500 space-y-1 mt-1">
-                        {tech.users.phone && (
-                          <div className="flex items-center gap-2">
-                            <Phone size={14} />
-                            {tech.users.phone}
+                      <div className="flex justify-between">
+                        <div>
+                          <p className="font-medium">
+                            {tech.users.first_name} {tech.users.last_name}
+                            {tech.is_primary && (
+                              <span className="ml-2 text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
+                                Primary
+                              </span>
+                            )}
+                          </p>
+                          <div className="text-sm text-gray-500 space-y-1 mt-1">
+                            <div className="flex items-center gap-2">
+                              <Phone size={14} />
+                              {tech.users.phone || 'No phone'}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Mail size={14} />
+                              {tech.users.email}
+                            </div>
                           </div>
-                        )}
-                        {tech.users.email && (
-                          <div className="flex items-center gap-2">
-                            <Mail size={14} />
-                            {tech.users.email}
-                          </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-6 bg-gray-50 rounded-lg">
-                <p className="text-gray-500">No technicians assigned</p>
-                <button
-                  onClick={() => setShowAppointmentModal(true)}
-                  className="mt-2 text-primary-600 hover:text-primary-800"
-                >
-                  Assign technicians
-                </button>
-              </div>
+              <p className="text-gray-500">No technicians assigned</p>
             )}
           </div>
 
-          {/* Job Items/Pricing */}
+          {/* Items & Pricing */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Items & Pricing</h2>
+              <h2 className="text-xl font-semibold">Items & Pricing</h2>
               <button
-                onClick={() => setShowAddPricingModal(true)}
+                onClick={handleAddPricing}
                 className="btn btn-primary"
               >
                 <Plus size={16} className="mr-2" />
@@ -1065,553 +1113,495 @@ const JobDetails = () => {
             </div>
             
             {jobItems.length > 0 ? (
-              <div className="space-y-4">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 text-left">
-                      <tr>
-                        <th className="px-4 py-3 text-sm font-medium text-gray-500">Type</th>
-                        <th className="px-4 py-3 text-sm font-medium text-gray-500">Code</th>
-                        <th className="px-4 py-3 text-sm font-medium text-gray-500">Name</th>
-                        <th className="px-4 py-3 text-sm font-medium text-gray-500">Quantity</th>
-                        <th className="px-4 py-3 text-sm font-medium text-gray-500">Unit Cost</th>
-                        <th className="px-4 py-3 text-sm font-medium text-gray-500">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {jobItems.map((item, index) => (
-                        <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 text-left">
+                    <tr>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-500">TYPE</th>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-500">ITEM</th>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-500">QTY</th>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-500">UNIT PRICE</th>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-500">TOTAL</th>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-500"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {jobItems.map((item, index) => {
+                      // Check if this item was added after quote confirmation
+                      const isNewItem = job.quote_confirmed_at && new Date(item.created_at) > new Date(job.quote_confirmed_at);
+                      
+                      return (
+                        <tr 
+                          key={item.id} 
+                          className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} ${isNewItem ? 'bg-warning-50' : ''}`}
+                        >
                           <td className="px-4 py-3 text-sm">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getItemTypeBadgeClass(item.type)}`}>
-                              {getItemTypeIcon(item.type)}
-                              {item.type}
-                            </span>
+                            <span className="capitalize">{item.type}</span>
                           </td>
-                          <td className="px-4 py-3 text-sm font-medium">{item.code}</td>
-                          <td className="px-4 py-3 text-sm">{item.name}</td>
+                          <td className="px-4 py-3 text-sm">
+                            <div className="font-medium">{item.name}</div>
+                            <div className="text-xs text-gray-500">{item.code}</div>
+                          </td>
                           <td className="px-4 py-3 text-sm">{item.quantity}</td>
                           <td className="px-4 py-3 text-sm">${Number(item.unit_cost).toFixed(2)}</td>
                           <td className="px-4 py-3 text-sm font-medium">${Number(item.total_cost).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-sm">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleEditItem(item)}
+                                className="text-primary-600 hover:text-primary-800"
+                                title="Edit Item"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedItemId(item.id);
+                                  setShowDeleteItemModal(true);
+                                }}
+                                className="text-error-600 hover:text-error-800"
+                                title="Delete Item"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-gray-50">
-                      <tr>
-                        <td colSpan={5} className="px-4 py-3 text-sm font-medium text-right">Total:</td>
-                        <td className="px-4 py-3 text-sm font-bold">${calculateTotalCost().toFixed(2)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-gray-50 font-medium">
+                    <tr>
+                      <td className="px-4 py-3 text-sm" colSpan={4} align="right">Total:</td>
+                      <td className="px-4 py-3 text-sm">${calculateTotalCost().toFixed(2)}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             ) : (
-              <div className="text-center py-6 bg-gray-50 rounded-lg">
-                <p className="text-gray-500">No items added</p>
-                <button
-                  onClick={() => setShowAddPricingModal(true)}
-                  className="mt-2 text-primary-600 hover:text-primary-800"
-                >
-                  Add items
-                </button>
-              </div>
+              <p className="text-gray-500">No items added yet</p>
             )}
           </div>
 
-          {/* Quote Section */}
+          {/* Invoices */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Quote</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={generatePDF}
-                  className="btn btn-secondary"
-                  disabled={jobItems.length === 0}
-                >
-                  <Download size={16} className="mr-2" />
-                  Download PDF
-                </button>
-                <button
-                  onClick={() => setShowSendQuoteModal(true)}
-                  className="btn btn-primary"
-                  disabled={jobItems.length === 0}
-                >
-                  <Send size={16} className="mr-2" />
-                  Send to Customer
-                </button>
-              </div>
+              <h2 className="text-xl font-semibold">Invoices</h2>
+              <button
+                onClick={handleCreateInvoice}
+                className="btn btn-primary"
+                disabled={jobItems.length === 0}
+              >
+                <Plus size={16} className="mr-2" />
+                Create Invoice
+              </button>
             </div>
             
-            {/* Quote Confirmed Banner */}
-            {quoteConfirmed && (
-              <div className="bg-success-50 border border-success-200 rounded-lg p-4 flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-success-100 rounded-full p-2">
-                    <FileCheck className="h-6 w-6 text-success-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-success-800">Quote Confirmed by Customer</h3>
-                    <p className="text-success-600 text-sm">
-                      Confirmed on {quoteConfirmedAt ? new Date(quoteConfirmedAt).toLocaleDateString() : 'N/A'}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowViewQuoteModal(true)}
-                  className="btn btn-success"
-                >
-                  <Eye size={16} className="mr-2" />
-                  View Confirmed Quote
-                </button>
+            {jobInvoices.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 text-left">
+                    <tr>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-500">INVOICE #</th>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-500">AMOUNT</th>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-500">STATUS</th>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-500">ISSUED DATE</th>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-500">DUE DATE</th>
+                      <th className="px-4 py-3 text-sm font-medium text-gray-500">ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {jobInvoices.map((invoice, index) => (
+                      <tr key={invoice.id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                        <td className="px-4 py-3 text-sm font-medium">{invoice.invoice_number}</td>
+                        <td className="px-4 py-3 text-sm">${Number(invoice.amount).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getInvoiceStatusBadgeClass(invoice.status)}`}>
+                            {invoice.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">{invoice.issued_date || '-'}</td>
+                        <td className="px-4 py-3 text-sm">{invoice.due_date || '-'}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedInvoice(invoice);
+                                setShowInvoicePreview(true);
+                              }}
+                              className="text-primary-600 hover:text-primary-800"
+                              title="View Invoice"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            {invoice.status === 'draft' && (
+                              <button
+                                onClick={() => {
+                                  setSelectedInvoice(invoice);
+                                  setShowInvoicePreview(true);
+                                }}
+                                className="text-primary-600 hover:text-primary-800"
+                                title="Send Invoice"
+                              >
+                                <Send size={16} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+            ) : (
+              <p className="text-gray-500">No invoices created yet</p>
             )}
-            
-            {/* New Items Added Banner */}
-            {quoteConfirmed && hasNewItems && (
-              <div className="bg-warning-50 border border-warning-200 rounded-lg p-4 mb-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="bg-warning-100 rounded-full p-2">
-                    <AlertTriangle className="h-6 w-6 text-warning-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-warning-800">New items added after quote confirmation</h3>
-                    <p className="text-warning-600">
-                      Items have been added to this job after the customer confirmed the quote. Consider sending an updated quote to the customer.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleSendUpdatedQuote}
-                  className="btn btn-warning mt-2"
-                >
-                  <Send size={16} className="mr-2" />
-                  Send Updated Quote
-                </button>
-              </div>
-            )}
-            
-            <div className="bg-gray-50 rounded-lg p-6">
-              <div className="mb-6">
-                <h3 className="text-lg font-medium mb-2">Quote Summary</h3>
-                <p className="text-gray-600">
-                  This quote includes all items, labor, and parts required for the job.
-                </p>
-              </div>
-              
-              {jobItems.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="border-t border-gray-200 pt-4">
-                    <div className="flex justify-between font-medium">
-                      <span>Total Quote Amount:</span>
-                      <span className="text-lg">${calculateTotalCost().toFixed(2)}</span>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-2">
-                      This quote is valid for 30 days from the date of issue.
-                    </p>
-                  </div>
-                  
-                  {!quoteConfirmed && (
-                    <div className="flex justify-end">
-                      <button
-                        onClick={handleConfirmQuote}
-                        className="btn btn-success"
-                      >
-                        <CheckCircle size={16} className="mr-2" />
-                        Confirm Quote (Demo)
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <p className="text-gray-500">No items added to this quote yet.</p>
-                  <button
-                    onClick={() => setShowAddPricingModal(true)}
-                    className="mt-2 text-primary-600 hover:text-primary-800"
-                  >
-                    Add items to create a quote
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
         <div>
           {/* Quick Actions */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+            <h2 className="text-xl font-semibold mb-4">Actions</h2>
             <div className="space-y-3">
               <button
-                onClick={() => setShowAppointmentModal(true)}
+                onClick={handleAddPricing}
                 className="btn btn-primary w-full justify-start"
+              >
+                <Plus size={16} className="mr-2" />
+                Add Item
+              </button>
+              
+              <button
+                onClick={() => setShowAppointmentModal(true)}
+                className="btn btn-secondary w-full justify-start"
               >
                 <Calendar size={16} className="mr-2" />
                 Assign Technicians
               </button>
+              
               <button
-                onClick={() => setShowAddPricingModal(true)}
-                className="btn btn-primary w-full justify-start"
-              >
-                <DollarSign size={16} className="mr-2" />
-                Add Items
-              </button>
-              <Link
-                to={`/jobs/${job.id}/edit`}
+                onClick={() => setShowQuotePreview(true)}
                 className="btn btn-secondary w-full justify-start"
               >
-                <Edit size={16} className="mr-2" />
-                Edit Job
-              </Link>
-              <button
-                onClick={() => setShowSendQuoteModal(true)}
-                className="btn btn-secondary w-full justify-start"
-                disabled={jobItems.length === 0}
-              >
-                <Send size={16} className="mr-2" />
-                Send Quote
+                <FileText size={16} className="mr-2" />
+                Preview Quote
               </button>
-              {quoteConfirmed && (
+              
+              {job.contact_email && !job.quote_sent && (
                 <button
-                  onClick={() => setShowViewQuoteModal(true)}
+                  onClick={handleSendQuote}
+                  className="btn btn-success w-full justify-start"
+                  disabled={isSendingQuote || jobItems.length === 0}
+                >
+                  {isSendingQuote ? (
+                    <>
+                      <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} className="mr-2" />
+                      Send Quote to Customer
+                    </>
+                  )}
+                </button>
+              )}
+              
+              {job.quote_confirmed && newItemsAfterConfirmation && (
+                <button
+                  onClick={handleSendUpdatedQuote}
+                  className="btn btn-warning w-full justify-start"
+                  disabled={isSendingQuote}
+                >
+                  {isSendingQuote ? (
+                    <>
+                      <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} className="mr-2" />
+                      Send Updated Quote
+                    </>
+                  )}
+                </button>
+              )}
+              
+              {job.quote_confirmed && (
+                <button
+                  onClick={() => setShowConfirmedQuote(true)}
                   className="btn btn-success w-full justify-start"
                 >
                   <Eye size={16} className="mr-2" />
                   View Confirmed Quote
                 </button>
               )}
-              {job.status !== 'completed' && job.status !== 'cancelled' && (
-                <button
-                  onClick={() => setShowCompleteModal(true)}
-                  className="btn btn-success w-full justify-start"
-                >
-                  <CheckCircle size={16} className="mr-2" />
-                  Complete Job
-                </button>
-              )}
+
               <button
-                onClick={() => setShowDeleteModal(true)}
-                className="btn btn-error w-full justify-start"
+                onClick={handleCreateInvoice}
+                className="btn btn-secondary w-full justify-start"
+                disabled={jobItems.length === 0}
               >
-                <Trash2 size={16} className="mr-2" />
-                Delete Job
+                <FileInvoice size={16} className="mr-2" />
+                Create Invoice
               </button>
             </div>
           </div>
 
           {/* Job Summary */}
           <div className="bg-white rounded-lg shadow p-6 mt-6">
-            <h2 className="text-lg font-semibold mb-4">Job Summary</h2>
+            <h2 className="text-xl font-semibold mb-4">Job Summary</h2>
             <div className="space-y-4">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Status:</span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(job.status)}`}>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Status</span>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClass(job.status)}`}>
                   {job.status}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Type:</span>
-                <span>{job.type}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Type</span>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getTypeBadgeClass(job.type)}`}>
+                  {job.type}
+                </span>
               </div>
-              {job.service_line && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Service Line:</span>
-                  <span>{job.service_line}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Contract</span>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getContractBadgeClass(isContractJob(job))}`}>
+                  {isContractJob(job) ? job.service_contract : 'Non-Contract'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Total Cost</span>
+                <span className="font-medium">${calculateTotalCost().toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Created</span>
+                <span>{new Date(job.created_at).toLocaleDateString()}</span>
+              </div>
+              {job.updated_at && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Last Updated</span>
+                  <span>{new Date(job.updated_at).toLocaleDateString()}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-gray-600">Start Date:</span>
-                <span>{job.time_period_start}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Due Date:</span>
-                <span>{job.time_period_due}</span>
-              </div>
-              {job.schedule_start && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Scheduled:</span>
-                  <span>{formatDateTime(job.schedule_start)}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-gray-600">Items:</span>
-                <span>{jobItems.length}</span>
-              </div>
-              <div className="flex justify-between font-medium">
-                <span>Total Cost:</span>
-                <span>${calculateTotalCost().toFixed(2)}</span>
-              </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Hidden PDF template */}
-      <div id="pdf-template" ref={pdfRef} className="hidden print:block">
-        <QuotePDFTemplate job={job} jobItems={jobItems} />
-      </div>
-
-      {/* Appointment Modal */}
-      <AppointmentModal
-        isOpen={showAppointmentModal}
-        onClose={() => setShowAppointmentModal(false)}
-        onSave={handleScheduleAppointment}
-        selectedTechnicianIds={job.job_technicians?.map(jt => jt.technician_id) || []}
-      />
 
       {/* Add Pricing Modal */}
       <AddJobPricingModal
         isOpen={showAddPricingModal}
         onClose={() => setShowAddPricingModal(false)}
         onPriceAdded={handlePriceAdded}
-        jobId={job.id}
+        jobId={id}
       />
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
+      {/* Edit Item Modal */}
+      <EditJobItemModal
+        isOpen={showEditItemModal}
+        onClose={() => setShowEditItemModal(false)}
+        onSave={handleItemUpdated}
+        item={selectedItem}
+      />
+
+      {/* Appointment Modal */}
+      <AppointmentModal
+        isOpen={showAppointmentModal}
+        onClose={() => setShowAppointmentModal(false)}
+        onSave={async (appointment) => {
+          if (!supabase || !id) return;
+
+          try {
+            // First, delete existing technician assignments
+            const { error: deleteError } = await supabase
+              .from('job_technicians')
+              .delete()
+              .eq('job_id', id);
+
+            if (deleteError) throw deleteError;
+
+            // Then add new technician assignments
+            if (appointment.technicianIds.length > 0) {
+              const technicianEntries = appointment.technicianIds.map((techId, index) => ({
+                job_id: id,
+                technician_id: techId,
+                is_primary: index === 0 // First technician is primary
+              }));
+              
+              const { error: insertError } = await supabase
+                .from('job_technicians')
+                .insert(technicianEntries);
+                
+              if (insertError) throw insertError;
+            }
+            
+            // Refresh job data
+            const { data: updatedJob, error: jobError } = await supabase
+              .from('jobs')
+              .select(`
+                *,
+                locations (
+                  name,
+                  address,
+                  city,
+                  state,
+                  zip,
+                  companies (
+                    name
+                  )
+                ),
+                units (
+                  unit_number
+                ),
+                job_technicians (
+                  id,
+                  technician_id,
+                  is_primary,
+                  users:technician_id (
+                    id,
+                    first_name,
+                    last_name,
+                    email,
+                    phone
+                  )
+                )
+              `)
+              .eq('id', id)
+              .single();
+
+            if (jobError) throw jobError;
+            setJob(updatedJob);
+            
+            setShowAppointmentModal(false);
+          } catch (err) {
+            console.error('Error updating technicians:', err);
+            setError('Failed to update technicians');
+          }
+        }}
+        selectedTechnicianIds={job.job_technicians?.map(jt => jt.technician_id) || []}
+      />
+
+      {/* Delete Item Confirmation Modal */}
+      {showDeleteItemModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
             <div className="flex items-center justify-center text-error-600 mb-4">
               <AlertTriangle size={40} />
             </div>
             <h3 className="text-lg font-semibold text-center mb-4">
-              Delete Job
+              Delete Item
             </h3>
             <p className="text-center text-gray-600 mb-6">
-              Are you sure you want to delete Job #{job.number}? This action cannot be undone.
+              Are you sure you want to delete this item? This action cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
               <button 
                 className="btn btn-secondary"
-                onClick={() => setShowDeleteModal(false)}
-                disabled={isDeleting}
+                onClick={() => {
+                  setShowDeleteItemModal(false);
+                  setSelectedItemId(null);
+                }}
               >
                 Cancel
               </button>
               <button 
                 className="btn btn-error"
-                onClick={handleDeleteJob}
-                disabled={isDeleting}
+                onClick={handleDeleteItem}
               >
-                {isDeleting ? (
-                  <>
-                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                    Deleting...
-                  </>
-                ) : (
-                  'Delete'
-                )}
+                Delete
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Complete Confirmation Modal */}
-      {showCompleteModal && (
+      {/* Create Invoice Modal */}
+      {showCreateInvoiceModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-            <div className="flex items-center justify-center text-success-600 mb-4">
-              <CheckCircle size={40} />
-            </div>
-            <h3 className="text-lg font-semibold text-center mb-4">
-              Complete Job
-            </h3>
-            <p className="text-center text-gray-600 mb-6">
-              Are you sure you want to mark Job #{job.number} as completed?
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button 
-                className="btn btn-secondary"
-                onClick={() => setShowCompleteModal(false)}
-                disabled={isCompleting}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn btn-success"
-                onClick={handleCompleteJob}
-                disabled={isCompleting}
-              >
-                {isCompleting ? (
-                  <>
-                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                    Completing...
-                  </>
-                ) : (
-                  'Complete Job'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Send Quote Modal */}
-      {showSendQuoteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-            <div className="flex items-center justify-center text-primary-600 mb-4">
-              <Send size={40} />
-            </div>
-            <h3 className="text-lg font-semibold text-center mb-4">
-              Send Quote to Customer
-            </h3>
-            <div className="mb-6">
-              <label htmlFor="customerEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                Customer Email
-              </label>
-              <input
-                type="email"
-                id="customerEmail"
-                value={customerEmail}
-                onChange={(e) => setCustomerEmail(e.target.value)}
-                className="input w-full"
-                placeholder="customer@example.com"
-                required
-              />
-              <p className="text-sm text-gray-500 mt-2">
-                The customer will receive an email with a link to view and confirm this quote.
-              </p>
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button 
-                className="btn btn-secondary"
-                onClick={() => setShowSendQuoteModal(false)}
-                disabled={isSendingQuote}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn btn-primary"
-                onClick={handleSendQuote}
-                disabled={isSendingQuote || !customerEmail}
-              >
-                {isSendingQuote ? (
-                  <>
-                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                    Sending...
-                  </>
-                ) : (
-                  'Send Quote'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* View Confirmed Quote Modal */}
-      {showViewQuoteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-semibold">Confirmed Quote</h3>
-              <button 
-                onClick={() => setShowViewQuoteModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
+              <h2 className="text-lg font-semibold">Create Invoice</h2>
+              <button onClick={() => setShowCreateInvoiceModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={20} />
               </button>
             </div>
             
-            <div className="p-6 border rounded-lg">
-              <div className="flex justify-between items-start mb-8 border-b pb-6">
-                <div>
-                  <h1 className="text-2xl font-bold">Airlast HVAC</h1>
-                  <p>1650 Marietta Boulevard Northwest</p>
-                  <p>Atlanta, GA 30318</p>
-                  <p>(404) 632-9074</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Invoice Number
+                </label>
+                <input
+                  type="text"
+                  value={invoiceFormData.invoiceNumber}
+                  onChange={(e) => setInvoiceFormData(prev => ({ ...prev, invoiceNumber: e.target.value }))}
+                  className="input"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={invoiceFormData.amount}
+                    onChange={(e) => setInvoiceFormData(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                    className="input pl-7"
+                    required
+                  />
                 </div>
-                <div className="text-right">
-                  <h2 className="text-xl font-bold">Quote</h2>
-                  <p>Job #: {job.number}</p>
-                  <p>Date: {quoteConfirmedAt ? new Date(quoteConfirmedAt).toLocaleDateString() : 'N/A'}</p>
-                </div>
               </div>
-
-              <div className="mb-8">
-                <h3 className="text-lg font-bold mb-2">Customer Information</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="font-bold">Bill To:</p>
-                    <p>{job.locations?.companies.name}</p>
-                    <p>{job.locations?.address}</p>
-                    <p>{job.locations?.city}, {job.locations?.state} {job.locations?.zip}</p>
-                  </div>
-                  <div>
-                    <p className="font-bold">Contact:</p>
-                    <p>{job.contact_name || 'N/A'}</p>
-                    <p>{job.contact_phone || 'N/A'}</p>
-                    <p>{job.contact_email || 'N/A'}</p>
-                  </div>
-                </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Issued Date
+                </label>
+                <input
+                  type="date"
+                  value={invoiceFormData.issuedDate}
+                  onChange={(e) => setInvoiceFormData(prev => ({ ...prev, issuedDate: e.target.value }))}
+                  className="input"
+                  required
+                />
               </div>
-
-              <div className="mb-8">
-                <h3 className="text-lg font-bold mb-2">Service Location</h3>
-                <p>{job.locations?.name}</p>
-                <p>{job.locations?.address}</p>
-                <p>{job.locations?.city}, {job.locations?.state} {job.locations?.zip}</p>
-                {job.units && <p>Unit: {job.units.unit_number}</p>}
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Due Date
+                </label>
+                <input
+                  type="date"
+                  value={invoiceFormData.dueDate}
+                  onChange={(e) => setInvoiceFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                  className="input"
+                  required
+                />
               </div>
-
-              <div className="mb-8">
-                <h3 className="text-lg font-bold mb-2">Service Details</h3>
-                <p><strong>Service Type:</strong> {job.type}</p>
-                <p><strong>Service Line:</strong> {job.service_line || 'N/A'}</p>
-                <p><strong>Description:</strong> {job.description || 'N/A'}</p>
-                {job.problem_description && (
-                  <p><strong>Problem Description:</strong> {job.problem_description}</p>
-                )}
-                {job.schedule_start && (
-                  <p><strong>Scheduled:</strong> {formatDateTime(job.schedule_start)}</p>
-                )}
-              </div>
-
-              <div className="mb-8">
-                <h3 className="text-lg font-bold mb-2">Items & Pricing</h3>
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="border p-2 text-left">Type</th>
-                      <th className="border p-2 text-left">Item</th>
-                      <th className="border p-2 text-right">Quantity</th>
-                      <th className="border p-2 text-right">Unit Price</th>
-                      <th className="border p-2 text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {confirmedJobItems.map((item, index) => (
-                      <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="border p-2 capitalize">{item.type}</td>
-                        <td className="border p-2">{item.name}</td>
-                        <td className="border p-2 text-right">{item.quantity}</td>
-                        <td className="border p-2 text-right">${Number(item.unit_cost).toFixed(2)}</td>
-                        <td className="border p-2 text-right">${Number(item.total_cost).toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-gray-100 font-bold">
-                      <td className="border p-2" colSpan={4} align="right">Total:</td>
-                      <td className="border p-2 text-right">${calculateConfirmedTotalCost().toFixed(2)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-
-              <div className="flex justify-end mt-6">
-                <button
-                  onClick={() => {
-                    setShowViewQuoteModal(false);
-                    generatePDF();
-                  }}
-                  className="btn btn-primary"
-                >
-                  <Download size={16} className="mr-2" />
-                  Download PDF
-                </button>
-              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowCreateInvoiceModal(false)}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveInvoice}
+                className="btn btn-primary"
+              >
+                <FileInvoice size={16} className="mr-2" />
+                Create Invoice
+              </button>
             </div>
           </div>
         </div>

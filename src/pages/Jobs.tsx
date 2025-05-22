@@ -400,6 +400,18 @@ const Jobs = () => {
     }
   };
 
+  const getContractBadgeClass = (isContract: boolean) => {
+    return isContract 
+      ? 'bg-green-100 text-green-800' 
+      : 'bg-orange-100 text-orange-800';
+  };
+
+  const getQuoteBadgeClass = (isConfirmed: boolean) => {
+    return isConfirmed 
+      ? 'bg-green-100 text-green-800' 
+      : 'bg-blue-100 text-blue-800';
+  };
+
   // Calculate total cost from job items
   const getJobTotalCost = (job: Job) => {
     if (!job.job_items || job.job_items.length === 0) return 0;
@@ -478,6 +490,11 @@ const Jobs = () => {
     return job.job_technicians.map(jt => 
       `${jt.users.first_name} ${jt.users.last_name}`
     ).join(', ');
+  };
+
+  // Check if job is contract or non-contract
+  const isContractJob = (job: Job) => {
+    return job.service_contract !== 'Non-Contract';
   };
 
   return (
@@ -765,6 +782,14 @@ const Jobs = () => {
                           <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getTypeBadgeClass(job.type)}`}>
                             {job.type}
                           </span>
+                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getContractBadgeClass(isContractJob(job))}`}>
+                            {isContractJob(job) ? 'Contract' : 'Non-Contract'}
+                          </span>
+                          {job.quote_sent && (
+                            <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getQuoteBadgeClass(job.quote_confirmed || false)}`}>
+                              {job.quote_confirmed ? 'Quote Confirmed' : 'Quote Sent'}
+                            </span>
+                          )}
                           {job.is_training && (
                             <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
                               training

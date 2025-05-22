@@ -7,19 +7,22 @@ type JobPartPrice = Database['public']['Tables']['job_part_prices']['Row'];
 type JobLaborPrice = Database['public']['Tables']['job_labor_prices']['Row'];
 type JobItemPrice = Database['public']['Tables']['job_item_prices']['Row'];
 type ServiceLine = Database['public']['Tables']['service_lines']['Row'];
+type JobItem = Database['public']['Tables']['job_items']['Row'];
 
 type AddJobPricingModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onPriceAdded?: () => void;
   jobId?: string; // Add jobId prop
+  editItem?: JobItem; // Add editItem prop for editing existing items
 };
 
 const AddJobPricingModal = ({ 
   isOpen, 
   onClose, 
   onPriceAdded = () => {},
-  jobId
+  jobId,
+  editItem
 }: AddJobPricingModalProps) => {
   const { supabase } = useSupabase();
   const [serviceLines, setServiceLines] = useState<ServiceLine[]>([]);
@@ -62,6 +65,7 @@ const AddJobPricingModal = ({
     description: '',
     service_line: 'TRNG',
     unit_cost: 0,
+    quantity: 1,
     // Part-specific fields
     parts_cost: 0,
     estimated_hours: 1.0,
@@ -149,21 +153,45 @@ const AddJobPricingModal = ({
     fetchItems();
   }, [supabase, isOpen]);
   
+  // Initialize form when editing an existing item
+  useEffect(() => {
+    if (editItem) {
+      // Set the appropriate tab based on item type
+      setSelectedTab(editItem.type as 'part' | 'labor' | 'item');
+      
+      // Set common fields
+      setNewItem(prev => ({
+        ...prev,
+        code: editItem.code,
+        name: editItem.name,
+        service_line: editItem.service_line,
+        unit_cost: Number(editItem.unit_cost),
+        quantity: editItem.quantity
+      }));
+      
+      // Update selected item code display
+      setSelectedItemCode(`${editItem.code} - ${editItem.name}`);
+    }
+  }, [editItem]);
+  
   // Reset form when tab changes
   useEffect(() => {
-    setNewItem({
-      ...newItem,
-      code: '',
-      name: '',
-      description: '',
-      unit_cost: 0
-    });
-    setSearchTerm('');
-    setSelectedPartItem(null);
-    setSelectedLaborItem(null);
-    setSelectedOtherItem(null);
-    setSelectedItemCode('0121G00072PDGS-GPH PANEL');
-  }, [selectedTab]);
+    if (!editItem) {
+      setNewItem({
+        ...newItem,
+        code: '',
+        name: '',
+        description: '',
+        unit_cost: 0,
+        quantity: 1
+      });
+      setSearchTerm('');
+      setSelectedPartItem(null);
+      setSelectedLaborItem(null);
+      setSelectedOtherItem(null);
+      setSelectedItemCode('0121G00072PDGS-GPH PANEL');
+    }
+  }, [selectedTab, editItem]);
 
   // Filter items based on search term
   useEffect(() => {
@@ -323,85 +351,99 @@ const AddJobPricingModal = ({
     setError(null);
 
     try {
-      // First, add the item to the appropriate price table if it doesn't exist
-      if (selectedTab === 'part') {
-        const { error } = await supabase
-          .from('job_part_prices')
-          .insert({
-            code: newItem.code,
-            name: newItem.name,
-            description: newItem.description || null,
-            service_line: newItem.service_line,
-            parts_cost: newItem.parts_cost,
-            estimated_hours: newItem.estimated_hours,
-            complexity_multiplier: newItem.complexity_multiplier,
-            adjusted_labor_cost: multipleTechs ? newItem.adjusted_labor_cost + 50 : newItem.adjusted_labor_cost,
-            truck_fee: newItem.truck_fee,
-            roof_access_fee: includeRoofAccessFee ? newItem.roof_access_fee : 0,
-            total_base_cost: newItem.total_base_cost,
-            flat_rate_non_contract: newItem.flat_rate_non_contract,
-            flat_rate_pm_contract: newItem.flat_rate_pm_contract
-          });
-        if (error) throw error;
-      } 
-      else if (selectedTab === 'labor') {
-        const { error } = await supabase
-          .from('job_labor_prices')
-          .insert({
-            code: newItem.code,
-            name: newItem.name,
-            description: newItem.description || null,
-            service_line: newItem.service_line,
-            unit_cost: newItem.unit_cost,
-            skill_level: newItem.skill_level,
-            is_overtime: newItem.is_overtime,
-            is_emergency: newItem.is_emergency,
-            duration_hours: newItem.duration_hours
-          });
-        if (error) throw error;
-      }
-      else if (selectedTab === 'item') {
-        const { error } = await supabase
-          .from('job_item_prices')
-          .insert({
-            code: newItem.code,
-            name: newItem.name,
-            description: newItem.description || null,
-            service_line: newItem.service_line,
-            unit_cost: newItem.unit_cost,
-            category: newItem.category,
-            is_taxable: newItem.is_taxable
-          });
-        if (error) throw error;
-      }
-
-      // If jobId is provided, add the item to job_items table
-      if (jobId) {
-        const finalUnitCost = selectedTab === 'part' 
-          ? (selectedPricingType === 'non-contract' ? newItem.flat_rate_non_contract : newItem.flat_rate_pm_contract)
-          : newItem.unit_cost;
-
-        const { error: jobItemError } = await supabase
+      if (editItem) {
+        // Update existing job item
+        const { error: updateError } = await supabase
           .from('job_items')
-          .insert({
-            job_id: jobId,
-            code: newItem.code,
-            name: newItem.name || newItem.description || newItem.code,
-            service_line: newItem.service_line,
-            quantity: 1,
-            unit_cost: finalUnitCost,
-            total_cost: finalUnitCost, // For now, quantity is always 1
-            type: selectedTab
-          });
+          .update({
+            quantity: newItem.quantity,
+            unit_cost: newItem.unit_cost,
+            total_cost: newItem.quantity * newItem.unit_cost
+          })
+          .eq('id', editItem.id);
 
-        if (jobItemError) throw jobItemError;
+        if (updateError) throw updateError;
+      } else {
+        // First, add the item to the appropriate price table if it doesn't exist
+        if (selectedTab === 'part') {
+          const { error } = await supabase
+            .from('job_part_prices')
+            .insert({
+              code: newItem.code,
+              name: newItem.name,
+              description: newItem.description || null,
+              service_line: newItem.service_line,
+              parts_cost: newItem.parts_cost,
+              estimated_hours: newItem.estimated_hours,
+              complexity_multiplier: newItem.complexity_multiplier,
+              adjusted_labor_cost: multipleTechs ? newItem.adjusted_labor_cost + 50 : newItem.adjusted_labor_cost,
+              truck_fee: newItem.truck_fee,
+              roof_access_fee: includeRoofAccessFee ? newItem.roof_access_fee : 0,
+              total_base_cost: newItem.total_base_cost,
+              flat_rate_non_contract: newItem.flat_rate_non_contract,
+              flat_rate_pm_contract: newItem.flat_rate_pm_contract
+            });
+          if (error) throw error;
+        } 
+        else if (selectedTab === 'labor') {
+          const { error } = await supabase
+            .from('job_labor_prices')
+            .insert({
+              code: newItem.code,
+              name: newItem.name,
+              description: newItem.description || null,
+              service_line: newItem.service_line,
+              unit_cost: newItem.unit_cost,
+              skill_level: newItem.skill_level,
+              is_overtime: newItem.is_overtime,
+              is_emergency: newItem.is_emergency,
+              duration_hours: newItem.duration_hours
+            });
+          if (error) throw error;
+        }
+        else if (selectedTab === 'item') {
+          const { error } = await supabase
+            .from('job_item_prices')
+            .insert({
+              code: newItem.code,
+              name: newItem.name,
+              description: newItem.description || null,
+              service_line: newItem.service_line,
+              unit_cost: newItem.unit_cost,
+              category: newItem.category,
+              is_taxable: newItem.is_taxable
+            });
+          if (error) throw error;
+        }
+
+        // If jobId is provided, add the item to job_items table
+        if (jobId) {
+          const finalUnitCost = selectedTab === 'part' 
+            ? (selectedPricingType === 'non-contract' ? newItem.flat_rate_non_contract : newItem.flat_rate_pm_contract)
+            : newItem.unit_cost;
+
+          const { error: jobItemError } = await supabase
+            .from('job_items')
+            .insert({
+              job_id: jobId,
+              code: newItem.code,
+              name: newItem.name || newItem.description || newItem.code,
+              service_line: newItem.service_line,
+              quantity: newItem.quantity,
+              unit_cost: finalUnitCost,
+              total_cost: finalUnitCost * newItem.quantity, // Calculate total based on quantity
+              type: selectedTab
+            });
+
+          if (jobItemError) throw jobItemError;
+        }
       }
 
       onPriceAdded();
       onClose();
     } catch (err) {
-      console.error('Error adding price item:', err);
-      setError('Failed to add price item. Please try again.');
+      console.error('Error adding/updating price item:', err);
+      setError('Failed to save price item. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -411,10 +453,10 @@ const AddJobPricingModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg w-full max-w-3xl p-6">
+      <div className="bg-white rounded-lg w-full max-w-3xl p-6 max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-semibold">Add Pricing</h2>
+          <h2 className="text-lg font-semibold">{editItem ? 'Edit Item' : 'Add Pricing'}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={20} />
           </button>
@@ -432,175 +474,243 @@ const AddJobPricingModal = ({
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="mb-6 flex border-b border-gray-200">
-          <button
-            onClick={() => setSelectedTab('part')}
-            className={`px-4 py-2 font-medium text-sm ${
-              selectedTab === 'part'
-                ? 'text-gray-900 border-b-2 border-gray-900'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <div className="flex items-center">
-              <Package size={16} className="mr-2" />
-              Part
-            </div>
-          </button>
-          <button
-            onClick={() => setSelectedTab('labor')}
-            className={`px-4 py-2 font-medium text-sm ${
-              selectedTab === 'labor'
-                ? 'text-gray-900 border-b-2 border-gray-900'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <div className="flex items-center">
-              <Tool size={16} className="mr-2" />
-              Labor
-            </div>
-          </button>
-          <button
-            onClick={() => setSelectedTab('item')}
-            className={`px-4 py-2 font-medium text-sm ${
-              selectedTab === 'item'
-                ? 'text-gray-900 border-b-2 border-gray-900'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <div className="flex items-center">
-              <ShoppingCart size={16} className="mr-2" />
-              Item
-            </div>
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="space-y-6">
-          {/* Search and Item Selection */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Search Items
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder={`Search ${selectedTab}s...`}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 input w-full"
-              />
-            </div>
-            
-            {/* Item List */}
-            <div className="mt-2 max-h-40 overflow-y-auto border rounded-md">
-              {selectedTab === 'part' && (
-                filteredPartItems.length > 0 ? (
-                  <div className="divide-y">
-                    {filteredPartItems.map(item => (
-                      <div 
-                        key={item.id}
-                        className={`p-2 hover:bg-gray-50 cursor-pointer ${selectedPartItem?.id === item.id ? 'bg-primary-50' : ''}`}
-                        onClick={() => handleSelectPartItem(item)}
-                      >
-                        <div className="font-medium">{item.code}{item.description ? ` - ${item.description}` : ''}</div>
-                        <div className="text-xs text-gray-500 flex justify-between">
-                          <span>${Number(item.unit_cost).toFixed(2)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 text-center text-gray-500">No part items found</div>
-                )
-              )}
-              
-              {selectedTab === 'labor' && (
-                filteredLaborItems.length > 0 ? (
-                  <div className="divide-y">
-                    {filteredLaborItems.map(item => (
-                      <div 
-                        key={item.id}
-                        className={`p-2 hover:bg-gray-50 cursor-pointer ${selectedLaborItem?.id === item.id ? 'bg-primary-50' : ''}`}
-                        onClick={() => handleSelectLaborItem(item)}
-                      >
-                        <div className="font-medium">{item.code}{item.description ? ` - ${item.description}` : ''}</div>
-                        <div className="text-xs text-gray-500 flex justify-between">
-                          <span>{item.name}</span>
-                          <span>${Number(item.unit_cost).toFixed(2)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 text-center text-gray-500">No labor items found</div>
-                )
-              )}
-              
-              {selectedTab === 'item' && (
-                filteredOtherItems.length > 0 ? (
-                  <div className="divide-y">
-                    {filteredOtherItems.map(item => (
-                      <div 
-                        key={item.id}
-                        className={`p-2 hover:bg-gray-50 cursor-pointer ${selectedOtherItem?.id === item.id ? 'bg-primary-50' : ''}`}
-                        onClick={() => handleSelectOtherItem(item)}
-                      >
-                        <div className="font-medium">{item.code}{item.description ? ` - ${item.description}` : ''}</div>
-                        <div className="text-xs text-gray-500 flex justify-between">
-                          <span>{item.name}</span>
-                          <span>${Number(item.unit_cost).toFixed(2)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 text-center text-gray-500">No other items found</div>
-                )
-              )}
-            </div>
+        {/* Tabs - Only show if not editing */}
+        {!editItem && (
+          <div className="mb-6 flex border-b border-gray-200">
+            <button
+              onClick={() => setSelectedTab('part')}
+              className={`px-4 py-2 font-medium text-sm ${
+                selectedTab === 'part'
+                  ? 'text-gray-900 border-b-2 border-gray-900'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center">
+                <Package size={16} className="mr-2" />
+                Part
+              </div>
+            </button>
+            <button
+              onClick={() => setSelectedTab('labor')}
+              className={`px-4 py-2 font-medium text-sm ${
+                selectedTab === 'labor'
+                  ? 'text-gray-900 border-b-2 border-gray-900'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center">
+                <Tool size={16} className="mr-2" />
+                Labor
+              </div>
+            </button>
+            <button
+              onClick={() => setSelectedTab('item')}
+              className={`px-4 py-2 font-medium text-sm ${
+                selectedTab === 'item'
+                  ? 'text-gray-900 border-b-2 border-gray-900'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center">
+                <ShoppingCart size={16} className="mr-2" />
+                Item
+              </div>
+            </button>
           </div>
+        )}
+
+        {/* Content - Scrollable */}
+        <div className="space-y-6 overflow-y-auto flex-1">
+          {/* Search and Item Selection - Only show if not editing */}
+          {!editItem && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Search Items
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder={`Search ${selectedTab}s...`}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 input w-full"
+                />
+              </div>
+              
+              {/* Item List */}
+              <div className="mt-2 max-h-40 overflow-y-auto border rounded-md">
+                {selectedTab === 'part' && (
+                  filteredPartItems.length > 0 ? (
+                    <div className="divide-y">
+                      {filteredPartItems.map(item => (
+                        <div 
+                          key={item.id}
+                          className={`p-2 hover:bg-gray-50 cursor-pointer ${selectedPartItem?.id === item.id ? 'bg-primary-50' : ''}`}
+                          onClick={() => handleSelectPartItem(item)}
+                        >
+                          <div className="font-medium">{item.code}{item.description ? ` - ${item.description}` : ''}</div>
+                          <div className="text-xs text-gray-500 flex justify-between">
+                            <span>
+                              {Number(item.flat_rate_non_contract) > 0 
+                                ? `$${Number(item.flat_rate_non_contract).toFixed(2)} - $${Number(item.flat_rate_pm_contract).toFixed(2)}` 
+                                : Number(item.unit_cost) > 0 
+                                  ? `$${Number(item.unit_cost).toFixed(2)}`
+                                  : 'Price not set'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center text-gray-500">No part items found</div>
+                  )
+                )}
+                
+                {selectedTab === 'labor' && (
+                  filteredLaborItems.length > 0 ? (
+                    <div className="divide-y">
+                      {filteredLaborItems.map(item => (
+                        <div 
+                          key={item.id}
+                          className={`p-2 hover:bg-gray-50 cursor-pointer ${selectedLaborItem?.id === item.id ? 'bg-primary-50' : ''}`}
+                          onClick={() => handleSelectLaborItem(item)}
+                        >
+                          <div className="font-medium">{item.code}{item.description ? ` - ${item.description}` : ''}</div>
+                          <div className="text-xs text-gray-500 flex justify-between">
+                            <span>{item.name}</span>
+                            <span>${Number(item.unit_cost).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center text-gray-500">No labor items found</div>
+                  )
+                )}
+                
+                {selectedTab === 'item' && (
+                  filteredOtherItems.length > 0 ? (
+                    <div className="divide-y">
+                      {filteredOtherItems.map(item => (
+                        <div 
+                          key={item.id}
+                          className={`p-2 hover:bg-gray-50 cursor-pointer ${selectedOtherItem?.id === item.id ? 'bg-primary-50' : ''}`}
+                          onClick={() => handleSelectOtherItem(item)}
+                        >
+                          <div className="font-medium">{item.code}{item.description ? ` - ${item.description}` : ''}</div>
+                          <div className="text-xs text-gray-500 flex justify-between">
+                            <span>{item.name}</span>
+                            <span>${Number(item.unit_cost).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center text-gray-500">No other items found</div>
+                  )
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Common Fields */}
+          {!editItem && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Item Code *
+                </label>
+                <input
+                  type="text"
+                  value={newItem.code}
+                  onChange={e => setNewItem(prev => ({ ...prev, code: e.target.value }))}
+                  className="input"
+                  placeholder={
+                    selectedTab === 'part' ? 'PART-CODE' : 
+                    selectedTab === 'labor' ? 'LABOR-CODE' : 
+                    'ITEM-CODE'
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Service Line
+                </label>
+                <select
+                  value={newItem.service_line}
+                  onChange={e => setNewItem(prev => ({ ...prev, service_line: e.target.value }))}
+                  className="select"
+                  required
+                >
+                  {serviceLines.map(line => (
+                    <option key={line.id} value={line.code}>
+                      {line.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Quantity field - for both new and edit */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Item Code *
+                Quantity *
               </label>
               <input
-                type="text"
-                value={newItem.code}
-                onChange={e => setNewItem(prev => ({ ...prev, code: e.target.value }))}
+                type="number"
+                min="1"
+                value={newItem.quantity}
+                onChange={e => setNewItem(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
                 className="input"
-                placeholder={
-                  selectedTab === 'part' ? 'PART-CODE' : 
-                  selectedTab === 'labor' ? 'LABOR-CODE' : 
-                  'ITEM-CODE'
-                }
                 required
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Service Line
-              </label>
-              <select
-                value={newItem.service_line}
-                onChange={e => setNewItem(prev => ({ ...prev, service_line: e.target.value }))}
-                className="select"
-                required
-              >
-                {serviceLines.map(line => (
-                  <option key={line.id} value={line.code}>
-                    {line.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            
+            {/* Unit Cost - for editing or when not a part */}
+            {(editItem || selectedTab !== 'part') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Unit Cost *
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newItem.unit_cost}
+                    onChange={e => setNewItem(prev => ({ ...prev, unit_cost: parseFloat(e.target.value) || 0 }))}
+                    className="input pl-7"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+            
+            {/* Total Cost - read only, calculated field */}
+            {editItem && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Total Cost
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                  <input
+                    type="text"
+                    value={(newItem.quantity * newItem.unit_cost).toFixed(2)}
+                    className="input pl-7 bg-gray-50"
+                    readOnly
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          {selectedTab !== 'part' && (
+          {selectedTab !== 'part' && !editItem && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -633,7 +743,7 @@ const AddJobPricingModal = ({
           )}
 
           {/* Part-specific fields */}
-          {selectedTab === 'part' && (
+          {selectedTab === 'part' && !editItem && (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -842,7 +952,7 @@ const AddJobPricingModal = ({
           )}
 
           {/* Labor-specific fields */}
-          {selectedTab === 'labor' && (
+          {selectedTab === 'labor' && !editItem && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -925,7 +1035,7 @@ const AddJobPricingModal = ({
           )}
 
           {/* Item-specific fields */}
-          {selectedTab === 'item' && (
+          {selectedTab === 'item' && !editItem && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -975,17 +1085,18 @@ const AddJobPricingModal = ({
         </div>
 
         {/* Footer buttons */}
-        <div className="flex justify-end gap-3 mt-6">
+        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
           <button onClick={onClose} className="btn btn-secondary">Cancel</button>
           <button
             onClick={handleSubmit}
             className="btn btn-primary"
-            disabled={isLoading || !newItem.code || (selectedTab !== 'part' && !newItem.name) || (selectedTab !== 'part' && newItem.unit_cost <= 0)}
+            disabled={isLoading || 
+              (editItem ? false : !newItem.code || (selectedTab !== 'part' && !newItem.name) || (selectedTab !== 'part' && newItem.unit_cost <= 0))}
           >
             {isLoading
               ? <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-              : <Plus size={16} className="mr-2" />}
-            {isLoading ? 'Adding...' : 'Add Pricing'}
+              : editItem ? <Check size={16} className="mr-2" /> : <Plus size={16} className="mr-2" />}
+            {isLoading ? 'Saving...' : editItem ? 'Save Changes' : 'Add Pricing'}
           </button>
         </div>
       </div>
