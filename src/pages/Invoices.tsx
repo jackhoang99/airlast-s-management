@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
-import { ArrowLeft, Plus, FileInput, Search, Filter, DollarSign, Calendar, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Plus, FileInput as FileInvoice, Search, Filter, DollarSign, Calendar, CheckCircle, AlertTriangle } from 'lucide-react';
 
 type JobInvoice = Database['public']['Tables']['job_invoices']['Row'] & {
   jobs: {
@@ -146,7 +146,7 @@ const Invoices = () => {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <h1 className="flex items-center gap-2">
-            <FileInput className="h-6 w-6" />
+            <FileInvoice className="h-6 w-6" />
             Invoices
           </h1>
         </div>
@@ -181,7 +181,7 @@ const Invoices = () => {
               <p className="text-3xl font-semibold mt-1">${totalAmount.toFixed(2)}</p>
             </div>
             <div className="h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center">
-              <FileInput className="h-6 w-6 text-primary-600" />
+              <FileInvoice className="h-6 w-6 text-primary-600" />
             </div>
           </div>
           <div className="mt-4">

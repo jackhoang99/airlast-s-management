@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Briefcase, FileText, Users, MapPin, Settings, HelpCircle, LogOut, X, User, Wind, Building, Phone, Contact as FileContract, Upload, ChevronDown, Calendar, Wrench, ClipboardList, Building2, Home, FileInput, DollarSign, FileEdit, FileCheck, FileSpreadsheet, AlertTriangle, Tag, Package } from 'lucide-react';
+import { Briefcase, FileText, Users, MapPin, Settings, HelpCircle, LogOut, X, User, Wind, Building, Phone, Contact as FileContract, Upload, ChevronDown, Calendar, Wrench, ClipboardList, Building2, Home, FileInput as FileInvoice, DollarSign, FileEdit, FileCheck, FileSpreadsheet, AlertTriangle, Tag, Package } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSupabase } from '../../lib/supabase-context';
 
@@ -325,7 +325,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                 className="w-full px-2 mb-2 flex items-center justify-between text-sm font-medium text-gray-900 hover:bg-gray-50 rounded-md"
               >
                 <div className="flex items-center">
-                  <FileInput size={18} className="mr-3 text-gray-400" />
+                  <FileInvoice size={18} className="mr-3 text-gray-400" />
                   <span>Invoices</span>
                 </div>
                 <ChevronDown 
@@ -349,7 +349,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                         : 'text-gray-700 hover:bg-gray-100'
                     }`}
                   >
-                    <FileInput size={16} className="mr-3" />
+                    <FileInvoice size={16} className="mr-3" />
                     All Invoices
                   </Link>
                 </li>
