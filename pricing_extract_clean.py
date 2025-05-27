@@ -29,8 +29,6 @@ df.columns = [clean(c) for c in df.columns]
 # 3. split your description field
 df[['code', 'description']] = df['description'].str.split(' ', n=1, expand=True)
 
-# 4. drop the old description if desired
-df = df.drop(columns=['description'])
 
 # 5. save
 df.to_csv('Updated_Flat_Rate_HVAC_Pricing_split.csv', index=False)

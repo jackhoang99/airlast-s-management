@@ -19,6 +19,7 @@ const AppointmentModal = ({ isOpen, onClose, onSave, selectedTechnicianIds = [] 
   const [technicians, setTechnicians] = useState<User[]>([]);
   const [selectedTechs, setSelectedTechs] = useState<string[]>(selectedTechnicianIds);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchTechnicians = async () => {
@@ -36,11 +37,15 @@ const AppointmentModal = ({ isOpen, onClose, onSave, selectedTechnicianIds = [] 
         setTechnicians(data || []);
       } catch (err) {
         console.error('Error fetching technicians:', err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    fetchTechnicians();
-  }, [supabase]);
+    if (isOpen) {
+      fetchTechnicians();
+    }
+  }, [supabase, isOpen]);
 
   useEffect(() => {
     // Update selected techs when selectedTechnicianIds prop changes
@@ -93,7 +98,11 @@ const AppointmentModal = ({ isOpen, onClose, onSave, selectedTechnicianIds = [] 
             />
             
             <div className="max-h-60 overflow-y-auto border rounded-md">
-              {filteredTechnicians.length === 0 ? (
+              {isLoading ? (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-600"></div>
+                </div>
+              ) : filteredTechnicians.length === 0 ? (
                 <div className="p-4 text-center text-gray-500">No technicians found</div>
               ) : (
                 <div className="divide-y">

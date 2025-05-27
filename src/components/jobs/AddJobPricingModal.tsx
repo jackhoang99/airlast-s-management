@@ -364,58 +364,6 @@ const AddJobPricingModal = ({
 
         if (updateError) throw updateError;
       } else {
-        // First, add the item to the appropriate price table if it doesn't exist
-        if (selectedTab === 'part') {
-          const { error } = await supabase
-            .from('job_part_prices')
-            .insert({
-              code: newItem.code,
-              name: newItem.name,
-              description: newItem.description || null,
-              service_line: newItem.service_line,
-              parts_cost: newItem.parts_cost,
-              estimated_hours: newItem.estimated_hours,
-              complexity_multiplier: newItem.complexity_multiplier,
-              adjusted_labor_cost: multipleTechs ? newItem.adjusted_labor_cost + 50 : newItem.adjusted_labor_cost,
-              truck_fee: newItem.truck_fee,
-              roof_access_fee: includeRoofAccessFee ? newItem.roof_access_fee : 0,
-              total_base_cost: newItem.total_base_cost,
-              flat_rate_non_contract: newItem.flat_rate_non_contract,
-              flat_rate_pm_contract: newItem.flat_rate_pm_contract
-            });
-          if (error) throw error;
-        } 
-        else if (selectedTab === 'labor') {
-          const { error } = await supabase
-            .from('job_labor_prices')
-            .insert({
-              code: newItem.code,
-              name: newItem.name,
-              description: newItem.description || null,
-              service_line: newItem.service_line,
-              unit_cost: newItem.unit_cost,
-              skill_level: newItem.skill_level,
-              is_overtime: newItem.is_overtime,
-              is_emergency: newItem.is_emergency,
-              duration_hours: newItem.duration_hours
-            });
-          if (error) throw error;
-        }
-        else if (selectedTab === 'item') {
-          const { error } = await supabase
-            .from('job_item_prices')
-            .insert({
-              code: newItem.code,
-              name: newItem.name,
-              description: newItem.description || null,
-              service_line: newItem.service_line,
-              unit_cost: newItem.unit_cost,
-              category: newItem.category,
-              is_taxable: newItem.is_taxable
-            });
-          if (error) throw error;
-        }
-
         // If jobId is provided, add the item to job_items table
         if (jobId) {
           const finalUnitCost = selectedTab === 'part' 
@@ -436,6 +384,60 @@ const AddJobPricingModal = ({
             });
 
           if (jobItemError) throw jobItemError;
+        } 
+        // Only add to price tables if no jobId is provided (we're in the pricing management section)
+        else {
+          // First, add the item to the appropriate price table if it doesn't exist
+          if (selectedTab === 'part') {
+            const { error } = await supabase
+              .from('job_part_prices')
+              .insert({
+                code: newItem.code,
+                name: newItem.name,
+                description: newItem.description || null,
+                service_line: newItem.service_line,
+                parts_cost: newItem.parts_cost,
+                estimated_hours: newItem.estimated_hours,
+                complexity_multiplier: newItem.complexity_multiplier,
+                adjusted_labor_cost: multipleTechs ? newItem.adjusted_labor_cost + 50 : newItem.adjusted_labor_cost,
+                truck_fee: newItem.truck_fee,
+                roof_access_fee: includeRoofAccessFee ? newItem.roof_access_fee : 0,
+                total_base_cost: newItem.total_base_cost,
+                flat_rate_non_contract: newItem.flat_rate_non_contract,
+                flat_rate_pm_contract: newItem.flat_rate_pm_contract
+              });
+            if (error) throw error;
+          } 
+          else if (selectedTab === 'labor') {
+            const { error } = await supabase
+              .from('job_labor_prices')
+              .insert({
+                code: newItem.code,
+                name: newItem.name,
+                description: newItem.description || null,
+                service_line: newItem.service_line,
+                unit_cost: newItem.unit_cost,
+                skill_level: newItem.skill_level,
+                is_overtime: newItem.is_overtime,
+                is_emergency: newItem.is_emergency,
+                duration_hours: newItem.duration_hours
+              });
+            if (error) throw error;
+          }
+          else if (selectedTab === 'item') {
+            const { error } = await supabase
+              .from('job_item_prices')
+              .insert({
+                code: newItem.code,
+                name: newItem.name,
+                description: newItem.description || null,
+                service_line: newItem.service_line,
+                unit_cost: newItem.unit_cost,
+                category: newItem.category,
+                is_taxable: newItem.is_taxable
+              });
+            if (error) throw error;
+          }
         }
       }
 
