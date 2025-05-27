@@ -146,7 +146,7 @@ const JobQuoteSection = ({
               </div>
               <div className="ml-3">
                 <h3 className={`text-sm font-medium ${quoteNeedsUpdate ? 'text-warning-800' : 'text-success-800'}`}>
-                  {quoteNeedsUpdate ? 'Quote Needs Update' : 'Quote Sent'}
+                  {quoteNeedsUpdate ? 'Quote Needs Update' : job.quote_confirmed ? 'Quote Confirmed' : 'Quote Sent'}
                 </h3>
                 <div className={`mt-2 text-sm ${quoteNeedsUpdate ? 'text-warning-700' : 'text-success-700'}`}>
                   <p>
