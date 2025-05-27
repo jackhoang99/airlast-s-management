@@ -126,15 +126,12 @@ const JobQuoteSection = ({
             <button
               className={`btn ${quoteNeedsUpdate ? 'btn-warning' : 'btn-success'}`}
               onClick={() => {
-                if (quoteNeedsUpdate) {
-                  setCustomerEmail(job.contact_email || '');
-                  setShowSendQuoteModal(true);
-                }
+                setCustomerEmail(job.contact_email || '');
+                setShowSendQuoteModal(true);
               }}
-              disabled={!quoteNeedsUpdate}
             >
               <FileCheck size={16} className="mr-2" />
-              {quoteNeedsUpdate ? 'Update Quote' : 'Quote Sent'}
+              {quoteNeedsUpdate ? 'Update Quote' : 'Resend Quote'}
             </button>
           )}
         </div>
@@ -194,7 +191,7 @@ const JobQuoteSection = ({
               <Send size={40} />
             </div>
             <h3 className="text-lg font-semibold text-center mb-4">
-              {job.quote_sent && quoteNeedsUpdate ? 'Update Quote' : 'Send Quote to Customer'}
+              {job.quote_sent && quoteNeedsUpdate ? 'Update Quote' : job.quote_sent ? 'Resend Quote' : 'Send Quote to Customer'}
             </h3>
             
             {quoteError && (
@@ -207,17 +204,20 @@ const JobQuoteSection = ({
               <p className="text-gray-600 mb-4">
                 {job.quote_sent && quoteNeedsUpdate 
                   ? `This will send an updated quote for Job #${job.number} to the customer via email.`
+                  : job.quote_sent
+                  ? `This will resend the quote for Job #${job.number} to the customer via email.`
                   : `This will send a quote for Job #${job.number} to the customer via email.`} 
                 The quote will include all items and pricing information.
               </p>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="customerEmail" className="block text-sm font-medium text-gray-700 mb-1">
                     Customer Email
                   </label>
                   <input
                     type="email"
+                    id="customerEmail"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
                     className="input"
@@ -260,7 +260,7 @@ const JobQuoteSection = ({
                 ) : (
                   <>
                     <Send size={16} className="mr-2" />
-                    {job.quote_sent && quoteNeedsUpdate ? 'Update Quote' : 'Send Quote'}
+                    {job.quote_sent && quoteNeedsUpdate ? 'Update Quote' : job.quote_sent ? 'Resend Quote' : 'Send Quote'}
                   </>
                 )}
               </button>
