@@ -17,16 +17,49 @@ import {
 const Home = () => {
   const { supabase } = useSupabase();
   const [stats, setStats] = useState({
-    jobsNoAppointment: 0,
-    overdueJobs: 0,
-    jobsToMark: 0,
-    followUpJobs: 0,
-    openDeficiencies: 0,
-    unsentInvoices: 0,
-    jobsToSchedule: 0,
-    jobsToInvoice: 0,
-    submittedQuotes: 0,
+    jobsNoAppointment: null,
+    overdueJobs: null,
+    jobsToMark: null,
+    followUpJobs: null,
+    openDeficiencies: null,
+    unsentInvoices: null,
+    jobsToSchedule: null,
+    jobsToInvoice: null,
+    submittedQuotes: null,
   });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!supabase) return;
+      
+      setIsLoading(true);
+      
+      try {
+        // Here you would fetch actual stats from Supabase
+        // For now, we'll just simulate a delay and set zeros
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        setStats({
+          jobsNoAppointment: 0,
+          overdueJobs: 0,
+          jobsToMark: 0,
+          followUpJobs: 0,
+          openDeficiencies: 0,
+          unsentInvoices: 0,
+          jobsToSchedule: 0,
+          jobsToInvoice: 0,
+          submittedQuotes: 0,
+        });
+      } catch (err) {
+        console.error('Error fetching stats:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchStats();
+  }, [supabase]);
 
   return (
     <div className="space-y-6">
@@ -84,9 +117,13 @@ const Home = () => {
               <ClipboardList size={16} />
               Jobs with No Appointment
             </h3>
-            <span className="text-2xl font-semibold">
-              {stats.jobsNoAppointment}
-            </span>
+            {isLoading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary-600"></div>
+            ) : (
+              <span className="text-2xl font-semibold">
+                {stats.jobsNoAppointment}
+              </span>
+            )}
           </div>
         </div>
 
@@ -96,9 +133,13 @@ const Home = () => {
               <AlertTriangle size={16} />
               Overdue Jobs
             </h3>
-            <span className="text-2xl font-semibold text-error-600">
-              {stats.overdueJobs}
-            </span>
+            {isLoading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-error-600"></div>
+            ) : (
+              <span className="text-2xl font-semibold text-error-600">
+                {stats.overdueJobs}
+              </span>
+            )}
           </div>
         </div>
 
@@ -108,7 +149,11 @@ const Home = () => {
               <FileCheck2 size={16} />
               Past Jobs to Mark Complete
             </h3>
-            <span className="text-2xl font-semibold">{stats.jobsToMark}</span>
+            {isLoading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary-600"></div>
+            ) : (
+              <span className="text-2xl font-semibold">{stats.jobsToMark}</span>
+            )}
           </div>
         </div>
 
@@ -118,7 +163,11 @@ const Home = () => {
               <Bell size={16} />
               Follow Up Jobs
             </h3>
-            <span className="text-2xl font-semibold">{stats.followUpJobs}</span>
+            {isLoading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary-600"></div>
+            ) : (
+              <span className="text-2xl font-semibold">{stats.followUpJobs}</span>
+            )}
           </div>
         </div>
       </div>
@@ -131,9 +180,13 @@ const Home = () => {
               <AlertTriangle size={16} />
               Open Deficiencies
             </h3>
-            <span className="text-2xl font-semibold">
-              {stats.openDeficiencies}
-            </span>
+            {isLoading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary-600"></div>
+            ) : (
+              <span className="text-2xl font-semibold">
+                {stats.openDeficiencies}
+              </span>
+            )}
           </div>
           <div className="text-center py-12 text-gray-500">
             No data to display.
@@ -148,9 +201,13 @@ const Home = () => {
               <FileInvoice size={16} />
               Total Unsent Invoices
             </h3>
-            <span className="text-2xl font-semibold">
-              {stats.unsentInvoices}
-            </span>
+            {isLoading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary-600"></div>
+            ) : (
+              <span className="text-2xl font-semibold">
+                {stats.unsentInvoices}
+              </span>
+            )}
           </div>
           <div className="flex items-center justify-between text-sm text-gray-500">
             <span>In value</span>
@@ -164,9 +221,13 @@ const Home = () => {
               <CalendarClock size={16} />
               Jobs Ready to Schedule
             </h3>
-            <span className="text-2xl font-semibold">
-              {stats.jobsToSchedule}
-            </span>
+            {isLoading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary-600"></div>
+            ) : (
+              <span className="text-2xl font-semibold">
+                {stats.jobsToSchedule}
+              </span>
+            )}
           </div>
           <div className="flex items-center justify-between text-sm text-gray-500">
             <span>In estimated revenue</span>
@@ -180,9 +241,13 @@ const Home = () => {
               <Send size={16} />
               Total Submitted Quotes
             </h3>
-            <span className="text-2xl font-semibold">
-              {stats.submittedQuotes}
-            </span>
+            {isLoading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary-600"></div>
+            ) : (
+              <span className="text-2xl font-semibold">
+                {stats.submittedQuotes}
+              </span>
+            )}
           </div>
           <div className="flex items-center justify-between text-sm text-gray-500">
             <span>In value</span>

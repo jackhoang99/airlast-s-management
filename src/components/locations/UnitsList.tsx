@@ -50,17 +50,6 @@ const UnitsList = ({ location }: UnitsListProps) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium">Units</h3>
-        <Link 
-          to={`/locations/${location.id}/units/add`}
-          className="btn btn-primary"
-        >
-          <Plus size={16} className="mr-2" />
-          Add Unit
-        </Link>
-      </div>
-
       {error && (
         <div className="bg-error-50 border-l-4 border-error-500 p-4 rounded-md">
           <div className="flex">
@@ -99,7 +88,7 @@ const UnitsList = ({ location }: UnitsListProps) => {
                   </Link>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`badge ${unit.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
+                  <span className={`badge ${unit.status === 'active' ? 'bg-success-100 text-success-800' : 'bg-error-100 text-error-800'}`}>
                     {unit.status}
                   </span>
                 </td>

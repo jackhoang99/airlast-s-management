@@ -22,11 +22,9 @@ const AddUnit = () => {
   const [formData, setFormData] = useState({
     unitNumber: '',
     status: 'active' as 'active' | 'inactive',
-    phone: '',
     primary_contact_email: '',
     primary_contact_phone: '',
     primary_contact_type: 'Management',
-    email: '',
     // Billing fields
     billing_entity: '',
     billing_email: '',
@@ -82,11 +80,9 @@ const AddUnit = () => {
           unit_number: formData.unitNumber,
           status: formData.status,
           location_id: locationId,
-          phone: formData.phone || null,
           primary_contact_email: formData.primary_contact_email || null,
           primary_contact_phone: formData.primary_contact_phone || null,
           primary_contact_type: formData.primary_contact_type || null,
-          email: formData.email || null,
           // Billing fields
           billing_entity: formData.billing_entity || null,
           billing_email: formData.billing_email || null,
@@ -185,20 +181,6 @@ const AddUnit = () => {
             </div>
 
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                Phone
-              </label>
-              <input
-                type="tel"
-                id="phone"
-                value={formData.phone}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                className="input"
-                placeholder="(123) 456-7890"
-              />
-            </div>
-
-            <div>
               <label htmlFor="primary_contact_type" className="block text-sm font-medium text-gray-700 mb-1">
                 Primary Contact Type
               </label>
@@ -226,20 +208,6 @@ const AddUnit = () => {
                 onChange={(e) => setFormData(prev => ({ ...prev, primary_contact_email: e.target.value }))}
                 className="input"
                 placeholder="contact@example.com"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                className="input"
-                placeholder="email@example.com"
               />
             </div>
 

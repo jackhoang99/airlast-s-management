@@ -27,6 +27,8 @@ const Companies = () => {
         return;
       }
 
+      setIsLoading(true);
+
       try {
         let query = supabase
           .from('companies')
