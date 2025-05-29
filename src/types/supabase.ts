@@ -519,6 +519,71 @@ export interface Database {
           quote_confirmed_at?: string | null
         }
       }
+      job_replacements: {
+        Row: {
+          id: string
+          job_id: string
+          needs_crane: boolean
+          phase1: Json
+          phase2: Json
+          phase3: Json
+          labor: number
+          refrigeration_recovery: number
+          start_up_costs: number
+          accessories: Json[]
+          thermostat_startup: number
+          removal_cost: number
+          warranty: string | null
+          additional_items: Json[]
+          permit_cost: number
+          created_at: string
+          updated_at: string
+          selected_phase: string | null
+          total_cost: number | null
+        }
+        Insert: {
+          id?: string
+          job_id: string
+          needs_crane?: boolean
+          phase1?: Json
+          phase2?: Json
+          phase3?: Json
+          labor?: number
+          refrigeration_recovery?: number
+          start_up_costs?: number
+          accessories?: Json[]
+          thermostat_startup?: number
+          removal_cost?: number
+          warranty?: string | null
+          additional_items?: Json[]
+          permit_cost?: number
+          created_at?: string
+          updated_at?: string
+          selected_phase?: string | null
+          total_cost?: number | null
+        }
+        Update: {
+          id?: string
+          job_id?: string
+          needs_crane?: boolean
+          phase1?: Json
+          phase2?: Json
+          phase3?: Json
+          labor?: number
+          refrigeration_recovery?: number
+          start_up_costs?: number
+          accessories?: Json[]
+          thermostat_startup?: number
+          removal_cost?: number
+          warranty?: string | null
+          additional_items?: Json[]
+          permit_cost?: number
+          created_at?: string
+          updated_at?: string
+          selected_phase?: string | null
+          total_cost?: number | null
+        }
+      }
     }
     Views: {
       [_ in never]: never

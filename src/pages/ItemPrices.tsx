@@ -472,14 +472,14 @@ const ItemPrices = () => {
           <Link to="/" className="text-gray-500 hover:text-gray-700">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1>Pricing</h1>
+          <h1>Service</h1>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
           className="btn btn-primary"
         >
           <Plus size={16} className="mr-2" />
-          Add Pricing
+          Add Service Item
         </button>
       </div>
       

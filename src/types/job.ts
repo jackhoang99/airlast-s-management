@@ -39,12 +39,29 @@ export interface Job {
     city: string;
     state: string;
     zip: string;
+    building_name: string;
+    company_id: string;
     companies: {
       name: string;
     };
   };
   units?: {
     unit_number: string;
+    status: string;
+    phone: string | null;
+    primary_contact_type: string | null;
+    primary_contact_email: string | null;
+    primary_contact_phone: string | null;
+    email: string | null;
+    billing_entity: string | null;
+    billing_email: string | null;
+    billing_city: string | null;
+    billing_state: string | null;
+    billing_zip: string | null;
+    office: string | null;
+    taxable: boolean | null;
+    tax_group_name: string | null;
+    tax_group_code: string | null;
   };
   job_technicians?: {
     id: string;

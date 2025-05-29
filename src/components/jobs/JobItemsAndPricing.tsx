@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit, Trash2, Package, PenTool, ShoppingCart } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, PenTool, ShoppingCart, Clipboard, Home } from 'lucide-react';
 import { JobItem } from '../../types/job';
 import AddJobPricingModal from './AddJobPricingModal';
 import EditJobItemModal from './EditJobItemModal';
@@ -17,6 +17,29 @@ const JobItemsAndPricing = ({ jobId, jobItems, onItemsUpdated, onQuoteStatusChan
   const [showAddPricingModal, setShowAddPricingModal] = useState(false);
   const [showEditItemModal, setShowEditItemModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<JobItem | null>(null);
+  const [inspectionData, setInspectionData] = useState({
+    modelNumber: '',
+    serialNumber: '',
+    age: '',
+    tonnage: '',
+    unitType: 'Gas', // Gas or Electric
+    systemType: 'RTU', // RTU or Split System
+  });
+  const [replacementData, setReplacementData] = useState({
+    needsCrane: false,
+    phase1: { description: 'Economy Option', cost: 0 },
+    phase2: { description: 'Standard Option', cost: 0 },
+    phase3: { description: 'Premium Option', cost: 0 },
+    labor: 0,
+    refrigerationRecovery: 0,
+    startUpCosts: 0,
+    accessories: [{ name: '', cost: 0 }],
+    thermostatStartup: 0,
+    removalCost: 0,
+    warranty: '',
+    additionalItems: [{ name: '', cost: 0 }],
+    permitCost: 0,
+  });
 
   // Group job items by type
   const groupedItems = jobItems.reduce((groups, item) => {
@@ -74,10 +97,38 @@ const JobItemsAndPricing = ({ jobId, jobItems, onItemsUpdated, onQuoteStatusChan
     }
   };
 
+  const handleAddAccessory = () => {
+    setReplacementData(prev => ({
+      ...prev,
+      accessories: [...prev.accessories, { name: '', cost: 0 }]
+    }));
+  };
+
+  const handleRemoveAccessory = (index: number) => {
+    setReplacementData(prev => ({
+      ...prev,
+      accessories: prev.accessories.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAddAdditionalItem = () => {
+    setReplacementData(prev => ({
+      ...prev,
+      additionalItems: [...prev.additionalItems, { name: '', cost: 0 }]
+    }));
+  };
+
+  const handleRemoveAdditionalItem = (index: number) => {
+    setReplacementData(prev => ({
+      ...prev,
+      additionalItems: prev.additionalItems.filter((_, i) => i !== index)
+    }));
+  };
+
   return (
     <div className="card">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-medium">Items & Pricing</h2>
+        <h2 className="text-lg font-medium">Service</h2>
         <button
           onClick={() => setShowAddPricingModal(true)}
           className="btn btn-primary"
@@ -85,6 +136,390 @@ const JobItemsAndPricing = ({ jobId, jobItems, onItemsUpdated, onQuoteStatusChan
           <Plus size={16} className="mr-2" />
           Add Item
         </button>
+      </div>
+
+      {/* Inspection Section */}
+      <div className="mb-6 border-b pb-6">
+        <h3 className="text-md font-medium mb-3 flex items-center">
+          <Clipboard size={16} className="mr-2 text-blue-500" />
+          Inspection
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Model Number</label>
+            <input
+              type="text"
+              value={inspectionData.modelNumber}
+              onChange={(e) => setInspectionData(prev => ({ ...prev, modelNumber: e.target.value }))}
+              className="input w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number</label>
+            <input
+              type="text"
+              value={inspectionData.serialNumber}
+              onChange={(e) => setInspectionData(prev => ({ ...prev, serialNumber: e.target.value }))}
+              className="input w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Age (Years)</label>
+            <input
+              type="number"
+              value={inspectionData.age}
+              onChange={(e) => setInspectionData(prev => ({ ...prev, age: e.target.value }))}
+              className="input w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tonnage</label>
+            <input
+              type="text"
+              value={inspectionData.tonnage}
+              onChange={(e) => setInspectionData(prev => ({ ...prev, tonnage: e.target.value }))}
+              className="input w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Unit Type</label>
+            <select
+              value={inspectionData.unitType}
+              onChange={(e) => setInspectionData(prev => ({ ...prev, unitType: e.target.value }))}
+              className="select w-full"
+            >
+              <option value="Gas">Gas</option>
+              <option value="Electric">Electric</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">System Type</label>
+            <select
+              value={inspectionData.systemType}
+              onChange={(e) => setInspectionData(prev => ({ ...prev, systemType: e.target.value }))}
+              className="select w-full"
+            >
+              <option value="RTU">RTU</option>
+              <option value="Split System">Split System</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Replacement Section */}
+      <div className="mb-6 border-b pb-6">
+        <h3 className="text-md font-medium mb-3 flex items-center">
+          <Home size={16} className="mr-2 text-green-500" />
+          Replacement
+        </h3>
+        <div className="space-y-4">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="needsCrane"
+              checked={replacementData.needsCrane}
+              onChange={(e) => setReplacementData(prev => ({ ...prev, needsCrane: e.target.checked }))}
+              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
+            />
+            <label htmlFor="needsCrane" className="ml-2 text-sm text-gray-700">Requires Crane</label>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Phase 1 - Economy Option */}
+            <div className="p-4 border rounded-lg">
+              <h4 className="font-medium mb-2">Phase 1 - Economy Option</h4>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <input
+                    type="text"
+                    value={replacementData.phase1.description}
+                    onChange={(e) => setReplacementData(prev => ({ 
+                      ...prev, 
+                      phase1: { ...prev.phase1, description: e.target.value } 
+                    }))}
+                    className="input w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cost</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                    <input
+                      type="number"
+                      value={replacementData.phase1.cost}
+                      onChange={(e) => setReplacementData(prev => ({ 
+                        ...prev, 
+                        phase1: { ...prev.phase1, cost: Number(e.target.value) } 
+                      }))}
+                      className="input pl-7 w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Phase 2 - Standard Option */}
+            <div className="p-4 border rounded-lg">
+              <h4 className="font-medium mb-2">Phase 2 - Standard Option</h4>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <input
+                    type="text"
+                    value={replacementData.phase2.description}
+                    onChange={(e) => setReplacementData(prev => ({ 
+                      ...prev, 
+                      phase2: { ...prev.phase2, description: e.target.value } 
+                    }))}
+                    className="input w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cost</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                    <input
+                      type="number"
+                      value={replacementData.phase2.cost}
+                      onChange={(e) => setReplacementData(prev => ({ 
+                        ...prev, 
+                        phase2: { ...prev.phase2, cost: Number(e.target.value) } 
+                      }))}
+                      className="input pl-7 w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Phase 3 - Premium Option */}
+            <div className="p-4 border rounded-lg">
+              <h4 className="font-medium mb-2">Phase 3 - Premium Option</h4>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <input
+                    type="text"
+                    value={replacementData.phase3.description}
+                    onChange={(e) => setReplacementData(prev => ({ 
+                      ...prev, 
+                      phase3: { ...prev.phase3, description: e.target.value } 
+                    }))}
+                    className="input w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cost</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                    <input
+                      type="number"
+                      value={replacementData.phase3.cost}
+                      onChange={(e) => setReplacementData(prev => ({ 
+                        ...prev, 
+                        phase3: { ...prev.phase3, cost: Number(e.target.value) } 
+                      }))}
+                      className="input pl-7 w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Labor</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                <input
+                  type="number"
+                  value={replacementData.labor}
+                  onChange={(e) => setReplacementData(prev => ({ ...prev, labor: Number(e.target.value) }))}
+                  className="input pl-7 w-full"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Refrigeration Recovery</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                <input
+                  type="number"
+                  value={replacementData.refrigerationRecovery}
+                  onChange={(e) => setReplacementData(prev => ({ ...prev, refrigerationRecovery: Number(e.target.value) }))}
+                  className="input pl-7 w-full"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Up Costs</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                <input
+                  type="number"
+                  value={replacementData.startUpCosts}
+                  onChange={(e) => setReplacementData(prev => ({ ...prev, startUpCosts: Number(e.target.value) }))}
+                  className="input pl-7 w-full"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Accessories */}
+          <div className="mt-4">
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-gray-700">Additional Accessories</label>
+              <button
+                type="button"
+                onClick={handleAddAccessory}
+                className="text-sm text-primary-600 hover:text-primary-800"
+              >
+                + Add Accessory
+              </button>
+            </div>
+            {replacementData.accessories.map((accessory, index) => (
+              <div key={index} className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  placeholder="Accessory name"
+                  value={accessory.name}
+                  onChange={(e) => {
+                    const newAccessories = [...replacementData.accessories];
+                    newAccessories[index].name = e.target.value;
+                    setReplacementData(prev => ({ ...prev, accessories: newAccessories }));
+                  }}
+                  className="input flex-grow"
+                />
+                <div className="relative w-32">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    placeholder="Cost"
+                    value={accessory.cost}
+                    onChange={(e) => {
+                      const newAccessories = [...replacementData.accessories];
+                      newAccessories[index].cost = Number(e.target.value);
+                      setReplacementData(prev => ({ ...prev, accessories: newAccessories }));
+                    }}
+                    className="input pl-7 w-full"
+                  />
+                </div>
+                {index > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveAccessory(index)}
+                    className="text-error-600 hover:text-error-800"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Thermostat Start Up</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                <input
+                  type="number"
+                  value={replacementData.thermostatStartup}
+                  onChange={(e) => setReplacementData(prev => ({ ...prev, thermostatStartup: Number(e.target.value) }))}
+                  className="input pl-7 w-full"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Removal of Old Equipment</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                <input
+                  type="number"
+                  value={replacementData.removalCost}
+                  onChange={(e) => setReplacementData(prev => ({ ...prev, removalCost: Number(e.target.value) }))}
+                  className="input pl-7 w-full"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Permit Cost</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                <input
+                  type="number"
+                  value={replacementData.permitCost}
+                  onChange={(e) => setReplacementData(prev => ({ ...prev, permitCost: Number(e.target.value) }))}
+                  className="input pl-7 w-full"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Warranty Information</label>
+            <textarea
+              value={replacementData.warranty}
+              onChange={(e) => setReplacementData(prev => ({ ...prev, warranty: e.target.value }))}
+              className="input w-full"
+              rows={3}
+            />
+          </div>
+
+          {/* Additional Items */}
+          <div className="mt-4">
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-gray-700">Additional Items</label>
+              <button
+                type="button"
+                onClick={handleAddAdditionalItem}
+                className="text-sm text-primary-600 hover:text-primary-800"
+              >
+                + Add Item
+              </button>
+            </div>
+            {replacementData.additionalItems.map((item, index) => (
+              <div key={index} className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  placeholder="Item name"
+                  value={item.name}
+                  onChange={(e) => {
+                    const newItems = [...replacementData.additionalItems];
+                    newItems[index].name = e.target.value;
+                    setReplacementData(prev => ({ ...prev, additionalItems: newItems }));
+                  }}
+                  className="input flex-grow"
+                />
+                <div className="relative w-32">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    placeholder="Cost"
+                    value={item.cost}
+                    onChange={(e) => {
+                      const newItems = [...replacementData.additionalItems];
+                      newItems[index].cost = Number(e.target.value);
+                      setReplacementData(prev => ({ ...prev, additionalItems: newItems }));
+                    }}
+                    className="input pl-7 w-full"
+                  />
+                </div>
+                {index > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveAdditionalItem(index)}
+                    className="text-error-600 hover:text-error-800"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {jobItems.length > 0 ? (

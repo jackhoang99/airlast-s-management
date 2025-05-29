@@ -27,6 +27,8 @@ const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
         return 'bg-purple-100 text-purple-800';
       case 'service call':
         return 'bg-cyan-100 text-cyan-800';
+      case 'inspection':
+        return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -62,6 +64,16 @@ const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
             {job.is_training && (
               <span className="badge bg-purple-100 text-purple-800">
                 Training
+              </span>
+            )}
+            {job.quote_confirmed && job.repair_approved && (
+              <span className="badge bg-success-100 text-success-800">
+                Repair Approved
+              </span>
+            )}
+            {job.quote_confirmed && job.repair_approved === false && (
+              <span className="badge bg-error-100 text-error-800">
+                Repair Declined
               </span>
             )}
           </div>

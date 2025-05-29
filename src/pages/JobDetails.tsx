@@ -7,10 +7,11 @@ import JobHeader from '../components/jobs/JobHeader';
 import JobDetailsCard from '../components/jobs/JobDetailsCard';
 import JobLocationContact from '../components/jobs/JobLocationContact';
 import JobTechnicians from '../components/jobs/JobTechnicians';
-import JobItemsAndPricing from '../components/jobs/JobItemsAndPricing';
+import JobServiceSection from '../components/jobs/JobServiceSection';
 import JobQuoteSection from '../components/jobs/JobQuoteSection';
 import JobInvoiceSection from '../components/jobs/JobInvoiceSection';
 import JobSidebar from '../components/jobs/JobSidebar';
+import JobUnitSection from '../components/jobs/JobUnitSection';
 import AppointmentModal from '../components/jobs/AppointmentModal';
 import QuotePDFTemplate from '../components/quotes/QuotePDFTemplate';
 
@@ -47,12 +48,29 @@ const JobDetails = () => {
               city,
               state,
               zip,
+              building_name,
+              company_id,
               companies (
                 name
               )
             ),
             units (
-              unit_number
+              unit_number,
+              status,
+              phone,
+              primary_contact_type,
+              primary_contact_email,
+              primary_contact_phone,
+              email,
+              billing_entity,
+              billing_email,
+              billing_city,
+              billing_state,
+              billing_zip,
+              office,
+              taxable,
+              tax_group_name,
+              tax_group_code
             ),
             job_technicians (
               id,
@@ -137,29 +155,6 @@ const JobDetails = () => {
     }
   };
 
-  const handleDeleteItem = async (itemId: string) => {
-    if (!supabase) return;
-    
-    try {
-      const { error } = await supabase
-        .from('job_items')
-        .delete()
-        .eq('id', itemId);
-        
-      if (error) throw error;
-      
-      // Update local state
-      setJobItems(prev => prev.filter(item => item.id !== itemId));
-      
-      // Check if quote needs update
-      if (job?.quote_sent) {
-        setQuoteNeedsUpdate(true);
-      }
-    } catch (err) {
-      console.error('Error deleting job item:', err);
-    }
-  };
-
   const handleScheduleAppointment = async (appointment: {
     technicianIds: string[];
   }) => {
@@ -198,12 +193,29 @@ const JobDetails = () => {
             city,
             state,
             zip,
+            building_name,
+            company_id,
             companies (
               name
             )
           ),
           units (
-            unit_number
+            unit_number,
+            status,
+            phone,
+            primary_contact_type,
+            primary_contact_email,
+            primary_contact_phone,
+            email,
+            billing_entity,
+            billing_email,
+            billing_city,
+            billing_state,
+            billing_zip,
+            office,
+            taxable,
+            tax_group_name,
+            tax_group_code
           ),
           job_technicians (
             id,
@@ -359,8 +371,11 @@ const JobDetails = () => {
             />
           </div>
 
-          {/* Items and Pricing */}
-          <JobItemsAndPricing 
+          {/* Unit Section */}
+          <JobUnitSection job={job} />
+
+          {/* Service Section (Items, Inspection, Replacement) */}
+          <JobServiceSection 
             jobId={job.id} 
             jobItems={jobItems} 
             onItemsUpdated={handleItemsUpdated}

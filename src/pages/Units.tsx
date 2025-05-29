@@ -98,6 +98,12 @@ const Units = () => {
     return matchesSearch && matchesLocation && matchesCompany;
   });
 
+  const getStatusClass = (status: string) => {
+    return status.toLowerCase() === 'active' 
+      ? 'bg-success-100 text-success-800' 
+      : 'bg-error-100 text-error-800';
+  };
+
   return (
     <div className="space-y-6 animate-fade">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -178,8 +184,8 @@ const Units = () => {
               className="select"
             >
               <option value="">All</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
+              <option value="active">active</option>
+              <option value="inactive">inactive</option>
             </select>
           </div>
         </div>
@@ -213,21 +219,26 @@ const Units = () => {
             </Link>
           </div>
         ) : (
-          <div className="table-container animate-fade">
-            <table className="table table-row-hover">
-              <thead>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead className="bg-gray-50">
                 <tr>
-                  <th>Unit Number</th>
-                  <th>Location</th>
-                  <th>Company</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Unit Number</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Location</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Company</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Status</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Phone</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Primary Contact Type</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Primary Contact Email</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Primary Contact Phone</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Billing Entity</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-200">
                 {filteredUnits.map((unit) => (
-                  <tr key={unit.id}>
-                    <td className="font-medium">
+                  <tr key={unit.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium">
                       <Link 
                         to={`/units/${unit.id}`}
                         className="text-primary-600 hover:text-primary-800"
@@ -235,7 +246,7 @@ const Units = () => {
                         {unit.unit_number}
                       </Link>
                     </td>
-                    <td>
+                    <td className="px-4 py-3">
                       <Link 
                         to={`/locations/${unit.location_id}`}
                         className="text-primary-600 hover:text-primary-800"
@@ -243,7 +254,7 @@ const Units = () => {
                         {unit.locations?.name}
                       </Link>
                     </td>
-                    <td>
+                    <td className="px-4 py-3">
                       <Link 
                         to={`/companies/${unit.locations?.company_id}`}
                         className="text-primary-600 hover:text-primary-800"
@@ -251,12 +262,17 @@ const Units = () => {
                         {unit.locations?.companies?.name}
                       </Link>
                     </td>
-                    <td>
-                      <span className={`badge ${unit.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
-                        {unit.status}
+                    <td className="px-4 py-3">
+                      <span className={`badge ${getStatusClass(unit.status)}`}>
+                        {unit.status.toLowerCase()}
                       </span>
                     </td>
-                    <td>
+                    <td className="px-4 py-3">{unit.phone || '-'}</td>
+                    <td className="px-4 py-3">{unit.primary_contact_type || '-'}</td>
+                    <td className="px-4 py-3">{unit.primary_contact_email || '-'}</td>
+                    <td className="px-4 py-3">{unit.primary_contact_phone || '-'}</td>
+                    <td className="px-4 py-3">{unit.billing_entity || '-'}</td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center space-x-3">
                         <Link
                           to={`/units/${unit.id}/edit`}

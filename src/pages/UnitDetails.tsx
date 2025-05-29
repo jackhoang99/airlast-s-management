@@ -195,11 +195,76 @@ const UnitDetails = () => {
                   <div>
                     <label className="text-sm font-medium text-gray-500">Status</label>
                     <p>
-                      <span className={`badge ${unit.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
-                        {unit.status}
+                      <span className={`badge ${unit.status.toLowerCase() === 'active' ? 'bg-success-100 text-success-800' : 'bg-error-100 text-error-800'}`}>
+                        {unit.status.toLowerCase()}
                       </span>
                     </p>
                   </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Phone</label>
+                    <p>{unit.phone || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Primary Contact Type</label>
+                    <p>{unit.primary_contact_type || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Primary Contact Email</label>
+                    <p>{unit.primary_contact_email || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Contact Email</label>
+                    <p>{unit.email || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Primary Contact Phone</label>
+                    <p>{unit.primary_contact_phone || 'Not specified'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <hr className="my-6" />
+
+            {/* Billing Information */}
+            <div>
+              <h3 className="text-lg font-medium mb-4">Billing Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Billing Entity</label>
+                  <p>{unit.billing_entity || 'Not specified'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Billing Email</label>
+                  <p>{unit.billing_email || 'Not specified'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Billing City</label>
+                  <p>{unit.billing_city || 'Not specified'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Billing State</label>
+                  <p>{unit.billing_state || 'Not specified'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Billing Zip</label>
+                  <p>{unit.billing_zip || 'Not specified'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Office</label>
+                  <p>{unit.office || 'Main Office'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Taxable</label>
+                  <p>{unit.taxable ? 'Yes' : 'No'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Tax Group Name</label>
+                  <p>{unit.tax_group_name || 'Not specified'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Tax Group Code</label>
+                  <p>{unit.tax_group_code || 'Not specified'}</p>
                 </div>
               </div>
             </div>
@@ -265,6 +330,7 @@ const UnitDetails = () => {
                 </Link>
               </div>
             </div>
+
             {jobs.length > 0 ? (
               <div className="space-y-4">
                 {jobs.map((job) => (

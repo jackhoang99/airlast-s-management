@@ -16,7 +16,7 @@ Deno.serve(async (req)=>{
     if (!SENDGRID_API_KEY) throw new Error("SENDGRID_API_KEY is not set");
     sgMail.setApiKey(SENDGRID_API_KEY);
     const { jobId, invoiceId, customerEmail, jobNumber, jobName, customerName, invoiceNumber, amount, issuedDate, dueDate, jobItems } = await req.json();
-    if (!jobId || !invoiceId || !customerEmail || !invoiceNumber) {
+    if (!jobId || !customerEmail || !invoiceNumber) {
       return new Response(JSON.stringify({
         error: "Missing required fields"
       }), {
@@ -27,10 +27,24 @@ Deno.serve(async (req)=>{
         }
       });
     }
+    
+    console.log("Sending invoice email with data:", {
+      jobId, 
+      invoiceId, 
+      customerEmail, 
+      jobNumber, 
+      jobName, 
+      customerName, 
+      invoiceNumber, 
+      amount, 
+      issuedDate, 
+      dueDate
+    });
+    
     // Format dates
     const formattedIssuedDate = issuedDate ? new Date(issuedDate).toLocaleDateString() : "N/A";
     const formattedDueDate = dueDate ? new Date(dueDate).toLocaleDateString() : "N/A";
-    // Build “view invoice” link
+    // Build "view invoice" link
     const origin = req.headers.get("origin") || "https://airlast-management.com";
     const viewInvoiceUrl = `${origin}/invoices/view/${invoiceId}`;
     // Build items table (HTML + text)
@@ -112,7 +126,11 @@ Please find your invoice for job #${jobNumber} - ${jobName || "HVAC Service"} be
           </div>
         </div>`
     };
+    
+    console.log("Sending email to:", customerEmail);
     await sgMail.send(msg);
+    console.log("Email sent successfully");
+    
     return new Response(JSON.stringify({
       success: true,
       message: "Invoice email sent successfully"
@@ -124,6 +142,7 @@ Please find your invoice for job #${jobNumber} - ${jobName || "HVAC Service"} be
       }
     });
   } catch (error) {
+    console.error("Error sending invoice email:", error);
     return new Response(JSON.stringify({
       error: error.message
     }), {

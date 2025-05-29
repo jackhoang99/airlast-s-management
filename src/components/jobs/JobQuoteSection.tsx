@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, Send, FileCheck, AlertTriangle } from 'lucide-react';
+import { Eye, Send, FileCheck, AlertTriangle, Check, X } from 'lucide-react';
 import { Job, JobItem } from '../../types/job';
 import { useSupabase } from '../../lib/supabase-context';
 
@@ -123,7 +123,7 @@ const JobQuoteSection = ({
               Send Quote
             </button>
           ) : (
-            <button
+            <button 
               className={`btn ${quoteNeedsUpdate ? 'btn-warning' : 'btn-success'}`}
               onClick={() => {
                 setCustomerEmail(job.contact_email || '');
@@ -139,16 +139,16 @@ const JobQuoteSection = ({
 
       <div className="space-y-4">
         {job.quote_sent ? (
-          <div className={`${quoteNeedsUpdate ? 'bg-warning-50 border-warning-500' : 'bg-success-50 border-success-500'} border-l-4 p-4 rounded-md`}>
+          <div className={`${quoteNeedsUpdate ? 'bg-warning-50 border-warning-500' : job.quote_confirmed ? 'bg-success-50 border-success-500' : 'bg-blue-50 border-blue-500'} border-l-4 p-4 rounded-md`}>
             <div className="flex">
               <div className="flex-shrink-0">
-                <FileCheck className={`h-5 w-5 ${quoteNeedsUpdate ? 'text-warning-500' : 'text-success-500'}`} />
+                <FileCheck className={`h-5 w-5 ${quoteNeedsUpdate ? 'text-warning-500' : job.quote_confirmed ? 'text-success-500' : 'text-blue-500'}`} />
               </div>
               <div className="ml-3">
-                <h3 className={`text-sm font-medium ${quoteNeedsUpdate ? 'text-warning-800' : 'text-success-800'}`}>
+                <h3 className={`text-sm font-medium ${quoteNeedsUpdate ? 'text-warning-800' : job.quote_confirmed ? 'text-success-800' : 'text-blue-800'}`}>
                   {quoteNeedsUpdate ? 'Quote Needs Update' : job.quote_confirmed ? 'Quote Confirmed' : 'Quote Sent'}
                 </h3>
-                <div className={`mt-2 text-sm ${quoteNeedsUpdate ? 'text-warning-700' : 'text-success-700'}`}>
+                <div className={`mt-2 text-sm ${quoteNeedsUpdate ? 'text-warning-700' : job.quote_confirmed ? 'text-success-700' : 'text-blue-700'}`}>
                   <p>
                     Quote was sent to {job.contact_email} on {job.quote_sent_at ? new Date(job.quote_sent_at).toLocaleString() : 'N/A'}.
                   </p>
@@ -158,9 +158,32 @@ const JobQuoteSection = ({
                     </p>
                   )}
                   {job.quote_confirmed ? (
-                    <p className="mt-1">
-                      <span className="font-medium">Quote was confirmed</span> on {job.quote_confirmed_at ? new Date(job.quote_confirmed_at).toLocaleString() : 'N/A'}.
-                    </p>
+                    <div className="mt-1">
+                      <p>
+                        <span className="font-medium">Quote was confirmed</span> on {job.quote_confirmed_at ? new Date(job.quote_confirmed_at).toLocaleString() : 'N/A'}.
+                      </p>
+                      <p className="mt-1">
+                        <span className="font-medium">
+                          Customer {job.repair_approved ? (
+                            <span className="text-success-700">approved repairs</span>
+                          ) : (
+                            <span className="text-error-700">declined repairs</span>
+                          )}
+                        </span>
+                      </p>
+                      {job.repair_approved && (
+                        <div className="mt-2 flex items-center">
+                          <Check className="h-4 w-4 text-success-500 mr-1" />
+                          <span className="text-success-700">Customer chose to proceed with repair</span>
+                        </div>
+                      )}
+                      {job.repair_approved === false && (
+                        <div className="mt-2 flex items-center">
+                          <X className="h-4 w-4 text-error-500 mr-1" />
+                          <span className="text-error-700">Customer declined to proceed with repair</span>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <p className="mt-1">
                       Waiting for customer confirmation.
@@ -174,7 +197,7 @@ const JobQuoteSection = ({
           <div className="bg-gray-50 p-4 rounded-md">
             <p className="text-gray-600">
               {jobItems.length === 0 ? (
-                "Add items to the job before sending a quote."
+                "Add service before sending a quote."
               ) : (
                 "Ready to send quote to customer."
               )}
