@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Building2, MapPin, Building, Phone, Mail, DollarSign, Tag, FileText } from 'lucide-react';
+import { Building2, MapPin, Building, Tag, FileText } from 'lucide-react';
 import { Job } from '../../types/job';
 
 type JobUnitSectionProps = {
@@ -44,7 +44,7 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
         </div>
 
         {/* Contact Information */}
-        {(job.units.primary_contact_email || job.units.primary_contact_phone || job.units.phone) && (
+        {(job.units.primary_contact_email || job.units.primary_contact_phone || job.units.primary_contact_type) && (
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-gray-700">Contact Information</h3>
             
@@ -59,7 +59,7 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
             
             {job.units.primary_contact_email && (
               <div className="flex items-start gap-2">
-                <Mail className="h-4 w-4 text-gray-400 mt-1" />
+                <FileText className="h-4 w-4 text-gray-400 mt-1" />
                 <div>
                   <p className="text-sm">{job.units.primary_contact_email}</p>
                 </div>
@@ -68,18 +68,9 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
             
             {job.units.primary_contact_phone && (
               <div className="flex items-start gap-2">
-                <Phone className="h-4 w-4 text-gray-400 mt-1" />
+                <FileText className="h-4 w-4 text-gray-400 mt-1" />
                 <div>
                   <p className="text-sm">{job.units.primary_contact_phone}</p>
-                </div>
-              </div>
-            )}
-            
-            {job.units.phone && (
-              <div className="flex items-start gap-2">
-                <Phone className="h-4 w-4 text-gray-400 mt-1" />
-                <div>
-                  <p className="text-sm">{job.units.phone}</p>
                 </div>
               </div>
             )}
@@ -93,7 +84,7 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
             
             {job.units.billing_entity && (
               <div className="flex items-start gap-2">
-                <DollarSign className="h-4 w-4 text-gray-400 mt-1" />
+                <FileText className="h-4 w-4 text-gray-400 mt-1" />
                 <div>
                   <p className="text-sm">Billing Entity: {job.units.billing_entity}</p>
                 </div>
@@ -102,7 +93,7 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
             
             {job.units.billing_email && (
               <div className="flex items-start gap-2">
-                <Mail className="h-4 w-4 text-gray-400 mt-1" />
+                <FileText className="h-4 w-4 text-gray-400 mt-1" />
                 <div>
                   <p className="text-sm">{job.units.billing_email}</p>
                 </div>

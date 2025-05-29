@@ -1,28 +1,26 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
-import { Briefcase, MapPin, Building2, Plus, ArrowRight } from 'lucide-react';
+import { Database } from '../types/supabase';
+import { Building, Users, Briefcase, Tag, Plus, Filter, Building2, Home, Users as UsersIcon, Calendar, Clock, ClipboardList, AlertTriangle, FileCheck2, Bell, FileInput as FileInvoice, CalendarClock, Send } from 'lucide-react';
 
 const Dashboard = () => {
   const { supabase } = useSupabase();
   const [stats, setStats] = useState({
-    totalCompanies: 10,
-    totalLocations: 23,
-    totalUnits: 71,
-    activeUnits: 50,
-    inactiveUnits: 21,
+    totalCompanies: null,
+    totalLocations: null,
+    totalUnits: null,
+    activeUnits: null,
+    inactiveUnits: null,
   });
-  const [recentCompanies, setRecentCompanies] = useState([
-    { id: '1', name: 'Acme Properties', city: 'Atlanta', state: 'GA' },
-    { id: '2', name: 'Stellar Management', city: 'Miami', state: 'FL' },
-    { id: '3', name: 'Mountain View Holdings', city: 'Denver', state: 'CO' },
-    { id: '4', name: 'Coastal Investments', city: 'Charleston', state: 'SC' },
-    { id: '5', name: 'Desert Sun Properties', city: 'Phoenix', state: 'AZ' },
-  ]);
+  const [recentCompanies, setRecentCompanies] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       if (!supabase) return;
+      
+      setIsLoading(true);
       
       try {
         // Fetch companies count
@@ -44,13 +42,13 @@ const Dashboard = () => {
         const { count: activeUnitsCount, error: activeUnitsError } = await supabase
           .from('units')
           .select('*', { count: 'exact', head: true })
-          .eq('status', 'Active');
+          .eq('status', 'active');
         
         // Fetch inactive units count
         const { count: inactiveUnitsCount, error: inactiveUnitsError } = await supabase
           .from('units')
           .select('*', { count: 'exact', head: true })
-          .eq('status', 'Inactive');
+          .eq('status', 'inactive');
         
         // Fetch recent companies
         const { data: recentCompaniesData, error: recentCompaniesError } = await supabase
@@ -75,6 +73,8 @@ const Dashboard = () => {
         }
       } catch (err) {
         console.error('Error fetching dashboard stats:', err);
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -96,7 +96,13 @@ const Dashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Total Companies</p>
-              <p className="text-3xl font-semibold mt-1">{stats.totalCompanies}</p>
+              {isLoading ? (
+                <div className="flex items-center h-9 mt-1">
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary-600"></div>
+                </div>
+              ) : (
+                <p className="text-3xl font-semibold mt-1">{stats.totalCompanies}</p>
+              )}
             </div>
             <div className="h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center">
               <Briefcase className="h-6 w-6 text-primary-600" />
@@ -113,10 +119,16 @@ const Dashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Total Locations</p>
-              <p className="text-3xl font-semibold mt-1">{stats.totalLocations}</p>
+              {isLoading ? (
+                <div className="flex items-center h-9 mt-1">
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-secondary-600"></div>
+                </div>
+              ) : (
+                <p className="text-3xl font-semibold mt-1">{stats.totalLocations}</p>
+              )}
             </div>
             <div className="h-12 w-12 bg-secondary-100 rounded-full flex items-center justify-center">
-              <MapPin className="h-6 w-6 text-secondary-600" />
+              <Building className="h-6 w-6 text-secondary-600" />
             </div>
           </div>
           <div className="mt-4">
@@ -130,7 +142,13 @@ const Dashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Total Units</p>
-              <p className="text-3xl font-semibold mt-1">{stats.totalUnits}</p>
+              {isLoading ? (
+                <div className="flex items-center h-9 mt-1">
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-accent-600"></div>
+                </div>
+              ) : (
+                <p className="text-3xl font-semibold mt-1">{stats.totalUnits}</p>
+              )}
             </div>
             <div className="h-12 w-12 bg-accent-100 rounded-full flex items-center justify-center">
               <Building2 className="h-6 w-6 text-accent-600" />
@@ -147,7 +165,13 @@ const Dashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Active Units</p>
-              <p className="text-3xl font-semibold mt-1">{stats.activeUnits}</p>
+              {isLoading ? (
+                <div className="flex items-center h-9 mt-1">
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-success-600"></div>
+                </div>
+              ) : (
+                <p className="text-3xl font-semibold mt-1">{stats.activeUnits}</p>
+              )}
             </div>
             <div className="h-12 w-12 bg-success-100 rounded-full flex items-center justify-center">
               <Building2 className="h-6 w-6 text-success-600" />
@@ -173,7 +197,13 @@ const Dashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Inactive Units</p>
-              <p className="text-3xl font-semibold mt-1">{stats.inactiveUnits}</p>
+              {isLoading ? (
+                <div className="flex items-center h-9 mt-1">
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-error-600"></div>
+                </div>
+              ) : (
+                <p className="text-3xl font-semibold mt-1">{stats.inactiveUnits}</p>
+              )}
             </div>
             <div className="h-12 w-12 bg-error-100 rounded-full flex items-center justify-center">
               <Building2 className="h-6 w-6 text-error-600" />
@@ -199,23 +229,33 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card">
           <h2 className="text-lg font-semibold mb-4">Recent Companies</h2>
-          <div className="space-y-3">
-            {recentCompanies.map((company) => (
-              <Link 
-                key={company.id} 
-                to={`/companies/${company.id}`}
-                className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-md transition-colors duration-150"
-              >
-                <div>
-                  <p className="font-medium">{company.name}</p>
-                  <p className="text-sm text-gray-500">
-                    {company.city}, {company.state}
-                  </p>
-                </div>
-                <ArrowRight size={16} className="text-gray-400" />
-              </Link>
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+            </div>
+          ) : recentCompanies.length > 0 ? (
+            <div className="space-y-3">
+              {recentCompanies.map((company) => (
+                <Link 
+                  key={company.id} 
+                  to={`/companies/${company.id}`}
+                  className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-md transition-colors duration-150"
+                >
+                  <div>
+                    <p className="font-medium">{company.name}</p>
+                    <p className="text-sm text-gray-500">
+                      {company.city}, {company.state}
+                    </p>
+                  </div>
+                  <Plus size={16} className="text-gray-400" />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              No companies found. Add your first company!
+            </div>
+          )}
           <div className="mt-4 pt-4 border-t">
             <Link to="/companies" className="text-sm text-primary-600 hover:text-primary-800">
               View all companies →
@@ -231,7 +271,7 @@ const Dashboard = () => {
               Create Customer Company
             </Link>
             <Link to="/locations" className="btn btn-secondary w-full justify-start">
-              <MapPin className="h-4 w-4 mr-2" />
+              <Building className="h-4 w-4 mr-2" />
               Manage Locations
             </Link>
             <Link to="/units" className="btn btn-secondary w-full justify-start">

@@ -14,6 +14,9 @@ type Location = Database['public']['Tables']['locations']['Row'] & {
     id: string;
     unit_number: string;
     status: string;
+    primary_contact_type: string | null;
+    primary_contact_email: string | null;
+    primary_contact_phone: string | null;
   }[];
 };
 
@@ -101,7 +104,10 @@ const CreateJob = () => {
             units (
               id,
               unit_number,
-              status
+              status,
+              primary_contact_type,
+              primary_contact_email,
+              primary_contact_phone
             )
           `)
           .order('name');
@@ -201,7 +207,11 @@ const CreateJob = () => {
             service_address: locationData.address,
             service_city: locationData.city,
             service_state: locationData.state,
-            service_zip: locationData.zip
+            service_zip: locationData.zip,
+            // Populate contact information from unit's primary contact
+            contact_type: unitData.primary_contact_type || '',
+            contact_email: unitData.primary_contact_email || '',
+            contact_phone: unitData.primary_contact_phone || ''
           }));
           
           // Scroll to top of page
@@ -236,6 +246,23 @@ const CreateJob = () => {
         service_zip: location.zip,
         unit_id: '',
         unit_number: ''
+      }));
+    }
+  };
+
+  const handleUnitChange = (unitId: string) => {
+    if (!selectedLocation) return;
+    
+    const unit = selectedLocation.units?.find(u => u.id === unitId);
+    if (unit) {
+      setFormData(prev => ({
+        ...prev,
+        unit_id: unitId,
+        unit_number: unit.unit_number,
+        // Populate contact information from unit's primary contact
+        contact_type: unit.primary_contact_type || prev.contact_type,
+        contact_email: unit.primary_contact_email || prev.contact_email,
+        contact_phone: unit.primary_contact_phone || prev.contact_phone
       }));
     }
   };
@@ -579,14 +606,7 @@ const CreateJob = () => {
               <select
                 id="unit_id"
                 value={formData.unit_id}
-                onChange={(e) => {
-                  const unit = selectedLocation?.units?.find(u => u.id === e.target.value);
-                  setFormData(prev => ({
-                    ...prev,
-                    unit_id: e.target.value,
-                    unit_number: unit?.unit_number || ''
-                  }));
-                }}
+                onChange={(e) => handleUnitChange(e.target.value)}
                 className="select"
                 disabled={isLoadingUnitDetails || !selectedLocation}
               >

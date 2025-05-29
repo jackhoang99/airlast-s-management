@@ -26,6 +26,9 @@ type Job = Database['public']['Tables']['jobs']['Row'] & {
   }[];
 };
 
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const UnitDetails = () => {
   const { id } = useParams<{ id: string }>();
   const { supabase } = useSupabase();
@@ -37,6 +40,13 @@ const UnitDetails = () => {
   useEffect(() => {
     const fetchUnit = async () => {
       if (!supabase || !id) return;
+
+      // Validate UUID format
+      if (!UUID_REGEX.test(id)) {
+        setError('Invalid unit ID format');
+        setIsLoading(false);
+        return;
+      }
 
       try {
         const { data, error: fetchError } = await supabase
@@ -71,6 +81,9 @@ const UnitDetails = () => {
 
     const fetchJobs = async () => {
       if (!supabase || !id) return;
+
+      // Don't fetch jobs if UUID is invalid
+      if (!UUID_REGEX.test(id)) return;
 
       try {
         const { data, error: fetchError } = await supabase
@@ -201,20 +214,12 @@ const UnitDetails = () => {
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Phone</label>
-                    <p>{unit.phone || 'Not specified'}</p>
-                  </div>
-                  <div>
                     <label className="text-sm font-medium text-gray-500">Primary Contact Type</label>
                     <p>{unit.primary_contact_type || 'Not specified'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Primary Contact Email</label>
                     <p>{unit.primary_contact_email || 'Not specified'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Contact Email</label>
-                    <p>{unit.email || 'Not specified'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Primary Contact Phone</label>
