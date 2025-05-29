@@ -1,25 +1,25 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
-import { AlertTriangle } from 'lucide-react';
-import { Job, JobItem } from '../types/job';
-import JobHeader from '../components/jobs/JobHeader';
-import JobDetailsCard from '../components/jobs/JobDetailsCard';
-import JobLocationContact from '../components/jobs/JobLocationContact';
-import JobTechnicians from '../components/jobs/JobTechnicians';
-import JobServiceSection from '../components/jobs/JobServiceSection';
-import JobQuoteSection from '../components/jobs/JobQuoteSection';
-import JobInvoiceSection from '../components/jobs/JobInvoiceSection';
-import JobSidebar from '../components/jobs/JobSidebar';
-import JobUnitSection from '../components/jobs/JobUnitSection';
-import AppointmentModal from '../components/jobs/AppointmentModal';
-import QuotePDFTemplate from '../components/quotes/QuotePDFTemplate';
+import { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { useSupabase } from "../lib/supabase-context";
+import { AlertTriangle } from "lucide-react";
+import { Job, JobItem } from "../types/job";
+import JobHeader from "../components/jobs/JobHeader";
+import JobDetailsCard from "../components/jobs/JobDetailsCard";
+import JobLocationContact from "../components/jobs/JobLocationContact";
+import JobTechnicians from "../components/jobs/JobTechnicians";
+import JobServiceSection from "../components/jobs/JobServiceSection";
+import JobQuoteSection from "../components/jobs/JobQuoteSection";
+import JobInvoiceSection from "../components/jobs/JobInvoiceSection";
+import JobSidebar from "../components/jobs/JobSidebar";
+import JobUnitSection from "../components/jobs/JobUnitSection";
+import AppointmentModal from "../components/jobs/AppointmentModal";
+import QuotePDFTemplate from "../components/quotes/QuotePDFTemplate";
 
 const JobDetails = () => {
   const { id } = useParams<{ id: string }>();
   const { supabase } = useSupabase();
   const navigate = useNavigate();
-  
+
   const [job, setJob] = useState<Job | null>(null);
   const [jobItems, setJobItems] = useState<JobItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,7 +31,9 @@ const JobDetails = () => {
   const [isDeletingJob, setIsDeletingJob] = useState(false);
   const [showQuotePDF, setShowQuotePDF] = useState(false);
   const [quoteNeedsUpdate, setQuoteNeedsUpdate] = useState(false);
-  const [lastQuoteUpdateTime, setLastQuoteUpdateTime] = useState<string | null>(null);
+  const [lastQuoteUpdateTime, setLastQuoteUpdateTime] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     const fetchJobDetails = async () => {
@@ -39,8 +41,9 @@ const JobDetails = () => {
 
       try {
         const { data, error: jobError } = await supabase
-          .from('jobs')
-          .select(`
+          .from("jobs")
+          .select(
+            `
             *,
             locations (
               name,
@@ -57,11 +60,9 @@ const JobDetails = () => {
             units (
               unit_number,
               status,
-              phone,
               primary_contact_type,
               primary_contact_email,
               primary_contact_phone,
-              email,
               billing_entity,
               billing_email,
               billing_city,
@@ -83,13 +84,14 @@ const JobDetails = () => {
                 phone
               )
             )
-          `)
-          .eq('id', id)
+          `
+          )
+          .eq("id", id)
           .single();
 
         if (jobError) throw jobError;
         setJob(data);
-        
+
         // If the job has a quote sent, store the timestamp for comparison
         if (data.quote_sent && data.quote_sent_at) {
           setLastQuoteUpdateTime(data.quote_sent_at);
@@ -97,27 +99,27 @@ const JobDetails = () => {
 
         // Fetch job items
         const { data: itemsData, error: itemsError } = await supabase
-          .from('job_items')
-          .select('*')
-          .eq('job_id', id)
-          .order('created_at');
+          .from("job_items")
+          .select("*")
+          .eq("job_id", id)
+          .order("created_at");
 
         if (itemsError) throw itemsError;
         setJobItems(itemsData || []);
-        
+
         // Check if any items were updated after the quote was sent
         if (data.quote_sent && data.quote_sent_at) {
           const quoteTime = new Date(data.quote_sent_at).getTime();
-          const needsUpdate = itemsData?.some(item => {
+          const needsUpdate = itemsData?.some((item) => {
             const itemTime = new Date(item.created_at).getTime();
             return itemTime > quoteTime;
           });
-          
+
           setQuoteNeedsUpdate(needsUpdate || false);
         }
       } catch (err) {
-        console.error('Error fetching job details:', err);
-        setError('Failed to fetch job details');
+        console.error("Error fetching job details:", err);
+        setError("Failed to fetch job details");
       } finally {
         setIsLoading(false);
       }
@@ -128,30 +130,30 @@ const JobDetails = () => {
 
   const handleItemsUpdated = async () => {
     if (!supabase || !id) return;
-    
+
     try {
       // Refresh job items
       const { data, error } = await supabase
-        .from('job_items')
-        .select('*')
-        .eq('job_id', id)
-        .order('created_at');
-        
+        .from("job_items")
+        .select("*")
+        .eq("job_id", id)
+        .order("created_at");
+
       if (error) throw error;
       setJobItems(data || []);
-      
+
       // Check if any items were updated after the quote was sent
       if (job?.quote_sent && lastQuoteUpdateTime) {
         const quoteTime = new Date(lastQuoteUpdateTime).getTime();
-        const needsUpdate = data?.some(item => {
+        const needsUpdate = data?.some((item) => {
           const itemTime = new Date(item.created_at).getTime();
           return itemTime > quoteTime;
         });
-        
+
         setQuoteNeedsUpdate(needsUpdate || false);
       }
     } catch (err) {
-      console.error('Error refreshing job items:', err);
+      console.error("Error refreshing job items:", err);
     }
   };
 
@@ -163,29 +165,32 @@ const JobDetails = () => {
     try {
       // First, remove any existing technicians
       const { error: deleteError } = await supabase
-        .from('job_technicians')
+        .from("job_technicians")
         .delete()
-        .eq('job_id', job.id);
-        
+        .eq("job_id", job.id);
+
       if (deleteError) throw deleteError;
-      
+
       // Then add the new technicians
-      const technicianEntries = appointment.technicianIds.map((techId, index) => ({
-        job_id: job.id,
-        technician_id: techId,
-        is_primary: index === 0 // First technician is primary
-      }));
-      
+      const technicianEntries = appointment.technicianIds.map(
+        (techId, index) => ({
+          job_id: job.id,
+          technician_id: techId,
+          is_primary: index === 0, // First technician is primary
+        })
+      );
+
       const { error: insertError } = await supabase
-        .from('job_technicians')
+        .from("job_technicians")
         .insert(technicianEntries);
-        
+
       if (insertError) throw insertError;
-      
+
       // Refresh job data
       const { data: updatedJob, error: jobError } = await supabase
-        .from('jobs')
-        .select(`
+        .from("jobs")
+        .select(
+          `
           *,
           locations (
             name,
@@ -228,46 +233,46 @@ const JobDetails = () => {
               phone
             )
           )
-        `)
-        .eq('id', job.id)
+        `
+        )
+        .eq("id", job.id)
         .single();
-        
+
       if (jobError) throw jobError;
       setJob(updatedJob);
-      
+
       setShowAppointmentModal(false);
     } catch (err) {
-      console.error('Error updating technicians:', err);
-      setError('Failed to update technicians');
+      console.error("Error updating technicians:", err);
+      setError("Failed to update technicians");
     }
   };
 
   const handleCompleteJob = async () => {
     if (!supabase || !job) return;
-    
+
     setIsCompletingJob(true);
     setError(null);
-    
+
     try {
       // Update job status to completed
       const { error: updateError } = await supabase
-        .from('jobs')
-        .update({ 
-          status: 'completed',
-          updated_at: new Date().toISOString()
+        .from("jobs")
+        .update({
+          status: "completed",
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', job.id);
-      
+        .eq("id", job.id);
+
       if (updateError) throw updateError;
-      
+
       // Update local state
-      setJob(prev => prev ? { ...prev, status: 'completed' } : null);
-      
+      setJob((prev) => (prev ? { ...prev, status: "completed" } : null));
+
       setShowCompleteJobModal(false);
-      
     } catch (err) {
-      console.error('Error completing job:', err);
-      setError('Failed to complete job. Please try again.');
+      console.error("Error completing job:", err);
+      setError("Failed to complete job. Please try again.");
     } finally {
       setIsCompletingJob(false);
     }
@@ -275,24 +280,23 @@ const JobDetails = () => {
 
   const handleDeleteJob = async () => {
     if (!supabase || !job) return;
-    
+
     setIsDeletingJob(true);
     setError(null);
-    
+
     try {
       // Delete job
       const { error: deleteError } = await supabase
-        .from('jobs')
+        .from("jobs")
         .delete()
-        .eq('id', job.id);
-      
+        .eq("id", job.id);
+
       if (deleteError) throw deleteError;
-      
-      navigate('/jobs');
-      
+
+      navigate("/jobs");
     } catch (err) {
-      console.error('Error deleting job:', err);
-      setError('Failed to delete job. Please try again.');
+      console.error("Error deleting job:", err);
+      setError("Failed to delete job. Please try again.");
     } finally {
       setIsDeletingJob(false);
     }
@@ -320,7 +324,7 @@ const JobDetails = () => {
   if (error || !job) {
     return (
       <div className="text-center py-12">
-        <p className="text-error-600 mb-4">{error || 'Job not found'}</p>
+        <p className="text-error-600 mb-4">{error || "Job not found"}</p>
         <Link to="/jobs" className="text-primary-600 hover:text-primary-800">
           Back to Jobs
         </Link>
@@ -332,7 +336,7 @@ const JobDetails = () => {
     return (
       <div className="p-4">
         <div className="flex justify-between items-center mb-6">
-          <button 
+          <button
             onClick={() => setShowQuotePDF(false)}
             className="flex items-center text-gray-600 hover:text-gray-900"
           >
@@ -349,10 +353,10 @@ const JobDetails = () => {
 
   return (
     <div className="space-y-6">
-      <JobHeader 
-        job={job} 
-        onCompleteJob={() => setShowCompleteJobModal(true)} 
-        onDeleteJob={() => setShowDeleteJobModal(true)} 
+      <JobHeader
+        job={job}
+        onCompleteJob={() => setShowCompleteJobModal(true)}
+        onDeleteJob={() => setShowDeleteJobModal(true)}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -365,9 +369,9 @@ const JobDetails = () => {
 
             <hr className="my-6" />
 
-            <JobTechnicians 
-              job={job} 
-              onAssignTechnicians={() => setShowAppointmentModal(true)} 
+            <JobTechnicians
+              job={job}
+              onAssignTechnicians={() => setShowAppointmentModal(true)}
             />
           </div>
 
@@ -375,26 +379,28 @@ const JobDetails = () => {
           <JobUnitSection job={job} />
 
           {/* Service Section (Items, Inspection, Replacement) */}
-          <JobServiceSection 
-            jobId={job.id} 
-            jobItems={jobItems} 
+          <JobServiceSection
+            jobId={job.id}
+            jobItems={jobItems}
             onItemsUpdated={handleItemsUpdated}
-            onQuoteStatusChange={() => job.quote_sent && setQuoteNeedsUpdate(true)}
+            onQuoteStatusChange={() =>
+              job.quote_sent && setQuoteNeedsUpdate(true)
+            }
           />
 
           {/* Quote Section */}
-          <JobQuoteSection 
-            job={job} 
-            jobItems={jobItems} 
+          <JobQuoteSection
+            job={job}
+            jobItems={jobItems}
             onQuoteSent={handleQuoteSent}
             onPreviewQuote={() => setShowQuotePDF(true)}
             quoteNeedsUpdate={quoteNeedsUpdate}
           />
 
           {/* Invoice Section */}
-          <JobInvoiceSection 
-            job={job} 
-            jobItems={jobItems} 
+          <JobInvoiceSection
+            job={job}
+            jobItems={jobItems}
             onInvoiceCreated={handleInvoiceCreated}
           />
         </div>
@@ -409,7 +415,9 @@ const JobDetails = () => {
         isOpen={showAppointmentModal}
         onClose={() => setShowAppointmentModal(false)}
         onSave={handleScheduleAppointment}
-        selectedTechnicianIds={job.job_technicians?.map(jt => jt.technician_id) || []}
+        selectedTechnicianIds={
+          job.job_technicians?.map((jt) => jt.technician_id) || []
+        }
       />
 
       {/* Complete Job Confirmation Modal */}
@@ -423,17 +431,18 @@ const JobDetails = () => {
               Complete Job
             </h3>
             <p className="text-center text-gray-600 mb-6">
-              Are you sure you want to mark Job #{job.number} as completed? This will update the job status and notify relevant parties.
+              Are you sure you want to mark Job #{job.number} as completed? This
+              will update the job status and notify relevant parties.
             </p>
             <div className="flex justify-end space-x-3">
-              <button 
+              <button
                 className="btn btn-secondary"
                 onClick={() => setShowCompleteJobModal(false)}
                 disabled={isCompletingJob}
               >
                 Cancel
               </button>
-              <button 
+              <button
                 className="btn btn-success"
                 onClick={handleCompleteJob}
                 disabled={isCompletingJob}
@@ -444,7 +453,7 @@ const JobDetails = () => {
                     Completing...
                   </>
                 ) : (
-                  'Complete Job'
+                  "Complete Job"
                 )}
               </button>
             </div>
@@ -463,17 +472,18 @@ const JobDetails = () => {
               Delete Job
             </h3>
             <p className="text-center text-gray-600 mb-6">
-              Are you sure you want to delete Job #{job.number}? This action cannot be undone.
+              Are you sure you want to delete Job #{job.number}? This action
+              cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
-              <button 
+              <button
                 className="btn btn-secondary"
                 onClick={() => setShowDeleteJobModal(false)}
                 disabled={isDeletingJob}
               >
                 Cancel
               </button>
-              <button 
+              <button
                 className="btn btn-error"
                 onClick={handleDeleteJob}
                 disabled={isDeletingJob}
@@ -484,7 +494,7 @@ const JobDetails = () => {
                     Deleting...
                   </>
                 ) : (
-                  'Delete Job'
+                  "Delete Job"
                 )}
               </button>
             </div>
