@@ -1,43 +1,26 @@
+// supabase/functions/send-inspection-quote/index.ts
 // Follow this setup guide to integrate the Deno runtime and Supabase Functions:
 // https://supabase.com/docs/guides/functions
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import sgMail from "npm:@sendgrid/mail";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
-
-serve(async (req) => {
+serve(async (req)=>{
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: corsHeaders
     });
   }
-
   try {
     const { SENDGRID_API_KEY } = Deno.env.toObject();
     if (!SENDGRID_API_KEY) {
       throw new Error("SENDGRID_API_KEY is not set");
     }
-
     sgMail.setApiKey(SENDGRID_API_KEY);
-
-    const { 
-      jobId, 
-      customerEmail, 
-      quoteToken, 
-      jobNumber, 
-      jobName, 
-      customerName, 
-      inspectionData,
-      location,
-      unit,
-      quoteNumber,
-      emailTemplate
-    } = await req.json();
-
+    const { jobId, customerEmail, quoteToken, jobNumber, jobName, customerName, inspectionData, location, unit, quoteNumber, emailTemplate, pdfUrl } = await req.json();
     if (!jobId || !customerEmail || !quoteToken || !jobNumber) {
       return new Response(JSON.stringify({
         error: "Missing required fields"
@@ -49,16 +32,12 @@ serve(async (req) => {
         }
       });
     }
-
     const confirmationUrl = `${req.headers.get("origin")}/quote/confirm/${quoteToken}`;
-
     // Build inspection details HTML and text
     let inspectionHtml = "";
     let inspectionText = "";
-
     if (Array.isArray(inspectionData) && inspectionData.length > 0) {
       const inspection = inspectionData[0]; // Use the first inspection for simplicity
-      
       inspectionHtml = `
         <div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
           <h3 style="margin-top:0;">Inspection Details</h3>
@@ -89,7 +68,6 @@ serve(async (req) => {
             </tr>
           </table>
         </div>`;
-      
       inspectionText = `
 Inspection Details:
 - Model Number: ${inspection.model_number || 'N/A'}
@@ -100,11 +78,9 @@ Inspection Details:
 - System Type: ${inspection.system_type || 'N/A'}
 `;
     }
-
     // Location and unit information
     let locationHtml = "";
     let locationText = "";
-
     if (location) {
       locationHtml = `
         <div style="margin-bottom:15px;">
@@ -114,7 +90,6 @@ Inspection Details:
           <p>${location.city}, ${location.state} ${location.zip}</p>
           ${unit ? `<p>Unit: ${unit.unit_number}</p>` : ''}
         </div>`;
-      
       locationText = `
 Service Location:
 ${location.name}
@@ -123,7 +98,6 @@ ${location.city}, ${location.state} ${location.zip}
 ${unit ? `Unit: ${unit.unit_number}` : ''}
 `;
     }
-
     // Use custom email template if provided, otherwise use defaults
     const subject = emailTemplate?.subject || `Inspection Quote #${quoteNumber || jobNumber} from Airlast HVAC`;
     const greeting = emailTemplate?.greeting || `Dear ${customerName || "Customer"},`;
@@ -135,7 +109,22 @@ ${unit ? `Unit: ${unit.unit_number}` : ''}
     const denialNote = emailTemplate?.denialNote || "If you deny, you will be charged $180.00 for the inspection service.";
     const closingText = emailTemplate?.closingText || "If you have any questions, please don't hesitate to contact us.";
     const signature = emailTemplate?.signature || "Best regards,\nAirlast HVAC Team";
-
+    // Prepare email with attachment if pdfUrl is provided
+    let attachments = [];
+    if (pdfUrl) {
+      // Fetch the PDF content
+      const pdfResponse = await fetch(pdfUrl);
+      if (pdfResponse.ok) {
+        const pdfBuffer = await pdfResponse.arrayBuffer();
+        const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+        attachments.push({
+          content: pdfBase64,
+          filename: `Quote-${quoteNumber || jobNumber}.pdf`,
+          type: 'application/pdf',
+          disposition: 'attachment'
+        });
+      }
+    }
     const msg = {
       to: customerEmail,
       from: "support@airlast-management.com",
@@ -203,11 +192,10 @@ ${signature}`,
             <p>© 2025 Airlast HVAC. All rights reserved.</p>
             <p>1650 Marietta Boulevard Northwest, Atlanta, GA 30318</p>
           </div>
-        </div>`
+        </div>`,
+      attachments: attachments
     };
-
     await sgMail.send(msg);
-
     return new Response(JSON.stringify({
       success: true,
       message: "Inspection quote email sent successfully"

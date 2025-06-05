@@ -1,3 +1,4 @@
+// supabase/functions/send-quote-email/index.ts
 // Follow this setup guide to integrate the Deno runtime and Supabase Functions:
 // https://supabase.com/docs/guides/functions
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -19,7 +20,7 @@ serve(async (req)=>{
       throw new Error("SENDGRID_API_KEY is not set");
     }
     sgMail.setApiKey(SENDGRID_API_KEY);
-    const { jobId, customerEmail, quoteToken, jobNumber, jobName, customerName, totalAmount, jobItems } = await req.json();
+    const { jobId, customerEmail, quoteToken, jobNumber, jobName, customerName, totalAmount, jobItems, quoteNumber, emailTemplate, pdfUrl } = await req.json();
     if (!jobId || !customerEmail || !quoteToken || !jobNumber) {
       return new Response(JSON.stringify({
         error: "Missing required fields"
@@ -60,12 +61,48 @@ serve(async (req)=>{
       });
       itemsText += `\nTotal: $${totalAmount}\n\n`;
     }
+    // Use custom email template if provided, otherwise use defaults
+    const subject = emailTemplate?.subject || `Quote #${quoteNumber || jobNumber} from Airlast HVAC`;
+    const greeting = emailTemplate?.greeting || `Dear ${customerName || "Customer"},`;
+    const introText = emailTemplate?.introText || "Thank you for your interest in Airlast HVAC services. Please find your quote below.";
+    const approvalText = emailTemplate?.approvalText || "Please click the button below to confirm this quote:";
+    const approveButtonText = emailTemplate?.approveButtonText || "Confirm Quote";
+    const closingText = emailTemplate?.closingText || "This quote is valid for 30 days from the date of issue. If you have any questions, please don't hesitate to contact us.";
+    const signature = emailTemplate?.signature || "Best regards,\nAirlast HVAC Team";
+    // Prepare email with attachment if pdfUrl is provided
+    let attachments = [];
+    if (pdfUrl) {
+      // Fetch the PDF content
+      const pdfResponse = await fetch(pdfUrl);
+      if (pdfResponse.ok) {
+        const pdfBuffer = await pdfResponse.arrayBuffer();
+        const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+        attachments.push({
+          content: pdfBase64,
+          filename: `Quote-${quoteNumber || jobNumber}.pdf`,
+          type: 'application/pdf',
+          disposition: 'attachment'
+        });
+      }
+    }
     const msg = {
       to: customerEmail,
       from: "support@airlast-management.com",
-      subject: `Quote #${jobNumber} from Airlast HVAC`,
-      text: `Dear ${customerName || "Customer"},\n
-Thank you for your interest in Airlast HVAC services. Please find your quote for job #${jobNumber} - ${jobName || "HVAC Service"} below.\n\n${itemsText}Total Amount: $${totalAmount || "0.00"}\n\nTo confirm this quote, please click the following link:\n${confirmationUrl}\n\nThis quote is valid for 30 days from the date of issue.\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\nAirlast HVAC Team`,
+      subject: subject,
+      text: `${greeting}
+
+${introText}
+
+Quote #${quoteNumber || jobNumber} for Job #${jobNumber} - ${jobName || "HVAC Service"}
+
+${itemsText}Total Amount: $${totalAmount || "0.00"}
+
+To confirm this quote, please click the following link:
+${confirmationUrl}
+
+${closingText}
+
+${signature}`,
       html: `
         <div style="font-family:Arial,sans-serif; max-width:600px; margin:0 auto;">
           <!-- Text-only header -->
@@ -75,27 +112,27 @@ Thank you for your interest in Airlast HVAC services. Please find your quote for
 
           <!-- Body -->
           <div style="padding:20px; border:1px solid #ddd; border-top:none;">
-            <p>Dear ${customerName || "Customer"},</p>
-            <p>Thank you for your interest in Airlast HVAC services. Below is your quote for job #${jobNumber} - ${jobName || "HVAC Service"}.</p>
+            <p>${greeting}</p>
+            <p>${introText}</p>
 
             <div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
               <h2 style="margin-top:0;">Quote Summary</h2>
+              <p><strong>Quote Number:</strong> ${quoteNumber || jobNumber}</p>
               <p><strong>Job Number:</strong> ${jobNumber}</p>
               <p><strong>Service:</strong> ${jobName || "HVAC Service"}</p>
               ${itemsHtml}
               <p><strong>Total Amount:</strong> $${totalAmount || "0.00"}</p>
             </div>
 
-            <p>To confirm this quote, please click the button below:</p>
+            <p>${approvalText}</p>
             <div style="text-align:center; margin:30px 0;">
               <a href="${confirmationUrl}" style="background-color:#0672be; color:white; padding:12px 24px; text-decoration:none; border-radius:4px; font-weight:bold;">
-                Confirm Quote
+                ${approveButtonText}
               </a>
             </div>
 
-            <p>This quote is valid for 30 days from the date of issue.</p>
-            <p>If you have any questions, please don't hesitate to contact us.</p>
-            <p>Best regards,<br>Airlast HVAC Team</p>
+            <p>${closingText}</p>
+            <p>${signature.replace(/\n/g, '<br>')}</p>
           </div>
 
           <!-- Footer -->
@@ -103,7 +140,8 @@ Thank you for your interest in Airlast HVAC services. Please find your quote for
             <p>© 2025 Airlast HVAC. All rights reserved.</p>
             <p>1650 Marietta Boulevard Northwest, Atlanta, GA 30318</p>
           </div>
-        </div>`
+        </div>`,
+      attachments: attachments
     };
     await sgMail.send(msg);
     return new Response(JSON.stringify({
