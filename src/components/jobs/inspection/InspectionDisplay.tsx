@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clipboard, Plus, CheckSquare, Edit, Trash2, Mail, Check, X, AlertTriangle } from 'lucide-react';
+import { Clipboard, Plus, CheckSquare, Trash2, Mail, Check, X, AlertTriangle } from 'lucide-react';
 import { useSupabase } from '../../../lib/supabase-context';
 
 type InspectionData = {
@@ -45,6 +45,7 @@ const InspectionDisplay = ({
   const [emailSent, setEmailSent] = useState(false);
   const [jobDetails, setJobDetails] = useState<any>(null);
   const [quoteReady, setQuoteReady] = useState(false);
+  const [showResendPrompt, setShowResendPrompt] = useState(false);
 
   useEffect(() => {
     fetchInspectionData();
@@ -68,6 +69,9 @@ const InspectionDisplay = ({
       // Check if any inspection is completed
       const hasCompletedInspection = data?.some(inspection => inspection.completed) || false;
       setQuoteReady(hasCompletedInspection);
+      
+      console.log("Fetched inspections:", data);
+      console.log("Has completed inspection:", hasCompletedInspection);
     } catch (err) {
       console.error('Error fetching inspection data:', err);
       setError('Failed to load inspection data');
@@ -124,19 +128,19 @@ const InspectionDisplay = ({
         
       if (updateError) throw updateError;
       
-      // Check if job_replacements record exists
-      const { data: replacementData, error: replacementError } = await supabase
-        .from('job_replacements')
+      // Check if job_repairs record exists
+      const { data: repairData, error: repairError } = await supabase
+        .from('job_repairs')
         .select('id')
         .eq('job_id', jobId)
         .maybeSingle();
         
-      if (replacementError && !replacementError.message.includes('The result contains 0 rows')) {
-        throw replacementError;
+      if (repairError && !repairError.message.includes('The result contains 0 rows')) {
+        throw repairError;
       }
       
-      // If no replacement record exists, create one
-      if (!replacementData) {
+      // If no repair record exists, create one
+      if (!repairData) {
         // Get the first completed inspection to determine model
         const { data: inspectionData } = await supabase
           .from('job_inspections')
@@ -148,9 +152,10 @@ const InspectionDisplay = ({
           .single();
           
         const { error: insertError } = await supabase
-          .from('job_replacements')
+          .from('job_repairs')
           .insert({
             job_id: jobId,
+            inspection_id: inspectionData.id, // Associate with the specific inspection
             needs_crane: false,
             phase1: { description: 'Economy Option', cost: 0 },
             phase2: { description: 'Standard Option', cost: 0 },
@@ -190,11 +195,23 @@ const InspectionDisplay = ({
     }
   };
 
-  const handleDeleteInspection = async (inspectionId: string) => {
+  const handleDeleteInspection = async (inspectionId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event from bubbling up
+    
     if (!supabase) return;
     
     try {
       setIsDeleting(inspectionId);
+      
+      // First delete any associated repair data
+      const { error: repairDeleteError } = await supabase
+        .from('job_repairs')
+        .delete()
+        .eq('inspection_id', inspectionId);
+        
+      if (repairDeleteError) throw repairDeleteError;
+      
+      // Then delete the inspection
       const { error } = await supabase
         .from('job_inspections')
         .delete()
@@ -274,6 +291,7 @@ const InspectionDisplay = ({
       }
       
       setEmailSent(true);
+      setShowResendPrompt(false);
       setTimeout(() => {
         setShowEmailModal(false);
         setEmailSent(false);
@@ -297,6 +315,12 @@ const InspectionDisplay = ({
     if (onSelectInspection) {
       onSelectInspection(inspection);
     }
+  };
+
+  const handleEditInspection = (inspection: InspectionData) => {
+    onEditInspection(inspection);
+    // Show resend prompt when an inspection is edited
+    setShowResendPrompt(true);
   };
 
   if (isLoading) {
@@ -374,6 +398,23 @@ const InspectionDisplay = ({
         </div>
       </div>
 
+      {showResendPrompt && (
+        <div className="mb-4 p-4 bg-warning-50 border-l-4 border-warning-500 rounded-md">
+          <div className="flex">
+            <AlertTriangle className="h-5 w-5 text-warning-500 mr-2" />
+            <div>
+              <p className="text-warning-700">Inspection has been updated. Please resend the quote to the customer.</p>
+              <button 
+                onClick={() => setShowEmailModal(true)}
+                className="mt-2 text-sm text-warning-800 font-medium underline"
+              >
+                Send Updated Quote
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {hasCompletedInspections && (
         <div className="mb-4 p-4 bg-success-50 border-l-4 border-success-500 rounded-md">
           <div className="flex">
@@ -439,20 +480,11 @@ const InspectionDisplay = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onEditInspection(inspection);
-                  }}
-                  className="text-primary-600 hover:text-primary-800"
-                  disabled={inspection.completed}
-                >
-                  <Edit size={16} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteInspection(inspection.id);
+                    handleDeleteInspection(inspection.id, e);
                   }}
                   className="text-error-600 hover:text-error-800"
                   disabled={isDeleting === inspection.id || inspection.completed}
+                  aria-label="Delete inspection"
                 >
                   {isDeleting === inspection.id ? (
                     <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-error-600 rounded-full"></span>

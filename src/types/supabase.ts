@@ -519,7 +519,7 @@ export interface Database {
           quote_confirmed_at?: string | null
         }
       }
-      job_replacements: {
+      job_repairs: {  // Changed from job_replacements to job_repairs
         Row: {
           id: string
           job_id: string

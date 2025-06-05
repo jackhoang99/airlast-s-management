@@ -33,7 +33,9 @@ serve(async (req) => {
       customerName, 
       inspectionData,
       location,
-      unit
+      unit,
+      quoteNumber,
+      emailTemplate
     } = await req.json();
 
     if (!jobId || !customerEmail || !quoteToken || !jobNumber) {
@@ -122,13 +124,27 @@ ${unit ? `Unit: ${unit.unit_number}` : ''}
 `;
     }
 
+    // Use custom email template if provided, otherwise use defaults
+    const subject = emailTemplate?.subject || `Inspection Quote #${quoteNumber || jobNumber} from Airlast HVAC`;
+    const greeting = emailTemplate?.greeting || `Dear ${customerName || "Customer"},`;
+    const introText = emailTemplate?.introText || "Thank you for choosing Airlast HVAC services. We have completed the inspection for your HVAC system.";
+    const approvalText = emailTemplate?.approvalText || "Please click one of the buttons below to approve or deny the recommended repairs:";
+    const approveButtonText = emailTemplate?.approveButtonText || "Approve Repairs";
+    const denyButtonText = emailTemplate?.denyButtonText || "Deny Repairs";
+    const approvalNote = emailTemplate?.approvalNote || "If you approve, we will schedule the repair work at your earliest convenience.";
+    const denialNote = emailTemplate?.denialNote || "If you deny, you will be charged $180.00 for the inspection service.";
+    const closingText = emailTemplate?.closingText || "If you have any questions, please don't hesitate to contact us.";
+    const signature = emailTemplate?.signature || "Best regards,\nAirlast HVAC Team";
+
     const msg = {
       to: customerEmail,
       from: "support@airlast-management.com",
-      subject: `Inspection Quote #${jobNumber} from Airlast HVAC`,
-      text: `Dear ${customerName || "Customer"},
+      subject: subject,
+      text: `${greeting}
 
-Thank you for choosing Airlast HVAC services. We have completed the inspection for job #${jobNumber} - ${jobName || "HVAC Service"}.
+${introText}
+
+Quote #${quoteNumber || jobNumber} for Job #${jobNumber} - ${jobName || "HVAC Service"}
 
 ${locationText}
 
@@ -138,10 +154,12 @@ Based on our inspection, we recommend proceeding with repairs. Please click the 
 
 ${confirmationUrl}
 
-If you have any questions, please don't hesitate to contact us.
+${approvalNote}
+${denialNote}
 
-Best regards,
-Airlast HVAC Team`,
+${closingText}
+
+${signature}`,
       html: `
         <div style="font-family:Arial,sans-serif; max-width:600px; margin:0 auto;">
           <!-- Text-only header -->
@@ -151,8 +169,13 @@ Airlast HVAC Team`,
 
           <!-- Body -->
           <div style="padding:20px; border:1px solid #ddd; border-top:none;">
-            <p>Dear ${customerName || "Customer"},</p>
-            <p>Thank you for choosing Airlast HVAC services. We have completed the inspection for job #${jobNumber} - ${jobName || "HVAC Service"}.</p>
+            <p>${greeting}</p>
+            <p>${introText}</p>
+            
+            <div style="background-color:#f0f7ff; padding:10px; border-radius:5px; margin:15px 0;">
+              <h2 style="margin-top:0; color:#0672be;">Quote #${quoteNumber || jobNumber}</h2>
+              <p>Job #${jobNumber} - ${jobName || "HVAC Service"}</p>
+            </div>
 
             ${locationHtml}
             ${inspectionHtml}
@@ -161,15 +184,18 @@ Airlast HVAC Team`,
             
             <div style="text-align:center; margin:30px 0;">
               <a href="${confirmationUrl}?approve=true" style="background-color:#22c55e; color:white; padding:12px 24px; text-decoration:none; border-radius:4px; font-weight:bold; margin-right:10px;">
-                Approve Repairs
+                ${approveButtonText}
               </a>
               <a href="${confirmationUrl}?approve=false" style="background-color:#ef4444; color:white; padding:12px 24px; text-decoration:none; border-radius:4px; font-weight:bold; margin-left:10px;">
-                Deny Repairs
+                ${denyButtonText}
               </a>
             </div>
 
-            <p>If you have any questions, please don't hesitate to contact us.</p>
-            <p>Best regards,<br>Airlast HVAC Team</p>
+            <p>${approvalNote}</p>
+            <p style="color:#ef4444; font-weight:bold;">${denialNote}</p>
+
+            <p>${closingText}</p>
+            <p>${signature.replace(/\n/g, '<br>')}</p>
           </div>
 
           <!-- Footer -->

@@ -278,32 +278,6 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
               >
                 <li>
                   <Link 
-                    to="/quotes"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname === '/quotes'
-                        ? 'bg-primary-50 text-primary-700' 
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <FileText size={16} className="mr-3" />
-                    All Quotes
-                  </Link>
-                </li>
-                <li>
-                  <Link 
-                    to="/quotes/deficiencies"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes('/quotes/deficiencies')
-                        ? 'bg-primary-50 text-primary-700' 
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <AlertTriangle size={16} className="mr-3" />
-                    Deficiencies
-                  </Link>
-                </li>
-                <li>
-                  <Link 
                     to="/quotes/templates"
                     className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
                       location.pathname.includes('/quotes/templates')

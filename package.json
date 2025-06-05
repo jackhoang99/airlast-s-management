@@ -7,13 +7,16 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "add-templates": "node scripts/add-sample-templates.js"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",
     "@sendgrid/mail": "^8.1.1",
     "@supabase/supabase-js": "^2.38.4",
+    "dotenv": "^16.5.0",
     "lucide-react": "^0.344.0",
+    "pdf-lib": "^1.17.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.22.0"

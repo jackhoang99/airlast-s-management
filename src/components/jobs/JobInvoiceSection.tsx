@@ -24,9 +24,79 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [customerEmail, setCustomerEmail] = useState('');
+  const [invoiceType, setInvoiceType] = useState<'standard' | 'inspection' | 'repair' | 'replacement'>('standard');
+  const [repairData, setRepairData] = useState<any>(null);
+  const [repairDataByInspection, setRepairDataByInspection] = useState<{[key: string]: any}>({});
 
   // Calculate total cost
   const calculateTotalCost = () => {
+    // For standard invoice, include all items except inspection fee
+    if (invoiceType === 'standard') {
+      // Include all items except inspection fee
+      const itemsTotal = jobItems
+        .filter(item => item.code !== 'INSP-FEE')
+        .reduce((total, item) => total + Number(item.total_cost), 0);
+      
+      // If there are no items but we have repair data, use that total
+      if (itemsTotal === 0 && Object.values(repairDataByInspection).length > 0) {
+        // Sum up all repair costs from all inspections
+        const repairTotal = Object.values(repairDataByInspection).reduce(
+          (sum, data: any) => sum + (data.totalCost || 0), 
+          0
+        );
+        return repairTotal;
+      }
+      
+      return itemsTotal;
+    }
+    
+    // For replacement invoice, include only part items
+    if (invoiceType === 'replacement') {
+      const partItemsTotal = jobItems
+        .filter(item => item.type === 'part')
+        .reduce((total, item) => total + Number(item.total_cost), 0);
+        
+      // If there are no part items but we have replacement data, use that total
+      if (partItemsTotal === 0 && Object.values(repairDataByInspection).length > 0) {
+        // Sum up all replacement costs from all inspections
+        const replacementTotal = Object.values(repairDataByInspection).reduce(
+          (sum, data: any) => sum + (data.totalCost || 0), 
+          0
+        );
+        return replacementTotal;
+      }
+        
+      // If there are no part items, return 0
+      return partItemsTotal;
+    }
+    
+    // For repair invoice, include only labor and other items (not parts or inspection)
+    if (invoiceType === 'repair') {
+      // Only include labor and other items (not parts or inspection)
+      const invoiceAmount = jobItems
+        .filter(item => (item.type === 'labor' || item.type === 'item') && item.code !== 'INSP-FEE')
+        .reduce((total, item) => total + Number(item.total_cost), 0);
+        
+      // If we have repair data and no labor/service items, use the repair total
+      if (invoiceAmount === 0 && Object.values(repairDataByInspection).length > 0) {
+        // Sum up all repair costs from all inspections
+        const repairTotal = Object.values(repairDataByInspection).reduce(
+          (sum, data: any) => sum + (data.totalCost || 0), 
+          0
+        );
+        return repairTotal;
+      }
+      
+      return invoiceAmount;
+    }
+    
+    // For inspection invoice, only include the inspection fee
+    if (invoiceType === 'inspection') {
+      const inspectionItem = jobItems.find(item => item.code === 'INSP-FEE');
+      return inspectionItem ? Number(inspectionItem.total_cost) : 180.00;
+    }
+    
+    // Default fallback
     return jobItems.reduce((total, item) => total + Number(item.total_cost), 0);
   };
 
@@ -36,13 +106,46 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
       if (!supabase || !job) return;
       
       try {
-        const { data, error } = await supabase
+        // First, fetch the job details to display
+        if (supabase) {
+          const { data: jobData, error: jobError } = await supabase
+            .from('jobs')
+            .select(`
+              *,
+              locations (
+                name,
+                address,
+                city,
+                state,
+                zip,
+                companies (
+                  name
+                )
+              ),
+              units (
+                unit_number
+              )
+            `)
+            .eq('id', job.id)
+            .maybeSingle();
+
+          if (jobError) {
+            console.error('Error fetching job:', jobError);
+            throw new Error('Error fetching quote details');
+          }
+
+          if (jobData) {
+            setCustomerEmail(jobData.contact_email || '');
+          }
+        }
+
+        const { data, error: invoicesError } = await supabase
           .from('job_invoices')
           .select('*')
           .eq('job_id', job.id)
           .order('created_at', { ascending: false });
           
-        if (error) throw error;
+        if (invoicesError) throw invoicesError;
         setInvoices(data || []);
         
         // Set the most recent invoice as selected
@@ -57,6 +160,47 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
     };
     
     fetchInvoices();
+  }, [supabase, job]);
+
+  // Fetch repair data for all inspections
+  useEffect(() => {
+    const fetchRepairData = async () => {
+      if (!supabase || !job) return;
+      
+      try {
+        const { data: repairData, error: repairError } = await supabase
+          .from('job_repairs')
+          .select('*')
+          .eq('job_id', job.id);
+
+        if (repairError) {
+          console.error('Error fetching repair data:', repairError);
+          throw repairError;
+        }
+        
+        if (repairData && repairData.length > 0) {
+          // Organize by inspection_id
+          const repairDataMap: {[key: string]: any} = {};
+          repairData.forEach(item => {
+            if (item.inspection_id) {
+              repairDataMap[item.inspection_id] = {
+                ...item,
+                totalCost: item.total_cost
+              };
+            } else {
+              // For backward compatibility with old data that doesn't have inspection_id
+              setRepairData(item);
+            }
+          });
+          
+          setRepairDataByInspection(repairDataMap);
+        }
+      } catch (err) {
+        console.error('Error fetching repair data:', err);
+      }
+    };
+    
+    fetchRepairData();
   }, [supabase, job]);
 
   // Set initial customer email from job
@@ -83,13 +227,50 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 30);
       
+      let invoiceAmount = 0;
+      
+      // Determine invoice amount based on type
+      if (invoiceType === 'inspection') {
+        invoiceAmount = 180.00; // Fixed inspection fee
+        
+        // Add inspection item to job_items if it doesn't exist
+        const { data: existingItems, error: checkError } = await supabase
+          .from('job_items')
+          .select('id')
+          .eq('job_id', job.id)
+          .eq('code', 'INSP-FEE')
+          .maybeSingle();
+          
+        if (checkError) throw checkError;
+        
+        if (!existingItems) {
+          const { error: itemError } = await supabase
+            .from('job_items')
+            .insert({
+              job_id: job.id,
+              code: 'INSP-FEE',
+              name: 'Inspection Fee',
+              service_line: 'INSP',
+              quantity: 1,
+              unit_cost: 180.00,
+              total_cost: 180.00,
+              type: 'item'
+            });
+            
+          if (itemError) throw itemError;
+        }
+      } else {
+        // Calculate the invoice amount based on the selected type
+        invoiceAmount = calculateTotalCost();
+      }
+      
       // Create invoice
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('job_invoices')
         .insert({
           job_id: job.id,
           invoice_number: invoiceNumber,
-          amount: calculateTotalCost(),
+          amount: invoiceAmount,
           status: 'draft',
           issued_date: new Date().toISOString().split('T')[0],
           due_date: dueDate.toISOString().split('T')[0]
@@ -151,33 +332,102 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
         if (jobUpdateError) throw jobUpdateError;
       }
       
-      // Call the Supabase Edge Function to send the email
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice-email`;
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          jobId: job.id,
-          invoiceId: selectedInvoice.id,
-          customerEmail: customerEmail, // Use the potentially edited email
-          jobNumber: job.number,
-          jobName: job.name,
-          customerName: job.contact_name,
-          invoiceNumber: selectedInvoice.invoice_number,
-          amount: selectedInvoice.amount,
-          issuedDate: updatedInvoice.issued_date,
-          dueDate: updatedInvoice.due_date,
-          jobItems: jobItems
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send invoice email');
+      try {
+        // Call the Supabase Edge Function to send the email
+        const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice-email`;
+        
+        // Filter job items based on invoice type
+        let itemsToSend = [];
+        const isRepairInvoice = invoiceType === 'repair' || 
+          (selectedInvoice.amount > 0 && Object.keys(repairDataByInspection).length > 0 && 
+           jobItems.filter(item => (item.type === 'labor' || item.type === 'item') && item.code !== 'INSP-FEE').length === 0);
+        
+        if (invoiceType === 'inspection' || selectedInvoice.amount === 180.00) {
+          // For inspection invoice, only include the inspection fee
+          itemsToSend = jobItems.filter(item => item.code === 'INSP-FEE');
+          if (itemsToSend.length === 0) {
+            // If no inspection fee item exists, create a dummy one for the email
+            itemsToSend = [{
+              name: 'Inspection Fee',
+              code: 'INSP-FEE',
+              quantity: 1,
+              total_cost: 180.00
+            }];
+          }
+        } else if (invoiceType === 'replacement') {
+          // For replacement invoice, only include part items
+          itemsToSend = jobItems.filter(item => item.type === 'part');
+          
+          // If there are no part items but we have repair data, create dummy items
+          if (itemsToSend.length === 0 && Object.keys(repairDataByInspection).length > 0) {
+            // Create a dummy item for each inspection's repair data
+            Object.entries(repairDataByInspection).forEach(([inspectionId, data]) => {
+              const selectedPhase = data.selected_phase || 'phase2';
+              const phaseData = data[selectedPhase] as any;
+              
+              itemsToSend.push({
+                name: `Replacement Parts: ${phaseData?.description || 'Standard Option'}`,
+                code: 'REPLACEMENT',
+                quantity: 1,
+                total_cost: data.total_cost
+              });
+            });
+          }
+        } else if (isRepairInvoice) {
+          // For repair invoice, only include labor and other items (not parts or inspection)
+          itemsToSend = jobItems.filter(item => (item.type === 'labor' || item.type === 'item') && item.code !== 'INSP-FEE');
+          
+          // If there are no labor/service items but we have repair data, create dummy items
+          if (itemsToSend.length === 0 && Object.keys(repairDataByInspection).length > 0) {
+            // Create a dummy item for each inspection's repair data
+            Object.entries(repairDataByInspection).forEach(([inspectionId, data]) => {
+              const selectedPhase = data.selected_phase || 'phase2';
+              const phaseData = data[selectedPhase] as any;
+              
+              itemsToSend.push({
+                name: `Repair Services: ${phaseData?.description || 'Standard Option'}`,
+                code: 'REPAIR',
+                quantity: 1,
+                total_cost: data.total_cost
+              });
+            });
+          }
+        } else {
+          // For standard invoice, include all items except inspection fee
+          itemsToSend = jobItems.filter(item => item.code !== 'INSP-FEE');
+        }
+        
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            jobId: job.id,
+            invoiceId: selectedInvoice.id,
+            customerEmail: customerEmail, // Use the potentially edited email
+            jobNumber: job.number,
+            jobName: job.name,
+            customerName: job.contact_name,
+            invoiceNumber: selectedInvoice.invoice_number,
+            amount: updatedInvoice.amount,
+            issuedDate: updatedInvoice.issued_date,
+            dueDate: updatedInvoice.due_date,
+            jobItems: itemsToSend,
+            invoiceType: invoiceType,
+            repairData: isRepairInvoice ? Object.values(repairDataByInspection)[0] : null
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.warn('Email service warning:', errorData.error || 'Failed to send invoice email');
+          // Don't throw here, just log the warning - the invoice is still created and updated
+        }
+      } catch (emailErr) {
+        // Log the email error but don't fail the whole operation
+        console.warn('Email sending failed, but invoice was created:', emailErr);
       }
       
       // Update invoices list
@@ -272,7 +522,12 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
           </div>
         </div>
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <InvoicePDFTemplate job={job} jobItems={jobItems} invoice={selectedInvoice} />
+          <InvoicePDFTemplate 
+            job={job} 
+            jobItems={jobItems} 
+            invoice={selectedInvoice} 
+            repairData={repairData}
+          />
         </div>
       </div>
     );
@@ -295,7 +550,6 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
           <button
             onClick={() => setShowCreateInvoiceModal(true)}
             className="btn btn-primary"
-            disabled={jobItems.length === 0}
           >
             <Plus size={16} className="mr-2" />
             {selectedInvoice ? 'Create New Invoice' : 'Create Invoice'}
@@ -350,7 +604,7 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
                       onClick={() => setSelectedInvoice(invoice)}
                     >
                       <td className="px-4 py-3 font-medium">{invoice.invoice_number}</td>
-                      <td className="px-4 py-3">{invoice.issued_date || 'Not issued'}</td>
+                      <td className="px-4 py-3">{invoice.issued_date || '-'}</td>
                       <td className="px-4 py-3">{invoice.due_date || '-'}</td>
                       <td className="px-4 py-3 font-medium">${Number(invoice.amount).toFixed(2)}</td>
                       <td className="px-4 py-3">
@@ -401,7 +655,7 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
         ) : (
           <div className="bg-gray-50 p-4 rounded-md">
             <p className="text-gray-600 text-center">
-              {jobItems.length === 0 
+              {jobItems.length === 0 && Object.keys(repairDataByInspection).length === 0
                 ? "Add items to the job before creating an invoice." 
                 : "No invoices created yet. Click 'Create Invoice' to generate an invoice."}
             </p>
@@ -428,10 +682,118 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
             
             <div className="mb-6">
               <p className="text-gray-600 mb-4">
-                This will create a new invoice for Job #{job.number} with the current items and pricing.
+                Select the type of invoice you want to create:
               </p>
               
-              <div className="bg-gray-50 p-4 rounded-md">
+              <div className="space-y-3">
+                <div 
+                  className={`p-4 border rounded-lg cursor-pointer ${invoiceType === 'standard' ? 'border-primary-500 bg-primary-50' : 'hover:bg-gray-50'}`}
+                  onClick={() => setInvoiceType('standard')}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">Standard Invoice</h4>
+                      <p className="text-sm text-gray-500">Create an invoice with all replacement parts and repair costs</p>
+                    </div>
+                    <div className="text-primary-600">
+                      {invoiceType === 'standard' && <Check size={20} />}
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm">
+                    <span className="font-medium">Total Amount:</span> ${calculateTotalCost().toFixed(2)}
+                  </div>
+                </div>
+                
+                <div 
+                  className={`p-4 border rounded-lg cursor-pointer ${invoiceType === 'replacement' ? 'border-primary-500 bg-primary-50' : 'hover:bg-gray-50'}`}
+                  onClick={() => setInvoiceType('replacement')}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">Replacement Invoice</h4>
+                      <p className="text-sm text-gray-500">Create an invoice for replacement parts only</p>
+                    </div>
+                    <div className="text-primary-600">
+                      {invoiceType === 'replacement' && <Check size={20} />}
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm">
+                    <span className="font-medium">Total Amount:</span> ${(() => {
+                      // Only include part items for replacement invoice
+                      const partItemsTotal = jobItems
+                        .filter(item => item.type === 'part')
+                        .reduce((total, item) => total + Number(item.total_cost), 0);
+                        
+                      // If there are no part items but we have replacement data, use that total
+                      if (partItemsTotal === 0 && Object.keys(repairDataByInspection).length > 0) {
+                        // Sum up all replacement costs from all inspections
+                        const replacementTotal = Object.values(repairDataByInspection).reduce(
+                          (sum, data: any) => sum + (data.totalCost || 0), 
+                          0
+                        );
+                        return replacementTotal.toFixed(2);
+                      }
+                        
+                      return partItemsTotal.toFixed(2);
+                    })()}
+                  </div>
+                </div>
+                
+                <div 
+                  className={`p-4 border rounded-lg cursor-pointer ${invoiceType === 'repair' ? 'border-primary-500 bg-primary-50' : 'hover:bg-gray-50'}`}
+                  onClick={() => setInvoiceType('repair')}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">Repair Invoice</h4>
+                      <p className="text-sm text-gray-500">Create an invoice for labor and service costs only</p>
+                    </div>
+                    <div className="text-primary-600">
+                      {invoiceType === 'repair' && <Check size={20} />}
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm">
+                    <span className="font-medium">Total Amount:</span> ${(() => {
+                      // Only include labor and other items (not parts or inspection)
+                      const laborItemsTotal = jobItems
+                        .filter(item => (item.type === 'labor' || item.type === 'item') && item.code !== 'INSP-FEE')
+                        .reduce((total, item) => total + Number(item.total_cost), 0);
+                        
+                      // If we have repair data and no labor/service items, use the repair total
+                      if (laborItemsTotal === 0 && Object.keys(repairDataByInspection).length > 0) {
+                        // Sum up all repair costs from all inspections
+                        const repairTotal = Object.values(repairDataByInspection).reduce(
+                          (sum, data: any) => sum + (data.totalCost || 0), 
+                          0
+                        );
+                        return repairTotal.toFixed(2);
+                      }
+                      
+                      return laborItemsTotal.toFixed(2);
+                    })()}
+                  </div>
+                </div>
+                
+                <div 
+                  className={`p-4 border rounded-lg cursor-pointer ${invoiceType === 'inspection' ? 'border-primary-500 bg-primary-50' : 'hover:bg-gray-50'}`}
+                  onClick={() => setInvoiceType('inspection')}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">Inspection Invoice</h4>
+                      <p className="text-sm text-gray-500">Fixed fee for inspection service</p>
+                    </div>
+                    <div className="text-primary-600">
+                      {invoiceType === 'inspection' && <Check size={20} />}
+                    </div>
+                  </div>
+                  <div className="mt-2 text-sm">
+                    <span className="font-medium">Total Amount:</span> $180.00
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-4 bg-gray-50 p-4 rounded-md">
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-600">Customer:</span>
                   <span className="font-medium">{job.contact_name || 'Not specified'}</span>
@@ -439,10 +801,6 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-600">Email:</span>
                   <span className="font-medium">{job.contact_email || 'Not specified'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total Amount:</span>
-                  <span className="font-medium">${calculateTotalCost().toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -458,7 +816,10 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
               <button 
                 className="btn btn-primary"
                 onClick={handleCreateInvoice}
-                disabled={isCreatingInvoice || jobItems.length === 0}
+                disabled={isCreatingInvoice || 
+                  (invoiceType === 'standard' && jobItems.length === 0 && Object.keys(repairDataByInspection).length === 0) ||
+                  (invoiceType === 'replacement' && jobItems.filter(item => item.type === 'part').length === 0 && Object.keys(repairDataByInspection).length === 0) ||
+                  (invoiceType === 'repair' && jobItems.filter(item => (item.type === 'labor' || item.type === 'item') && item.code !== 'INSP-FEE').length === 0 && Object.keys(repairDataByInspection).length === 0)}
               >
                 {isCreatingInvoice ? (
                   <>

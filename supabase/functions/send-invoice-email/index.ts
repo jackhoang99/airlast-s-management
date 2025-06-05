@@ -1,9 +1,11 @@
 import sgMail from "npm:@sendgrid/mail";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
-Deno.serve(async (req)=>{
+
+Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -11,11 +13,30 @@ Deno.serve(async (req)=>{
       headers: corsHeaders
     });
   }
+
   try {
     const { SENDGRID_API_KEY } = Deno.env.toObject();
-    if (!SENDGRID_API_KEY) throw new Error("SENDGRID_API_KEY is not set");
+    if (!SENDGRID_API_KEY) {
+      throw new Error("SENDGRID_API_KEY is not set");
+    }
+
     sgMail.setApiKey(SENDGRID_API_KEY);
-    const { jobId, invoiceId, customerEmail, jobNumber, jobName, customerName, invoiceNumber, amount, issuedDate, dueDate, jobItems } = await req.json();
+
+    const { 
+      jobId, 
+      invoiceId, 
+      customerEmail, 
+      jobNumber, 
+      jobName, 
+      customerName, 
+      invoiceNumber, 
+      amount, 
+      issuedDate, 
+      dueDate, 
+      jobItems,
+      invoiceType = 'standard'
+    } = await req.json();
+
     if (!jobId || !customerEmail || !invoiceNumber) {
       return new Response(JSON.stringify({
         error: "Missing required fields"
@@ -38,46 +59,70 @@ Deno.serve(async (req)=>{
       invoiceNumber, 
       amount, 
       issuedDate, 
-      dueDate
+      dueDate,
+      invoiceType
     });
     
     // Format dates
     const formattedIssuedDate = issuedDate ? new Date(issuedDate).toLocaleDateString() : "N/A";
     const formattedDueDate = dueDate ? new Date(dueDate).toLocaleDateString() : "N/A";
+
     // Build "view invoice" link
     const origin = req.headers.get("origin") || "https://airlast-management.com";
     const viewInvoiceUrl = `${origin}/invoices/view/${invoiceId}`;
+
+    // Determine item label based on invoice type
+    let itemLabel = 'Replacement Parts';
+    if (invoiceType === 'inspection') {
+      itemLabel = 'Inspection Fee';
+    } else if (invoiceType === 'repair') {
+      itemLabel = 'Repair Services';
+    } else if (invoiceType === 'standard') {
+      itemLabel = 'Services & Parts';
+    }
+
     // Build items table (HTML + text)
     let itemsHtml = "";
     let itemsText = "";
+
     if (Array.isArray(jobItems) && jobItems.length > 0) {
+      // Check if this is an inspection invoice
+      const isInspectionInvoice = amount === 180.00 && jobItems.some(item => item.code === 'INSP-FEE');
+      
+      // Filter items for display
+      const displayItems = isInspectionInvoice 
+        ? jobItems.filter(item => item.code === 'INSP-FEE')
+        : jobItems;
+      
       itemsHtml = `
-        <table style="width:100%;border-collapse:collapse;margin:15px 0;">
+        <table style="width:100%; border-collapse: collapse; margin:15px 0;">
           <tr style="background-color:#f5f5f5;">
-            <th style="padding:8px;text-align:left;border:1px solid #ddd;">Item</th>
-            <th style="padding:8px;text-align:left;border:1px solid #ddd;">Quantity</th>
-            <th style="padding:8px;text-align:right;border:1px solid #ddd;">Price</th>
+            <th style="padding:8px; text-align:left; border:1px solid #ddd;">${itemLabel}</th>
+            <th style="padding:8px; text-align:left; border:1px solid #ddd;">Quantity</th>
+            <th style="padding:8px; text-align:right; border:1px solid #ddd;">Price</th>
           </tr>
-          ${jobItems.map((item)=>`
+          ${displayItems.map((item) => `
             <tr>
-              <td style="padding:8px;border:1px solid #ddd;">${item.name}</td>
-              <td style="padding:8px;border:1px solid #ddd;">${item.quantity}</td>
-              <td style="padding:8px;text-align:right;border:1px solid #ddd;">$${Number(item.total_cost).toFixed(2)}</td>
+              <td style="padding:8px; border:1px solid #ddd;">${item.name}</td>
+              <td style="padding:8px; border:1px solid #ddd;">${item.quantity}</td>
+              <td style="padding:8px; text-align:right; border:1px solid #ddd;">$${Number(item.total_cost).toFixed(2)}</td>
             </tr>`).join("")}
-          <tr style="background-color:#f5f5f5;font-weight:bold;">
-            <td style="padding:8px;border:1px solid #ddd;" colspan="2">Total</td>
-            <td style="padding:8px;text-align:right;border:1px solid #ddd;">$${amount}</td>
+          <tr style="background-color:#f5f5f5; font-weight:bold;">
+            <td style="padding:8px; border:1px solid #ddd;" colspan="2">Total</td>
+            <td style="padding:8px; text-align:right; border:1px solid #ddd;">$${Number(amount).toFixed(2)}</td>
           </tr>
         </table>`;
-      itemsText = "Items:\n\n";
-      jobItems.forEach((item)=>{
+
+      itemsText = `${itemLabel}:\n\n`;
+      displayItems.forEach((item) => {
         itemsText += `- ${item.name} (Qty: ${item.quantity}): $${Number(item.total_cost).toFixed(2)}\n`;
       });
-      itemsText += `\nTotal: $${amount}\n\n`;
+      itemsText += `\nTotal: $${Number(amount).toFixed(2)}\n\n`;
     }
+
     const msg = {
       to: customerEmail,
-      from: "support@airlast-mangement.com",
+      from: "support@airlast-management.com",
       subject: `Invoice #${invoiceNumber} from Airlast HVAC`,
       text: `Dear ${customerName || "Customer"},\n
 Please find your invoice for job #${jobNumber} - ${jobName || "HVAC Service"} below.\n\n${itemsText}Total Amount: $${amount || "0.00"}\n\nInvoice Number: ${invoiceNumber}\nIssued Date: ${formattedIssuedDate}\nDue Date: ${formattedDueDate}\n\nTo view your invoice, visit: ${viewInvoiceUrl}\n\nPlease remit payment by the due date.\n\nIf you have any questions, please reach out.\n\nBest regards,\nAirlast HVAC Team`,
@@ -101,7 +146,7 @@ Please find your invoice for job #${jobNumber} - ${jobName || "HVAC Service"} be
               <p><strong>Job #:</strong> ${jobNumber}</p>
               <p><strong>Service:</strong> ${jobName || "HVAC Service"}</p>
               ${itemsHtml}
-              <p><strong>Total Amount:</strong> $${amount || "0.00"}</p>
+              <p><strong>Total Amount:</strong> $${Number(amount).toFixed(2)}</p>
             </div>
 
             <div style="text-align:center;margin:30px 0;">
@@ -128,8 +173,25 @@ Please find your invoice for job #${jobNumber} - ${jobName || "HVAC Service"} be
     };
     
     console.log("Sending email to:", customerEmail);
-    await sgMail.send(msg);
-    console.log("Email sent successfully");
+    
+    try {
+      await sgMail.send(msg);
+      console.log("Email sent successfully");
+    } catch (emailError) {
+      console.error("Error sending email:", emailError);
+      // Return a 200 response with a warning instead of failing
+      return new Response(JSON.stringify({
+        success: true,
+        warning: "Invoice created but email could not be sent. Please try sending it manually.",
+        emailError: emailError.message
+      }), {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
+    }
     
     return new Response(JSON.stringify({
       success: true,
@@ -142,7 +204,7 @@ Please find your invoice for job #${jobNumber} - ${jobName || "HVAC Service"} be
       }
     });
   } catch (error) {
-    console.error("Error sending invoice email:", error);
+    console.error("Error in invoice email function:", error);
     return new Response(JSON.stringify({
       error: error.message
     }), {

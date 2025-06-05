@@ -1,3 +1,4 @@
+// src/pages/JobDetails.tsx
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
@@ -13,7 +14,7 @@ import JobInvoiceSection from "../components/jobs/JobInvoiceSection";
 import JobSidebar from "../components/jobs/JobSidebar";
 import JobUnitSection from "../components/jobs/JobUnitSection";
 import AppointmentModal from "../components/jobs/AppointmentModal";
-import QuotePDFTemplate from "../components/quotes/QuotePDFTemplate";
+import QuotePDFViewer from "../components/quotes/QuotePDFViewer";
 
 const JobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,19 +32,27 @@ const JobDetails = () => {
   const [isDeletingJob, setIsDeletingJob] = useState(false);
   const [showQuotePDF, setShowQuotePDF] = useState(false);
   const [quoteNeedsUpdate, setQuoteNeedsUpdate] = useState(false);
-  const [lastQuoteUpdateTime, setLastQuoteUpdateTime] = useState<string | null>(
-    null
-  );
+  const [lastQuoteUpdateTime, setLastQuoteUpdateTime] = useState<string | null>(null);
+  const [activeQuoteType, setActiveQuoteType] = useState<'inspection' | 'repair' | 'replacement'>('inspection');
+  const [inspectionData, setInspectionData] = useState<any[]>([]);
+  const [repairData, setRepairData] = useState<any | null>(null);
 
   useEffect(() => {
     const fetchJobDetails = async () => {
       if (!supabase || !id) return;
 
       try {
-        const { data, error: jobError } = await supabase
+        // First validate that we have a valid UUID
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+          setError("Invalid job ID format");
+          setIsLoading(false);
+          return;
+        }
+
+        // Fetch job details
+        const { data: jobData, error: jobError } = await supabase
           .from("jobs")
-          .select(
-            `
+          .select(`
             *,
             locations (
               name,
@@ -84,17 +93,24 @@ const JobDetails = () => {
                 phone
               )
             )
-          `
-          )
+          `)
           .eq("id", id)
-          .single();
+          .limit(1)
+          .maybeSingle();
 
         if (jobError) throw jobError;
-        setJob(data);
+
+        if (!jobData) {
+          setError("Job not found");
+          setIsLoading(false);
+          return;
+        }
+
+        setJob(jobData);
 
         // If the job has a quote sent, store the timestamp for comparison
-        if (data.quote_sent && data.quote_sent_at) {
-          setLastQuoteUpdateTime(data.quote_sent_at);
+        if (jobData.quote_sent && jobData.quote_sent_at) {
+          setLastQuoteUpdateTime(jobData.quote_sent_at);
         }
 
         // Fetch job items
@@ -108,8 +124,8 @@ const JobDetails = () => {
         setJobItems(itemsData || []);
 
         // Check if any items were updated after the quote was sent
-        if (data.quote_sent && data.quote_sent_at) {
-          const quoteTime = new Date(data.quote_sent_at).getTime();
+        if (jobData.quote_sent && jobData.quote_sent_at) {
+          const quoteTime = new Date(jobData.quote_sent_at).getTime();
           const needsUpdate = itemsData?.some((item) => {
             const itemTime = new Date(item.created_at).getTime();
             return itemTime > quoteTime;
@@ -117,9 +133,35 @@ const JobDetails = () => {
 
           setQuoteNeedsUpdate(needsUpdate || false);
         }
-      } catch (err) {
+
+        // Fetch inspection data
+        const { data: inspectionData, error: inspectionError } = await supabase
+          .from("job_inspections")
+          .select("*")
+          .eq("job_id", id)
+          .eq("completed", true);
+
+        if (inspectionError) throw inspectionError;
+        setInspectionData(inspectionData || []);
+
+        // Fetch repair data
+        const { data: repairData, error: repairError } = await supabase
+          .from("job_repairs")
+          .select("*")
+          .eq("job_id", id)
+          .limit(1)
+          .maybeSingle();
+
+        if (repairError && !repairError.message.includes("contains 0 rows")) {
+          throw repairError;
+        }
+        
+        if (repairData) {
+          setRepairData(repairData);
+        }
+      } catch (err: any) {
         console.error("Error fetching job details:", err);
-        setError("Failed to fetch job details");
+        setError(err.message || "Failed to fetch job details");
       } finally {
         setIsLoading(false);
       }
@@ -207,11 +249,9 @@ const JobDetails = () => {
           units (
             unit_number,
             status,
-            phone,
             primary_contact_type,
             primary_contact_email,
             primary_contact_phone,
-            email,
             billing_entity,
             billing_email,
             billing_city,
@@ -236,11 +276,16 @@ const JobDetails = () => {
         `
         )
         .eq("id", job.id)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (jobError) throw jobError;
+      
+      if (!updatedJob) {
+        throw new Error("Failed to refresh job data");
+      }
+      
       setJob(updatedJob);
-
       setShowAppointmentModal(false);
     } catch (err) {
       console.error("Error updating technicians:", err);
@@ -308,6 +353,11 @@ const JobDetails = () => {
     setQuoteNeedsUpdate(false);
   };
 
+  const handlePreviewQuote = (quoteType: 'inspection' | 'repair' | 'replacement') => {
+    setActiveQuoteType(quoteType);
+    setShowQuotePDF(true);
+  };
+
   const handleInvoiceCreated = (invoiceId: string) => {
     // Refresh the page to show the new invoice
     window.location.reload();
@@ -334,20 +384,11 @@ const JobDetails = () => {
 
   if (showQuotePDF) {
     return (
-      <div className="p-4">
-        <div className="flex justify-between items-center mb-6">
-          <button
-            onClick={() => setShowQuotePDF(false)}
-            className="flex items-center text-gray-600 hover:text-gray-900"
-          >
-            <AlertTriangle size={16} className="mr-1" />
-            Back to Job Details
-          </button>
-        </div>
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <QuotePDFTemplate job={job} jobItems={jobItems} />
-        </div>
-      </div>
+      <QuotePDFViewer 
+        jobId={job.id}
+        quoteType={activeQuoteType}
+        onBack={() => setShowQuotePDF(false)}
+      />
     );
   }
 
@@ -393,7 +434,7 @@ const JobDetails = () => {
             job={job}
             jobItems={jobItems}
             onQuoteSent={handleQuoteSent}
-            onPreviewQuote={() => setShowQuotePDF(true)}
+            onPreviewQuote={handlePreviewQuote}
             quoteNeedsUpdate={quoteNeedsUpdate}
           />
 
@@ -449,7 +490,7 @@ const JobDetails = () => {
               >
                 {isCompletingJob ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
                     Completing...
                   </>
                 ) : (
@@ -490,7 +531,7 @@ const JobDetails = () => {
               >
                 {isDeletingJob ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
                     Deleting...
                   </>
                 ) : (

@@ -47,11 +47,23 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
         
         setSession(session);
 
+        // If user is authenticated in session storage but not in Supabase,
+        // we'll handle this in the RequireAuth component
+
         // Listen for auth changes
         const {
           data: { subscription },
         } = supabaseClient.auth.onAuthStateChange((_event, session) => {
           setSession(session);
+          
+          // Update session storage when session changes
+          if (session) {
+            sessionStorage.setItem('isAuthenticated', 'true');
+            sessionStorage.setItem('username', session.user.email?.split('@')[0] || 'user');
+          } else if (sessionStorage.getItem('isAuthenticated') === 'true') {
+            // Don't remove from session storage here - let RequireAuth handle re-authentication
+            // This prevents logout on page refresh
+          }
         });
 
         return () => subscription.unsubscribe();

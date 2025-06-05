@@ -11,7 +11,6 @@ const QuoteConfirmation = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [jobDetails, setJobDetails] = useState<any>(null);
-  const [quoteDetails, setQuoteDetails] = useState<any>(null);
   const [inspectionData, setInspectionData] = useState<any[]>([]);
   const [approved, setApproved] = useState<boolean | null>(null);
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
@@ -39,64 +38,7 @@ const QuoteConfirmation = () => {
       }
 
       try {
-        // First, check if there's a quote record with this token
-        if (supabase) {
-          const { data: quoteData, error: quoteError } = await supabase
-            .from('job_quotes')
-            .select('*')
-            .eq('token', token)
-            .maybeSingle();
-
-          if (!quoteError && quoteData) {
-            setQuoteDetails(quoteData);
-            
-            // If already confirmed, just return success
-            if (quoteData.confirmed) {
-              setSuccess(true);
-              setApproved(quoteData.approved);
-              
-              // Fetch job details for display
-              const { data: jobData } = await supabase
-                .from('jobs')
-                .select(`
-                  *,
-                  locations (
-                    name,
-                    address,
-                    city,
-                    state,
-                    zip,
-                    companies (
-                      name
-                    )
-                  ),
-                  units (
-                    unit_number
-                  )
-                `)
-                .eq('id', quoteData.job_id)
-                .single();
-                
-              if (jobData) {
-                setJobDetails(jobData);
-                
-                // Fetch inspection data
-                const { data: inspectionData } = await supabase
-                  .from('job_inspections')
-                  .select('*')
-                  .eq('job_id', jobData.id)
-                  .order('created_at', { ascending: false });
-                  
-                setInspectionData(inspectionData || []);
-              }
-              
-              setIsLoading(false);
-              return;
-            }
-          }
-        }
-
-        // If no quote record found or not confirmed, check the job record
+        // First, fetch the job details to display
         if (supabase) {
           const { data: jobData, error: jobError } = await supabase
             .from('jobs')
@@ -156,22 +98,6 @@ const QuoteConfirmation = () => {
 
         // Only proceed with confirmation if approval status is set
         if (approved !== null) {
-          // Update the job_quotes record if it exists
-          if (quoteDetails) {
-            const { error: updateQuoteError } = await supabase!
-              .from('job_quotes')
-              .update({
-                confirmed: true,
-                confirmed_at: new Date().toISOString(),
-                approved: approved
-              })
-              .eq('id', quoteDetails.id);
-              
-            if (updateQuoteError) {
-              console.error('Error updating quote record:', updateQuoteError);
-            }
-          }
-          
           // Call the Supabase Edge Function to confirm the quote
           const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/confirm-inspection-quote`;
           
@@ -265,7 +191,8 @@ const QuoteConfirmation = () => {
                       name: 'Inspection Fee',
                       quantity: 1,
                       total_cost: 180.00
-                    }]
+                    }],
+                    invoiceType: 'inspection'
                   })
                 });
                 
@@ -366,9 +293,6 @@ const QuoteConfirmation = () => {
                 <h3 className="font-medium">Job Information</h3>
                 <p className="text-gray-600">{jobDetails.name}</p>
                 <p className="text-gray-600">Job #{jobDetails.number}</p>
-                {quoteDetails && (
-                  <p className="text-gray-600">Quote #{quoteDetails.quote_number}</p>
-                )}
               </div>
               
               <div>
@@ -467,9 +391,6 @@ const QuoteConfirmation = () => {
             <h2 className="text-lg font-medium mb-4">Job Information</h2>
             <p><strong>Job #:</strong> {jobDetails.number}</p>
             <p><strong>Service:</strong> {jobDetails.name}</p>
-            {quoteDetails && (
-              <p><strong>Quote #:</strong> {quoteDetails.quote_number}</p>
-            )}
             
             {jobDetails.locations && (
               <div className="mt-4">

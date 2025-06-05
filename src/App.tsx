@@ -31,6 +31,7 @@ import PendingInvoices from "./pages/PendingInvoices";
 import PaidInvoices from "./pages/PaidInvoices";
 import InvoiceReports from "./pages/InvoiceReports";
 import QuoteConfirmation from "./pages/QuoteConfirmation";
+import QuoteTemplates from "./pages/QuoteTemplates";
 
 function App() {
   const { supabase } = useSupabase();
@@ -91,6 +92,9 @@ function App() {
             <Route path="pending" element={<PendingInvoices />} />
             <Route path="paid" element={<PaidInvoices />} />
             <Route path="reports" element={<InvoiceReports />} />
+          </Route>
+          <Route path="quotes">
+            <Route path="templates" element={<QuoteTemplates />} />
           </Route>
           <Route path="technicians">
             <Route path="add" element={<AddTechnician />} />
