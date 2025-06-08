@@ -1,13 +1,13 @@
-import { useState, FormEvent, useEffect } from "react";
+import { useState, FormEvent } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { useSupabase } from "../lib/supabase-context";
-import { Wind } from "lucide-react";
+import { useSupabase } from "../../lib/supabase-context";
+import { Wind, AlertCircle } from "lucide-react";
 
-const Login = () => {
-  const { supabase, session } = useSupabase();
+const TechnicianLogin = () => {
+  const { supabase } = useSupabase();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || "/";
+  const from = location.state?.from?.pathname || "/tech";
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,26 +17,6 @@ const Login = () => {
     password: "",
   });
 
-  // Check if user is already logged in
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      // If already authenticated in session storage, redirect
-      if (sessionStorage.getItem("isAuthenticated") === "true") {
-        navigate(from, { replace: true });
-        return;
-      }
-
-      // If supabase is available and we have a session, set as authenticated
-      if (supabase && session) {
-        sessionStorage.setItem("isAuthenticated", "true");
-        sessionStorage.setItem("username", session.user.email?.split('@')[0] || "user");
-        navigate(from, { replace: true });
-      }
-    };
-
-    checkAuthStatus();
-  }, [supabase, session, navigate, from]);
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -45,28 +25,57 @@ const Login = () => {
     try {
       if (!supabase) throw new Error("Supabase client not initialized");
 
-      // Check if the username exists in our users table
-      const { data: userData, error: userError } = await supabase
+      console.log("Attempting technician login with username:", credentials.username);
+
+      // First, check if the user exists and is a technician
+      const { data: techData, error: techError } = await supabase
         .from("users")
-        .select("username, email, role")
+        .select("id, username, email, role")
         .eq("username", credentials.username)
         .maybeSingle();
 
-      // If user doesn't exist in our users table, show error
-      if (userError && !userError.message.includes("The result contains 0 rows")) {
-        console.error("User lookup error:", userError);
-        throw new Error("Error checking user credentials");
+      // If there's an error that's not just "no rows found", throw it
+      if (techError && !techError.message.includes("contains 0 rows")) {
+        console.error("Technician lookup error:", techError);
+        throw new Error("Error checking technician credentials");
       }
 
-      // Check if this is a technician trying to log in to the admin portal
-      if (userData?.role === 'technician') {
-        // Redirect to technician login
-        navigate('/tech/login', { state: { from: location } });
-        return;
+      // If no user found by username, try by email format
+      let techUser = techData;
+      if (!techUser) {
+        const email = `${credentials.username}@airlast-demo.com`;
+        console.log("User not found by username, trying with email:", email);
+        
+        const { data: emailData, error: emailError } = await supabase
+          .from("users")
+          .select("id, username, email, role")
+          .eq("email", email)
+          .maybeSingle();
+          
+        if (emailError && !emailError.message.includes("contains 0 rows")) {
+          console.error("Email lookup error:", emailError);
+          throw new Error("Error checking technician credentials");
+        }
+        
+        techUser = emailData;
       }
+
+      // If no technician found, show error
+      if (!techUser) {
+        console.log("No user found with username or email");
+        throw new Error("Invalid username or password");
+      }
+
+      // Check if user is a technician
+      if (techUser.role !== 'technician') {
+        console.log("User found but not a technician:", techUser);
+        throw new Error("This account does not have technician access");
+      }
+
+      console.log("Technician found:", techUser);
 
       // Use the email from users table if available, otherwise construct demo email
-      const email = userData?.email || `${credentials.username}@airlast-demo.com`;
+      const email = techUser.email || `${credentials.username}@airlast-demo.com`;
       
       // Try to sign in with Supabase Auth
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -107,8 +116,9 @@ const Login = () => {
       }
 
       // If we get here, login is successful
-      sessionStorage.setItem("isAuthenticated", "true");
-      sessionStorage.setItem("username", credentials.username);
+      console.log("Login successful for technician:", techUser.username);
+      sessionStorage.setItem("isTechAuthenticated", "true");
+      sessionStorage.setItem("techUsername", techUser.username || credentials.username);
       navigate(from, { replace: true });
     } catch (err) {
       console.error("Login error:", err);
@@ -134,7 +144,7 @@ const Login = () => {
           )}
         </div>
         <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-          HVAC Administration
+          Technician Portal
         </h2>
       </div>
 
@@ -150,6 +160,7 @@ const Login = () => {
               {error && (
                 <div className="bg-error-50 border-l-4 border-error-500 p-4 rounded">
                   <div className="flex">
+                    <AlertCircle className="h-5 w-5 text-error-500" />
                     <div className="ml-3">
                       <p className="text-sm text-error-700">{error}</p>
                     </div>
@@ -179,6 +190,9 @@ const Login = () => {
                     className="input"
                   />
                 </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  For demo, try "mike.tech" as the username
+                </p>
               </div>
 
               <div>
@@ -226,8 +240,8 @@ const Login = () => {
               </div>
               
               <div className="text-center mt-4">
-                <Link to="/tech/login" className="text-sm text-primary-600 hover:text-primary-800">
-                  Technician? Login here
+                <Link to="/login" className="text-sm text-primary-600 hover:text-primary-800">
+                  Admin? Login here
                 </Link>
               </div>
             </form>
@@ -238,4 +252,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default TechnicianLogin;

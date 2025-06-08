@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
-import { ArrowLeft, Plus, Edit, Trash2, Search, Filter, Package, PenTool as Tool, ShoppingCart, Check, X, AlertTriangle, Clock, DollarSign, Truck, Home } from 'lucide-react';
+import { ArrowLeft, Plus, Edit, Trash2, Search, Filter, Package, Wrench, ShoppingCart, Check, X, AlertTriangle, Clock, DollarSign, Truck, Home } from 'lucide-react';
 import AddJobPricingModal from '../components/jobs/AddJobPricingModal';
 
 type JobPartPrice = Database['public']['Tables']['job_part_prices']['Row'];
@@ -411,7 +411,7 @@ const ItemPrices = () => {
     if ('parts_cost' in item) {
       return <Package size={16} className="text-blue-500" />;
     } else if ('skill_level' in item) {
-      return <Tool size={16} className="text-green-500" />;
+      return <Wrench size={16} className="text-green-500" />;
     } else {
       return <ShoppingCart size={16} className="text-purple-500" />;
     }
@@ -591,7 +591,7 @@ const ItemPrices = () => {
                         )}
                         {itemType === 'labor' && 'skill_level' in item && (
                           <div className="flex items-center gap-1">
-                            <Tool size={14} className="text-green-500" />
+                            <Wrench size={14} className="text-green-500" />
                             <span className="capitalize">{item.skill_level || 'Standard'}</span>
                             <Clock size={14} className="ml-2 text-green-500" />
                             <span>{Number(item.duration_hours).toFixed(1)}h</span>

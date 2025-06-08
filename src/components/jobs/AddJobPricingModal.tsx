@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Search, Package, Plus, Info, PenTool as Tool, ShoppingCart, Check, Users } from 'lucide-react';
+import { X, Search, Package, Plus, Info, Wrench, ShoppingCart, Check, Users } from 'lucide-react';
 import { useSupabase } from '../../lib/supabase-context';
 import { Database } from '../../types/supabase';
 
@@ -501,7 +501,7 @@ const AddJobPricingModal = ({
               }`}
             >
               <div className="flex items-center">
-                <Tool size={16} className="mr-2" />
+                <Wrench size={16} className="mr-2" />
                 Labor
               </div>
             </button>

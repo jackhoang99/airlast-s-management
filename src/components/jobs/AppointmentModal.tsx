@@ -20,12 +20,14 @@ const AppointmentModal = ({ isOpen, onClose, onSave, selectedTechnicianIds = [] 
   const [selectedTechs, setSelectedTechs] = useState<string[]>(selectedTechnicianIds);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTechnicians = async () => {
       if (!supabase) return;
 
       try {
+        setIsLoading(true);
         const { data, error } = await supabase
           .from('users')
           .select('*')
@@ -34,9 +36,11 @@ const AppointmentModal = ({ isOpen, onClose, onSave, selectedTechnicianIds = [] 
           .order('first_name');
 
         if (error) throw error;
+        console.log("Fetched technicians:", data);
         setTechnicians(data || []);
       } catch (err) {
         console.error('Error fetching technicians:', err);
+        setError('Failed to load technicians');
       } finally {
         setIsLoading(false);
       }
@@ -73,10 +77,10 @@ const AppointmentModal = ({ isOpen, onClose, onSave, selectedTechnicianIds = [] 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg max-w-md w-full p-6">
-        <div className="flex justify-between items-center mb-6">
+      <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+        <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold">Assign Technicians</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
             <X size={20} />
           </button>
         </div>
@@ -96,6 +100,12 @@ const AppointmentModal = ({ isOpen, onClose, onSave, selectedTechnicianIds = [] 
               onChange={(e) => setSearchTerm(e.target.value)}
               className="input mb-4"
             />
+            
+            {error && (
+              <div className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
+                {error}
+              </div>
+            )}
             
             <div className="max-h-60 overflow-y-auto border rounded-md">
               {isLoading ? (

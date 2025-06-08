@@ -1,37 +1,64 @@
 // supabase/functions/send-repair-quote/index.ts
-// Follow this setup guide to integrate the Deno runtime and Supabase Functions:
-// https://supabase.com/docs/guides/functions
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import sgMail from "npm:@sendgrid/mail";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
-serve(async (req)=>{
+
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: corsHeaders
     });
   }
+
   try {
     const { SENDGRID_API_KEY } = Deno.env.toObject();
     if (!SENDGRID_API_KEY) {
       throw new Error("SENDGRID_API_KEY is not set");
     }
+
     sgMail.setApiKey(SENDGRID_API_KEY);
-    const { jobId, customerEmail, quoteToken, jobNumber, jobName, customerName, inspectionData, repairData, allRepairData, location, unit, selectedPhase, totalCost, quoteNumber, quoteType = 'repair', emailTemplate, pdfUrl } = await req.json();
+
+    // Parse request body
+    const requestData = await req.json();
+    const { 
+      jobId, 
+      customerEmail, 
+      quoteToken, 
+      jobNumber, 
+      jobName, 
+      customerName, 
+      inspectionData, 
+      repairData, 
+      allRepairData, 
+      location, 
+      unit, 
+      selectedPhase, 
+      totalCost, 
+      quoteNumber, 
+      quoteType = 'repair', 
+      emailTemplate, 
+      pdfUrl,
+      repairDataByInspection
+    } = requestData;
+
     console.log("Received repair quote request:", {
       jobId,
       customerEmail,
       jobNumber,
-      selectedPhase,
-      totalCost,
+      quoteNumber,
       quoteType,
-      inspectionCount: Array.isArray(inspectionData) ? inspectionData.length : 'none',
-      allRepairDataCount: Array.isArray(allRepairData) ? allRepairData.length : 'none',
-      pdfUrl: pdfUrl ? 'provided' : 'not provided'
+      totalCost: totalCost || 0,
+      hasInspectionData: Array.isArray(inspectionData) && inspectionData.length > 0,
+      hasRepairData: !!repairData,
+      hasAllRepairData: Array.isArray(allRepairData) && allRepairData.length > 0,
+      hasPdfUrl: !!pdfUrl
     });
+
     if (!jobId || !customerEmail || !quoteToken || !jobNumber) {
       return new Response(JSON.stringify({
         error: "Missing required fields"
@@ -43,72 +70,107 @@ serve(async (req)=>{
         }
       });
     }
+
     const confirmationUrl = `${req.headers.get("origin")}/quote/confirm/${quoteToken}`;
+
     // Build inspection details HTML and text
     let inspectionHtml = "";
     let inspectionText = "";
+
     if (Array.isArray(inspectionData) && inspectionData.length > 0) {
       inspectionHtml = `<div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
         <h3 style="margin-top:0;">Inspection Details</h3>`;
       inspectionText = "Inspection Details:\n\n";
-      // Loop through all inspections
-      inspectionData.forEach((inspection, index)=>{
+      
+      // Loop through inspections (limit to first 3 for email readability)
+      const displayInspections = inspectionData.slice(0, 3);
+      
+      displayInspections.forEach((inspection, index) => {
+        // Safe access to properties with fallbacks
+        const modelNumber = inspection?.model_number || 'N/A';
+        const serialNumber = inspection?.serial_number || 'N/A';
+        const age = inspection?.age || 'N/A';
+        const tonnage = inspection?.tonnage || 'N/A';
+        const unitType = inspection?.unit_type || 'N/A';
+        const systemType = inspection?.system_type || 'N/A';
+        
         inspectionHtml += `
-          <div style="margin-bottom: ${index < inspectionData.length - 1 ? '20px' : '0'}; ${index > 0 ? 'border-top: 1px solid #ddd; padding-top: 15px;' : ''}">
+          <div style="margin-bottom: ${index < displayInspections.length - 1 ? '20px' : '0'}; ${index > 0 ? 'border-top: 1px solid #ddd; padding-top: 15px;' : ''}">
             <h4 style="margin-top:0;">Inspection ${index + 1}</h4>
             <table style="width:100%; border-collapse: collapse;">
               <tr>
                 <td style="padding:8px; border:1px solid #ddd;"><strong>Model Number:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${inspection.model_number || 'N/A'}</td>
+                <td style="padding:8px; border:1px solid #ddd;">${modelNumber}</td>
               </tr>
               <tr>
                 <td style="padding:8px; border:1px solid #ddd;"><strong>Serial Number:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${inspection.serial_number || 'N/A'}</td>
+                <td style="padding:8px; border:1px solid #ddd;">${serialNumber}</td>
               </tr>
               <tr>
                 <td style="padding:8px; border:1px solid #ddd;"><strong>Age:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${inspection.age || 'N/A'} years</td>
+                <td style="padding:8px; border:1px solid #ddd;">${age} years</td>
               </tr>
               <tr>
                 <td style="padding:8px; border:1px solid #ddd;"><strong>Tonnage:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${inspection.tonnage || 'N/A'}</td>
+                <td style="padding:8px; border:1px solid #ddd;">${tonnage}</td>
               </tr>
               <tr>
                 <td style="padding:8px; border:1px solid #ddd;"><strong>Unit Type:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${inspection.unit_type || 'N/A'}</td>
+                <td style="padding:8px; border:1px solid #ddd;">${unitType}</td>
               </tr>
               <tr>
                 <td style="padding:8px; border:1px solid #ddd;"><strong>System Type:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${inspection.system_type || 'N/A'}</td>
+                <td style="padding:8px; border:1px solid #ddd;">${systemType}</td>
               </tr>
             </table>
           </div>`;
+          
         inspectionText += `Inspection ${index + 1}:\n`;
-        inspectionText += `- Model Number: ${inspection.model_number || 'N/A'}\n`;
-        inspectionText += `- Serial Number: ${inspection.serial_number || 'N/A'}\n`;
-        inspectionText += `- Age: ${inspection.age || 'N/A'} years\n`;
-        inspectionText += `- Tonnage: ${inspection.tonnage || 'N/A'}\n`;
-        inspectionText += `- Unit Type: ${inspection.unit_type || 'N/A'}\n`;
-        inspectionText += `- System Type: ${inspection.system_type || 'N/A'}\n\n`;
+        inspectionText += `- Model Number: ${modelNumber}\n`;
+        inspectionText += `- Serial Number: ${serialNumber}\n`;
+        inspectionText += `- Age: ${age} years\n`;
+        inspectionText += `- Tonnage: ${tonnage}\n`;
+        inspectionText += `- Unit Type: ${unitType}\n`;
+        inspectionText += `- System Type: ${systemType}\n\n`;
       });
+      
+      if (inspectionData.length > 3) {
+        inspectionHtml += `
+          <div style="margin-top: 10px; font-style: italic; color: #666;">
+            And ${inspectionData.length - 3} more inspection(s)...
+          </div>`;
+        inspectionText += `And ${inspectionData.length - 3} more inspection(s)...\n\n`;
+      }
+      
       inspectionHtml += `</div>`;
     }
+
     // Build repair details HTML and text
     let repairHtml = "";
     let repairText = "";
-    // Process all repair data for all inspections
-    if (Array.isArray(allRepairData) && allRepairData.length > 0) {
+    
+    // First try to use repairDataByInspection if available
+    if (repairDataByInspection && Object.keys(repairDataByInspection).length > 0) {
       repairHtml = `
         <div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
           <h3 style="margin-top:0;">${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendations</h3>`;
       repairText = `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendations:\n\n`;
-      // Loop through all repair data
-      allRepairData.forEach((repair, index)=>{
-        const repairPhase = repair.selected_phase || 'phase2';
-        const phaseData = repair[repairPhase];
-        const phaseName = repairPhase === 'phase1' ? 'Economy Option' : repairPhase === 'phase2' ? 'Standard Option' : 'Premium Option';
+      
+      // Limit to first 2 repair options for email readability
+      const repairEntries = Object.entries(repairDataByInspection).slice(0, 2);
+      
+      repairEntries.forEach(([inspectionId, data], index) => {
+        // Safe access with fallbacks
+        const selectedPhase = data?.selectedPhase || 'phase2';
+        const phaseData = data?.[selectedPhase] || {};
+        const phaseName = selectedPhase === 'phase1' ? 'Economy Option' : 
+                         selectedPhase === 'phase2' ? 'Standard Option' : 'Premium Option';
+        const description = phaseData?.description || phaseName;
+        const needsCrane = data?.needsCrane || false;
+        const totalCost = data?.totalCost || 0;
+        
         repairHtml += `
-          <div style="margin-bottom: ${index < allRepairData.length - 1 ? '20px' : '0'}; ${index > 0 ? 'border-top: 1px solid #ddd; padding-top: 15px;' : ''}">
+          <div style="margin-bottom: ${index < repairEntries.length - 1 ? '20px' : '0'}; ${index > 0 ? 'border-top: 1px solid #ddd; padding-top: 15px;' : ''}">
             <h4 style="margin-top:0;">${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Option ${index + 1}</h4>
             <table style="width:100%; border-collapse: collapse;">
               <tr>
@@ -117,345 +179,191 @@ serve(async (req)=>{
               </tr>
               <tr>
                 <td style="padding:8px; border:1px solid #ddd;"><strong>Description:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${phaseData?.description || phaseName}</td>
+                <td style="padding:8px; border:1px solid #ddd;">${description}</td>
               </tr>
               <tr>
                 <td style="padding:8px; border:1px solid #ddd;"><strong>Requires Crane:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${repair.needs_crane ? 'Yes' : 'No'}</td>
-              </tr>`;
-        if (phaseData && phaseData.cost) {
-          repairHtml += `
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Base Cost:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${Number(phaseData.cost).toLocaleString()}</td>
-              </tr>`;
-        }
-        if (repair.labor > 0) {
-          repairHtml += `
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Labor:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${Number(repair.labor).toLocaleString()}</td>
-              </tr>`;
-        }
-        if (repair.refrigeration_recovery > 0) {
-          repairHtml += `
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Refrigeration Recovery:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${Number(repair.refrigeration_recovery).toLocaleString()}</td>
-              </tr>`;
-        }
-        if (repair.start_up_costs > 0) {
-          repairHtml += `
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Start-Up Costs:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${Number(repair.start_up_costs).toLocaleString()}</td>
-              </tr>`;
-        }
-        if (repair.thermostat_startup > 0) {
-          repairHtml += `
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Thermostat Startup:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${Number(repair.thermostat_startup).toLocaleString()}</td>
-              </tr>`;
-        }
-        if (repair.removal_cost > 0) {
-          repairHtml += `
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Removal of Old Equipment:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${Number(repair.removal_cost).toLocaleString()}</td>
-              </tr>`;
-        }
-        if (repair.permit_cost > 0) {
-          repairHtml += `
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Permit Cost:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${Number(repair.permit_cost).toLocaleString()}</td>
-              </tr>`;
-        }
-        // Accessories
-        if (Array.isArray(repair.accessories) && repair.accessories.length > 0) {
-          const accessoriesTotal = repair.accessories.reduce((sum, item)=>sum + Number(item.cost || 0), 0);
-          if (accessoriesTotal > 0) {
-            repairHtml += `
-                <tr>
-                  <td style="padding:8px; border:1px solid #ddd;"><strong>Accessories:</strong></td>
-                  <td style="padding:8px; border:1px solid #ddd;">$${accessoriesTotal.toLocaleString()}</td>
-                </tr>`;
-            // List each accessory
-            repair.accessories.forEach((accessory)=>{
-              if (accessory.name && accessory.cost > 0) {
-                repairHtml += `
-                <tr>
-                  <td style="padding:8px; border:1px solid #ddd; padding-left: 20px;">- ${accessory.name}</td>
-                  <td style="padding:8px; border:1px solid #ddd;">$${Number(accessory.cost).toLocaleString()}</td>
-                </tr>`;
-              }
-            });
-          }
-        }
-        // Additional Items
-        if (Array.isArray(repair.additional_items) && repair.additional_items.length > 0) {
-          const additionalItemsTotal = repair.additional_items.reduce((sum, item)=>sum + Number(item.cost || 0), 0);
-          if (additionalItemsTotal > 0) {
-            repairHtml += `
-                <tr>
-                  <td style="padding:8px; border:1px solid #ddd;"><strong>Additional Items:</strong></td>
-                  <td style="padding:8px; border:1px solid #ddd;">$${additionalItemsTotal.toLocaleString()}</td>
-                </tr>`;
-            // List each additional item
-            repair.additional_items.forEach((item)=>{
-              if (item.name && item.cost > 0) {
-                repairHtml += `
-                <tr>
-                  <td style="padding:8px; border:1px solid #ddd; padding-left: 20px;">- ${item.name}</td>
-                  <td style="padding:8px; border:1px solid #ddd;">$${Number(item.cost).toLocaleString()}</td>
-                </tr>`;
-              }
-            });
-          }
-        }
-        if (repair.warranty) {
-          repairHtml += `
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Warranty:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${repair.warranty}</td>
-              </tr>`;
-        }
-        // Add individual repair cost
-        repairHtml += `
+                <td style="padding:8px; border:1px solid #ddd;">${needsCrane ? 'Yes' : 'No'}</td>
+              </tr>
               <tr style="background-color:#f0f0f0;">
                 <td style="padding:8px; border:1px solid #ddd;"><strong>${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Cost:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${Number(repair.total_cost || 0).toLocaleString()}</td>
-              </tr>`;
-        repairHtml += `
+                <td style="padding:8px; border:1px solid #ddd;">$${Number(totalCost).toLocaleString()}</td>
+              </tr>
             </table>
           </div>`;
-        // Add to text version
+          
         repairText += `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Option ${index + 1}:\n`;
         repairText += `- Selected Option: ${phaseName}\n`;
-        repairText += `- Description: ${phaseData?.description || phaseName}\n`;
-        repairText += `- Requires Crane: ${repair.needs_crane ? 'Yes' : 'No'}\n`;
-        if (phaseData && phaseData.cost) {
-          repairText += `- Base Cost: $${Number(phaseData.cost).toLocaleString()}\n`;
-        }
-        if (repair.labor > 0) {
-          repairText += `- Labor: $${Number(repair.labor).toLocaleString()}\n`;
-        }
-        if (repair.refrigeration_recovery > 0) {
-          repairText += `- Refrigeration Recovery: $${Number(repair.refrigeration_recovery).toLocaleString()}\n`;
-        }
-        if (repair.start_up_costs > 0) {
-          repairText += `- Start-Up Costs: $${Number(repair.start_up_costs).toLocaleString()}\n`;
-        }
-        if (repair.thermostat_startup > 0) {
-          repairText += `- Thermostat Startup: $${Number(repair.thermostat_startup).toLocaleString()}\n`;
-        }
-        if (repair.removal_cost > 0) {
-          repairText += `- Removal of Old Equipment: $${Number(repair.removal_cost).toLocaleString()}\n`;
-        }
-        if (repair.permit_cost > 0) {
-          repairText += `- Permit Cost: $${Number(repair.permit_cost).toLocaleString()}\n`;
-        }
-        // Add repair cost
-        repairText += `- ${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Cost: $${Number(repair.total_cost || 0).toLocaleString()}\n\n`;
+        repairText += `- Description: ${description}\n`;
+        repairText += `- Requires Crane: ${needsCrane ? 'Yes' : 'No'}\n`;
+        repairText += `- ${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Cost: $${Number(totalCost).toLocaleString()}\n\n`;
       });
-      // Add total cost for all repairs - use the actual calculated total
+      
+      if (Object.keys(repairDataByInspection).length > 2) {
+        repairHtml += `
+          <div style="margin-top: 10px; font-style: italic; color: #666;">
+            And ${Object.keys(repairDataByInspection).length - 2} more repair option(s)...
+          </div>`;
+        repairText += `And ${Object.keys(repairDataByInspection).length - 2} more repair option(s)...\n\n`;
+      }
+      
+      // Add total cost for all repairs
       repairHtml += `
           <div style="margin-top: 20px; padding: 10px; background-color: #e6f7ef; border-radius: 5px;">
             <table style="width:100%; border-collapse: collapse;">
               <tr style="background-color:#e6f7ef; font-weight:bold;">
                 <td style="padding:8px; border:1px solid #ddd;"><strong>TOTAL COST FOR ALL ${quoteType === 'replacement' ? 'REPLACEMENTS' : 'REPAIRS'}:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${totalCost.toLocaleString()}</td>
+                <td style="padding:8px; border:1px solid #ddd;">$${Number(totalCost || 0).toLocaleString()}</td>
               </tr>
             </table>
           </div>
         </div>`;
-      repairText += `TOTAL COST FOR ALL ${quoteType === 'replacement' ? 'REPLACEMENTS' : 'REPAIRS'}: $${totalCost.toLocaleString()}\n\n`;
-    } else if (repairData) {
-      // Fallback to single repair data if allRepairData is not available
-      const selectedOption = selectedPhase === 'phase1' ? 'Economy Option' : selectedPhase === 'phase2' ? 'Standard Option' : 'Premium Option';
-      const selectedDescription = repairData[selectedPhase]?.description || selectedOption;
-      // Calculate accessories total
-      const accessoriesTotal = repairData.accessories.reduce((sum, item)=>sum + Number(item.cost), 0);
-      // Calculate additional items total
-      const additionalItemsTotal = repairData.additionalItems.reduce((sum, item)=>sum + Number(item.cost), 0);
+      repairText += `TOTAL COST FOR ALL ${quoteType === 'replacement' ? 'REPLACEMENTS' : 'REPAIRS'}: $${Number(totalCost || 0).toLocaleString()}\n\n`;
+    }
+    // Fallback to allRepairData if available
+    else if (Array.isArray(allRepairData) && allRepairData.length > 0) {
+      repairHtml = `
+        <div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
+          <h3 style="margin-top:0;">${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendations</h3>`;
+      repairText = `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendations:\n\n`;
+      
+      // Limit to first 2 repair options for email readability
+      const displayRepairs = allRepairData.slice(0, 2);
+      
+      displayRepairs.forEach((repair, index) => {
+        // Safe access with fallbacks
+        const repairPhase = repair?.selected_phase || 'phase2';
+        const phaseData = repair?.[repairPhase] || {};
+        const phaseName = repairPhase === 'phase1' ? 'Economy Option' : 
+                         repairPhase === 'phase2' ? 'Standard Option' : 'Premium Option';
+        const description = phaseData?.description || phaseName;
+        const needsCrane = repair?.needs_crane || false;
+        const repairCost = repair?.total_cost || 0;
+        
+        repairHtml += `
+          <div style="margin-bottom: ${index < displayRepairs.length - 1 ? '20px' : '0'}; ${index > 0 ? 'border-top: 1px solid #ddd; padding-top: 15px;' : ''}">
+            <h4 style="margin-top:0;">${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Option ${index + 1}</h4>
+            <table style="width:100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Selected Option:</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">${phaseName}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Description:</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">${description}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Requires Crane:</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">${needsCrane ? 'Yes' : 'No'}</td>
+              </tr>
+              <tr style="background-color:#f0f0f0;">
+                <td style="padding:8px; border:1px solid #ddd;"><strong>${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Cost:</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">$${Number(repairCost).toLocaleString()}</td>
+              </tr>
+            </table>
+          </div>`;
+          
+        repairText += `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Option ${index + 1}:\n`;
+        repairText += `- Selected Option: ${phaseName}\n`;
+        repairText += `- Description: ${description}\n`;
+        repairText += `- Requires Crane: ${needsCrane ? 'Yes' : 'No'}\n`;
+        repairText += `- ${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Cost: $${Number(repairCost).toLocaleString()}\n\n`;
+      });
+      
+      if (allRepairData.length > 2) {
+        repairHtml += `
+          <div style="margin-top: 10px; font-style: italic; color: #666;">
+            And ${allRepairData.length - 2} more repair option(s)...
+          </div>`;
+        repairText += `And ${allRepairData.length - 2} more repair option(s)...\n\n`;
+      }
+      
+      // Add total cost for all repairs
+      repairHtml += `
+          <div style="margin-top: 20px; padding: 10px; background-color: #e6f7ef; border-radius: 5px;">
+            <table style="width:100%; border-collapse: collapse;">
+              <tr style="background-color:#e6f7ef; font-weight:bold;">
+                <td style="padding:8px; border:1px solid #ddd;"><strong>TOTAL COST FOR ALL ${quoteType === 'replacement' ? 'REPLACEMENTS' : 'REPAIRS'}:</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">$${Number(totalCost || 0).toLocaleString()}</td>
+              </tr>
+            </table>
+          </div>
+        </div>`;
+      repairText += `TOTAL COST FOR ALL ${quoteType === 'replacement' ? 'REPLACEMENTS' : 'REPAIRS'}: $${Number(totalCost || 0).toLocaleString()}\n\n`;
+    }
+    // Fallback to single repairData if available
+    else if (repairData) {
+      // Safe access with fallbacks
+      const repairPhase = selectedPhase || repairData?.selected_phase || 'phase2';
+      const phaseData = repairData?.[repairPhase] || {};
+      const phaseName = repairPhase === 'phase1' ? 'Economy Option' : 
+                       repairPhase === 'phase2' ? 'Standard Option' : 'Premium Option';
+      const description = phaseData?.description || phaseName;
+      const needsCrane = repairData?.needsCrane || false;
+      
       repairHtml = `
         <div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
           <h3 style="margin-top:0;">${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendation</h3>
           <table style="width:100%; border-collapse: collapse;">
             <tr>
               <td style="padding:8px; border:1px solid #ddd;"><strong>Selected Option:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">${selectedOption}</td>
+              <td style="padding:8px; border:1px solid #ddd;">${phaseName}</td>
             </tr>
             <tr>
               <td style="padding:8px; border:1px solid #ddd;"><strong>Description:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">${selectedDescription}</td>
+              <td style="padding:8px; border:1px solid #ddd;">${description}</td>
             </tr>
             <tr>
               <td style="padding:8px; border:1px solid #ddd;"><strong>Requires Crane:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">${repairData.needsCrane ? 'Yes' : 'No'}</td>
+              <td style="padding:8px; border:1px solid #ddd;">${needsCrane ? 'Yes' : 'No'}</td>
             </tr>
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd;"><strong>Base Cost:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">$${repairData[selectedPhase].cost.toLocaleString()}</td>
-            </tr>`;
-      if (repairData.labor > 0) {
-        repairHtml += `
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd;"><strong>Labor:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">$${repairData.labor.toLocaleString()}</td>
-            </tr>`;
-      }
-      if (repairData.refrigerationRecovery > 0) {
-        repairHtml += `
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd;"><strong>Refrigeration Recovery:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">$${repairData.refrigerationRecovery.toLocaleString()}</td>
-            </tr>`;
-      }
-      if (repairData.startUpCosts > 0) {
-        repairHtml += `
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd;"><strong>Start-Up Costs:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">$${repairData.startUpCosts.toLocaleString()}</td>
-            </tr>`;
-      }
-      if (repairData.thermostatStartup > 0) {
-        repairHtml += `
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd;"><strong>Thermostat Startup:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">$${repairData.thermostatStartup.toLocaleString()}</td>
-            </tr>`;
-      }
-      if (repairData.removalCost > 0) {
-        repairHtml += `
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd;"><strong>Removal of Old Equipment:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">$${repairData.removalCost.toLocaleString()}</td>
-            </tr>`;
-      }
-      if (repairData.permitCost > 0) {
-        repairHtml += `
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd;"><strong>Permit Cost:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">$${repairData.permitCost.toLocaleString()}</td>
-            </tr>`;
-      }
-      if (accessoriesTotal > 0) {
-        repairHtml += `
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd;"><strong>Accessories:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">$${accessoriesTotal.toLocaleString()}</td>
-            </tr>`;
-        // List each accessory
-        repairData.accessories.forEach((accessory)=>{
-          if (accessory.name && accessory.cost > 0) {
-            repairHtml += `
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd; padding-left: 20px;">- ${accessory.name}</td>
-              <td style="padding:8px; border:1px solid #ddd;">$${Number(accessory.cost).toLocaleString()}</td>
-            </tr>`;
-          }
-        });
-      }
-      if (additionalItemsTotal > 0) {
-        repairHtml += `
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd;"><strong>Additional Items:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">$${additionalItemsTotal.toLocaleString()}</td>
-            </tr>`;
-        // List each additional item
-        repairData.additionalItems.forEach((item)=>{
-          if (item.name && item.cost > 0) {
-            repairHtml += `
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd; padding-left: 20px;">- ${item.name}</td>
-              <td style="padding:8px; border:1px solid #ddd;">$${Number(item.cost).toLocaleString()}</td>
-            </tr>`;
-          }
-        });
-      }
-      if (repairData.warranty) {
-        repairHtml += `
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd;"><strong>Warranty:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">${repairData.warranty}</td>
-            </tr>`;
-      }
-      // Add total cost - use the actual calculated total
-      repairHtml += `
             <tr style="background-color:#f0f0f0; font-weight:bold;">
               <td style="padding:8px; border:1px solid #ddd;"><strong>TOTAL COST:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">$${totalCost.toLocaleString()}</td>
+              <td style="padding:8px; border:1px solid #ddd;">$${Number(totalCost || 0).toLocaleString()}</td>
             </tr>
           </table>
         </div>`;
+        
       repairText = `
 ${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendation:
-- Selected Option: ${selectedOption}
-- Description: ${selectedDescription}
-- Requires Crane: ${repairData.needsCrane ? 'Yes' : 'No'}
-- Base Cost: $${repairData[selectedPhase].cost.toLocaleString()}
+- Selected Option: ${phaseName}
+- Description: ${description}
+- Requires Crane: ${needsCrane ? 'Yes' : 'No'}
+- TOTAL COST: $${Number(totalCost || 0).toLocaleString()}
 `;
-      if (repairData.labor > 0) {
-        repairText += `- Labor: $${repairData.labor.toLocaleString()}\n`;
-      }
-      if (repairData.refrigerationRecovery > 0) {
-        repairText += `- Refrigeration Recovery: $${repairData.refrigerationRecovery.toLocaleString()}\n`;
-      }
-      if (repairData.startUpCosts > 0) {
-        repairText += `- Start-Up Costs: $${repairData.startUpCosts.toLocaleString()}\n`;
-      }
-      if (repairData.thermostatStartup > 0) {
-        repairText += `- Thermostat Startup: $${repairData.thermostatStartup.toLocaleString()}\n`;
-      }
-      if (repairData.removalCost > 0) {
-        repairText += `- Removal of Old Equipment: $${repairData.removalCost.toLocaleString()}\n`;
-      }
-      if (repairData.permitCost > 0) {
-        repairText += `- Permit Cost: $${repairData.permitCost.toLocaleString()}\n`;
-      }
-      if (accessoriesTotal > 0) {
-        repairText += `- Accessories: $${accessoriesTotal.toLocaleString()}\n`;
-        repairData.accessories.forEach((accessory)=>{
-          if (accessory.name && accessory.cost > 0) {
-            repairText += `  * ${accessory.name}: $${Number(accessory.cost).toLocaleString()}\n`;
-          }
-        });
-      }
-      if (additionalItemsTotal > 0) {
-        repairText += `- Additional Items: $${additionalItemsTotal.toLocaleString()}\n`;
-        repairData.additionalItems.forEach((item)=>{
-          if (item.name && item.cost > 0) {
-            repairText += `  * ${item.name}: $${Number(item.cost).toLocaleString()}\n`;
-          }
-        });
-      }
-      if (repairData.warranty) {
-        repairText += `- Warranty: ${repairData.warranty}\n`;
-      }
-      repairText += `\nTOTAL COST: $${totalCost.toLocaleString()}\n`;
     }
+
     // Location and unit information
     let locationHtml = "";
     let locationText = "";
+    
     if (location) {
+      // Safe access to location properties with fallbacks
+      const locationName = location?.name || '';
+      const address = location?.address || '';
+      const city = location?.city || '';
+      const state = location?.state || '';
+      const zip = location?.zip || '';
+      const unitNumber = unit?.unit_number || '';
+      
       locationHtml = `
         <div style="margin-bottom:15px;">
           <h3>Service Location</h3>
-          <p>${location.name}</p>
-          <p>${location.address}</p>
-          <p>${location.city}, ${location.state} ${location.zip}</p>
-          ${unit ? `<p>Unit: ${unit.unit_number}</p>` : ''}
+          <p>${locationName}</p>
+          <p>${address}</p>
+          <p>${city}, ${state} ${zip}</p>
+          ${unitNumber ? `<p>Unit: ${unitNumber}</p>` : ''}
         </div>`;
+        
       locationText = `
 Service Location:
-${location.name}
-${location.address}
-${location.city}, ${location.state} ${location.zip}
-${unit ? `Unit: ${unit.unit_number}` : ''}
+${locationName}
+${address}
+${city}, ${state} ${zip}
+${unitNumber ? `Unit: ${unitNumber}` : ''}
 `;
     }
+
     // Use custom email template if provided, otherwise use defaults
     const subject = emailTemplate?.subject || `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Quote #${quoteNumber} from Airlast HVAC`;
     const greeting = emailTemplate?.greeting || `Dear ${customerName || "Customer"},`;
@@ -467,22 +375,60 @@ ${unit ? `Unit: ${unit.unit_number}` : ''}
     const denialNote = emailTemplate?.denialNote || "If you deny, you will be charged $180.00 for the inspection service.";
     const closingText = emailTemplate?.closingText || "If you have any questions, please don't hesitate to contact us.";
     const signature = emailTemplate?.signature || "Best regards,\nAirlast HVAC Team";
+
     // Prepare email with attachment if pdfUrl is provided
     let attachments = [];
+    let viewPdfButtonHtml = "";
+    
     if (pdfUrl) {
-      // Fetch the PDF content
-      const pdfResponse = await fetch(pdfUrl);
-      if (pdfResponse.ok) {
-        const pdfBuffer = await pdfResponse.arrayBuffer();
-        const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
-        attachments.push({
-          content: pdfBase64,
-          filename: `Quote-${quoteNumber || jobNumber}.pdf`,
-          type: 'application/pdf',
-          disposition: 'attachment'
-        });
+      try {
+        // Fetch the PDF content
+        const pdfResponse = await fetch(pdfUrl);
+        if (pdfResponse.ok) {
+          const pdfBuffer = await pdfResponse.arrayBuffer();
+          
+          // Check if the PDF is not too large (10MB limit for email attachments)
+          if (pdfBuffer.byteLength <= 10 * 1024 * 1024) {
+            const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+            attachments.push({
+              content: pdfBase64,
+              filename: `Quote-${quoteNumber || jobNumber}.pdf`,
+              type: 'application/pdf',
+              disposition: 'attachment'
+            });
+            console.log(`PDF attached (${Math.round(pdfBuffer.byteLength / 1024)}KB)`);
+          } else {
+            console.log(`PDF too large for attachment (${Math.round(pdfBuffer.byteLength / 1024)}KB)`);
+            // Add a button to view the PDF instead
+            viewPdfButtonHtml = `
+              <div style="text-align:center; margin:20px 0;">
+                <a href="${pdfUrl}" style="background-color:#0672be; color:white; padding:12px 24px; text-decoration:none; border-radius:4px; font-weight:bold;">
+                  View Quote PDF
+                </a>
+              </div>`;
+          }
+        } else {
+          console.warn(`Failed to fetch PDF from ${pdfUrl}: ${pdfResponse.status} ${pdfResponse.statusText}`);
+          // Add a button to view the PDF instead
+          viewPdfButtonHtml = `
+            <div style="text-align:center; margin:20px 0;">
+              <a href="${pdfUrl}" style="background-color:#0672be; color:white; padding:12px 24px; text-decoration:none; border-radius:4px; font-weight:bold;">
+                View Quote PDF
+              </a>
+            </div>`;
+        }
+      } catch (pdfError) {
+        console.warn(`Error processing PDF attachment: ${pdfError.message}`);
+        // Add a button to view the PDF instead
+        viewPdfButtonHtml = `
+          <div style="text-align:center; margin:20px 0;">
+            <a href="${pdfUrl}" style="background-color:#0672be; color:white; padding:12px 24px; text-decoration:none; border-radius:4px; font-weight:bold;">
+              View Quote PDF
+            </a>
+          </div>`;
       }
     }
+
     const msg = {
       to: customerEmail,
       from: "support@airlast-management.com",
@@ -529,6 +475,7 @@ ${signature}`,
             ${locationHtml}
             ${inspectionHtml}
             ${repairHtml}
+            ${viewPdfButtonHtml}
 
             <p>${approvalText}</p>
             
@@ -556,9 +503,11 @@ ${signature}`,
         </div>`,
       attachments: attachments
     };
+
     console.log("Sending email to:", customerEmail);
     await sgMail.send(msg);
     console.log("Email sent successfully");
+
     return new Response(JSON.stringify({
       success: true,
       message: `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} quote email sent successfully`

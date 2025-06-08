@@ -22,8 +22,12 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
     return location.pathname === path;
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
     sessionStorage.removeItem('isAuthenticated');
+    sessionStorage.removeItem('username');
     navigate('/login');
   };
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Package, PenTool, ShoppingCart, Clipboard, Home, Send } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, Wrench, ShoppingCart, Clipboard, Home, Send } from 'lucide-react';
 import { JobItem } from '../../types/job';
 import AddJobPricingModal from './AddJobPricingModal';
 import EditJobItemModal from './EditJobItemModal';
@@ -667,7 +667,7 @@ const JobServiceSection = ({
             {groupedItems['labor'] && groupedItems['labor'].length > 0 && (
               <div>
                 <h3 className="text-md font-medium mb-3 flex items-center">
-                  <PenTool size={16} className="mr-2 text-green-500" />
+                  <Wrench size={16} className="mr-2 text-green-500" />
                   Labor
                 </h3>
                 <div className="overflow-x-auto">
@@ -777,6 +777,7 @@ const JobServiceSection = ({
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex justify-end gap-2">
+                              
                               <button
                                 onClick={() => handleEditItem(item)}
                                 className="text-primary-600 hover:text-primary-800"

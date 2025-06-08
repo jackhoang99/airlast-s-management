@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit, Trash2, Package, PenTool, ShoppingCart, Clipboard, Home } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, Wrench, ShoppingCart, Clipboard, Home } from 'lucide-react';
 import { JobItem } from '../../types/job';
 import AddJobPricingModal from './AddJobPricingModal';
 import EditJobItemModal from './EditJobItemModal';
@@ -580,7 +580,7 @@ const JobItemsAndPricing = ({ jobId, jobItems, onItemsUpdated, onQuoteStatusChan
           {groupedItems['labor'] && groupedItems['labor'].length > 0 && (
             <div>
               <h3 className="text-md font-medium mb-3 flex items-center">
-                <PenTool size={16} className="mr-2 text-green-500" />
+                <Wrench size={16} className="mr-2 text-green-500" />
                 Labor
               </h3>
               <div className="overflow-x-auto">

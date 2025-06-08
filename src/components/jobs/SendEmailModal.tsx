@@ -1,4 +1,3 @@
-// src/components/jobs/SendEmailModal.tsx
 import { useState } from 'react';
 import { Send, Mail } from 'lucide-react';
 import { useSupabase } from '../../lib/supabase-context';
@@ -78,6 +77,95 @@ const SendEmailModal = ({
 
   const actualTotalCost = calculateActualTotalCost();
 
+  // Helper function to sanitize repair data
+  const sanitizeRepairData = (data: any) => {
+    if (!data) return null;
+    
+    return {
+      phase1: data.phase1 ? {
+        description: data.phase1.description || '',
+        cost: Number(data.phase1.cost) || 0
+      } : null,
+      phase2: data.phase2 ? {
+        description: data.phase2.description || '',
+        cost: Number(data.phase2.cost) || 0
+      } : null,
+      phase3: data.phase3 ? {
+        description: data.phase3.description || '',
+        cost: Number(data.phase3.cost) || 0
+      } : null,
+      labor: Number(data.labor) || 0,
+      refrigeration_recovery: Number(data.refrigeration_recovery) || 0,
+      start_up_costs: Number(data.start_up_costs) || 0,
+      accessories: Array.isArray(data.accessories) ? data.accessories.map((item: any) => ({
+        name: item.name || '',
+        cost: Number(item.cost) || 0
+      })) : [],
+      thermostat_startup: Number(data.thermostat_startup) || 0,
+      removal_cost: Number(data.removal_cost) || 0,
+      warranty: data.warranty || '',
+      additional_items: Array.isArray(data.additional_items) ? data.additional_items.map((item: any) => ({
+        name: item.name || '',
+        cost: Number(item.cost) || 0
+      })) : [],
+      permit_cost: Number(data.permit_cost) || 0,
+      needs_crane: Boolean(data.needsCrane),
+      selected_phase: data.selectedPhase || 'phase2',
+      total_cost: Number(data.totalCost) || 0
+    };
+  };
+
+  // Helper function to sanitize inspection data
+  const sanitizeInspectionData = (data: any[]) => {
+    if (!Array.isArray(data)) return [];
+    
+    return data.map(inspection => ({
+      id: inspection.id,
+      model_number: inspection.model_number || '',
+      serial_number: inspection.serial_number || '',
+      age: Number(inspection.age) || 0,
+      tonnage: inspection.tonnage || '',
+      unit_type: inspection.unit_type || '',
+      system_type: inspection.system_type || '',
+      completed: Boolean(inspection.completed)
+    }));
+  };
+
+  // Helper function to sanitize location data
+  const sanitizeLocationData = (data: any) => {
+    if (!data) return null;
+    
+    return {
+      name: data.name || '',
+      address: data.address || '',
+      city: data.city || '',
+      state: data.state || '',
+      zip: data.zip || ''
+    };
+  };
+
+  // Helper function to sanitize unit data
+  const sanitizeUnitData = (data: any) => {
+    if (!data) return null;
+    
+    return {
+      unit_number: data.unit_number || ''
+    };
+  };
+
+  // Helper function to sanitize repair data by inspection
+  const sanitizeRepairDataByInspection = (data: { [key: string]: any }) => {
+    if (!data || typeof data !== 'object') return {};
+    
+    const result: { [key: string]: any } = {};
+    
+    for (const [key, value] of Object.entries(data)) {
+      result[key] = sanitizeRepairData(value);
+    }
+    
+    return result;
+  };
+
   const handleSendQuote = async () => {
     if (!supabase || !jobId || !customerEmail) {
       setError('Customer email is required to send a quote');
@@ -98,7 +186,7 @@ const SendEmailModal = ({
           quote_token: token,
           quote_sent: true,
           quote_sent_at: new Date().toISOString(),
-          contact_email: customerEmail // Update with potentially edited email
+          contact_email: customerEmail
         })
         .eq('id', jobId)
         .select()
@@ -107,7 +195,6 @@ const SendEmailModal = ({
       if (updateError) throw updateError;
 
       // First, generate the PDF
-      // 1. Get the PDF template for this quote type
       const { data: templateData, error: templateError } = await supabase
         .from('quote_templates')
         .select('*')
@@ -122,10 +209,35 @@ const SendEmailModal = ({
         throw new Error(`No default PDF template found for ${quoteType} quotes. Please upload a template and set it as default.`);
       }
       
-      // 2. Call the edge function to generate the PDF
+      // Generate PDF
       const generatePdfUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-quote-pdf`;
       
-      const generateResponse = await fetch(generatePdfUrl, {
+      // Prepare minimal job data to avoid circular references
+      const minimalJobData = {
+        id: updatedJob.id,
+        number: updatedJob.number,
+        name: updatedJob.name,
+        contact_email: updatedJob.contact_email,
+        locations: location ? {
+          name: location.name,
+          address: location.address,
+          city: location.city,
+          state: location.state,
+          zip: location.zip,
+          companies: {
+            name: location.companies?.name || ''
+          }
+        } : null,
+        units: unit ? {
+          unit_number: unit.unit_number
+        } : null
+      };
+      
+      // Sanitize data for the PDF generation
+      const sanitizedInspectionData = sanitizeInspectionData(inspectionData);
+      const sanitizedRepairData = sanitizeRepairData(repairData);
+      
+      const response = await fetch(generatePdfUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -136,19 +248,19 @@ const SendEmailModal = ({
           quoteType,
           quoteNumber,
           templateId: templateData.id,
-          jobData: updatedJob,
-          inspectionData,
-          repairData,
+          jobData: minimalJobData,
+          inspectionData: sanitizedInspectionData,
+          repairData: sanitizedRepairData,
           jobItems: []
         })
       });
       
-      if (!generateResponse.ok) {
-        const errorData = await generateResponse.json();
+      if (!response.ok) {
+        const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to generate PDF');
       }
       
-      const generateResult = await generateResponse.json();
+      const generateResult = await response.json();
       
       if (!generateResult.pdfUrl) {
         throw new Error('No PDF URL returned from the server');
@@ -156,7 +268,7 @@ const SendEmailModal = ({
       
       setPdfUrl(generateResult.pdfUrl);
 
-      // Create a record in the job_quotes table
+      // Create quote record
       const { error: quoteError } = await supabase
         .from('job_quotes')
         .insert({
@@ -172,10 +284,9 @@ const SendEmailModal = ({
 
       if (quoteError) {
         console.error("Error creating quote record:", quoteError);
-        // Continue anyway as this is not critical
       }
 
-      // Call the appropriate Supabase Edge Function based on quote type
+      // Prepare and send email based on quote type
       let apiUrl;
       let requestBody;
 
@@ -189,54 +300,25 @@ const SendEmailModal = ({
           jobNumber,
           jobName,
           customerName,
-          inspectionData: inspectionData || [],
-          location,
-          unit,
+          inspectionData: sanitizedInspectionData,
+          location: sanitizeLocationData(location),
+          unit: sanitizeUnitData(unit),
           quoteNumber,
           emailTemplate,
           pdfUrl: generateResult.pdfUrl
         };
-      } else if (quoteType === 'repair') {
+      } else if (quoteType === 'repair' || quoteType === 'replacement') {
         apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-quote`;
         
-        // Get all repair data for all inspections
-        const { data: allRepairData, error: repairError } = await supabase
+        // Get all repair data
+        const { data: fetchedRepairData, error: repairError } = await supabase
           .from('job_repairs')
           .select('*')
           .eq('job_id', jobId);
           
         if (repairError) throw repairError;
         
-        // Format repair data for the API
-        const formattedRepairData = repairData ? {
-          ...repairData,
-          phase1: {
-            ...repairData.phase1,
-            cost: Number(repairData.phase1.cost) || 0,
-          },
-          phase2: {
-            ...repairData.phase2,
-            cost: Number(repairData.phase2.cost) || 0,
-          },
-          phase3: {
-            ...repairData.phase3,
-            cost: Number(repairData.phase3.cost) || 0,
-          },
-          labor: Number(repairData.labor) || 0,
-          refrigerationRecovery: Number(repairData.refrigeration_recovery) || 0,
-          startUpCosts: Number(repairData.start_up_costs) || 0,
-          accessories: repairData.accessories.map((item: any) => ({
-            name: item.name,
-            cost: Number(item.cost) || 0,
-          })),
-          thermostatStartup: Number(repairData.thermostat_startup) || 0,
-          removalCost: Number(repairData.removal_cost) || 0,
-          additionalItems: repairData.additional_items.map((item: any) => ({
-            name: item.name,
-            cost: Number(item.cost) || 0,
-          })),
-          permitCost: Number(repairData.permit_cost) || 0,
-        } : null;
+        const sanitizedAllRepairData = fetchedRepairData ? fetchedRepairData.map(sanitizeRepairData) : [];
         
         requestBody = {
           jobId,
@@ -245,81 +327,20 @@ const SendEmailModal = ({
           jobNumber,
           jobName,
           customerName,
-          inspectionData: inspectionData || [],
-          repairData: formattedRepairData,
-          allRepairData: allRepairData || [],
+          inspectionData: sanitizedInspectionData,
+          repairData: sanitizedRepairData,
+          allRepairData: sanitizedAllRepairData,
           selectedPhase,
           totalCost: actualTotalCost,
-          location,
-          unit,
+          location: sanitizeLocationData(location),
+          unit: sanitizeUnitData(unit),
           quoteNumber,
+          quoteType,
           emailTemplate,
-          pdfUrl: generateResult.pdfUrl
-        };
-      } else if (quoteType === 'replacement') {
-        // For replacement, use the same endpoint as repair but specify it's a replacement
-        apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-quote`;
-        
-        // Get all repair data for all inspections
-        const { data: allRepairData, error: repairError } = await supabase
-          .from('job_repairs')
-          .select('*')
-          .eq('job_id', jobId);
-          
-        if (repairError) throw repairError;
-        
-        // Format repair data for the API
-        const formattedRepairData = repairData ? {
-          ...repairData,
-          phase1: {
-            ...repairData.phase1,
-            cost: Number(repairData.phase1.cost) || 0,
-          },
-          phase2: {
-            ...repairData.phase2,
-            cost: Number(repairData.phase2.cost) || 0,
-          },
-          phase3: {
-            ...repairData.phase3,
-            cost: Number(repairData.phase3.cost) || 0,
-          },
-          labor: Number(repairData.labor) || 0,
-          refrigerationRecovery: Number(repairData.refrigeration_recovery) || 0,
-          startUpCosts: Number(repairData.start_up_costs) || 0,
-          accessories: repairData.accessories.map((item: any) => ({
-            name: item.name,
-            cost: Number(item.cost) || 0,
-          })),
-          thermostatStartup: Number(repairData.thermostat_startup) || 0,
-          removalCost: Number(repairData.removal_cost) || 0,
-          additionalItems: repairData.additional_items.map((item: any) => ({
-            name: item.name,
-            cost: Number(item.cost) || 0,
-          })),
-          permitCost: Number(repairData.permit_cost) || 0,
-        } : null;
-        
-        requestBody = {
-          jobId,
-          customerEmail,
-          quoteToken: token,
-          jobNumber,
-          jobName,
-          customerName,
-          inspectionData: inspectionData || [],
-          repairData: formattedRepairData,
-          allRepairData: allRepairData || [],
-          selectedPhase,
-          totalCost: actualTotalCost,
-          location,
-          unit,
-          quoteNumber,
-          quoteType: 'replacement', // Explicitly set quote type to replacement
-          emailTemplate,
-          pdfUrl: generateResult.pdfUrl
+          pdfUrl: generateResult.pdfUrl,
+          repairDataByInspection: sanitizeRepairDataByInspection(repairDataByInspection)
         };
       } else {
-        // Regular quote
         apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-quote-email`;
         
         requestBody = {
@@ -329,7 +350,7 @@ const SendEmailModal = ({
           jobNumber,
           jobName,
           customerName,
-          totalAmount: actualTotalCost.toFixed(2) || "0.00",
+          totalAmount: actualTotalCost.toFixed(2),
           jobItems: [],
           quoteNumber,
           emailTemplate,
@@ -337,7 +358,7 @@ const SendEmailModal = ({
         };
       }
       
-      const response = await fetch(apiUrl, {
+      const emailResponse = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -346,23 +367,19 @@ const SendEmailModal = ({
         body: JSON.stringify(requestBody)
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
+      if (!emailResponse.ok) {
+        const errorData = await emailResponse.json();
         throw new Error(errorData.error || 'Failed to send quote email');
       }
       
       setSuccess(true);
       
-      // Notify parent component
       if (onEmailSent) {
         onEmailSent();
       }
       
-      // Close modal after a delay
       setTimeout(() => {
         onClose();
-        // Refresh the page to show updated status
-        window.location.reload();
       }, 1500);
       
     } catch (err) {

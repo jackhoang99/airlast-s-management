@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Filter, Plus, Calendar, List, ChevronLeft, ChevronRight, X, Star, Phone, Mail, Clock, AlertTriangle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { ArrowLeft, Plus, Filter, Calendar, List, ChevronLeft, ChevronRight, X, Star, Phone, Mail, Clock, AlertTriangle, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
 import AppointmentModal from '../components/jobs/AppointmentModal';
@@ -43,6 +43,7 @@ const CreateJob = () => {
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [isLoadingUnitDetails, setIsLoadingUnitDetails] = useState(false);
   const [isContractJob, setIsContractJob] = useState(true);
+  const [availableTechnicians, setAvailableTechnicians] = useState<User[]>([]);
   
   const [formData, setFormData] = useState({
     // Service Location
@@ -143,9 +144,19 @@ const CreateJob = () => {
 
         if (presetsError) throw presetsError;
         setPresets(presetsData || []);
+        
+        // Fetch technicians
+        const { data: techData, error: techError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('role', 'technician')
+          .eq('status', 'active')
+          .order('first_name');
+          
+        if (techError) throw techError;
+        setAvailableTechnicians(techData || []);
       } catch (err) {
         console.error('Error fetching data:', err);
-        setError('Failed to fetch data');
       }
     };
 
@@ -1007,10 +1018,10 @@ const CreateJob = () => {
                     </div>
                     <div>
                       <div className="font-medium">{tech.first_name} {tech.last_name}</div>
-                      <div className="text-sm text-gray-500 space-y-1">
+                      <div className="text-sm text-gray-500 space-y-1 mt-1">
                         <div className="flex items-center gap-2">
                           <Phone size={14} />
-                          {tech.phone}
+                          {tech.phone || 'No phone'}
                         </div>
                         <div className="flex items-center gap-2">
                           <Mail size={14} />
