@@ -51,10 +51,60 @@ const AddTechnician = () => {
     setError(null);
 
     try {
-      // Insert technician
+      // First, create the user in Supabase Authentication
+      const tempPassword = Math.random().toString(36).slice(-12) + 'A1!'; // Generate a temporary password
+      
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: formData.email,
+        password: tempPassword,
+        email_confirm: true, // Auto-confirm the email
+        user_metadata: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          role: 'technician'
+        }
+      });
+
+      if (authError) {
+        console.error('Error creating auth user:', authError);
+        throw new Error(`Failed to create user account: ${authError.message}`);
+      }
+
+      if (!authData.user) {
+        throw new Error('No user data returned from authentication');
+      }
+
+      // Create username from email (part before @)
+      const username = formData.email.split('@')[0];
+
+      // Insert user into public.users table using the auth user's ID
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id, // Use the auth user's ID
+          username: username,
+          email: formData.email,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone: formData.phone || null,
+          role: 'technician',
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (userError) {
+        console.error('Error creating user record:', userError);
+        // If user creation fails, we should clean up the auth user
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        throw new Error(`Failed to create user record: ${userError.message}`);
+      }
+
+      // Insert technician record
       const { data: techData, error: techError } = await supabase
         .from('technicians')
         .insert({
+          user_id: authData.user.id, // Use the auth user's ID
           employee_id: formData.employeeId || null,
           first_name: formData.firstName,
           last_name: formData.lastName,
@@ -71,7 +121,13 @@ const AddTechnician = () => {
         .select()
         .single();
 
-      if (techError) throw techError;
+      if (techError) {
+        console.error('Error creating technician record:', techError);
+        // Clean up auth user and user record if technician creation fails
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        throw new Error(`Failed to create technician record: ${techError.message}`);
+      }
+
       if (!techData) throw new Error('No technician data returned');
 
       // Insert skills
@@ -154,7 +210,7 @@ const AddTechnician = () => {
       navigate('/jobs/dispatch');
     } catch (err) {
       console.error('Error adding technician:', err);
-      setError('Failed to add technician. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to add technician. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
