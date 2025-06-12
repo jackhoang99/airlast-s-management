@@ -532,20 +532,19 @@ const JobDetails = () => {
               </div>
             )}
           </div>
-        </div>
-
-        <div className="space-y-4">
-          <JobSidebar job={job} />
           
-          {/* Time Tracking */}
+          {/* Time Tracking and Comments */}
           <div className="card">
             <JobTimeTracking jobId={job.id} />
           </div>
           
-          {/* Comments */}
           <div className="card">
             <JobComments jobId={job.id} />
           </div>
+        </div>
+
+        <div className="space-y-4">
+          <JobSidebar job={job} />
         </div>
       </div>
 
