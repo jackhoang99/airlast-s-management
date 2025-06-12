@@ -49,7 +49,9 @@ const JobTimeTracking = ({ jobId }: JobTimeTrackingProps) => {
               .select('id, first_name, last_name')
               .in('id', techIds);
               
-            if (techError) throw techError;
+            if (techError && !techError.message.includes('contains 0 rows')) {
+              throw techError;
+            }
             
             // Create a map of technician IDs to names
             const techMap: {[key: string]: {first_name: string, last_name: string}} = {};
