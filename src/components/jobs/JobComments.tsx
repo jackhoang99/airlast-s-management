@@ -59,9 +59,9 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
                 .from('users')
                 .select('first_name, last_name')
                 .eq('id', comment.user_id)
-                .maybeSingle();
+                .single();
               
-              if (userError && !userError.message.includes('contains 0 rows')) {
+              if (userError) {
                 console.error('Error fetching user for comment:', userError);
                 return {
                   ...comment,
@@ -71,7 +71,7 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
               
               return {
                 ...comment,
-                user: userData || { first_name: 'Unknown', last_name: 'User' }
+                user: userData
               };
             } catch (err) {
               console.error('Error processing comment user:', err);

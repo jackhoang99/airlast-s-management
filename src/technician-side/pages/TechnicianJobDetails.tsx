@@ -547,7 +547,7 @@ const TechnicianJobDetails = () => {
         
         <h2 className="text-lg font-semibold">{job.name}</h2>
         
-        {/* Time Tracking Controls */}
+        {/* Time Tracking Controls - Moved directly below job title */}
         <div className="flex flex-wrap gap-3 mt-4 mb-4">
           {currentClockStatus === 'clocked_out' ? (
             <button
@@ -820,9 +820,11 @@ const TechnicianJobDetails = () => {
           )}
         </div>
         
-        {/* Comments Section */}
-        <div className="mb-4">
-          <JobComments jobId={id || ''} />
+        {/* Comments Section - Moved outside of service section */}
+        <div className="mb-4 border rounded-lg overflow-hidden">
+          <div className="p-3">
+            <JobComments jobId={id || ''} />
+          </div>
         </div>
         
         {/* Quote Section - Collapsible */}
