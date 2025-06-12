@@ -84,35 +84,9 @@ const TechnicianLogin = () => {
       });
 
       if (signInError) {
-        // If sign-in fails, check if we need to create the user
-        if (signInError.message.includes("Invalid login credentials")) {
-          console.log("User doesn't exist in Auth, attempting to sign up");
-          
-          // Try to sign up the user
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email: email,
-            password: credentials.password
-          });
-          
-          if (signUpError) {
-            console.error("Sign up error:", signUpError);
-            throw new Error(signUpError.message);
-          }
-          
-          // If sign up successful, try signing in again
-          const { error: retryError } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: credentials.password
-          });
-          
-          if (retryError) {
-            console.error("Retry sign in error:", retryError);
-            throw new Error("Failed to authenticate after account creation");
-          }
-        } else {
-          console.error("Sign in error:", signInError);
-          throw new Error(signInError.message);
-        }
+        // If sign-in fails, show error
+        console.error("Sign in error:", signInError);
+        throw new Error("Invalid username or password");
       }
 
       // If we get here, login is successful

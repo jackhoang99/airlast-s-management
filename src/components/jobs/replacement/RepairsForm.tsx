@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Edit, Save, Plus, Trash2, Calculator } from 'lucide-react';
+import { Edit, Save, Plus, Trash2, Calculator, X, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { useSupabase } from '../../../lib/supabase-context';
 
 type PhaseOption = {
@@ -50,6 +50,7 @@ type RepairFormProps = {
   initialData?: RepairData;
   onSave?: (data: RepairData, inspectionId: string) => void;
   selectedInspection?: InspectionData;
+  onClose?: () => void;
 };
 
 const RepairsForm = ({
@@ -57,7 +58,8 @@ const RepairsForm = ({
   inspectionId,
   initialData,
   onSave,
-  selectedInspection
+  selectedInspection,
+  onClose
 }: RepairFormProps) => {
   const { supabase } = useSupabase();
   const [isLoading, setIsLoading] = useState(false);
@@ -88,6 +90,8 @@ const RepairsForm = ({
   );
   const [jobDetails, setJobDetails] = useState<any>(null);
   const [isFormVisible, setIsFormVisible] = useState(true);
+  const [activeTab, setActiveTab] = useState<'options' | 'accessories' | 'additional'>('options');
+  const [expandedSection, setExpandedSection] = useState<'options' | 'accessories' | 'additional' | null>('options');
 
   // Fetch existing repair + inspection + job details
   useEffect(() => {
@@ -266,6 +270,10 @@ const RepairsForm = ({
     }));
   };
 
+  const toggleSection = (section: 'options' | 'accessories' | 'additional') => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase || !jobId || !inspectionId) return;
@@ -369,6 +377,10 @@ const RepairsForm = ({
       if (onSave) {
         onSave(formattedData, inspectionId);
       }
+      
+      if (onClose) {
+        onClose();
+      }
     } catch (err) {
       console.error('Error saving repair data:', err);
       setError('Failed to save repair data');
@@ -377,553 +389,563 @@ const RepairsForm = ({
     }
   };
 
-  const toggleFormVisibility = () => {
-    setIsFormVisible(true); // Always set to true when toggling - this fixes the double-click issue
-  };
-
   const inspectionDateLabel = inspectionData
     ? new Date(inspectionData.created_at).toLocaleDateString('en-US')
     : '';
 
   return (
-    <div>
-      {inspectionData && (
-        <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="flex justify-between items-center mb-2">
-            <h4 className="font-medium text-blue-800">
-              Repair Details for Inspection from {inspectionDateLabel}
-            </h4>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <p className="text-sm font-medium text-blue-700">Model Number</p>
-              <p className="text-blue-900">{inspectionData.model_number || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-blue-700">Serial Number</p>
-              <p className="text-blue-900">{inspectionData.serial_number || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-blue-700">Age (Years)</p>
-              <p className="text-blue-900">{inspectionData.age || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-blue-700">Tonnage</p>
-              <p className="text-blue-900">{inspectionData.tonnage || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-blue-700">Unit Type</p>
-              <p className="text-blue-900">{inspectionData.unit_type || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-blue-700">System Type</p>
-              <p className="text-blue-900">{inspectionData.system_type || 'N/A'}</p>
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-auto">
+      {/* Modal Header */}
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center">
+        <h3 className="font-medium text-lg">
+          {initialData ? 'Edit Repair Details' : 'Add Repair Details'}
+        </h3>
+        <button 
+          onClick={onClose}
+          className="text-gray-400 hover:text-gray-600"
+        >
+          <X size={24} />
+        </button>
+      </div>
 
-      {error && (
-        <div className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="bg-success-50 text-success-700 p-3 rounded-md mb-4">
-          {success}
-        </div>
-      )}
-
-      {!isFormVisible && (
-        <div className="mb-6 p-4 bg-success-50 rounded-lg border border-success-200">
-          <div className="flex justify-between items-center">
-            <div>
-              <h4 className="font-medium text-success-800 mb-1">Repair Details Saved</h4>
-              <p className="text-success-700">
-                Repair details have been saved with a total cost of ${totalCost.toLocaleString()}
-              </p>
+      <div className="flex-1 overflow-auto p-4">
+        {inspectionData && (
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="font-medium text-blue-800">
+                Repair Details for Inspection from {inspectionDateLabel}
+              </h4>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={toggleFormVisibility}
-                className="btn btn-secondary"
-              >
-                <Edit size={16} className="mr-2" />
-                Edit Repair Details
-              </button>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs font-medium text-blue-700">Model Number</p>
+                <p className="text-sm text-blue-900">{inspectionData.model_number || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-blue-700">Serial Number</p>
+                <p className="text-sm text-blue-900">{inspectionData.serial_number || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-blue-700">Age (Years)</p>
+                <p className="text-sm text-blue-900">{inspectionData.age || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-blue-700">Tonnage</p>
+                <p className="text-sm text-blue-900">{inspectionData.tonnage || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-blue-700">Unit Type</p>
+                <p className="text-sm text-blue-900">{inspectionData.unit_type || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-blue-700">System Type</p>
+                <p className="text-sm text-blue-900">{inspectionData.system_type || 'N/A'}</p>
+              </div>
             </div>
           </div>
+        )}
 
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-medium text-success-700">Selected Option</p>
-              <p className="text-success-900">
-                {selectedPhase === 'phase1'
-                  ? 'Economy Option'
-                  : selectedPhase === 'phase2'
-                  ? 'Standard Option'
-                  : 'Premium Option'}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-success-700">Total Cost</p>
-              <p className="text-success-900 font-bold">
-                ${totalCost.toLocaleString()}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-success-700">Requires Crane</p>
-              <p className="text-success-900">
-                {repairData.needsCrane ? 'Yes' : 'No'}
-              </p>
-            </div>
+        {error && (
+          <div className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
+            {error}
           </div>
-        </div>
-      )}
+        )}
 
-      {isFormVisible && (
+        {success && (
+          <div className="bg-success-50 text-success-700 p-3 rounded-md mb-4">
+            {success}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="needsCrane"
-                checked={repairData.needsCrane}
-                onChange={e =>
-                  setRepairData(prev => ({ ...prev, needsCrane: e.target.checked }))
-                }
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
-              />
-              <label htmlFor="needsCrane" className="ml-2 text-sm text-gray-700">
-                Requires Crane
-              </label>
-            </div>
+            {/* Repair Options Section - Collapsible */}
+            <div className="border rounded-lg overflow-hidden">
+              <div 
+                className="flex justify-between items-center p-3 bg-blue-50 cursor-pointer"
+                onClick={() => toggleSection('options')}
+              >
+                <h3 className="font-medium">Repair Options</h3>
+                {expandedSection === 'options' ? (
+                  <ChevronUp size={20} className="text-gray-500" />
+                ) : (
+                  <ChevronDown size={20} className="text-gray-500" />
+                )}
+              </div>
+              
+              {expandedSection === 'options' && (
+                <div className="p-3">
+                  <div className="flex items-center mb-3">
+                    <input
+                      type="checkbox"
+                      id="needsCrane"
+                      checked={repairData.needsCrane}
+                      onChange={e =>
+                        setRepairData(prev => ({ ...prev, needsCrane: e.target.checked }))
+                      }
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
+                    />
+                    <label htmlFor="needsCrane" className="ml-2 text-sm text-gray-700">
+                      Requires Crane
+                    </label>
+                  </div>
 
-            {/* Phase Selection */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Repair Option
-              </label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Economy Option Card */}
-                <div
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    selectedPhase === 'phase1'
-                      ? 'border-primary-500 bg-primary-50'
-                      : 'border-gray-200 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setSelectedPhase('phase1')}
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-medium">Economy Option</h4>
-                    <div className="h-5 w-5 rounded-full border border-primary-500 flex items-center justify-center">
-                      {selectedPhase === 'phase1' && (
-                        <div className="h-3 w-3 bg-primary-500 rounded-full" />
-                      )}
+                  {/* Phase Selection */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Repair Option
+                    </label>
+                    <div className="space-y-3">
+                      {/* Economy Option Card */}
+                      <div
+                        className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                          selectedPhase === 'phase1'
+                            ? 'border-primary-500 bg-primary-50'
+                            : 'border-gray-200 hover:bg-gray-50'
+                        }`}
+                        onClick={() => setSelectedPhase('phase1')}
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-medium text-sm">Economy Option</h4>
+                          <div className="h-5 w-5 rounded-full border border-primary-500 flex items-center justify-center">
+                            {selectedPhase === 'phase1' && (
+                              <div className="h-3 w-3 bg-primary-500 rounded-full" />
+                            )}
+                          </div>
+                        </div>
+                        <input
+                          type="text"
+                          value={repairData.phase1.description}
+                          onChange={e =>
+                            setRepairData(prev => ({
+                              ...prev,
+                              phase1: { ...prev.phase1, description: e.target.value }
+                            }))
+                          }
+                          className="input w-full mb-2 text-sm"
+                          placeholder="Description"
+                        />
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                            $
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={repairData.phase1.cost}
+                            onChange={e => {
+                              const value = e.target.value.replace(/^0+/, '');
+                              setRepairData(prev => ({
+                                ...prev,
+                                phase1: { ...prev.phase1, cost: value }
+                              }));
+                            }}
+                            className="input pl-7 w-full text-sm"
+                            placeholder="Cost"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Standard Option Card */}
+                      <div
+                        className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                          selectedPhase === 'phase2'
+                            ? 'border-primary-500 bg-primary-50'
+                            : 'border-gray-200 hover:bg-gray-50'
+                        }`}
+                        onClick={() => setSelectedPhase('phase2')}
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-medium text-sm">Standard Option</h4>
+                          <div className="h-5 w-5 rounded-full border border-primary-500 flex items-center justify-center">
+                            {selectedPhase === 'phase2' && (
+                              <div className="h-3 w-3 bg-primary-500 rounded-full" />
+                            )}
+                          </div>
+                        </div>
+                        <input
+                          type="text"
+                          value={repairData.phase2.description}
+                          onChange={e =>
+                            setRepairData(prev => ({
+                              ...prev,
+                              phase2: { ...prev.phase2, description: e.target.value }
+                            }))
+                          }
+                          className="input w-full mb-2 text-sm"
+                          placeholder="Description"
+                        />
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                            $
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={repairData.phase2.cost}
+                            onChange={e => {
+                              const value = e.target.value.replace(/^0+/, '');
+                              setRepairData(prev => ({
+                                ...prev,
+                                phase2: { ...prev.phase2, cost: value }
+                              }));
+                            }}
+                            className="input pl-7 w-full text-sm"
+                            placeholder="Cost"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Premium Option Card */}
+                      <div
+                        className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                          selectedPhase === 'phase3'
+                            ? 'border-primary-500 bg-primary-50'
+                            : 'border-gray-200 hover:bg-gray-50'
+                        }`}
+                        onClick={() => setSelectedPhase('phase3')}
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-medium text-sm">Premium Option</h4>
+                          <div className="h-5 w-5 rounded-full border border-primary-500 flex items-center justify-center">
+                            {selectedPhase === 'phase3' && (
+                              <div className="h-3 w-3 bg-primary-500 rounded-full" />
+                            )}
+                          </div>
+                        </div>
+                        <input
+                          type="text"
+                          value={repairData.phase3.description}
+                          onChange={e =>
+                            setRepairData(prev => ({
+                              ...prev,
+                              phase3: { ...prev.phase3, description: e.target.value }
+                            }))
+                          }
+                          className="input w-full mb-2 text-sm"
+                          placeholder="Description"
+                        />
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                            $
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={repairData.phase3.cost}
+                            onChange={e => {
+                              const value = e.target.value.replace(/^0+/, '');
+                              setRepairData(prev => ({
+                                ...prev,
+                                phase3: { ...prev.phase3, cost: value }
+                              }));
+                            }}
+                            className="input pl-7 w-full text-sm"
+                            placeholder="Cost"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <input
-                    type="text"
-                    value={repairData.phase1.description}
-                    onChange={e =>
-                      setRepairData(prev => ({
-                        ...prev,
-                        phase1: { ...prev.phase1, description: e.target.value }
-                      }))
-                    }
-                    className="input w-full mb-2"
-                    placeholder="Description"
-                  />
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                      $
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={repairData.phase1.cost}
-                      onChange={e => {
-                        const value = e.target.value.replace(/^0+/, '');
-                        setRepairData(prev => ({
-                          ...prev,
-                          phase1: { ...prev.phase1, cost: value }
-                        }));
-                      }}
-                      className="input pl-7 w-full"
-                      placeholder="Cost"
-                    />
-                  </div>
-                </div>
 
-                {/* Standard Option Card */}
-                <div
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    selectedPhase === 'phase2'
-                      ? 'border-primary-500 bg-primary-50'
-                      : 'border-gray-200 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setSelectedPhase('phase2')}
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-medium">Standard Option</h4>
-                    <div className="h-5 w-5 rounded-full border border-primary-500 flex items-center justify-center">
-                      {selectedPhase === 'phase2' && (
-                        <div className="h-3 w-3 bg-primary-500 rounded-full" />
-                      )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Labor
+                      </label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                          $
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={repairData.labor}
+                          onChange={e => {
+                            const value = e.target.value.replace(/^0+/, '');
+                            setRepairData(prev => ({ ...prev, labor: value }));
+                          }}
+                          className="input pl-7 w-full text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Refrigeration Recovery
+                      </label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                          $
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={repairData.refrigerationRecovery}
+                          onChange={e => {
+                            const value = e.target.value.replace(/^0+/, '');
+                            setRepairData(prev => ({ ...prev, refrigerationRecovery: value }));
+                          }}
+                          className="input pl-7 w-full text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Start Up Costs
+                      </label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                          $
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={repairData.startUpCosts}
+                          onChange={e => {
+                            const value = e.target.value.replace(/^0+/, '');
+                            setRepairData(prev => ({ ...prev, startUpCosts: value }));
+                          }}
+                          className="input pl-7 w-full text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Thermostat Start Up
+                      </label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                          $
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={repairData.thermostatStartup}
+                          onChange={e => {
+                            const value = e.target.value.replace(/^0+/, '');
+                            setRepairData(prev => ({ ...prev, thermostatStartup: value }));
+                          }}
+                          className="input pl-7 w-full text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Removal of Old Equipment
+                      </label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                          $
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={repairData.removalCost}
+                          onChange={e => {
+                            const value = e.target.value.replace(/^0+/, '');
+                            setRepairData(prev => ({ ...prev, removalCost: value }));
+                          }}
+                          className="input pl-7 w-full text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Permit Cost
+                      </label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                          $
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={repairData.permitCost}
+                          onChange={e => {
+                            const value = e.target.value.replace(/^0+/, '');
+                            setRepairData(prev => ({ ...prev, permitCost: value }));
+                          }}
+                          className="input pl-7 w-full text-sm"
+                        />
+                      </div>
                     </div>
                   </div>
-                  <input
-                    type="text"
-                    value={repairData.phase2.description}
-                    onChange={e =>
-                      setRepairData(prev => ({
-                        ...prev,
-                        phase2: { ...prev.phase2, description: e.target.value }
-                      }))
-                    }
-                    className="input w-full mb-2"
-                    placeholder="Description"
-                  />
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                      $
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={repairData.phase2.cost}
-                      onChange={e => {
-                        const value = e.target.value.replace(/^0+/, '');
-                        setRepairData(prev => ({
-                          ...prev,
-                          phase2: { ...prev.phase2, cost: value }
-                        }));
-                      }}
-                      className="input pl-7 w-full"
-                      placeholder="Cost"
+
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Warranty Information
+                    </label>
+                    <textarea
+                      value={repairData.warranty}
+                      onChange={e => setRepairData(prev => ({ ...prev, warranty: e.target.value }))}
+                      className="input w-full text-sm"
+                      rows={2}
                     />
                   </div>
                 </div>
+              )}
+            </div>
 
-                {/* Premium Option Card */}
-                <div
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    selectedPhase === 'phase3'
-                      ? 'border-primary-500 bg-primary-50'
-                      : 'border-gray-200 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setSelectedPhase('phase3')}
-                >
+            {/* Accessories Section - Collapsible */}
+            <div className="border rounded-lg overflow-hidden">
+              <div 
+                className="flex justify-between items-center p-3 bg-green-50 cursor-pointer"
+                onClick={() => toggleSection('accessories')}
+              >
+                <h3 className="font-medium">Accessories</h3>
+                {expandedSection === 'accessories' ? (
+                  <ChevronUp size={20} className="text-gray-500" />
+                ) : (
+                  <ChevronDown size={20} className="text-gray-500" />
+                )}
+              </div>
+              
+              {expandedSection === 'accessories' && (
+                <div className="p-3">
                   <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-medium">Premium Option</h4>
-                    <div className="h-5 w-5 rounded-full border border-primary-500 flex items-center justify-center">
-                      {selectedPhase === 'phase3' && (
-                        <div className="h-3 w-3 bg-primary-500 rounded-full" />
-                      )}
-                    </div>
-                  </div>
-                  <input
-                    type="text"
-                    value={repairData.phase3.description}
-                    onChange={e =>
-                      setRepairData(prev => ({
-                        ...prev,
-                        phase3: { ...prev.phase3, description: e.target.value }
-                      }))
-                    }
-                    className="input w-full mb-2"
-                    placeholder="Description"
-                  />
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                      $
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={repairData.phase3.cost}
-                      onChange={e => {
-                        const value = e.target.value.replace(/^0+/, '');
-                        setRepairData(prev => ({
-                          ...prev,
-                          phase3: { ...prev.phase3, cost: value }
-                        }));
-                      }}
-                      className="input pl-7 w-full"
-                      placeholder="Cost"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Labor
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                    $
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={repairData.labor}
-                    onChange={e => {
-                      const value = e.target.value.replace(/^0+/, '');
-                      setRepairData(prev => ({ ...prev, labor: value }));
-                    }}
-                    className="input pl-7 w-full"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Refrigeration Recovery
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                    $
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={repairData.refrigerationRecovery}
-                    onChange={e => {
-                      const value = e.target.value.replace(/^0+/, '');
-                      setRepairData(prev => ({ ...prev, refrigerationRecovery: value }));
-                    }}
-                    className="input pl-7 w-full"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Up Costs
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                    $
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={repairData.startUpCosts}
-                    onChange={e => {
-                      const value = e.target.value.replace(/^0+/, '');
-                      setRepairData(prev => ({ ...prev, startUpCosts: value }));
-                    }}
-                    className="input pl-7 w-full"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Additional Accessories */}
-            <div className="mt-4">
-              <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Additional Accessories
-                </label>
-                <button
-                  type="button"
-                  onClick={handleAddAccessory}
-                  className="text-sm text-primary-600 hover:text-primary-800"
-                >
-                  <Plus size={14} className="inline mr-1" />
-                  Add Accessory
-                </button>
-              </div>
-              {repairData.accessories.map((accessory, index) => (
-                <div key={index} className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    placeholder="Accessory name"
-                    value={accessory.name}
-                    onChange={e => {
-                      const newAccessories = [...repairData.accessories];
-                      newAccessories[index].name = e.target.value;
-                      setRepairData(prev => ({ ...prev, accessories: newAccessories }));
-                    }}
-                    className="input flex-grow"
-                  />
-                  <div className="relative w-32">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                      $
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="Cost"
-                      value={accessory.cost}
-                      onChange={e => {
-                        const value = e.target.value.replace(/^0+/, '');
-                        const newAccessories = [...repairData.accessories];
-                        newAccessories[index].cost = value;
-                        setRepairData(prev => ({ ...prev, accessories: newAccessories }));
-                      }}
-                      className="input pl-7 w-full"
-                    />
-                  </div>
-                  {index > 0 && (
+                    <label className="block text-sm font-medium text-gray-700">
+                      Additional Accessories
+                    </label>
                     <button
                       type="button"
-                      onClick={() => handleRemoveAccessory(index)}
-                      className="text-error-600 hover:text-error-800"
+                      onClick={handleAddAccessory}
+                      className="text-sm text-primary-600 hover:text-primary-800"
                     >
-                      <Trash2 size={16} />
+                      <Plus size={14} className="inline mr-1" />
+                      Add Accessory
                     </button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Thermostat Start Up
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                    $
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={repairData.thermostatStartup}
-                    onChange={e => {
-                      const value = e.target.value.replace(/^0+/, '');
-                      setRepairData(prev => ({ ...prev, thermostatStartup: value }));
-                    }}
-                    className="input pl-7 w-full"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Removal of Old Equipment
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                    $
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={repairData.removalCost}
-                    onChange={e => {
-                      const value = e.target.value.replace(/^0+/, '');
-                      setRepairData(prev => ({ ...prev, removalCost: value }));
-                    }}
-                    className="input pl-7 w-full"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Permit Cost
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                    $
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={repairData.permitCost}
-                    onChange={e => {
-                      const value = e.target.value.replace(/^0+/, '');
-                      setRepairData(prev => ({ ...prev, permitCost: value }));
-                    }}
-                    className="input pl-7 w-full"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Warranty Information
-              </label>
-              <textarea
-                value={repairData.warranty}
-                onChange={e => setRepairData(prev => ({ ...prev, warranty: e.target.value }))}
-                className="input w-full"
-                rows={3}
-              />
-            </div>
-
-            {/* Additional Items */}
-            <div className="mt-4">
-              <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Additional Items
-                </label>
-                <button
-                  type="button"
-                  onClick={handleAddAdditionalItem}
-                  className="text-sm text-primary-600 hover:text-primary-800"
-                >
-                  <Plus size={14} className="inline mr-1" />
-                  Add Item
-                </button>
-              </div>
-              {repairData.additionalItems.map((item, index) => (
-                <div key={index} className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    placeholder="Item name"
-                    value={item.name}
-                    onChange={e => {
-                      const newItems = [...repairData.additionalItems];
-                      newItems[index].name = e.target.value;
-                      setRepairData(prev => ({ ...prev, additionalItems: newItems }));
-                    }}
-                    className="input flex-grow"
-                  />
-                  <div className="relative w-32">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                      $
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="Cost"
-                      value={item.cost}
-                      onChange={e => {
-                        const value = e.target.value.replace(/^0+/, '');
-                        const newItems = [...repairData.additionalItems];
-                        newItems[index].cost = value;
-                        setRepairData(prev => ({ ...prev, additionalItems: newItems }));
-                      }}
-                      className="input pl-7 w-full"
-                    />
                   </div>
-                  {index > 0 && (
+                  {repairData.accessories.map((accessory, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Accessory name"
+                        value={accessory.name}
+                        onChange={e => {
+                          const newAccessories = [...repairData.accessories];
+                          newAccessories[index].name = e.target.value;
+                          setRepairData(prev => ({ ...prev, accessories: newAccessories }));
+                        }}
+                        className="input flex-grow text-sm"
+                      />
+                      <div className="relative w-24">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                          $
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Cost"
+                          value={accessory.cost}
+                          onChange={e => {
+                            const value = e.target.value.replace(/^0+/, '');
+                            const newAccessories = [...repairData.accessories];
+                            newAccessories[index].cost = value;
+                            setRepairData(prev => ({ ...prev, accessories: newAccessories }));
+                          }}
+                          className="input pl-7 w-full text-sm"
+                        />
+                      </div>
+                      {index > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAccessory(index)}
+                          className="text-error-600 hover:text-error-800"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Additional Items Section - Collapsible */}
+            <div className="border rounded-lg overflow-hidden">
+              <div 
+                className="flex justify-between items-center p-3 bg-purple-50 cursor-pointer"
+                onClick={() => toggleSection('additional')}
+              >
+                <h3 className="font-medium">Additional Items</h3>
+                {expandedSection === 'additional' ? (
+                  <ChevronUp size={20} className="text-gray-500" />
+                ) : (
+                  <ChevronDown size={20} className="text-gray-500" />
+                )}
+              </div>
+              
+              {expandedSection === 'additional' && (
+                <div className="p-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Additional Items
+                    </label>
                     <button
                       type="button"
-                      onClick={() => handleRemoveAdditionalItem(index)}
-                      className="text-error-600 hover:text-error-800"
+                      onClick={handleAddAdditionalItem}
+                      className="text-sm text-primary-600 hover:text-primary-800"
                     >
-                      <Trash2 size={16} />
+                      <Plus size={14} className="inline mr-1" />
+                      Add Item
                     </button>
-                  )}
+                  </div>
+                  {repairData.additionalItems.map((item, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Item name"
+                        value={item.name}
+                        onChange={e => {
+                          const newItems = [...repairData.additionalItems];
+                          newItems[index].name = e.target.value;
+                          setRepairData(prev => ({ ...prev, additionalItems: newItems }));
+                        }}
+                        className="input flex-grow text-sm"
+                      />
+                      <div className="relative w-24">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                          $
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Cost"
+                          value={item.cost}
+                          onChange={e => {
+                            const value = e.target.value.replace(/^0+/, '');
+                            const newItems = [...repairData.additionalItems];
+                            newItems[index].cost = value;
+                            setRepairData(prev => ({ ...prev, additionalItems: newItems }));
+                          }}
+                          className="input pl-7 w-full text-sm"
+                        />
+                      </div>
+                      {index > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAdditionalItem(index)}
+                          className="text-error-600 hover:text-error-800"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
 
-            {/* Cost Summary */}
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <h4 className="font-medium mb-3 flex items-center">
+            {/* Cost Summary - Always visible */}
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <h4 className="font-medium mb-2 flex items-center text-sm">
                 <Calculator size={16} className="mr-2 text-gray-700" />
                 Cost Summary
               </h4>
               <div className="p-3 bg-white rounded border border-gray-200">
                 <div className="flex justify-between items-center">
                   <div>
-                    <div className="text-sm font-medium text-gray-700 mb-1">
+                    <div className="text-sm font-medium text-gray-700">
                       {selectedPhase === 'phase1'
                         ? 'Economy Option'
                         : selectedPhase === 'phase2'
@@ -934,7 +956,7 @@ const RepairsForm = ({
                       {repairData[selectedPhase].description}
                     </div>
                   </div>
-                  <div className="text-xl font-bold text-primary-700">
+                  <div className="text-lg font-bold text-primary-700">
                     ${totalCost.toLocaleString()}
                   </div>
                 </div>
@@ -944,28 +966,37 @@ const RepairsForm = ({
               </div>
             </div>
           </div>
-
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save size={16} className="mr-2" />
-                  Save Repair
-                </>
-              )}
-            </button>
-          </div>
         </form>
-      )}
+      </div>
+
+      {/* Footer with action buttons */}
+      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="btn btn-secondary"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          className="btn btn-primary"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save size={16} className="mr-2" />
+              Save Repair
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 };

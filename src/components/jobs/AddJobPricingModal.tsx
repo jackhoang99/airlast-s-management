@@ -465,7 +465,7 @@ const AddJobPricingModal = ({
         </div>
 
         {/* Selected Item Code Display */}
-        <div className="bg-gray-50 p-3 mb-6 rounded-md border border-gray-200">
+        <div className="bg-gray-50 p-3 mb-6 rounded-md">
           <p className="text-gray-700 font-medium">{selectedItemCode}</p>
         </div>
 
@@ -478,10 +478,10 @@ const AddJobPricingModal = ({
 
         {/* Tabs - Only show if not editing */}
         {!editItem && (
-          <div className="mb-6 flex border-b border-gray-200">
+          <div className="mb-6 flex border-b border-gray-200 overflow-x-auto">
             <button
               onClick={() => setSelectedTab('part')}
-              className={`px-4 py-2 font-medium text-sm ${
+              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
                 selectedTab === 'part'
                   ? 'text-gray-900 border-b-2 border-gray-900'
                   : 'text-gray-500 hover:text-gray-700'
@@ -494,7 +494,7 @@ const AddJobPricingModal = ({
             </button>
             <button
               onClick={() => setSelectedTab('labor')}
-              className={`px-4 py-2 font-medium text-sm ${
+              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
                 selectedTab === 'labor'
                   ? 'text-gray-900 border-b-2 border-gray-900'
                   : 'text-gray-500 hover:text-gray-700'
@@ -507,7 +507,7 @@ const AddJobPricingModal = ({
             </button>
             <button
               onClick={() => setSelectedTab('item')}
-              className={`px-4 py-2 font-medium text-sm ${
+              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
                 selectedTab === 'item'
                   ? 'text-gray-900 border-b-2 border-gray-900'
                   : 'text-gray-500 hover:text-gray-700'
@@ -1004,7 +1004,7 @@ const AddJobPricingModal = ({
                 </div>
               </div>
 
-              <div className="flex space-x-6">
+              <div className="flex flex-wrap gap-4">
                 <label className="flex items-center">
                   <input
                     type="checkbox"

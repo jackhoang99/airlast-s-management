@@ -8,6 +8,7 @@ import TechnicianSchedule from "./pages/TechnicianSchedule";
 import TechnicianMap from "./pages/TechnicianMap";
 import TechnicianProfile from "./pages/TechnicianProfile";
 import RequireTechAuth from "./components/auth/RequireTechAuth";
+import TechnicanHvacbot from "./pages/TechnicanHvacBot";
 import { useEffect } from "react";
 
 function TechnicianApp() {
@@ -33,6 +34,7 @@ function TechnicianApp() {
           <Route path="jobs/:id" element={<TechnicianJobDetails />} />
           <Route path="schedule" element={<TechnicianSchedule />} />
           <Route path="map" element={<TechnicianMap />} />
+          <Route path="hvacbot" element={<TechnicanHvacbot />} />
           <Route path="profile" element={<TechnicianProfile />} />
         </Route>
       </Route>

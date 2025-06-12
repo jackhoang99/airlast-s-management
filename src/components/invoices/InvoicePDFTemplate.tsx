@@ -68,8 +68,8 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, 
     filteredItems = [];
     itemLabel = 'Repair Services';
   } else {
-    // For standard invoice, exclude inspection fee
-    filteredItems = jobItems.filter(item => item.code !== 'INSP-FEE');
+    // For standard invoice, include all items
+    filteredItems = jobItems;
     
     // Check if this is a replacement-only invoice (only parts)
     const hasOnlyParts = filteredItems.every(item => item.type === 'part');

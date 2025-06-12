@@ -42,42 +42,9 @@ const RequireAuth = () => {
           
           if (signInError) {
             console.warn('Auto-authentication failed:', signInError);
-            
-            // If sign-in fails, try to sign up first
-            if (signInError.message.includes("Invalid login credentials")) {
-              console.log("Attempting to create user account first");
-              
-              const { error: signUpError } = await supabase.auth.signUp({
-                email: email,
-                password: 'hvac123'
-              });
-              
-              if (signUpError) {
-                console.error('Failed to create user account:', signUpError);
-                setError('Failed to authenticate automatically');
-                setIsAuthenticated(false);
-                sessionStorage.removeItem('isAuthenticated');
-              } else {
-                // Try signing in again
-                const { error: retryError } = await supabase.auth.signInWithPassword({
-                  email: email,
-                  password: 'hvac123'
-                });
-                
-                if (retryError) {
-                  console.error('Failed to sign in after account creation:', retryError);
-                  setError('Failed to authenticate after account creation');
-                  setIsAuthenticated(false);
-                  sessionStorage.removeItem('isAuthenticated');
-                } else {
-                  setIsAuthenticated(true);
-                }
-              }
-            } else {
-              setError(signInError.message);
-              setIsAuthenticated(false);
-              sessionStorage.removeItem('isAuthenticated');
-            }
+            setError('Failed to authenticate automatically');
+            setIsAuthenticated(false);
+            sessionStorage.removeItem('isAuthenticated');
           } else if (data.session) {
             // Successfully signed in
             setIsAuthenticated(true);

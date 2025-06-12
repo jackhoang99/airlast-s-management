@@ -1,8 +1,8 @@
-// src/components/jobs/JobQuoteSection.tsx
 import { useState, useEffect } from 'react';
-import { Eye, Send, FileCheck, AlertTriangle, Check, X, Clipboard, Home, Package, Edit, List, FileText } from 'lucide-react';
-import { Job, JobItem } from '../../types/job';
+import { Link } from 'react-router-dom';
 import { useSupabase } from '../../lib/supabase-context';
+import { Database } from '../../types/supabase';
+import { Eye, Send, FileCheck2, AlertTriangle, Check, X, Clipboard, Home, Package, Edit, List, FileText } from 'lucide-react';
 import SendEmailModal from './SendEmailModal';
 import QuoteEmailTemplateModal from './QuoteEmailTemplateModal';
 
@@ -10,7 +10,7 @@ type JobQuoteSectionProps = {
   job: Job;
   jobItems: JobItem[];
   onQuoteSent: (updatedJob: Job) => void;
-  onPreviewQuote: (quoteType: 'inspection' | 'repair' | 'replacement') => void;
+  onPreviewQuote: (quoteType: 'repair' | 'replacement') => void;
   quoteNeedsUpdate: boolean;
 };
 
@@ -22,14 +22,12 @@ const JobQuoteSection = ({
   quoteNeedsUpdate
 }: JobQuoteSectionProps) => {
   const { supabase } = useSupabase();
-  const [activeTab, setActiveTab] = useState<'inspection' | 'repair' | 'replacement' | 'all'>('inspection');
+  const [activeTab, setActiveTab] = useState<'repair' | 'replacement' | 'all'>('repair');
   const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
-  const [hasInspectionData, setHasInspectionData] = useState(false);
   const [hasRepairData, setHasRepairData] = useState(false);
   const [hasReplacementData, setHasReplacementData] = useState(false);
-  const [inspectionData, setInspectionData] = useState<any[]>([]);
   const [repairData, setRepairData] = useState<any | null>(null);
   const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
   const [totalCost, setTotalCost] = useState<number>(0);
@@ -49,39 +47,26 @@ const JobQuoteSection = ({
     signature: 'Best regards,\nAirlast HVAC Team'
   });
   const [defaultTemplates, setDefaultTemplates] = useState<{
-    inspection: any | null;
     repair: any | null;
     replacement: any | null;
   }>({
-    inspection: null,
     repair: null,
     replacement: null
   });
+  const [repairDataByInspection, setRepairDataByInspection] = useState<{[key: string]: any}>({});
+  const [totalRepairCost, setTotalRepairCost] = useState(0);
+  
+  // New state for replacement data
+  const [replacementDataByInspection, setReplacementDataByInspection] = useState<{[key: string]: any}>({});
+  const [totalReplacementCost, setTotalReplacementCost] = useState(0);
+  const [hasPartItems, setHasPartItems] = useState(false);
 
-  // Check if job has inspection, repair, or replacement data
+  // Check if job has repair or replacement data
   useEffect(() => {
     const checkJobData = async () => {
       if (!supabase || !job) return;
 
       try {
-        // Check for inspection data
-        const { data: inspectionData, error: inspectionError } = await supabase
-          .from('job_inspections')
-          .select('*')
-          .eq('job_id', job.id)
-          .eq('completed', true);
-
-        if (!inspectionError && inspectionData && inspectionData.length > 0) {
-          setHasInspectionData(true);
-          setInspectionData(inspectionData);
-          console.log("Found inspection data:", inspectionData);
-        } else {
-          console.log("No completed inspection data found");
-          if (inspectionError) {
-            console.error("Error fetching inspection data:", inspectionError);
-          }
-        }
-
         // Check for repair data
         const { data: repairData, error: repairError } = await supabase
           .from('job_repairs')
@@ -89,8 +74,6 @@ const JobQuoteSection = ({
           .eq('job_id', job.id);
 
         if (!repairError && repairData && repairData.length > 0) {
-          setHasRepairData(true);
-          setHasReplacementData(true); // Repair and replacement use the same table
           console.log("Found repair/replacement data:", repairData);
           
           // Store the first repair data for sending quotes
@@ -99,11 +82,56 @@ const JobQuoteSection = ({
             setSelectedPhase(repairData[0].selected_phase || 'phase2');
             setTotalCost(repairData[0].total_cost || 0);
           }
+          
+          // Organize repair data by inspection_id
+          const repairDataMap: {[key: string]: any} = {};
+          let totalRepairCostSum = 0;
+          
+          repairData.forEach(item => {
+            if (item.inspection_id) {
+              // For repair data
+              repairDataMap[item.inspection_id] = {
+                needsCrane: item.needs_crane,
+                phase1: item.phase1,
+                phase2: item.phase2,
+                phase3: item.phase3,
+                labor: item.labor,
+                refrigerationRecovery: item.refrigeration_recovery,
+                startUpCosts: item.start_up_costs,
+                accessories: item.accessories,
+                thermostatStartup: item.thermostat_startup,
+                removalCost: item.removal_cost,
+                warranty: item.warranty,
+                additionalItems: item.additional_items,
+                permitCost: item.permit_cost,
+                selectedPhase: item.selected_phase,
+                totalCost: item.total_cost
+              };
+              
+              totalRepairCostSum += Number(item.total_cost || 0);
+            }
+          });
+          
+          setRepairDataByInspection(repairDataMap);
+          setTotalRepairCost(totalRepairCostSum);
+          
+          // Check if we have part items to determine if replacement is available
+          const hasPartItems = jobItems.some(item => item.type === 'part');
+          setHasPartItems(hasPartItems);
+          
+          // Set availability flags
+          setHasRepairData(Object.keys(repairDataMap).length > 0);
+          setHasReplacementData(hasPartItems);
         } else {
           console.log("No repair/replacement data found");
           if (repairError) {
             console.error("Error fetching repair data:", repairError);
           }
+          
+          // Check if we have part items to determine if replacement is available
+          const hasPartItems = jobItems.some(item => item.type === 'part');
+          setHasPartItems(hasPartItems);
+          setHasReplacementData(hasPartItems);
         }
         
         // Set location and unit data for quote emails
@@ -145,7 +173,6 @@ const JobQuoteSection = ({
 
         if (!templatesError && defaultEmailTemplates) {
           const templates = {
-            inspection: defaultEmailTemplates.find(t => t.template_data.templateType === 'inspection') || null,
             repair: defaultEmailTemplates.find(t => t.template_data.templateType === 'repair') || null,
             replacement: defaultEmailTemplates.find(t => t.template_data.templateType === 'replacement') || null
           };
@@ -174,7 +201,21 @@ const JobQuoteSection = ({
     };
 
     checkJobData();
-  }, [supabase, job, activeTab]);
+  }, [supabase, job, activeTab, jobItems]);
+
+  // Calculate replacement cost from part items
+  useEffect(() => {
+    if (jobItems && jobItems.length > 0) {
+      const partItemsTotal = jobItems
+        .filter(item => item.type === 'part')
+        .reduce((total, item) => total + Number(item.total_cost), 0);
+      
+      setTotalReplacementCost(partItemsTotal);
+      setHasReplacementData(partItemsTotal > 0);
+    } else {
+      setTotalReplacementCost(0);
+    }
+  }, [jobItems]);
 
   const handleSaveTemplate = (template: any) => {
     setEmailTemplate(template);
@@ -202,19 +243,19 @@ const JobQuoteSection = ({
 
   return (
     <div className="card">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
         <h2 className="text-lg font-medium">Quotes</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setShowTemplateModal(true)}
-            className="btn btn-secondary"
+            className="btn btn-secondary btn-sm"
           >
             <Edit size={16} className="mr-2" />
             Edit Template
           </button>
           <button
-            onClick={() => onPreviewQuote(activeTab === 'all' ? 'inspection' : activeTab)}
-            className="btn btn-secondary"
+            onClick={() => onPreviewQuote(activeTab === 'all' ? 'repair' : activeTab)}
+            className="btn btn-secondary btn-sm"
           >
             <Eye size={16} className="mr-2" />
             Preview Quote
@@ -224,9 +265,8 @@ const JobQuoteSection = ({
               onClick={() => {
                 setShowSendQuoteModal(true);
               }}
-              className="btn btn-primary"
-              disabled={(activeTab === 'inspection' && !hasInspectionData) || 
-                       (activeTab === 'repair' && !hasRepairData) || 
+              className="btn btn-primary btn-sm"
+              disabled={(activeTab === 'repair' && !hasRepairData) || 
                        (activeTab === 'replacement' && !hasReplacementData) ||
                        activeTab === 'all'}
             >
@@ -235,13 +275,13 @@ const JobQuoteSection = ({
             </button>
           ) : (
             <button 
-              className={`btn ${quoteNeedsUpdate ? 'btn-warning' : 'btn-success'}`}
+              className={`btn btn-sm ${quoteNeedsUpdate ? 'btn-warning' : 'btn-success'}`}
               onClick={() => {
                 setShowSendQuoteModal(true);
               }}
               disabled={activeTab === 'all'}
             >
-              <FileCheck size={16} className="mr-2" />
+              <FileCheck2 size={16} className="mr-2" />
               {quoteNeedsUpdate ? 'Update Quote' : 'Resend Quote'}
             </button>
           )}
@@ -249,23 +289,10 @@ const JobQuoteSection = ({
       </div>
 
       {/* Quote Type Tabs */}
-      <div className="mb-6 flex border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('inspection')}
-          className={`px-4 py-2 font-medium text-sm ${
-            activeTab === 'inspection'
-              ? 'text-gray-900 border-b-2 border-gray-900'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <div className="flex items-center">
-            <Clipboard size={16} className="mr-2" />
-            Inspection Quote
-          </div>
-        </button>
+      <div className="mb-6 flex border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab('repair')}
-          className={`px-4 py-2 font-medium text-sm ${
+          className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
             activeTab === 'repair'
               ? 'text-gray-900 border-b-2 border-gray-900'
               : 'text-gray-500 hover:text-gray-700'
@@ -278,7 +305,7 @@ const JobQuoteSection = ({
         </button>
         <button
           onClick={() => setActiveTab('replacement')}
-          className={`px-4 py-2 font-medium text-sm ${
+          className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
             activeTab === 'replacement'
               ? 'text-gray-900 border-b-2 border-gray-900'
               : 'text-gray-500 hover:text-gray-700'
@@ -291,7 +318,7 @@ const JobQuoteSection = ({
         </button>
         <button
           onClick={() => setActiveTab('all')}
-          className={`px-4 py-2 font-medium text-sm ${
+          className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
             activeTab === 'all'
               ? 'text-gray-900 border-b-2 border-gray-900'
               : 'text-gray-500 hover:text-gray-700'
@@ -306,68 +333,6 @@ const JobQuoteSection = ({
 
       {/* Quote Content Based on Active Tab */}
       <div className="space-y-4">
-        {activeTab === 'inspection' && (
-          <div>
-            {hasInspectionData ? (
-              <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-md">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <Clipboard className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-blue-800">
-                      Inspection Data Available
-                    </h3>
-                    <div className="mt-2 text-sm text-blue-700">
-                      <p>
-                        Inspection data is available for this job. You can send an inspection quote to the customer.
-                      </p>
-                      <p className="mt-1">
-                        {inspectionData.length} inspection record(s) found.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-gray-50 p-4 rounded-md">
-                <p className="text-gray-600 text-center">
-                  No inspection data available. Complete an inspection first before sending an inspection quote.
-                </p>
-              </div>
-            )}
-
-            {job.quote_sent && job.quote_confirmed && (
-              <div className="mt-4 bg-success-50 border-l-4 border-success-500 p-4 rounded-md">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <Check className="h-5 w-5 text-success-500" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-success-800">
-                      Quote Confirmed
-                    </h3>
-                    <div className="mt-2 text-sm text-success-700">
-                      <p>
-                        <span className="font-medium">Quote was confirmed</span> on {job.quote_confirmed_at ? new Date(job.quote_confirmed_at).toLocaleString() : 'N/A'}.
-                      </p>
-                      <p className="mt-1">
-                        <span className="font-medium">
-                          Customer {job.repair_approved ? (
-                            <span className="text-success-700">approved repairs</span>
-                          ) : (
-                            <span className="text-error-700">declined repairs</span>
-                          )}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {activeTab === 'repair' && (
           <div>
             {hasRepairData ? (
@@ -441,7 +406,9 @@ const JobQuoteSection = ({
                     </h3>
                     <div className="mt-2 text-sm text-blue-700">
                       <p>
-                        Replacement data is available for this job. You can send a replacement quote to the customer.
+                        {hasPartItems ? 
+                          "Replacement parts have been added to this job. You can send a replacement quote to the customer." :
+                          "Replacement data is available for this job. You can send a replacement quote to the customer."}
                       </p>
                     </div>
                   </div>
@@ -450,7 +417,7 @@ const JobQuoteSection = ({
             ) : (
               <div className="bg-gray-50 p-4 rounded-md">
                 <p className="text-gray-600 text-center">
-                  No replacement data available. Complete a replacement assessment first before sending a replacement quote.
+                  No replacement data available. Add replacement parts or complete a replacement assessment first before sending a replacement quote.
                 </p>
               </div>
             )}
@@ -493,9 +460,9 @@ const JobQuoteSection = ({
               <div className="space-y-4">
                 {allQuotes.map((quote, index) => (
                   <div key={quote.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                    <div className="flex justify-between">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                       <div>
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <FileText size={16} className="text-gray-500" />
                           <span className="font-medium">Quote #{quote.quote_number}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${
@@ -551,7 +518,7 @@ const JobQuoteSection = ({
           <div className={`${quoteNeedsUpdate ? 'bg-warning-50 border-warning-500' : 'bg-blue-50 border-blue-500'} border-l-4 p-4 rounded-md`}>
             <div className="flex">
               <div className="flex-shrink-0">
-                <FileCheck className={`h-5 w-5 ${quoteNeedsUpdate ? 'text-warning-500' : 'text-blue-500'}`} />
+                <FileCheck2 className={`h-5 w-5 ${quoteNeedsUpdate ? 'text-warning-500' : 'text-blue-500'}`} />
               </div>
               <div className="ml-3">
                 <h3 className={`text-sm font-medium ${quoteNeedsUpdate ? 'text-warning-800' : 'text-blue-800'}`}>
@@ -599,13 +566,12 @@ const JobQuoteSection = ({
         jobName={job.name}
         customerName={job.contact_name || undefined}
         initialEmail={job.contact_email || ''}
-        inspectionData={inspectionData}
         repairData={repairData}
         selectedPhase={selectedPhase || undefined}
-        totalCost={totalCost}
+        totalCost={activeTab === 'repair' ? totalRepairCost : totalReplacementCost}
         location={location}
         unit={unit}
-        quoteType={activeTab === 'all' ? 'inspection' : activeTab}
+        quoteType={activeTab === 'all' ? 'repair' : activeTab}
         onEmailSent={() => {
           if (job) {
             onQuoteSent({
@@ -616,6 +582,7 @@ const JobQuoteSection = ({
           }
         }}
         emailTemplate={emailTemplate}
+        repairDataByInspection={activeTab === 'repair' ? repairDataByInspection : {}}
       />
 
       {/* Quote Email Template Modal */}

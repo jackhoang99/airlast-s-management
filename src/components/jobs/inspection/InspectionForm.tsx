@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clipboard, Plus } from 'lucide-react';
+import { Clipboard, Plus, X, ArrowLeft } from 'lucide-react';
 import { useSupabase } from '../../../lib/supabase-context';
 
 type InspectionData = {
@@ -95,127 +95,140 @@ const InspectionForm = ({ jobId, initialData, onSave, onCancel }: InspectionForm
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-3">
-        <h3 className="text-md font-medium flex items-center">
-          <Clipboard size={16} className="mr-2 text-blue-500" />
+    <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-auto">
+      {/* Modal Header */}
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center">
+        <h3 className="font-medium text-lg">
           {isEditMode ? 'Edit Inspection' : 'Add Inspection'}
         </h3>
+        <button 
+          onClick={onCancel}
+          className="text-gray-400 hover:text-gray-600"
+        >
+          <X size={24} />
+        </button>
       </div>
       
-      {error && (
-        <div className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
-          {error}
-        </div>
-      )}
+      <div className="flex-1 overflow-auto p-4">
+        {error && (
+          <div className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
+            {error}
+          </div>
+        )}
 
-      {success && (
-        <div className="bg-success-50 text-success-700 p-3 rounded-md mb-4">
-          {success}
-        </div>
-      )}
-      
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Model Number</label>
-            <input
-              type="text"
-              value={inspectionData.model_number}
-              onChange={(e) => setInspectionData(prev => ({ ...prev, model_number: e.target.value }))}
-              className="input w-full"
-              placeholder="Enter model number"
-            />
+        {success && (
+          <div className="bg-success-50 text-success-700 p-3 rounded-md mb-4">
+            {success}
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number</label>
-            <input
-              type="text"
-              value={inspectionData.serial_number}
-              onChange={(e) => setInspectionData(prev => ({ ...prev, serial_number: e.target.value }))}
-              className="input w-full"
-              placeholder="Enter serial number"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Age (Years)</label>
-            <input
-              type="number"
-              value={inspectionData.age}
-              onChange={(e) => setInspectionData(prev => ({ ...prev, age: e.target.value }))}
-              className="input w-full"
-              placeholder="Enter age in years"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tonnage</label>
-            <input
-              type="text"
-              value={inspectionData.tonnage}
-              onChange={(e) => setInspectionData(prev => ({ ...prev, tonnage: e.target.value }))}
-              className="input w-full"
-              placeholder="Enter tonnage"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Unit Type</label>
-            <select
-              value={inspectionData.unit_type}
-              onChange={(e) => setInspectionData(prev => ({ ...prev, unit_type: e.target.value as 'Gas' | 'Electric' }))}
-              className="select w-full"
-            >
-              <option value="Gas">Gas</option>
-              <option value="Electric">Electric</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">System Type</label>
-            <select
-              value={inspectionData.system_type}
-              onChange={(e) => setInspectionData(prev => ({ ...prev, system_type: e.target.value as 'RTU' | 'Split System' }))}
-              className="select w-full"
-            >
-              <option value="RTU">RTU</option>
-              <option value="Split System">Split System</option>
-            </select>
-          </div>
-        </div>
+        )}
         
-        <div className="mt-4 flex justify-end gap-2">
-          {onCancel && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="btn btn-secondary"
-            >
-              Cancel
-            </button>
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Model Number</label>
+                <input
+                  type="text"
+                  value={inspectionData.model_number}
+                  onChange={(e) => setInspectionData(prev => ({ ...prev, model_number: e.target.value }))}
+                  className="input w-full"
+                  placeholder="Enter model number"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number</label>
+                <input
+                  type="text"
+                  value={inspectionData.serial_number}
+                  onChange={(e) => setInspectionData(prev => ({ ...prev, serial_number: e.target.value }))}
+                  className="input w-full"
+                  placeholder="Enter serial number"
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Age (Years)</label>
+                <input
+                  type="number"
+                  value={inspectionData.age}
+                  onChange={(e) => setInspectionData(prev => ({ ...prev, age: e.target.value }))}
+                  className="input w-full"
+                  placeholder="Enter age in years"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tonnage</label>
+                <input
+                  type="text"
+                  value={inspectionData.tonnage}
+                  onChange={(e) => setInspectionData(prev => ({ ...prev, tonnage: e.target.value }))}
+                  className="input w-full"
+                  placeholder="Enter tonnage"
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit Type</label>
+                <select
+                  value={inspectionData.unit_type}
+                  onChange={(e) => setInspectionData(prev => ({ ...prev, unit_type: e.target.value as 'Gas' | 'Electric' }))}
+                  className="select w-full"
+                >
+                  <option value="Gas">Gas</option>
+                  <option value="Electric">Electric</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">System Type</label>
+                <select
+                  value={inspectionData.system_type}
+                  onChange={(e) => setInspectionData(prev => ({ ...prev, system_type: e.target.value as 'RTU' | 'Split System' }))}
+                  className="select w-full"
+                >
+                  <option value="RTU">RTU</option>
+                  <option value="Split System">Split System</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      
+      {/* Footer with action buttons */}
+      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="btn btn-secondary"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          className="btn btn-primary"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+              Saving...
+            </>
+          ) : (
+            <>
+              <Plus size={16} className="mr-2" />
+              {isEditMode ? 'Update Inspection' : 'Add Inspection'}
+            </>
           )}
-          
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Plus size={16} className="mr-2" />
-                {isEditMode ? 'Update Inspection' : 'Add Inspection'}
-              </>
-            )}
-          </button>
-        </div>
-      </form>
+        </button>
+      </div>
     </div>
   );
 };

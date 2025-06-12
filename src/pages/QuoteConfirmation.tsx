@@ -12,7 +12,7 @@ const QuoteConfirmation = () => {
   const [success, setSuccess] = useState(false);
   const [jobDetails, setJobDetails] = useState<any>(null);
   const [quoteDetails, setQuoteDetails] = useState<any>(null);
-  const [inspectionData, setInspectionData] = useState<any[]>([]);
+  const [repairData, setRepairData] = useState<any[]>([]);
   const [approved, setApproved] = useState<boolean | null>(null);
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
   const [invoiceCreated, setInvoiceCreated] = useState(false);
@@ -80,14 +80,13 @@ const QuoteConfirmation = () => {
               if (jobData) {
                 setJobDetails(jobData);
                 
-                // Fetch inspection data
-                const { data: inspectionData } = await supabase
-                  .from('job_inspections')
+                // Fetch repair data
+                const { data: repairData } = await supabase
+                  .from('job_repairs')
                   .select('*')
-                  .eq('job_id', jobData.id)
-                  .order('created_at', { ascending: false });
+                  .eq('job_id', jobData.id);
                   
-                setInspectionData(inspectionData || []);
+                setRepairData(repairData || []);
               }
               
               setIsLoading(false);
@@ -131,19 +130,18 @@ const QuoteConfirmation = () => {
 
           setJobDetails(jobData);
 
-          // Fetch inspection data
-          const { data: inspectionData, error: inspectionError } = await supabase
-            .from('job_inspections')
+          // Fetch repair data
+          const { data: repairData, error: repairError } = await supabase
+            .from('job_repairs')
             .select('*')
-            .eq('job_id', jobData.id)
-            .order('created_at', { ascending: false });
+            .eq('job_id', jobData.id);
 
-          if (inspectionError) {
-            console.error('Error fetching inspection data:', inspectionError);
-            throw inspectionError;
+          if (repairError) {
+            console.error('Error fetching repair data:', repairError);
+            throw repairError;
           }
           
-          setInspectionData(inspectionData || []);
+          setRepairData(repairData || []);
 
           // If already confirmed, just return success
           if (jobData.quote_confirmed) {
@@ -173,7 +171,7 @@ const QuoteConfirmation = () => {
           }
           
           // Call the Supabase Edge Function to confirm the quote
-          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/confirm-inspection-quote`;
+          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/confirm-repair-quote`;
           
           const response = await fetch(apiUrl, {
             method: 'POST',
@@ -358,7 +356,7 @@ const QuoteConfirmation = () => {
           <div className="border rounded-lg p-6 mb-6">
             <h2 className="text-lg font-medium mb-4 flex items-center">
               <FileText className="h-5 w-5 mr-2 text-primary-600" />
-              Inspection Details
+              Repair Details
             </h2>
             
             <div className="space-y-4">
@@ -381,40 +379,36 @@ const QuoteConfirmation = () => {
                 {jobDetails.units && <p className="text-gray-600">Unit: {jobDetails.units.unit_number}</p>}
               </div>
               
-              {inspectionData.length > 0 && (
+              {repairData.length > 0 && (
                 <div>
-                  <h3 className="font-medium">Inspection Results</h3>
+                  <h3 className="font-medium">Repair Details</h3>
                   <div className="mt-2 space-y-4">
-                    {inspectionData.map((inspection, index) => (
-                      <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">Model Number</p>
-                            <p>{inspection.model_number || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">Serial Number</p>
-                            <p>{inspection.serial_number || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">Age</p>
-                            <p>{inspection.age || 'N/A'} years</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">Tonnage</p>
-                            <p>{inspection.tonnage || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">Unit Type</p>
-                            <p>{inspection.unit_type || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">System Type</p>
-                            <p>{inspection.system_type || 'N/A'}</p>
+                    {repairData.map((repair, index) => {
+                      const selectedPhase = repair.selected_phase || 'phase2';
+                      const phaseData = repair[selectedPhase] || {};
+                      
+                      return (
+                        <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">Selected Option</p>
+                              <p>{phaseData.description || 
+                                 (selectedPhase === 'phase1' ? 'Economy Option' : 
+                                  selectedPhase === 'phase2' ? 'Standard Option' : 
+                                  'Premium Option')}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">Total Cost</p>
+                              <p className="font-medium">${Number(repair.total_cost || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">Requires Crane</p>
+                              <p>{repair.needs_crane ? 'Yes' : 'No'}</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -458,9 +452,9 @@ const QuoteConfirmation = () => {
               <FileText className="h-12 w-12 text-primary-600" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-center mb-4">Inspection Quote</h1>
+          <h1 className="text-2xl font-bold text-center mb-4">Repair Quote</h1>
           <p className="text-gray-600 text-center mb-6">
-            Based on our inspection, we recommend proceeding with repairs. Please approve or deny the repairs below.
+            Based on our assessment, we recommend proceeding with repairs. Please approve or deny the repairs below.
           </p>
           
           <div className="border rounded-lg p-6 mb-6">
@@ -481,40 +475,36 @@ const QuoteConfirmation = () => {
               </div>
             )}
             
-            {inspectionData.length > 0 && (
+            {repairData.length > 0 && (
               <div className="mt-4">
-                <h3 className="font-medium">Inspection Results</h3>
+                <h3 className="font-medium">Repair Details</h3>
                 <div className="mt-2 space-y-4">
-                  {inspectionData.map((inspection, index) => (
-                    <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Model Number</p>
-                          <p>{inspection.model_number || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Serial Number</p>
-                          <p>{inspection.serial_number || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Age</p>
-                          <p>{inspection.age || 'N/A'} years</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Tonnage</p>
-                          <p>{inspection.tonnage || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Unit Type</p>
-                          <p>{inspection.unit_type || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">System Type</p>
-                          <p>{inspection.system_type || 'N/A'}</p>
+                  {repairData.map((repair, index) => {
+                    const selectedPhase = repair.selected_phase || 'phase2';
+                    const phaseData = repair[selectedPhase] || {};
+                    
+                    return (
+                      <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">Selected Option</p>
+                            <p>{phaseData.description || 
+                               (selectedPhase === 'phase1' ? 'Economy Option' : 
+                                selectedPhase === 'phase2' ? 'Standard Option' : 
+                                'Premium Option')}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">Total Cost</p>
+                            <p className="font-medium">${Number(repair.total_cost || 0).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">Requires Crane</p>
+                            <p>{repair.needs_crane ? 'Yes' : 'No'}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -44,6 +44,8 @@ const CreateJob = () => {
   const [isLoadingUnitDetails, setIsLoadingUnitDetails] = useState(false);
   const [isContractJob, setIsContractJob] = useState(true);
   const [availableTechnicians, setAvailableTechnicians] = useState<User[]>([]);
+  const [isSavingPreset, setIsSavingPreset] = useState(false);
+  const [presetError, setPresetError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     // Service Location
@@ -326,29 +328,26 @@ const CreateJob = () => {
   };
 
   const handleSavePreset = async () => {
-    if (!supabase || !presetName) return;
+    if (!supabase || !presetName) {
+      setPresetError('Please enter a preset name');
+      return;
+    }
+
+    setIsSavingPreset(true);
+    setPresetError(null);
 
     try {
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('username', sessionStorage.getItem('username'))
-        .single();
-
-      if (userError) throw userError;
-      if (!userData) throw new Error('User not found');
-
       const presetData = {
         ...formData,
         technicians: selectedTechnicians
       };
 
+      // Insert the preset without user_id since it's been removed from the table
       const { error } = await supabase
         .from('job_presets')
         .insert({
           name: presetName,
-          data: presetData,
-          user_id: userData.id
+          data: presetData
         });
 
       if (error) throw error;
@@ -366,7 +365,9 @@ const CreateJob = () => {
       setPresets(data || []);
     } catch (err) {
       console.error('Error saving preset:', err);
-      setError('Failed to save preset. Please try again.');
+      setPresetError('Failed to save preset. Please try again.');
+    } finally {
+      setIsSavingPreset(false);
     }
   };
 
@@ -616,6 +617,7 @@ const CreateJob = () => {
               </label>
               <select
                 id="unit_id"
+                name="unit_id"
                 value={formData.unit_id}
                 onChange={(e) => handleUnitChange(e.target.value)}
                 className="select"
@@ -637,6 +639,7 @@ const CreateJob = () => {
               <input
                 type="text"
                 id="service_address"
+                name="service_address"
                 value={formData.service_address}
                 onChange={(e) => setFormData(prev => ({ ...prev, service_address: e.target.value }))}
                 required
@@ -654,6 +657,7 @@ const CreateJob = () => {
               <input
                 type="text"
                 id="service_city"
+                name="service_city"
                 value={formData.service_city}
                 onChange={(e) => setFormData(prev => ({ ...prev, service_city: e.target.value }))}
                 required
@@ -671,6 +675,7 @@ const CreateJob = () => {
               <input
                 type="text"
                 id="service_state"
+                name="service_state"
                 value={formData.service_state}
                 onChange={(e) => setFormData(prev => ({ ...prev, service_state: e.target.value }))}
                 required
@@ -689,6 +694,7 @@ const CreateJob = () => {
               <input
                 type="text"
                 id="service_zip"
+                name="service_zip"
                 value={formData.service_zip}
                 onChange={(e) => setFormData(prev => ({ ...prev, service_zip: e.target.value }))}
                 required
@@ -705,6 +711,7 @@ const CreateJob = () => {
               </label>
               <select
                 id="office"
+                name="office"
                 value={formData.office}
                 onChange={(e) => setFormData(prev => ({ ...prev, office: e.target.value }))}
                 required
@@ -721,6 +728,7 @@ const CreateJob = () => {
               <input
                 type="text"
                 id="customer_po"
+                name="customer_po"
                 value={formData.customer_po}
                 onChange={(e) => setFormData(prev => ({ ...prev, customer_po: e.target.value }))}
                 className="input"
@@ -753,6 +761,7 @@ const CreateJob = () => {
               {isContractJob ? (
                 <select
                   id="service_contract"
+                  name="service_contract"
                   value={formData.service_contract}
                   onChange={(e) => setFormData(prev => ({ ...prev, service_contract: e.target.value }))}
                   className="select"
@@ -788,6 +797,7 @@ const CreateJob = () => {
               <input
                 type="text"
                 id="contact_first_name"
+                name="contact_first_name"
                 value={formData.contact_first_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, contact_first_name: e.target.value }))}
                 className="input"
@@ -801,6 +811,7 @@ const CreateJob = () => {
               <input
                 type="text"
                 id="contact_last_name"
+                name="contact_last_name"
                 value={formData.contact_last_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, contact_last_name: e.target.value }))}
                 className="input"
@@ -813,6 +824,7 @@ const CreateJob = () => {
               </label>
               <select
                 id="contact_type"
+                name="contact_type"
                 value={formData.contact_type}
                 onChange={(e) => setFormData(prev => ({ ...prev, contact_type: e.target.value }))}
                 className={`select ${validationErrors.contact_type ? 'border-error-500 ring-1 ring-error-500' : ''}`}
@@ -834,6 +846,7 @@ const CreateJob = () => {
               <input
                 type="tel"
                 id="contact_phone"
+                name="contact_phone"
                 value={formData.contact_phone}
                 onChange={(e) => setFormData(prev => ({ ...prev, contact_phone: e.target.value }))}
                 className="input"
@@ -847,6 +860,7 @@ const CreateJob = () => {
               <input
                 type="email"
                 id="contact_email"
+                name="contact_email"
                 value={formData.contact_email}
                 onChange={(e) => setFormData(prev => ({ ...prev, contact_email: e.target.value }))}
                 className="input"
@@ -866,6 +880,7 @@ const CreateJob = () => {
               </label>
               <select
                 id="service_line"
+                name="service_line"
                 value={formData.service_line}
                 onChange={(e) => setFormData(prev => ({ ...prev, service_line: e.target.value }))}
                 required
@@ -889,6 +904,7 @@ const CreateJob = () => {
               </label>
               <textarea
                 id="description"
+                name="description"
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 required
@@ -906,6 +922,7 @@ const CreateJob = () => {
               </label>
               <textarea
                 id="problem_description"
+                name="problem_description"
                 value={formData.problem_description}
                 onChange={(e) => setFormData(prev => ({ ...prev, problem_description: e.target.value }))}
                 rows={4}
@@ -937,6 +954,7 @@ const CreateJob = () => {
               <input
                 type="date"
                 id="time_period_start"
+                name="time_period_start"
                 value={formData.time_period_start}
                 onChange={(e) => setFormData(prev => ({ ...prev, time_period_start: e.target.value }))}
                 required
@@ -951,6 +969,7 @@ const CreateJob = () => {
               <input
                 type="date"
                 id="time_period_due"
+                name="time_period_due"
                 value={formData.time_period_due}
                 onChange={(e) => setFormData(prev => ({ ...prev, time_period_due: e.target.value }))}
                 required
@@ -965,6 +984,7 @@ const CreateJob = () => {
               <input
                 type="date"
                 id="schedule_date"
+                name="schedule_date"
                 value={formData.schedule_date}
                 onChange={(e) => setFormData(prev => ({ ...prev, schedule_date: e.target.value }))}
                 className="input"
@@ -978,6 +998,7 @@ const CreateJob = () => {
               <input
                 type="time"
                 id="schedule_time"
+                name="schedule_time"
                 value={formData.schedule_time}
                 onChange={(e) => setFormData(prev => ({ ...prev, schedule_time: e.target.value }))}
                 className="input"
@@ -990,6 +1011,7 @@ const CreateJob = () => {
               </label>
               <select
                 id="schedule_duration"
+                name="schedule_duration"
                 value={formData.schedule_duration}
                 onChange={(e) => setFormData(prev => ({ ...prev, schedule_duration: e.target.value }))}
                 className="select"
@@ -1047,6 +1069,7 @@ const CreateJob = () => {
               </label>
               <select
                 id="type"
+                name="type"
                 value={formData.type}
                 onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
                 required
@@ -1103,6 +1126,11 @@ const CreateJob = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
             <h3 className="text-lg font-semibold mb-4">Save as Preset</h3>
+            {presetError && (
+              <div className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
+                {presetError}
+              </div>
+            )}
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1122,6 +1150,7 @@ const CreateJob = () => {
                   onClick={() => {
                     setShowPresetModal(false);
                     setPresetName('');
+                    setPresetError(null);
                   }}
                   className="btn btn-secondary"
                 >
@@ -1131,9 +1160,16 @@ const CreateJob = () => {
                   type="button"
                   onClick={handleSavePreset}
                   className="btn btn-primary"
-                  disabled={!presetName}
+                  disabled={!presetName || isSavingPreset}
                 >
-                  Save Preset
+                  {isSavingPreset ? (
+                    <>
+                      <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Preset'
+                  )}
                 </button>
               </div>
             </div>

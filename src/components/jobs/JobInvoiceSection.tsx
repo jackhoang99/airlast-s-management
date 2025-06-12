@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, FileInput, Plus, AlertTriangle, DollarSign, Send, Printer, Eye, Mail, Check } from 'lucide-react';
-import { Job, JobItem } from '../../types/job';
+import { Link } from 'react-router-dom';
 import { useSupabase } from '../../lib/supabase-context';
+import { Database } from '../../types/supabase';
+import { X, FileInput as FileInvoice, Plus, AlertTriangle, DollarSign, Send, Printer, Eye, Mail, Check } from 'lucide-react';
 import InvoicePDFTemplate from '../invoices/InvoicePDFTemplate';
 
 type JobInvoiceSectionProps = {
@@ -30,15 +31,19 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
 
   // Calculate total cost
   const calculateTotalCost = () => {
-    // For standard invoice, include all items except inspection fee
+    // For standard invoice, include all items
     if (invoiceType === 'standard') {
-      // Include all items except inspection fee
-      const itemsTotal = jobItems
+      // Include all items except inspection fee if it exists separately
+      const inspectionItem = jobItems.find(item => item.code === 'INSP-FEE');
+      const inspectionFee = inspectionItem ? Number(inspectionItem.total_cost) : 0;
+      
+      // Calculate total of all other items
+      const otherItemsTotal = jobItems
         .filter(item => item.code !== 'INSP-FEE')
         .reduce((total, item) => total + Number(item.total_cost), 0);
       
       // If there are no items but we have repair data, use that total
-      if (itemsTotal === 0 && Object.values(repairDataByInspection).length > 0) {
+      if (otherItemsTotal === 0 && Object.values(repairDataByInspection).length > 0) {
         // Sum up all repair costs from all inspections
         const repairTotal = Object.values(repairDataByInspection).reduce(
           (sum, data: any) => sum + (data.totalCost || 0), 
@@ -47,7 +52,7 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
         return repairTotal;
       }
       
-      return itemsTotal;
+      return otherItemsTotal;
     }
     
     // For replacement invoice, include only part items
@@ -114,10 +119,6 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
               *,
               locations (
                 name,
-                address,
-                city,
-                state,
-                zip,
                 companies (
                   name
                 )
@@ -393,8 +394,8 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
             });
           }
         } else {
-          // For standard invoice, include all items except inspection fee
-          itemsToSend = jobItems.filter(item => item.code !== 'INSP-FEE');
+          // For standard invoice, include all items
+          itemsToSend = jobItems;
         }
         
         const response = await fetch(apiUrl, {
@@ -535,13 +536,13 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
 
   return (
     <div className="card">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
         <h2 className="text-lg font-medium">Invoices</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {selectedInvoice && (
             <button
               onClick={() => setShowInvoicePDF(true)}
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
             >
               <Eye size={16} className="mr-2" />
               View Invoice
@@ -549,7 +550,7 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
           )}
           <button
             onClick={() => setShowCreateInvoiceModal(true)}
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm"
           >
             <Plus size={16} className="mr-2" />
             {selectedInvoice ? 'Create New Invoice' : 'Create Invoice'}
@@ -560,7 +561,7 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
                 setCustomerEmail(job.contact_email || '');
                 setShowSendInvoiceModal(true);
               }}
-              className="btn btn-primary"
+              className="btn btn-primary btn-sm"
             >
               <Send size={16} className="mr-2" />
               Send Invoice
@@ -569,7 +570,7 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
           {selectedInvoice && selectedInvoice.status === 'issued' && (
             <button
               onClick={() => setShowMarkAsPaidModal(true)}
-              className="btn btn-success"
+              className="btn btn-success btn-sm"
             >
               <DollarSign size={16} className="mr-2" />
               Mark as Paid
@@ -586,42 +587,46 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
         ) : invoices.length > 0 ? (
           <div>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 text-left">
-                  <tr>
-                    <th className="px-4 py-2 text-sm font-medium text-gray-500">INVOICE #</th>
-                    <th className="px-4 py-2 text-sm font-medium text-gray-500">DATE</th>
-                    <th className="px-4 py-2 text-sm font-medium text-gray-500">DUE DATE</th>
-                    <th className="px-4 py-2 text-sm font-medium text-gray-500">AMOUNT</th>
-                    <th className="px-4 py-2 text-sm font-medium text-gray-500">STATUS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoices.map(invoice => (
-                    <tr 
-                      key={invoice.id} 
-                      className={`border-b cursor-pointer hover:bg-gray-50 ${selectedInvoice?.id === invoice.id ? 'bg-primary-50' : ''}`}
-                      onClick={() => setSelectedInvoice(invoice)}
-                    >
-                      <td className="px-4 py-3 font-medium">{invoice.invoice_number}</td>
-                      <td className="px-4 py-3">{invoice.issued_date || '-'}</td>
-                      <td className="px-4 py-3">{invoice.due_date || '-'}</td>
-                      <td className="px-4 py-3 font-medium">${Number(invoice.amount).toFixed(2)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClass(invoice.status)}`}>
-                          {invoice.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="min-w-full inline-block align-middle">
+                <div className="overflow-hidden">
+                  <table className="min-w-full">
+                    <thead className="bg-gray-50 text-left">
+                      <tr>
+                        <th className="px-4 py-2 text-sm font-medium text-gray-500">INVOICE #</th>
+                        <th className="px-4 py-2 text-sm font-medium text-gray-500">DATE</th>
+                        <th className="px-4 py-2 text-sm font-medium text-gray-500">DUE DATE</th>
+                        <th className="px-4 py-2 text-sm font-medium text-gray-500">AMOUNT</th>
+                        <th className="px-4 py-2 text-sm font-medium text-gray-500">STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.map(invoice => (
+                        <tr 
+                          key={invoice.id} 
+                          className={`border-b cursor-pointer hover:bg-gray-50 ${selectedInvoice?.id === invoice.id ? 'bg-primary-50' : ''}`}
+                          onClick={() => setSelectedInvoice(invoice)}
+                        >
+                          <td className="px-4 py-3 font-medium">{invoice.invoice_number}</td>
+                          <td className="px-4 py-3">{invoice.issued_date || '-'}</td>
+                          <td className="px-4 py-3">{invoice.due_date || '-'}</td>
+                          <td className="px-4 py-3 font-medium">${Number(invoice.amount).toFixed(2)}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClass(invoice.status)}`}>
+                              {invoice.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
             
             {selectedInvoice && (
               <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                 <h3 className="text-md font-medium mb-3">Invoice Details</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Invoice Number</p>
                     <p className="font-medium">{selectedInvoice.invoice_number}</p>
@@ -668,7 +673,7 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
             <div className="flex items-center justify-center text-primary-600 mb-4">
-              <FileInput size={40} />
+              <FileInvoice size={40} />
             </div>
             <h3 className="text-lg font-semibold text-center mb-4">
               Create New Invoice

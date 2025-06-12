@@ -1,4 +1,3 @@
-// src/components/quotes/QuotePDFViewer.tsx
 import React, { useState, useEffect } from 'react';
 import { useSupabase } from '../../lib/supabase-context';
 import { ArrowLeft, Printer, Download, AlertTriangle } from 'lucide-react';
@@ -98,10 +97,46 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
           .eq('template_data->>isDefault', 'true')
           .maybeSingle();
           
-        if (templateError) throw templateError;
+        if (templateError && !templateError.message.includes('contains 0 rows')) throw templateError;
         
-        if (!templateData) {
-          throw new Error(`No default PDF template found for ${quoteType} quotes. Please upload a template and set it as default.`);
+        // If no default template is found, try to find any template of this type
+        let templateToUse = templateData;
+        if (!templateToUse) {
+          console.log('No default template found, looking for any template of type:', quoteType);
+          const { data: anyTemplate, error: anyTemplateError } = await supabase
+            .from('quote_templates')
+            .select('*')
+            .eq('template_data->>type', 'pdf')
+            .eq('template_data->>templateType', quoteType)
+            .limit(1);
+            
+          if (anyTemplateError) throw anyTemplateError;
+          
+          if (anyTemplate && anyTemplate.length > 0) {
+            console.log('Found non-default template:', anyTemplate[0]);
+            templateToUse = anyTemplate[0];
+            
+            // Set this template as default
+            const updatedTemplateData = {
+              ...templateToUse.template_data,
+              isDefault: true
+            };
+            
+            const { error: updateError } = await supabase
+              .from('quote_templates')
+              .update({ template_data: updatedTemplateData })
+              .eq('id', templateToUse.id);
+              
+            if (updateError) {
+              console.error('Error setting template as default:', updateError);
+            } else {
+              console.log('Template set as default successfully');
+            }
+          }
+        }
+        
+        if (!templateToUse) {
+          throw new Error(`No PDF template found for ${quoteType} quotes. Please upload a template and set it as default.`);
         }
         
         // 6. Generate a unique quote number if one doesn't exist
@@ -120,7 +155,7 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
             jobId,
             quoteType,
             quoteNumber,
-            templateId: templateData.id,
+            templateId: templateToUse.id,
             jobData,
             inspectionData,
             repairData,

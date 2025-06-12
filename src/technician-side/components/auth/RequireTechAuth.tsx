@@ -109,72 +109,10 @@ const RequireTechAuth = () => {
           
           if (signInError) {
             console.warn('Auto-authentication failed:', signInError);
-            
-            // If sign-in fails, try to sign up first
-            if (signInError.message.includes("Invalid login credentials")) {
-              console.log("Attempting to create user account first");
-              
-              const { error: signUpError } = await supabase.auth.signUp({
-                email: email,
-                password: 'hvac123'
-              });
-              
-              if (signUpError) {
-                console.error('Failed to create user account:', signUpError);
-                setError('Failed to authenticate automatically');
-                setIsAuthenticated(false);
-                setIsTechnician(false);
-                sessionStorage.removeItem('isTechAuthenticated');
-              } else {
-                // Try signing in again
-                const { error: retryError } = await supabase.auth.signInWithPassword({
-                  email: email,
-                  password: 'hvac123'
-                });
-                
-                if (retryError) {
-                  console.error('Failed to sign in after account creation:', retryError);
-                  setError('Failed to authenticate after account creation');
-                  setIsAuthenticated(false);
-                  setIsTechnician(false);
-                  sessionStorage.removeItem('isTechAuthenticated');
-                } else {
-                  // Now verify if this user is a technician
-                  try {
-                    const { data: userData, error: userError } = await supabase
-                      .from('users')
-                      .select('role')
-                      .eq('username', username)
-                      .maybeSingle();
-                      
-                    if (userError && !userError.message.includes("contains 0 rows")) {
-                      throw userError;
-                    }
-                    
-                    if (userData && userData.role === 'technician') {
-                      setIsTechnician(true);
-                      setIsAuthenticated(true);
-                    } else {
-                      setError('Access denied. Only technicians can access this area.');
-                      setIsAuthenticated(false);
-                      setIsTechnician(false);
-                      sessionStorage.removeItem('isTechAuthenticated');
-                    }
-                  } catch (verifyError) {
-                    console.error("Error verifying technician role:", verifyError);
-                    setError('Error verifying technician status');
-                    setIsAuthenticated(false);
-                    setIsTechnician(false);
-                    sessionStorage.removeItem('isTechAuthenticated');
-                  }
-                }
-              }
-            } else {
-              setError(signInError.message);
-              setIsAuthenticated(false);
-              setIsTechnician(false);
-              sessionStorage.removeItem('isTechAuthenticated');
-            }
+            setError('Failed to authenticate automatically');
+            setIsAuthenticated(false);
+            setIsTechnician(false);
+            sessionStorage.removeItem('isTechAuthenticated');
           } else if (data.session) {
             // Successfully signed in, now verify if this user is a technician
             try {

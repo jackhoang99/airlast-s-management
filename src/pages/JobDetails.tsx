@@ -1,14 +1,13 @@
-// src/pages/JobDetails.tsx
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { Job, JobItem } from "../types/job";
 import JobHeader from "../components/jobs/JobHeader";
 import JobDetailsCard from "../components/jobs/JobDetailsCard";
 import JobLocationContact from "../components/jobs/JobLocationContact";
 import JobTechnicians from "../components/jobs/JobTechnicians";
-import JobServiceSection from "../components/jobs/JobServiceSection";
+import ServiceSection from "../components/jobs/ServiceSection";
 import JobQuoteSection from "../components/jobs/JobQuoteSection";
 import JobInvoiceSection from "../components/jobs/JobInvoiceSection";
 import JobSidebar from "../components/jobs/JobSidebar";
@@ -33,9 +32,15 @@ const JobDetails = () => {
   const [showQuotePDF, setShowQuotePDF] = useState(false);
   const [quoteNeedsUpdate, setQuoteNeedsUpdate] = useState(false);
   const [lastQuoteUpdateTime, setLastQuoteUpdateTime] = useState<string | null>(null);
-  const [activeQuoteType, setActiveQuoteType] = useState<'inspection' | 'repair' | 'replacement'>('inspection');
-  const [inspectionData, setInspectionData] = useState<any[]>([]);
+  const [activeQuoteType, setActiveQuoteType] = useState<'repair' | 'replacement'>('repair');
   const [repairData, setRepairData] = useState<any | null>(null);
+  
+  // Collapsible section states - all set to true (expanded) by default
+  const [showServiceSection, setShowServiceSection] = useState(true);
+  const [showQuoteSection, setShowQuoteSection] = useState(true);
+  const [showInvoiceSection, setShowInvoiceSection] = useState(true);
+  const [showLocationSection, setShowLocationSection] = useState(true);
+  const [showUnitSection, setShowUnitSection] = useState(true);
 
   useEffect(() => {
     const fetchJobDetails = async () => {
@@ -133,16 +138,6 @@ const JobDetails = () => {
 
           setQuoteNeedsUpdate(needsUpdate || false);
         }
-
-        // Fetch inspection data
-        const { data: inspectionData, error: inspectionError } = await supabase
-          .from("job_inspections")
-          .select("*")
-          .eq("job_id", id)
-          .eq("completed", true);
-
-        if (inspectionError) throw inspectionError;
-        setInspectionData(inspectionData || []);
 
         // Fetch repair data
         const { data: repairData, error: repairError } = await supabase
@@ -353,7 +348,7 @@ const JobDetails = () => {
     setQuoteNeedsUpdate(false);
   };
 
-  const handlePreviewQuote = (quoteType: 'inspection' | 'repair' | 'replacement') => {
+  const handlePreviewQuote = (quoteType: 'repair' | 'replacement') => {
     setActiveQuoteType(quoteType);
     setShowQuotePDF(true);
   };
@@ -393,60 +388,151 @@ const JobDetails = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <JobHeader
         job={job}
         onCompleteJob={() => setShowCompleteJobModal(true)}
         onDeleteJob={() => setShowDeleteJobModal(true)}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
           {/* Job Details Card */}
           <JobDetailsCard job={job} />
 
+          {/* Location and Contact - Collapsible */}
           <div className="card">
-            <JobLocationContact job={job} />
+            <div 
+              className="flex justify-between items-center cursor-pointer"
+              onClick={() => setShowLocationSection(!showLocationSection)}
+            >
+              <h2 className="text-lg font-medium">Location & Contact</h2>
+              <span className="text-gray-500">
+                {showLocationSection ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </span>
+            </div>
+            
+            {showLocationSection && (
+              <div className="mt-4">
+                <JobLocationContact job={job} />
 
-            <hr className="my-6" />
+                <hr className="my-4" />
 
-            <JobTechnicians
-              job={job}
-              onAssignTechnicians={() => setShowAppointmentModal(true)}
-            />
+                <JobTechnicians
+                  job={job}
+                  onAssignTechnicians={() => setShowAppointmentModal(true)}
+                />
+              </div>
+            )}
           </div>
 
-          {/* Unit Section */}
-          <JobUnitSection job={job} />
+          {/* Unit Section - Collapsible */}
+          <div className="card">
+            <div 
+              className="flex justify-between items-center cursor-pointer"
+              onClick={() => setShowUnitSection(!showUnitSection)}
+            >
+              <h2 className="text-lg font-medium">Unit Information</h2>
+              <span className="text-gray-500">
+                {showUnitSection ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </span>
+            </div>
+            
+            {showUnitSection && (
+              <div className="mt-4">
+                <JobUnitSection job={job} />
+              </div>
+            )}
+          </div>
 
-          {/* Service Section (Items, Inspection, Replacement) */}
-          <JobServiceSection
-            jobId={job.id}
-            jobItems={jobItems}
-            onItemsUpdated={handleItemsUpdated}
-            onQuoteStatusChange={() =>
-              job.quote_sent && setQuoteNeedsUpdate(true)
-            }
-          />
+          {/* Service Section - Collapsible */}
+          <div className="card">
+            <div 
+              className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
+              onClick={() => setShowServiceSection(!showServiceSection)}
+            >
+              <h2 className="text-lg font-medium">Service</h2>
+              <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
+                {showServiceSection ? (
+                  <>Hide <ChevronUp size={16} className="ml-1" /></>
+                ) : (
+                  <>Show <ChevronDown size={16} className="ml-1" /></>
+                )}
+              </span>
+            </div>
+            
+            {showServiceSection && (
+              <div className="mt-4">
+                <ServiceSection
+                  jobId={job.id}
+                  jobItems={jobItems}
+                  onItemsUpdated={handleItemsUpdated}
+                  onQuoteStatusChange={() =>
+                    job.quote_sent && setQuoteNeedsUpdate(true)
+                  }
+                />
+              </div>
+            )}
+          </div>
 
-          {/* Quote Section */}
-          <JobQuoteSection
-            job={job}
-            jobItems={jobItems}
-            onQuoteSent={handleQuoteSent}
-            onPreviewQuote={handlePreviewQuote}
-            quoteNeedsUpdate={quoteNeedsUpdate}
-          />
+          {/* Quote Section - Collapsible */}
+          <div className="card">
+            <div 
+              className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
+              onClick={() => setShowQuoteSection(!showQuoteSection)}
+            >
+              <h2 className="text-lg font-medium">Quote</h2>
+              <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
+                {showQuoteSection ? (
+                  <>Hide <ChevronUp size={16} className="ml-1" /></>
+                ) : (
+                  <>Show <ChevronDown size={16} className="ml-1" /></>
+                )}
+              </span>
+            </div>
+            
+            {showQuoteSection && (
+              <div className="mt-4">
+                <JobQuoteSection
+                  job={job}
+                  jobItems={jobItems}
+                  onQuoteSent={handleQuoteSent}
+                  onPreviewQuote={handlePreviewQuote}
+                  quoteNeedsUpdate={quoteNeedsUpdate}
+                />
+              </div>
+            )}
+          </div>
 
-          {/* Invoice Section */}
-          <JobInvoiceSection
-            job={job}
-            jobItems={jobItems}
-            onInvoiceCreated={handleInvoiceCreated}
-          />
+          {/* Invoice Section - Collapsible */}
+          <div className="card">
+            <div 
+              className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
+              onClick={() => setShowInvoiceSection(!showInvoiceSection)}
+            >
+              <h2 className="text-lg font-medium">Invoice</h2>
+              <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
+                {showInvoiceSection ? (
+                  <>Hide <ChevronUp size={16} className="ml-1" /></>
+                ) : (
+                  <>Show <ChevronDown size={16} className="ml-1" /></>
+                )}
+              </span>
+            </div>
+            
+            {showInvoiceSection && (
+              <div className="mt-4">
+                <JobInvoiceSection
+                  job={job}
+                  jobItems={jobItems}
+                  onInvoiceCreated={handleInvoiceCreated}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
-        <div>
+        <div className="hidden lg:block">
           <JobSidebar job={job} />
         </div>
       </div>

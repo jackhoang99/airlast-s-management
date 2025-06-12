@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Briefcase, User, LogOut, X, Home, Clock, CheckSquare } from 'lucide-react';
+import { Calendar, MapPin, Briefcase, User, LogOut, X, Home, Clock, CheckSquare, MessageSquare } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSupabase } from '../../../lib/supabase-context';
 
@@ -162,6 +162,21 @@ const TechnicianNavbar = ({ open, setOpen }: TechnicianNavbarProps) => {
               >
                 <MapPin size={16} className="mr-3" />
                 Map
+              </Link>
+            </li>
+
+            <li>
+              <Link 
+                to="/tech/hvacbot"
+                className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                  isActive('/tech/hvacbot') 
+                    ? 'bg-primary-50 text-primary-700' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                onClick={() => setOpen(false)}
+              >
+                <MessageSquare size={16} className="mr-3" />
+                HVAC Assistant
               </Link>
             </li>
           </ul>
