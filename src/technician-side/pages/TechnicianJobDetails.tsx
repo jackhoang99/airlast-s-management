@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useSupabase } from '../../lib/supabase-context';
+import { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { useSupabase } from "../../lib/supabase-context";
 import { Briefcase, MapPin, Calendar, Clock, CheckSquare, AlertTriangle, ArrowLeft, Phone, Mail, MessageSquare, Clipboard, Home, Package, FileText, Wrench, Plus, Edit, Trash2, Send, ChevronDown, ChevronUp, Navigation, DollarSign, FileInput } from 'lucide-react';
-import JobServiceSection from '../../components/jobs/JobServiceSection';
-import JobQuoteSection from '../../components/jobs/JobQuoteSection';
-import JobInvoiceSection from '../../components/jobs/JobInvoiceSection';
+import ServiceSection from "../../components/jobs/ServiceSection";
+import JobQuoteSection from "../../components/jobs/JobQuoteSection";
+import JobInvoiceSection from "../../components/jobs/JobInvoiceSection";
 import TechnicianNavigation from '../components/navigation/TechnicianNavigation';
 
 const TechnicianJobDetails = () => {
@@ -33,14 +33,15 @@ const TechnicianJobDetails = () => {
   const [isStartingBreak, setIsStartingBreak] = useState(false);
   const [isEndingBreak, setIsEndingBreak] = useState(false);
   const [showNavigationModal, setShowNavigationModal] = useState(false);
-  const [showAdminFeatures, setShowAdminFeatures] = useState(false);
   const [quoteNeedsUpdate, setQuoteNeedsUpdate] = useState(false);
   const [lastQuoteUpdateTime, setLastQuoteUpdateTime] = useState<string | null>(null);
   
-  // Service section visibility states
-  const [showInspectionSection, setShowInspectionSection] = useState(true);
-  const [showRepairSection, setShowRepairSection] = useState(false);
-  const [showItemsSection, setShowItemsSection] = useState(false);
+  // Collapsible section states
+  const [showServiceSection, setShowServiceSection] = useState(false);
+  const [showQuoteSection, setShowQuoteSection] = useState(false);
+  const [showInvoiceSection, setShowInvoiceSection] = useState(false);
+  const [showCommentsSection, setShowCommentsSection] = useState(true);
+  const [showTimeTrackingSection, setShowTimeTrackingSection] = useState(true);
 
   // Get technician ID
   useEffect(() => {
@@ -589,7 +590,7 @@ const TechnicianJobDetails = () => {
   }
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-4 pb-6">
       {/* Job Header */}
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center mb-4">
@@ -613,7 +614,17 @@ const TechnicianJobDetails = () => {
           )}
           {job.is_training && (
             <span className="badge bg-purple-100 text-purple-800">
-              Training
+              training
+            </span>
+          )}
+          {job.quote_confirmed && job.repair_approved && (
+            <span className="badge bg-success-100 text-success-800">
+              Repair Approved
+            </span>
+          )}
+          {job.quote_confirmed && job.repair_approved === false && (
+            <span className="badge bg-error-100 text-error-800">
+              Repair Declined
             </span>
           )}
         </div>
@@ -669,102 +680,6 @@ const TechnicianJobDetails = () => {
             </button>
           </div>
         </div>
-      </div>
-
-      {/* Clock In/Out Section */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <h2 className="text-lg font-semibold mb-4 flex items-center">
-          <Clock className="h-5 w-5 mr-2 text-primary-600" />
-          Time Tracking
-        </h2>
-        
-        <div className="flex flex-wrap gap-3 mb-4">
-          {currentClockStatus === 'clocked_out' ? (
-            <button
-              onClick={() => handleClockEvent('clock_in')}
-              className="btn btn-primary"
-              disabled={isClockingIn || jobStatus === 'completed' || jobStatus === 'cancelled'}
-            >
-              {isClockingIn ? (
-                <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-              ) : (
-                <Clock size={16} className="mr-2" />
-              )}
-              Clock In
-            </button>
-          ) : currentClockStatus === 'clocked_in' ? (
-            <>
-              <button
-                onClick={() => handleClockEvent('clock_out')}
-                className="btn btn-error"
-                disabled={isClockingOut}
-              >
-                {isClockingOut ? (
-                  <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                ) : (
-                  <Clock size={16} className="mr-2" />
-                )}
-                Clock Out
-              </button>
-              <button
-                onClick={() => handleClockEvent('break_start')}
-                className="btn btn-secondary"
-                disabled={isStartingBreak}
-              >
-                {isStartingBreak ? (
-                  <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                ) : (
-                  <Clock size={16} className="mr-2" />
-                )}
-                Start Break
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => handleClockEvent('break_end')}
-              className="btn btn-primary"
-              disabled={isEndingBreak}
-            >
-              {isEndingBreak ? (
-                <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-              ) : (
-                <Clock size={16} className="mr-2" />
-              )}
-              End Break
-            </button>
-          )}
-        </div>
-        
-        {clockEvents.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 text-left">
-                <tr>
-                  <th className="px-4 py-2 text-sm font-medium text-gray-500">EVENT</th>
-                  <th className="px-4 py-2 text-sm font-medium text-gray-500">TIME</th>
-                  <th className="px-4 py-2 text-sm font-medium text-gray-500">NOTES</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clockEvents.map((event, index) => (
-                  <tr key={event.id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                    <td className="px-4 py-3 capitalize">
-                      {event.event_type.replace('_', ' ')}
-                    </td>
-                    <td className="px-4 py-3">
-                      {formatDateTime(event.event_time)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {event.notes || '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-gray-500 text-center py-4">No time tracking events recorded yet</p>
-        )}
       </div>
 
       {/* Location and Contact */}
@@ -838,315 +753,279 @@ const TechnicianJobDetails = () => {
         </div>
       </div>
 
-      {/* Admin Features Toggle */}
+      {/* Clock In/Out Section - Collapsible */}
       <div className="bg-white rounded-lg shadow p-4">
-        <button 
-          onClick={() => setShowAdminFeatures(!showAdminFeatures)}
-          className="w-full flex justify-between items-center"
+        <div 
+          className="flex justify-between items-center cursor-pointer"
+          onClick={() => setShowTimeTrackingSection(!showTimeTrackingSection)}
         >
           <h2 className="text-lg font-semibold flex items-center">
-            <Wrench className="h-5 w-5 mr-2 text-primary-600" />
-            Advanced Features
+            <Clock className="h-5 w-5 mr-2 text-primary-600" />
+            Time Tracking
           </h2>
-          {showAdminFeatures ? (
-            <ChevronUp className="h-5 w-5 text-gray-500" />
-          ) : (
-            <ChevronDown className="h-5 w-5 text-gray-500" />
-          )}
-        </button>
+          <span className="text-gray-500">
+            {showTimeTrackingSection ? '▲' : '▼'}
+          </span>
+        </div>
+        
+        {showTimeTrackingSection && (
+          <>
+            <div className="flex flex-wrap gap-3 mt-4 mb-4">
+              {currentClockStatus === 'clocked_out' ? (
+                <button
+                  onClick={() => handleClockEvent('clock_in')}
+                  className="btn btn-primary"
+                  disabled={isClockingIn || jobStatus === 'completed' || jobStatus === 'cancelled'}
+                >
+                  {isClockingIn ? (
+                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                  ) : (
+                    <Clock size={16} className="mr-2" />
+                  )}
+                  Clock In
+                </button>
+              ) : currentClockStatus === 'clocked_in' ? (
+                <>
+                  <button
+                    onClick={() => handleClockEvent('clock_out')}
+                    className="btn btn-error"
+                    disabled={isClockingOut}
+                  >
+                    {isClockingOut ? (
+                      <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                    ) : (
+                      <Clock size={16} className="mr-2" />
+                    )}
+                    Clock Out
+                  </button>
+                  <button
+                    onClick={() => handleClockEvent('break_start')}
+                    className="btn btn-secondary"
+                    disabled={isStartingBreak}
+                  >
+                    {isStartingBreak ? (
+                      <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                    ) : (
+                      <Clock size={16} className="mr-2" />
+                    )}
+                    Start Break
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => handleClockEvent('break_end')}
+                  className="btn btn-primary"
+                  disabled={isEndingBreak}
+                >
+                  {isEndingBreak ? (
+                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                  ) : (
+                    <Clock size={16} className="mr-2" />
+                  )}
+                  End Break
+                </button>
+              )}
+            </div>
+            
+            {clockEvents.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 text-left">
+                    <tr>
+                      <th className="px-4 py-2 text-sm font-medium text-gray-500">EVENT</th>
+                      <th className="px-4 py-2 text-sm font-medium text-gray-500">TIME</th>
+                      <th className="px-4 py-2 text-sm font-medium text-gray-500">NOTES</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clockEvents.map((event, index) => (
+                      <tr key={event.id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                        <td className="px-4 py-3 capitalize">
+                          {event.event_type.replace('_', ' ')}
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatDateTime(event.event_time)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {event.notes || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-4">No time tracking events recorded yet</p>
+            )}
+          </>
+        )}
       </div>
 
-      {/* Admin Features (Service, Quote, Invoice) */}
-      {showAdminFeatures && (
-        <>
-          {/* Service Section */}
-          <JobServiceSection
-            jobId={id || ''}
-            jobItems={jobItems}
-            onItemsUpdated={handleItemsUpdated}
-            onQuoteStatusChange={() => job?.quote_sent && setQuoteNeedsUpdate(true)}
-          />
-
-          {/* Quote Section */}
-          <JobQuoteSection
-            job={job}
-            jobItems={jobItems}
-            onQuoteSent={handleQuoteSent}
-            onPreviewQuote={() => {}}
-            quoteNeedsUpdate={quoteNeedsUpdate}
-          />
-
-          {/* Invoice Section */}
-          <JobInvoiceSection
-            job={job}
-            jobItems={jobItems}
-            onInvoiceCreated={handleInvoiceCreated}
-          />
-        </>
-      )}
-
-      {/* Service Details - Collapsible Sections */}
+      {/* Service Details - Mobile-Optimized Collapsible Sections */}
       <div className="bg-white rounded-lg shadow p-4">
         <h2 className="text-lg font-semibold mb-4 flex items-center">
           <Wrench className="h-5 w-5 mr-2 text-primary-600" />
           Service Details
         </h2>
         
-        {/* Inspection Section - Collapsible */}
+        {/* Service Section - Collapsible */}
         <div className="mb-4 border rounded-lg overflow-hidden">
           <button 
-            onClick={() => setShowInspectionSection(!showInspectionSection)}
+            onClick={() => setShowServiceSection(!showServiceSection)}
             className="w-full flex justify-between items-center p-3 bg-blue-50 hover:bg-blue-100 transition-colors"
           >
             <h3 className="text-md font-medium flex items-center">
-              <Clipboard size={16} className="mr-2 text-blue-500" />
-              Inspection Details
+              <Wrench size={16} className="mr-2 text-blue-500" />
+              Service
             </h3>
-            {showInspectionSection ? (
+            {showServiceSection ? (
               <ChevronUp className="h-5 w-5 text-blue-500" />
             ) : (
               <ChevronDown className="h-5 w-5 text-blue-500" />
             )}
           </button>
           
-          {showInspectionSection && (
-            <div className="p-3">
-              {inspectionData.length > 0 ? (
-                <div className="space-y-4">
-                  {inspectionData.map((inspection) => (
-                    <div 
-                      key={inspection.id} 
-                      className={`bg-gray-50 p-4 rounded-lg border ${
-                        inspection.completed ? 'border-success-200' : 'border-gray-200'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-3">
-                        <h4 className="font-medium">
-                          Inspection from {new Date(inspection.created_at).toLocaleDateString()}
-                          {inspection.completed && (
-                            <span className="ml-2 text-xs bg-success-100 text-success-800 px-2 py-0.5 rounded-full">
-                              Completed
-                            </span>
-                          )}
-                        </h4>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Model Number</p>
-                          <p className="font-medium">{inspection.model_number || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Serial Number</p>
-                          <p className="font-medium">{inspection.serial_number || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Age (Years)</p>
-                          <p className="font-medium">{inspection.age || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Tonnage</p>
-                          <p className="font-medium">{inspection.tonnage || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Unit Type</p>
-                          <p className="font-medium">{inspection.unit_type || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">System Type</p>
-                          <p className="font-medium">{inspection.system_type || 'N/A'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center py-4">No inspection data available</p>
-              )}
+          {showServiceSection && (
+            <div className="p-3 max-h-[60vh] overflow-y-auto">
+              <div className="text-sm text-gray-500 mb-2">
+                <p>Tap on sections below to expand service details</p>
+              </div>
+              <ServiceSection
+                jobId={id || ''}
+                jobItems={jobItems}
+                onItemsUpdated={handleItemsUpdated}
+                onQuoteStatusChange={() => job?.quote_sent && setQuoteNeedsUpdate(true)}
+              />
             </div>
           )}
         </div>
         
-        {/* Repair Section - Collapsible */}
+        {/* Quote Section - Collapsible */}
         <div className="mb-4 border rounded-lg overflow-hidden">
           <button 
-            onClick={() => setShowRepairSection(!showRepairSection)}
+            onClick={() => setShowQuoteSection(!showQuoteSection)}
             className="w-full flex justify-between items-center p-3 bg-green-50 hover:bg-green-100 transition-colors"
           >
             <h3 className="text-md font-medium flex items-center">
-              <Wrench size={16} className="mr-2 text-green-500" />
-              Repair Details
+              <FileText size={16} className="mr-2 text-green-500" />
+              Quote
             </h3>
-            {showRepairSection ? (
+            {showQuoteSection ? (
               <ChevronUp className="h-5 w-5 text-green-500" />
             ) : (
               <ChevronDown className="h-5 w-5 text-green-500" />
             )}
           </button>
           
-          {showRepairSection && (
-            <div className="p-3">
-              {repairData ? (
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Selected Option</p>
-                      <p className="font-medium">
-                        {repairData.selected_phase === 'phase1' ? 'Economy Option' : 
-                         repairData.selected_phase === 'phase2' ? 'Standard Option' : 
-                         'Premium Option'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Total Cost</p>
-                      <p className="font-medium">${Number(repairData.total_cost).toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Requires Crane</p>
-                      <p className="font-medium">{repairData.needs_crane ? 'Yes' : 'No'}</p>
-                    </div>
-                    {repairData.warranty && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">Warranty</p>
-                        <p className="font-medium">{repairData.warranty}</p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Phase Details */}
-                  {repairData.selected_phase && (
-                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                      <h4 className="font-medium text-blue-800 mb-2">
-                        {repairData.selected_phase === 'phase1' ? 'Economy Option' : 
-                         repairData.selected_phase === 'phase2' ? 'Standard Option' : 
-                         'Premium Option'} Details
-                      </h4>
-                      <p className="text-blue-700">
-                        {repairData[repairData.selected_phase]?.description || 'No description available'}
-                      </p>
-                      <p className="text-blue-700 font-medium mt-1">
-                        Cost: ${Number(repairData[repairData.selected_phase]?.cost || 0).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center py-4">No repair data available</p>
-              )}
+          {showQuoteSection && (
+            <div className="p-3 max-h-[60vh] overflow-y-auto">
+              <div className="text-sm text-gray-500 mb-2">
+                <p>Manage and send quotes to customers</p>
+              </div>
+              <JobQuoteSection
+                job={job}
+                jobItems={jobItems}
+                onQuoteSent={handleQuoteSent}
+                onPreviewQuote={() => {}}
+                quoteNeedsUpdate={quoteNeedsUpdate}
+              />
             </div>
           )}
         </div>
         
-        {/* Items Section - Collapsible */}
+        {/* Invoice Section - Collapsible */}
         <div className="border rounded-lg overflow-hidden">
           <button 
-            onClick={() => setShowItemsSection(!showItemsSection)}
+            onClick={() => setShowInvoiceSection(!showInvoiceSection)}
             className="w-full flex justify-between items-center p-3 bg-purple-50 hover:bg-purple-100 transition-colors"
           >
             <h3 className="text-md font-medium flex items-center">
-              <Package size={16} className="mr-2 text-purple-500" />
-              Items & Materials
+              <FileInput size={16} className="mr-2 text-purple-500" />
+              Invoice
             </h3>
-            {showItemsSection ? (
+            {showInvoiceSection ? (
               <ChevronUp className="h-5 w-5 text-purple-500" />
             ) : (
               <ChevronDown className="h-5 w-5 text-purple-500" />
             )}
           </button>
           
-          {showItemsSection && (
-            <div className="p-3">
-              {jobItems.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 text-left">
-                      <tr>
-                        <th className="px-4 py-2 text-sm font-medium text-gray-500">ITEM</th>
-                        <th className="px-4 py-2 text-sm font-medium text-gray-500">QTY</th>
-                        <th className="px-4 py-2 text-sm font-medium text-gray-500 text-right">UNIT PRICE</th>
-                        <th className="px-4 py-2 text-sm font-medium text-gray-500 text-right">TOTAL</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {jobItems.map((item) => (
-                        <tr key={item.id} className="border-b">
-                          <td className="px-4 py-3">
-                            <div className="font-medium">{item.name}</div>
-                            <div className="text-xs text-gray-500">{item.code}</div>
-                          </td>
-                          <td className="px-4 py-3">{item.quantity}</td>
-                          <td className="px-4 py-3 text-right">${Number(item.unit_cost).toFixed(2)}</td>
-                          <td className="px-4 py-3 text-right font-medium">${Number(item.total_cost).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-gray-50 font-bold">
-                        <td className="px-4 py-3" colSpan={3} align="right">Total</td>
-                        <td className="px-4 py-3 text-right">
-                          ${jobItems.reduce((sum, item) => sum + Number(item.total_cost), 0).toFixed(2)}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center py-4">No items added to this job</p>
-              )}
+          {showInvoiceSection && (
+            <div className="p-3 max-h-[60vh] overflow-y-auto">
+              <div className="text-sm text-gray-500 mb-2">
+                <p>Create and manage invoices</p>
+              </div>
+              <JobInvoiceSection
+                job={job}
+                jobItems={jobItems}
+                onInvoiceCreated={handleInvoiceCreated}
+              />
             </div>
           )}
         </div>
       </div>
 
-      {/* Comments Section */}
+      {/* Comments Section - Collapsible */}
       <div className="bg-white rounded-lg shadow p-4">
-        <h2 className="text-lg font-semibold mb-4 flex items-center">
-          <MessageSquare className="h-5 w-5 mr-2 text-primary-600" />
-          Comments
-        </h2>
-        
-        <div className="mb-4">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Add a comment..."
-            className="input w-full h-24"
-            disabled={isSubmittingComment}
-          ></textarea>
-          <div className="flex justify-end mt-2">
-            <button
-              onClick={handleAddComment}
-              className="btn btn-primary"
-              disabled={isSubmittingComment || !newComment.trim()}
-            >
-              {isSubmittingComment ? (
-                <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-              ) : (
-                <Send size={16} className="mr-2" />
-              )}
-              Add Comment
-            </button>
-          </div>
+        <div 
+          className="flex justify-between items-center cursor-pointer"
+          onClick={() => setShowCommentsSection(!showCommentsSection)}
+        >
+          <h2 className="text-lg font-semibold flex items-center">
+            <MessageSquare className="h-5 w-5 mr-2 text-primary-600" />
+            Comments
+          </h2>
+          <span className="text-gray-500">
+            {showCommentsSection ? '▲' : '▼'}
+          </span>
         </div>
         
-        {comments.length > 0 ? (
-          <div className="space-y-4">
-            {comments.map((comment) => (
-              <div key={comment.id} className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex justify-between items-start">
-                  <div className="font-medium">
-                    {comment.user?.first_name} {comment.user?.last_name}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {new Date(comment.created_at).toLocaleString()}
-                  </div>
-                </div>
-                <p className="mt-2 text-gray-700">{comment.content}</p>
+        {showCommentsSection && (
+          <div className="mt-4">
+            <div className="mb-4">
+              <textarea
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Add a comment..."
+                className="input w-full h-24"
+                disabled={isSubmittingComment}
+              ></textarea>
+              <div className="flex justify-end mt-2">
+                <button
+                  onClick={handleAddComment}
+                  className="btn btn-primary"
+                  disabled={isSubmittingComment || !newComment.trim()}
+                >
+                  {isSubmittingComment ? (
+                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                  ) : (
+                    <Send size={16} className="mr-2" />
+                  )}
+                  Add Comment
+                </button>
               </div>
-            ))}
+            </div>
+            
+            {comments.length > 0 ? (
+              <div className="space-y-4 max-h-[40vh] overflow-y-auto">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="p-4 bg-gray-50 rounded-lg">
+                    <div className="flex justify-between items-start">
+                      <div className="font-medium">
+                        {comment.user?.first_name} {comment.user?.last_name}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(comment.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <p className="mt-2 text-gray-700">{comment.content}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-4">No comments yet</p>
+            )}
           </div>
-        ) : (
-          <p className="text-gray-500 text-center py-4">No comments yet</p>
         )}
       </div>
 
