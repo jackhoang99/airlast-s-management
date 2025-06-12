@@ -424,6 +424,11 @@ const JobDetails = () => {
                   job={job}
                   onAssignTechnicians={() => setShowAppointmentModal(true)}
                 />
+                
+                {/* Time Tracking */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <JobTimeTracking jobId={job.id} />
+                </div>
               </div>
             )}
           </div>
@@ -473,6 +478,11 @@ const JobDetails = () => {
                     job.quote_sent && setQuoteNeedsUpdate(true)
                   }
                 />
+                
+                {/* Comments */}
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <JobComments jobId={job.id} />
+                </div>
               </div>
             )}
           </div>
@@ -536,16 +546,6 @@ const JobDetails = () => {
 
         <div className="space-y-4">
           <JobSidebar job={job} />
-          
-          {/* Time Tracking */}
-          <div className="card">
-            <JobTimeTracking jobId={job.id} />
-          </div>
-          
-          {/* Comments */}
-          <div className="card">
-            <JobComments jobId={job.id} />
-          </div>
         </div>
       </div>
 

@@ -38,8 +38,6 @@ const TechnicianJobDetails = () => {
   const [showServiceSection, setShowServiceSection] = useState(false);
   const [showQuoteSection, setShowQuoteSection] = useState(false);
   const [showInvoiceSection, setShowInvoiceSection] = useState(false);
-  const [showCommentsSection, setShowCommentsSection] = useState(true);
-  const [showTimeTrackingSection, setShowTimeTrackingSection] = useState(true);
 
   // Get technician ID
   useEffect(() => {
@@ -549,6 +547,64 @@ const TechnicianJobDetails = () => {
         
         <h2 className="text-lg font-semibold">{job.name}</h2>
         
+        {/* Time Tracking Controls */}
+        <div className="flex flex-wrap gap-3 mt-4 mb-4">
+          {currentClockStatus === 'clocked_out' ? (
+            <button
+              onClick={() => handleClockEvent('clock_in')}
+              className="btn btn-primary"
+              disabled={isClockingIn || jobStatus === 'completed' || jobStatus === 'cancelled'}
+            >
+              {isClockingIn ? (
+                <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+              ) : (
+                <Clock size={16} className="mr-2" />
+              )}
+              Clock In
+            </button>
+          ) : currentClockStatus === 'clocked_in' ? (
+            <>
+              <button
+                onClick={() => handleClockEvent('clock_out')}
+                className="btn btn-error"
+                disabled={isClockingOut}
+              >
+                {isClockingOut ? (
+                  <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                ) : (
+                  <Clock size={16} className="mr-2" />
+                )}
+                Clock Out
+              </button>
+              <button
+                onClick={() => handleClockEvent('break_start')}
+                className="btn btn-secondary"
+                disabled={isStartingBreak}
+              >
+                {isStartingBreak ? (
+                  <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                ) : (
+                  <Clock size={16} className="mr-2" />
+                )}
+                Start Break
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => handleClockEvent('break_end')}
+              className="btn btn-primary"
+              disabled={isEndingBreak}
+            >
+              {isEndingBreak ? (
+                <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+              ) : (
+                <Clock size={16} className="mr-2" />
+              )}
+              End Break
+            </button>
+          )}
+        </div>
+        
         {job.description && (
           <p className="text-gray-600 mt-2">{job.description}</p>
         )}
@@ -718,109 +774,11 @@ const TechnicianJobDetails = () => {
             <p className="text-gray-500">No technicians assigned</p>
           )}
         </div>
-      </div>
-
-      {/* Clock In/Out Section - Collapsible */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <div 
-          className="flex justify-between items-center cursor-pointer"
-          onClick={() => setShowTimeTrackingSection(!showTimeTrackingSection)}
-        >
-          <h2 className="text-lg font-semibold flex items-center">
-            <Clock className="h-5 w-5 mr-2 text-primary-600" />
-            Time Tracking
-          </h2>
-          <span className="text-gray-500">
-            {showTimeTrackingSection ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </span>
-        </div>
         
-        {showTimeTrackingSection && (
-          <>
-            <div className="flex flex-wrap gap-3 mt-4 mb-4">
-              {currentClockStatus === 'clocked_out' ? (
-                <button
-                  onClick={() => handleClockEvent('clock_in')}
-                  className="btn btn-primary"
-                  disabled={isClockingIn || jobStatus === 'completed' || jobStatus === 'cancelled'}
-                >
-                  {isClockingIn ? (
-                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                  ) : (
-                    <Clock size={16} className="mr-2" />
-                  )}
-                  Clock In
-                </button>
-              ) : currentClockStatus === 'clocked_in' ? (
-                <>
-                  <button
-                    onClick={() => handleClockEvent('clock_out')}
-                    className="btn btn-error"
-                    disabled={isClockingOut}
-                  >
-                    {isClockingOut ? (
-                      <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                    ) : (
-                      <Clock size={16} className="mr-2" />
-                    )}
-                    Clock Out
-                  </button>
-                  <button
-                    onClick={() => handleClockEvent('break_start')}
-                    className="btn btn-secondary"
-                    disabled={isStartingBreak}
-                  >
-                    {isStartingBreak ? (
-                      <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                    ) : (
-                      <Clock size={16} className="mr-2" />
-                    )}
-                    Start Break
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => handleClockEvent('break_end')}
-                  className="btn btn-primary"
-                  disabled={isEndingBreak}
-                >
-                  {isEndingBreak ? (
-                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                  ) : (
-                    <Clock size={16} className="mr-2" />
-                  )}
-                  End Break
-                </button>
-              )}
-            </div>
-            
-            <div className="mt-4">
-              <JobTimeTracking jobId={id || ''} />
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Comments Section - Collapsible */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <div 
-          className="flex justify-between items-center cursor-pointer"
-          onClick={() => setShowCommentsSection(!showCommentsSection)}
-        >
-          <h2 className="text-lg font-semibold flex items-center">
-            <MessageSquare className="h-5 w-5 mr-2 text-primary-600" />
-            Comments
-          </h2>
-          <span className="text-gray-500">
-            {showCommentsSection ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </span>
+        {/* Time Tracking */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <JobTimeTracking jobId={id || ''} />
         </div>
-        
-        {showCommentsSection && (
-          <div className="mt-4">
-            <JobComments jobId={id || ''} />
-          </div>
-        )}
       </div>
 
       {/* Service Details - Mobile-Optimized Collapsible Sections */}
@@ -860,6 +818,11 @@ const TechnicianJobDetails = () => {
               />
             </div>
           )}
+        </div>
+        
+        {/* Comments Section */}
+        <div className="mb-4">
+          <JobComments jobId={id || ''} />
         </div>
         
         {/* Quote Section - Collapsible */}

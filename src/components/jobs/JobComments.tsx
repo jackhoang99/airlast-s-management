@@ -61,7 +61,7 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
                 .eq('id', comment.user_id)
                 .maybeSingle();
               
-              if (userError) {
+              if (userError && !userError.message.includes('contains 0 rows')) {
                 console.error('Error fetching user for comment:', userError);
                 return {
                   ...comment,
