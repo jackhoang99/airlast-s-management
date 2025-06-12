@@ -445,6 +445,7 @@ export interface Database {
           quote_token: string | null
           quote_confirmed: boolean | null
           quote_confirmed_at: string | null
+          repair_approved: boolean | null
         }
         Insert: {
           id?: string
@@ -481,6 +482,7 @@ export interface Database {
           quote_token?: string | null
           quote_confirmed?: boolean | null
           quote_confirmed_at?: string | null
+          repair_approved?: boolean | null
         }
         Update: {
           id?: string
@@ -517,6 +519,7 @@ export interface Database {
           quote_token?: string | null
           quote_confirmed?: boolean | null
           quote_confirmed_at?: string | null
+          repair_approved?: boolean | null
         }
       }
       job_repairs: {  // Changed from job_replacements to job_repairs
@@ -540,6 +543,7 @@ export interface Database {
           updated_at: string
           selected_phase: string | null
           total_cost: number | null
+          inspection_id: string | null
         }
         Insert: {
           id?: string
@@ -561,6 +565,7 @@ export interface Database {
           updated_at?: string
           selected_phase?: string | null
           total_cost?: number | null
+          inspection_id?: string | null
         }
         Update: {
           id?: string
@@ -582,6 +587,59 @@ export interface Database {
           updated_at?: string
           selected_phase?: string | null
           total_cost?: number | null
+          inspection_id?: string | null
+        }
+      }
+      job_clock_events: {
+        Row: {
+          id: string
+          job_id: string
+          user_id: string
+          event_type: string
+          event_time: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          job_id: string
+          user_id: string
+          event_type: string
+          event_time: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          job_id?: string
+          user_id?: string
+          event_type?: string
+          event_time?: string
+          notes?: string | null
+          created_at?: string
+        }
+      }
+      job_comments: {
+        Row: {
+          id: string
+          job_id: string
+          user_id: string
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          job_id: string
+          user_id: string
+          content: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          job_id?: string
+          user_id?: string
+          content?: string
+          created_at?: string
         }
       }
     }

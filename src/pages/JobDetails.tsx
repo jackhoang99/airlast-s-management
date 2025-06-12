@@ -14,6 +14,8 @@ import JobSidebar from "../components/jobs/JobSidebar";
 import JobUnitSection from "../components/jobs/JobUnitSection";
 import AppointmentModal from "../components/jobs/AppointmentModal";
 import QuotePDFViewer from "../components/quotes/QuotePDFViewer";
+import JobTimeTracking from "../components/jobs/JobTimeTracking";
+import JobComments from "../components/jobs/JobComments";
 
 const JobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +43,8 @@ const JobDetails = () => {
   const [showInvoiceSection, setShowInvoiceSection] = useState(true);
   const [showLocationSection, setShowLocationSection] = useState(true);
   const [showUnitSection, setShowUnitSection] = useState(true);
+  const [showTimeTrackingSection, setShowTimeTrackingSection] = useState(true);
+  const [showCommentsSection, setShowCommentsSection] = useState(true);
 
   useEffect(() => {
     const fetchJobDetails = async () => {
@@ -441,6 +445,44 @@ const JobDetails = () => {
             {showUnitSection && (
               <div className="mt-4">
                 <JobUnitSection job={job} />
+              </div>
+            )}
+          </div>
+
+          {/* Time Tracking Section - Collapsible */}
+          <div className="card">
+            <div 
+              className="flex justify-between items-center cursor-pointer"
+              onClick={() => setShowTimeTrackingSection(!showTimeTrackingSection)}
+            >
+              <h2 className="text-lg font-medium">Time Tracking</h2>
+              <span className="text-gray-500">
+                {showTimeTrackingSection ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </span>
+            </div>
+            
+            {showTimeTrackingSection && (
+              <div className="mt-4">
+                <JobTimeTracking jobId={job.id} />
+              </div>
+            )}
+          </div>
+
+          {/* Comments Section - Collapsible */}
+          <div className="card">
+            <div 
+              className="flex justify-between items-center cursor-pointer"
+              onClick={() => setShowCommentsSection(!showCommentsSection)}
+            >
+              <h2 className="text-lg font-medium">Comments</h2>
+              <span className="text-gray-500">
+                {showCommentsSection ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </span>
+            </div>
+            
+            {showCommentsSection && (
+              <div className="mt-4">
+                <JobComments jobId={job.id} />
               </div>
             )}
           </div>

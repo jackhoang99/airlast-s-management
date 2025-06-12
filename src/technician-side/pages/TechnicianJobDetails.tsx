@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useSupabase } from "../../lib/supabase-context";
-import { Briefcase, MapPin, Calendar, Clock, CheckSquare, AlertTriangle, ArrowLeft, Phone, Mail, MessageSquare, Clipboard, Home, Package, FileText, Wrench, Plus, Edit, Trash2, Send, ChevronDown, ChevronUp, Navigation, DollarSign, FileInput } from 'lucide-react';
+import { Briefcase, MapPin, Calendar, Clock, CheckSquare, AlertTriangle, ArrowLeft, Phone, Mail, MessageSquare, Clipboard, Home, Package, FileText, Wrench, Plus, Edit, Trash2, Send, ChevronDown, ChevronUp, Navigation, DollarSign, FileInput, Users } from 'lucide-react';
 import ServiceSection from "../../components/jobs/ServiceSection";
 import JobQuoteSection from "../../components/jobs/JobQuoteSection";
 import JobInvoiceSection from "../../components/jobs/JobInvoiceSection";
 import TechnicianNavigation from '../components/navigation/TechnicianNavigation';
+import JobTimeTracking from "../../components/jobs/JobTimeTracking";
+import JobComments from "../../components/jobs/JobComments";
 
 const TechnicianJobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -18,15 +20,11 @@ const TechnicianJobDetails = () => {
   const [jobItems, setJobItems] = useState<any[]>([]);
   const [inspectionData, setInspectionData] = useState<any[]>([]);
   const [repairData, setRepairData] = useState<any | null>(null);
-  const [comments, setComments] = useState<any[]>([]);
-  const [newComment, setNewComment] = useState('');
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [technicianId, setTechnicianId] = useState<string | null>(null);
   const [technicianName, setTechnicianName] = useState('');
   const [isCompletingJob, setIsCompletingJob] = useState(false);
   const [showCompleteJobModal, setShowCompleteJobModal] = useState(false);
   const [jobStatus, setJobStatus] = useState<'scheduled' | 'unscheduled' | 'completed' | 'cancelled'>('scheduled');
-  const [clockEvents, setClockEvents] = useState<any[]>([]);
   const [currentClockStatus, setCurrentClockStatus] = useState<'clocked_out' | 'clocked_in' | 'on_break'>('clocked_out');
   const [isClockingIn, setIsClockingIn] = useState(false);
   const [isClockingOut, setIsClockingOut] = useState(false);
@@ -188,6 +186,17 @@ const TechnicianJobDetails = () => {
               primary_contact_type,
               primary_contact_email,
               primary_contact_phone
+            ),
+            job_technicians (
+              id,
+              technician_id,
+              is_primary,
+              users:technician_id (
+                first_name,
+                last_name,
+                email,
+                phone
+              )
             )
           `)
           .eq('id', id)
@@ -259,84 +268,28 @@ const TechnicianJobDetails = () => {
           setRepairData(repairData[0]);
         }
 
-        // Fetch job comments - Modified to avoid the foreign key issue
-        const { data: commentsData, error: commentsError } = await supabase
-          .from('job_comments')
-          .select(`
-            id,
-            job_id,
-            user_id,
-            content,
-            created_at
-          `)
-          .eq('job_id', id)
-          .order('created_at', { ascending: false });
-
-        if (commentsError) {
-          console.error('Error fetching job comments:', commentsError);
-          // Don't throw here, just log the error
-        } else {
-          // For each comment, fetch the user details separately
-          const commentsWithUsers = await Promise.all(
-            (commentsData || []).map(async (comment) => {
-              try {
-                const { data: userData, error: userError } = await supabase
-                  .from('users')
-                  .select('first_name, last_name')
-                  .eq('id', comment.user_id)
-                  .single();
-                
-                if (userError) {
-                  console.error('Error fetching user for comment:', userError);
-                  return {
-                    ...comment,
-                    user: { first_name: 'Unknown', last_name: 'User' }
-                  };
-                }
-                
-                return {
-                  ...comment,
-                  user: userData
-                };
-              } catch (err) {
-                console.error('Error processing comment user:', err);
-                return {
-                  ...comment,
-                  user: { first_name: 'Unknown', last_name: 'User' }
-                };
-              }
-            })
-          );
-          
-          setComments(commentsWithUsers);
-        }
-
-        // Fetch clock events
+        // Check current clock status
         const { data: clockData, error: clockError } = await supabase
           .from('job_clock_events')
           .select('*')
           .eq('job_id', id)
+          .eq('user_id', technicianId)
           .order('event_time', { ascending: true });
-
+          
         if (clockError) {
           console.error('Error fetching clock events:', clockError);
           // Don't throw here, just log the error
-        } else {
-          setClockEvents(clockData || []);
-          
-          // Determine current clock status
-          if (clockData && clockData.length > 0) {
-            const lastEvent = clockData[clockData.length - 1];
-            if (lastEvent.event_type === 'clock_in') {
-              setCurrentClockStatus('clocked_in');
-            } else if (lastEvent.event_type === 'break_start') {
-              setCurrentClockStatus('on_break');
-            } else {
-              setCurrentClockStatus('clocked_out');
-            }
+        } else if (clockData && clockData.length > 0) {
+          // Determine current clock status from the last event
+          const lastEvent = clockData[clockData.length - 1];
+          if (lastEvent.event_type === 'clock_in') {
+            setCurrentClockStatus('clocked_in');
+          } else if (lastEvent.event_type === 'break_start') {
+            setCurrentClockStatus('on_break');
+          } else {
+            setCurrentClockStatus('clocked_out');
           }
         }
-
       } catch (err) {
         console.error('Error in fetchJobDetails:', err);
         setError(err instanceof Error ? err.message : 'Failed to load job details');
@@ -346,46 +299,7 @@ const TechnicianJobDetails = () => {
     };
 
     fetchJobDetails();
-  }, [supabase, id]);
-
-  const handleAddComment = async () => {
-    if (!supabase || !id || !technicianId || !newComment.trim()) return;
-
-    setIsSubmittingComment(true);
-
-    try {
-      const { data, error } = await supabase
-        .from('job_comments')
-        .insert({
-          job_id: id,
-          user_id: technicianId,
-          content: newComment.trim()
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Add the new comment to the list with user info
-      setComments([
-        {
-          ...data,
-          user: {
-            first_name: technicianName.split(' ')[0] || 'Unknown',
-            last_name: technicianName.split(' ')[1] || 'User'
-          }
-        },
-        ...comments
-      ]);
-      
-      setNewComment('');
-    } catch (err) {
-      console.error('Error adding comment:', err);
-      setError('Failed to add comment. Please try again.');
-    } finally {
-      setIsSubmittingComment(false);
-    }
-  };
+  }, [supabase, id, technicianId]);
 
   const handleClockEvent = async (eventType: 'clock_in' | 'clock_out' | 'break_start' | 'break_end') => {
     if (!supabase || !id || !technicianId) return;
@@ -410,9 +324,7 @@ const TechnicianJobDetails = () => {
 
       if (error) throw error;
 
-      // Update clock events and current status
-      setClockEvents([...clockEvents, data]);
-      
+      // Update current status
       if (eventType === 'clock_in') {
         setCurrentClockStatus('clocked_in');
       } else if (eventType === 'clock_out') {
@@ -482,10 +394,10 @@ const TechnicianJobDetails = () => {
     try {
       // Refresh job items
       const { data, error } = await supabase
-        .from('job_items')
-        .select('*')
-        .eq('job_id', id)
-        .order('created_at');
+        .from("job_items")
+        .select("*")
+        .eq("job_id", id)
+        .order("created_at");
 
       if (error) throw error;
       setJobItems(data || []);
@@ -501,7 +413,7 @@ const TechnicianJobDetails = () => {
         setQuoteNeedsUpdate(needsUpdate || false);
       }
     } catch (err) {
-      console.error('Error refreshing job items:', err);
+      console.error("Error refreshing job items:", err);
     }
   };
 
@@ -524,16 +436,6 @@ const TechnicianJobDetails = () => {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  const formatTime = (dateString: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
@@ -751,6 +653,50 @@ const TechnicianJobDetails = () => {
             )}
           </div>
         </div>
+
+        {/* Assigned Technicians */}
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <h3 className="text-md font-medium mb-3 flex items-center">
+            <Users size={16} className="mr-2 text-primary-600" />
+            Assigned Technicians
+          </h3>
+          
+          {job.job_technicians && job.job_technicians.length > 0 ? (
+            <div className="space-y-4">
+              {job.job_technicians.map(tech => (
+                <div key={tech.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="w-10 h-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium">
+                      {tech.users.first_name?.[0] || '?'}{tech.users.last_name?.[0] || '?'}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="font-medium flex items-center">
+                      {tech.users.first_name} {tech.users.last_name}
+                      {tech.is_primary && (
+                        <span className="ml-2 text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
+                          Primary
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-500 space-y-1 mt-1">
+                      <div className="flex items-center gap-2">
+                        <Phone size={14} />
+                        {tech.users.phone || 'No phone'}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Mail size={14} />
+                        {tech.users.email}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500">No technicians assigned</p>
+          )}
+        </div>
       </div>
 
       {/* Clock In/Out Section - Collapsible */}
@@ -764,7 +710,7 @@ const TechnicianJobDetails = () => {
             Time Tracking
           </h2>
           <span className="text-gray-500">
-            {showTimeTrackingSection ? '▲' : '▼'}
+            {showTimeTrackingSection ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
           </span>
         </div>
         
@@ -827,37 +773,32 @@ const TechnicianJobDetails = () => {
               )}
             </div>
             
-            {clockEvents.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 text-left">
-                    <tr>
-                      <th className="px-4 py-2 text-sm font-medium text-gray-500">EVENT</th>
-                      <th className="px-4 py-2 text-sm font-medium text-gray-500">TIME</th>
-                      <th className="px-4 py-2 text-sm font-medium text-gray-500">NOTES</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {clockEvents.map((event, index) => (
-                      <tr key={event.id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                        <td className="px-4 py-3 capitalize">
-                          {event.event_type.replace('_', ' ')}
-                        </td>
-                        <td className="px-4 py-3">
-                          {formatDateTime(event.event_time)}
-                        </td>
-                        <td className="px-4 py-3">
-                          {event.notes || '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">No time tracking events recorded yet</p>
-            )}
+            <div className="mt-4">
+              <JobTimeTracking jobId={id || ''} />
+            </div>
           </>
+        )}
+      </div>
+
+      {/* Comments Section - Collapsible */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <div 
+          className="flex justify-between items-center cursor-pointer"
+          onClick={() => setShowCommentsSection(!showCommentsSection)}
+        >
+          <h2 className="text-lg font-semibold flex items-center">
+            <MessageSquare className="h-5 w-5 mr-2 text-primary-600" />
+            Comments
+          </h2>
+          <span className="text-gray-500">
+            {showCommentsSection ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          </span>
+        </div>
+        
+        {showCommentsSection && (
+          <div className="mt-4">
+            <JobComments jobId={id || ''} />
+          </div>
         )}
       </div>
 
@@ -963,70 +904,6 @@ const TechnicianJobDetails = () => {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Comments Section - Collapsible */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <div 
-          className="flex justify-between items-center cursor-pointer"
-          onClick={() => setShowCommentsSection(!showCommentsSection)}
-        >
-          <h2 className="text-lg font-semibold flex items-center">
-            <MessageSquare className="h-5 w-5 mr-2 text-primary-600" />
-            Comments
-          </h2>
-          <span className="text-gray-500">
-            {showCommentsSection ? '▲' : '▼'}
-          </span>
-        </div>
-        
-        {showCommentsSection && (
-          <div className="mt-4">
-            <div className="mb-4">
-              <textarea
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Add a comment..."
-                className="input w-full h-24"
-                disabled={isSubmittingComment}
-              ></textarea>
-              <div className="flex justify-end mt-2">
-                <button
-                  onClick={handleAddComment}
-                  className="btn btn-primary"
-                  disabled={isSubmittingComment || !newComment.trim()}
-                >
-                  {isSubmittingComment ? (
-                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                  ) : (
-                    <Send size={16} className="mr-2" />
-                  )}
-                  Add Comment
-                </button>
-              </div>
-            </div>
-            
-            {comments.length > 0 ? (
-              <div className="space-y-4 max-h-[40vh] overflow-y-auto">
-                {comments.map((comment) => (
-                  <div key={comment.id} className="p-4 bg-gray-50 rounded-lg">
-                    <div className="flex justify-between items-start">
-                      <div className="font-medium">
-                        {comment.user?.first_name} {comment.user?.last_name}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(comment.created_at).toLocaleString()}
-                      </div>
-                    </div>
-                    <p className="mt-2 text-gray-700">{comment.content}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">No comments yet</p>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Complete Job Modal */}
