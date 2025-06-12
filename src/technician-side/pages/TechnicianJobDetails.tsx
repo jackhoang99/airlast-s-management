@@ -302,7 +302,10 @@ const TechnicianJobDetails = () => {
   }, [supabase, id, technicianId]);
 
   const handleClockEvent = async (eventType: 'clock_in' | 'clock_out' | 'break_start' | 'break_end') => {
-    if (!supabase || !id || !technicianId) return;
+    if (!supabase || !id || !technicianId) {
+      setError("Unable to record time - missing required information");
+      return;
+    }
 
     // Set the appropriate loading state
     if (eventType === 'clock_in') setIsClockingIn(true);
@@ -311,6 +314,13 @@ const TechnicianJobDetails = () => {
     else if (eventType === 'break_end') setIsEndingBreak(true);
 
     try {
+      console.log("Recording clock event:", {
+        job_id: id,
+        user_id: technicianId,
+        event_type: eventType,
+        event_time: new Date().toISOString()
+      });
+
       const { data, error } = await supabase
         .from('job_clock_events')
         .insert({
@@ -319,10 +329,14 @@ const TechnicianJobDetails = () => {
           event_type: eventType,
           event_time: new Date().toISOString()
         })
-        .select()
-        .single();
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error(`Error recording ${eventType}:`, error);
+        throw error;
+      }
+
+      console.log("Clock event recorded successfully:", data);
 
       // Update current status
       if (eventType === 'clock_in') {
@@ -676,6 +690,11 @@ const TechnicianJobDetails = () => {
                       {tech.is_primary && (
                         <span className="ml-2 text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
                           Primary
+                        </span>
+                      )}
+                      {tech.technician_id === technicianId && (
+                        <span className="ml-2 text-xs bg-success-100 text-success-700 px-2 py-0.5 rounded-full">
+                          You
                         </span>
                       )}
                     </div>
