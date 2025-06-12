@@ -477,11 +477,6 @@ const JobDetails = () => {
             )}
           </div>
 
-          {/* Comments Section - Moved outside of service section */}
-          <div className="card">
-            <JobComments jobId={job.id} />
-          </div>
-
           {/* Quote Section - Collapsible */}
           <div className="card">
             <div 
@@ -542,9 +537,14 @@ const JobDetails = () => {
         <div className="space-y-4">
           <JobSidebar job={job} />
           
-          {/* Time Tracking - Added directly to sidebar */}
+          {/* Time Tracking */}
           <div className="card">
             <JobTimeTracking jobId={job.id} />
+          </div>
+          
+          {/* Comments */}
+          <div className="card">
+            <JobComments jobId={job.id} />
           </div>
         </div>
       </div>
