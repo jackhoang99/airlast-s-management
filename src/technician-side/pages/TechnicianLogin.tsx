@@ -25,74 +25,160 @@ const TechnicianLogin = () => {
     try {
       if (!supabase) throw new Error("Supabase client not initialized");
 
-      console.log("Attempting technician login with username:", credentials.username);
-
-      // First, check if the user exists and is a technician
-      const { data: techData, error: techError } = await supabase
+      // First check if the user exists in the users table
+      const { data: userData, error: userError } = await supabase
         .from("users")
-        .select("id, username, email, role")
+        .select("id, email, role, username")
         .eq("username", credentials.username)
         .maybeSingle();
 
       // If there's an error that's not just "no rows found", throw it
-      if (techError && !techError.message.includes("contains 0 rows")) {
-        console.error("Technician lookup error:", techError);
-        throw new Error("Error checking technician credentials");
+      if (userError && !userError.message.includes("contains 0 rows")) {
+        console.error("User lookup error:", userError);
+        throw new Error("Error checking user credentials");
       }
 
-      // If no user found by username, try by email format
-      let techUser = techData;
-      if (!techUser) {
-        const email = `${credentials.username}@airlast-demo.com`;
-        console.log("User not found by username, trying with email:", email);
+      // If user exists in users table
+      if (userData) {
+        console.log("Found user in users table:", userData);
         
-        const { data: emailData, error: emailError } = await supabase
-          .from("users")
-          .select("id, username, email, role")
-          .eq("email", email)
-          .maybeSingle();
-          
-        if (emailError && !emailError.message.includes("contains 0 rows")) {
-          console.error("Email lookup error:", emailError);
-          throw new Error("Error checking technician credentials");
+        // Check if user is a technician
+        if (userData.role !== 'technician') {
+          throw new Error("This account does not have technician access");
         }
         
-        techUser = emailData;
+        // Determine email to use for auth
+        const email = userData.email || `${credentials.username}@airlast-demo.com`;
+        
+        // Try to sign in with Supabase Auth
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: credentials.password
+        });
+
+        // If sign-in fails, try to create the user in auth
+        if (signInError) {
+          console.log("Sign in failed, attempting to create user:", signInError);
+          
+          // Create user in auth system
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: email,
+            password: credentials.password,
+            options: {
+              data: {
+                username: credentials.username,
+                role: 'technician'
+              }
+            }
+          });
+          
+          if (signUpError) {
+            console.error("Error creating auth user:", signUpError);
+            throw new Error("Failed to create user account. Please contact support.");
+          }
+          
+          // If sign up was successful, update the user record with auth_id
+          if (signUpData.user) {
+            const { error: updateError } = await supabase
+              .from('users')
+              .update({ auth_id: signUpData.user.id })
+              .eq('id', userData.id);
+              
+            if (updateError) {
+              console.error("Error updating user with auth_id:", updateError);
+              // Don't throw here, just log the error
+            }
+            
+            // Now try to sign in again
+            const { error: retrySignInError } = await supabase.auth.signInWithPassword({
+              email: email,
+              password: credentials.password
+            });
+            
+            if (retrySignInError) {
+              console.error("Error signing in after account creation:", retrySignInError);
+              throw new Error("Account created but login failed. Please try again.");
+            }
+          }
+        }
+
+        // If we get here, login is successful
+        sessionStorage.setItem("isTechAuthenticated", "true");
+        sessionStorage.setItem("techUsername", credentials.username);
+        navigate(from, { replace: true });
+        return;
       }
-
-      // If no technician found, show error
-      if (!techUser) {
-        console.log("No user found with username or email");
-        throw new Error("Invalid username or password");
-      }
-
-      // Check if user is a technician
-      if (techUser.role !== 'technician') {
-        console.log("User found but not a technician:", techUser);
-        throw new Error("This account does not have technician access");
-      }
-
-      console.log("Technician found:", techUser);
-
-      // Use the email from users table if available, otherwise construct demo email
-      const email = techUser.email || `${credentials.username}@airlast-demo.com`;
       
-      // Try to sign in with Supabase Auth
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      // If user doesn't exist in users table, create them
+      console.log("User not found in users table, creating new user");
+      
+      // First try to sign in with demo email format
+      const email = `${credentials.username}@airlast-demo.com`;
+      
+      // Try to sign in first
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: email,
         password: credentials.password
       });
-
+      
+      // If sign-in fails, try to create the user
       if (signInError) {
-        // If sign-in fails, show error
-        console.error("Sign in error:", signInError);
-        throw new Error("Invalid username or password");
+        console.log("Sign in failed, attempting to create user:", signInError);
+        
+        // Create user in auth system
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: email,
+          password: credentials.password,
+          options: {
+            data: {
+              username: credentials.username,
+              role: 'technician'
+            }
+          }
+        });
+        
+        if (signUpError) {
+          console.error("Error creating auth user:", signUpError);
+          throw new Error("Failed to create user account. Please contact support.");
+        }
+        
+        // If sign up was successful, create a user record
+        if (signUpData.user) {
+          // Create user record in users table
+          const { data: newUser, error: createError } = await supabase
+            .from('users')
+            .insert({
+              id: signUpData.user.id,
+              auth_id: signUpData.user.id,
+              username: credentials.username,
+              email: email,
+              role: 'technician',
+              status: 'active'
+            })
+            .select()
+            .single();
+            
+          if (createError) {
+            console.error("Error creating user record:", createError);
+            throw new Error("Failed to create user record. Please contact support.");
+          }
+          
+          // Now try to sign in again
+          const { error: retrySignInError } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: credentials.password
+          });
+          
+          if (retrySignInError) {
+            console.error("Error signing in after account creation:", retrySignInError);
+            throw new Error("Account created but login failed. Please try again.");
+          }
+        }
       }
 
       // If we get here, login is successful
-      console.log("Login successful for technician:", techUser.username);
       sessionStorage.setItem("isTechAuthenticated", "true");
-      sessionStorage.setItem("techUsername", techUser.username || credentials.username);
+      sessionStorage.setItem("techUsername", credentials.username);
       navigate(from, { replace: true });
     } catch (err) {
       console.error("Login error:", err);

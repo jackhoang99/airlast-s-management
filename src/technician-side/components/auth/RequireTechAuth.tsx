@@ -24,71 +24,110 @@ const RequireTechAuth = () => {
         if (session) {
           console.log("Session found, checking if user is a technician");
           
-          // Verify that the user is a technician
-          try {
-            // First try by email
+          // Check if user exists in users table
+          const username = sessionStorage.getItem('techUsername');
+          
+          if (username) {
             const { data: userData, error: userError } = await supabase
               .from('users')
-              .select('id, username, role')
-              .eq('email', session.user.email)
+              .select('id, role')
+              .eq('username', username)
               .maybeSingle();
               
-            if (userError && !userError.message.includes("contains 0 rows")) {
-              console.error("Error fetching user role by email:", userError);
+            if (userError && !userError.message.includes('contains 0 rows')) {
+              console.error("Error checking user:", userError);
               throw userError;
             }
             
-            // If found by email and is a technician
+            // If user exists and is a technician, we're good
             if (userData && userData.role === 'technician') {
-              console.log("User is a technician (found by email)");
+              console.log("User is a technician");
               setIsTechnician(true);
               setIsAuthenticated(true);
               sessionStorage.setItem('isTechAuthenticated', 'true');
-              sessionStorage.setItem('techUsername', userData.username || session.user.email?.split('@')[0] || 'tech');
               setIsLoading(false);
               return;
             }
             
-            // Try with username from email
-            const username = session.user.email?.split('@')[0];
-            if (username) {
-              console.log("Trying to find user by username:", username);
-              const { data: usernameData, error: usernameError } = await supabase
-                .from('users')
-                .select('id, role')
-                .eq('username', username)
-                .maybeSingle();
-                
-              if (usernameError && !usernameError.message.includes("contains 0 rows")) {
-                console.error("Error fetching user role by username:", usernameError);
-                throw usernameError;
-              }
-                
-              if (usernameData && usernameData.role === 'technician') {
-                console.log("User is a technician (found by username)");
-                setIsTechnician(true);
-                setIsAuthenticated(true);
-                sessionStorage.setItem('isTechAuthenticated', 'true');
-                sessionStorage.setItem('techUsername', username);
-                setIsLoading(false);
-                return;
-              }
+            // If user exists but is not a technician, deny access
+            if (userData && userData.role !== 'technician') {
+              console.log("User found but not a technician:", userData);
+              setError('Access denied. Only technicians can access this area.');
+              setIsAuthenticated(false);
+              setIsTechnician(false);
+              sessionStorage.removeItem('isTechAuthenticated');
+              setIsLoading(false);
+              return;
             }
             
-            // If we get here, user is not a technician
-            console.log("User is not a technician or not found in users table");
+            // If user doesn't exist, we'll check by email next
+          }
+          
+          // Try to find user by email
+          const { data: emailUser, error: emailError } = await supabase
+            .from('users')
+            .select('id, username, role')
+            .eq('email', session.user.email)
+            .maybeSingle();
+            
+          if (emailError && !emailError.message.includes('contains 0 rows')) {
+            console.error("Error checking user by email:", emailError);
+            throw emailError;
+          }
+          
+          // If user exists by email and is a technician, we're good
+          if (emailUser && emailUser.role === 'technician') {
+            console.log("User is a technician (found by email)");
+            setIsTechnician(true);
+            setIsAuthenticated(true);
+            sessionStorage.setItem('isTechAuthenticated', 'true');
+            sessionStorage.setItem('techUsername', emailUser.username);
+            setIsLoading(false);
+            return;
+          }
+          
+          // If user exists by email but is not a technician, deny access
+          if (emailUser && emailUser.role !== 'technician') {
+            console.log("User found by email but not a technician:", emailUser);
             setError('Access denied. Only technicians can access this area.');
             setIsAuthenticated(false);
             setIsTechnician(false);
             sessionStorage.removeItem('isTechAuthenticated');
-          } catch (err) {
-            console.error("Error in technician verification:", err);
-            setError('Error verifying technician status');
-            setIsAuthenticated(false);
-            setIsTechnician(false);
-            sessionStorage.removeItem('isTechAuthenticated');
+            setIsLoading(false);
+            return;
           }
           
+          // If we get here, the user doesn't exist in our users table
+          // We'll create a new user record with technician role
+          const usernameToUse = username || session.user.email?.split('@')[0] || 'tech';
+          
+          // Create a unique username to avoid conflicts
+          const timestamp = new Date().getTime().toString().slice(-6);
+          const uniqueUsername = `${usernameToUse}_${timestamp}`;
+          
+          const { data: newUser, error: createError } = await supabase
+            .from('users')
+            .insert({
+              id: session.user.id,
+              auth_id: session.user.id,
+              email: session.user.email,
+              username: uniqueUsername,
+              role: 'technician',
+              status: 'active'
+            })
+            .select()
+            .single();
+            
+          if (createError) {
+            console.error("Error creating user:", createError);
+            throw createError;
+          }
+          
+          console.log("Created new technician user:", newUser);
+          setIsTechnician(true);
+          setIsAuthenticated(true);
+          sessionStorage.setItem('isTechAuthenticated', 'true');
+          sessionStorage.setItem('techUsername', uniqueUsername);
           setIsLoading(false);
           return;
         }
@@ -114,34 +153,9 @@ const RequireTechAuth = () => {
             setIsTechnician(false);
             sessionStorage.removeItem('isTechAuthenticated');
           } else if (data.session) {
-            // Successfully signed in, now verify if this user is a technician
-            try {
-              const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('role')
-                .eq('username', username)
-                .maybeSingle();
-                
-              if (userError && !userError.message.includes("contains 0 rows")) {
-                throw userError;
-              }
-              
-              if (userData && userData.role === 'technician') {
-                setIsTechnician(true);
-                setIsAuthenticated(true);
-              } else {
-                setError('Access denied. Only technicians can access this area.');
-                setIsAuthenticated(false);
-                setIsTechnician(false);
-                sessionStorage.removeItem('isTechAuthenticated');
-              }
-            } catch (verifyError) {
-              console.error("Error verifying technician role:", verifyError);
-              setError('Error verifying technician status');
-              setIsAuthenticated(false);
-              setIsTechnician(false);
-              sessionStorage.removeItem('isTechAuthenticated');
-            }
+            // Successfully signed in
+            setIsTechnician(true);
+            setIsAuthenticated(true);
           }
         }
       } catch (err) {

@@ -33,6 +33,7 @@ import InvoiceReports from "./pages/InvoiceReports";
 import QuoteConfirmation from "./pages/QuoteConfirmation";
 import QuoteTemplates from "./pages/QuoteTemplates";
 import TechnicianApp from "./technician-side/TechnicianApp";
+import MyAccount from "./pages/MyAccount";
 
 function App() {
   const { supabase } = useSupabase();
@@ -105,6 +106,7 @@ function App() {
           </Route>
           <Route path="settings" element={<Settings />} />
           <Route path="item-prices" element={<ItemPrices />} />
+          <Route path="account" element={<MyAccount />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Route>

@@ -188,16 +188,11 @@ const TechnicianNavbar = ({ open, setOpen }: TechnicianNavbarProps) => {
             <ul className="space-y-1">
               <li>
                 <Link 
-                  to="/tech/profile"
-                  className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                    isActive('/tech/profile') 
-                      ? 'bg-primary-50 text-primary-700' 
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  onClick={() => setOpen(false)}
+                  to="/tech/account"
+                  className="flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
                 >
-                  <User size={16} className="mr-3" />
-                  My Profile
+                  <User size={18} className="mr-3" />
+                  My Account
                 </Link>
               </li>
               <li>
@@ -205,7 +200,7 @@ const TechnicianNavbar = ({ open, setOpen }: TechnicianNavbarProps) => {
                   onClick={handleLogout}
                   className="w-full flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
                 >
-                  <LogOut size={16} className="mr-3" />
+                  <LogOut size={18} className="mr-3" />
                   Logout
                 </button>
               </li>
