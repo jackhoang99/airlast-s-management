@@ -43,9 +43,6 @@ const TechnicianJobDetails = () => {
   const [quoteData, setQuoteData] = useState<any | null>(null);
   const [showServiceDetails, setShowServiceDetails] = useState(false);
   const [showJobDetails, setShowJobDetails] = useState(true);
-  const [showNotes, setShowNotes] = useState(false);
-  const [notes, setNotes] = useState('');
-  const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [showConfirmationMessage, setShowConfirmationMessage] = useState(false);
 
   // Get technician ID
@@ -279,22 +276,6 @@ const TechnicianJobDetails = () => {
         if (quoteError) throw quoteError;
         setQuoteData(quoteData || []);
 
-        // Fetch notes
-        const { data: notesData, error: notesError } = await supabase
-          .from("job_notes")
-          .select("notes")
-          .eq("job_id", id)
-          .eq("technician_id", technicianId)
-          .maybeSingle();
-
-        if (notesError && !notesError.message.includes("contains 0 rows")) {
-          throw notesError;
-        }
-        
-        if (notesData) {
-          setNotes(notesData.notes || '');
-        }
-
       } catch (err: any) {
         console.error("Error fetching job details:", err);
         setError(err.message || "Failed to fetch job details");
@@ -326,44 +307,6 @@ const TechnicianJobDetails = () => {
 
       if (updateError) throw updateError;
 
-      // Save notes if any
-      if (notes.trim()) {
-        const { data: existingNote, error: checkError } = await supabase
-          .from("job_notes")
-          .select("id")
-          .eq("job_id", job.id)
-          .eq("technician_id", technicianId)
-          .maybeSingle();
-
-        if (checkError && !checkError.message.includes("contains 0 rows")) {
-          throw checkError;
-        }
-
-        if (existingNote) {
-          // Update existing note
-          const { error: updateNoteError } = await supabase
-            .from("job_notes")
-            .update({
-              notes: notes,
-              updated_at: new Date().toISOString()
-            })
-            .eq("id", existingNote.id);
-
-          if (updateNoteError) throw updateNoteError;
-        } else {
-          // Create new note
-          const { error: insertNoteError } = await supabase
-            .from("job_notes")
-            .insert({
-              job_id: job.id,
-              technician_id: technicianId,
-              notes: notes
-            });
-
-          if (insertNoteError) throw insertNoteError;
-        }
-      }
-
       // Update local state
       setJob((prev: any) => (prev ? { ...prev, status: "completed" } : null));
       setShowCompleteJobModal(false);
@@ -379,63 +322,6 @@ const TechnicianJobDetails = () => {
       setError("Failed to complete job. Please try again.");
     } finally {
       setIsCompletingJob(false);
-    }
-  };
-
-  const handleSaveNotes = async () => {
-    if (!supabase || !job || !technicianId) return;
-
-    setIsSavingNotes(true);
-    setError(null);
-
-    try {
-      const { data: existingNote, error: checkError } = await supabase
-        .from("job_notes")
-        .select("id")
-        .eq("job_id", job.id)
-        .eq("technician_id", technicianId)
-        .maybeSingle();
-
-      if (checkError && !checkError.message.includes("contains 0 rows")) {
-        throw checkError;
-      }
-
-      if (existingNote) {
-        // Update existing note
-        const { error: updateNoteError } = await supabase
-          .from("job_notes")
-          .update({
-            notes: notes,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", existingNote.id);
-
-        if (updateNoteError) throw updateNoteError;
-      } else {
-        // Create new note
-        const { error: insertNoteError } = await supabase
-          .from("job_notes")
-          .insert({
-            job_id: job.id,
-            technician_id: technicianId,
-            notes: notes
-          });
-
-        if (insertNoteError) throw insertNoteError;
-      }
-
-      // Show confirmation message
-      setShowConfirmationMessage(true);
-
-      // Hide confirmation message after 3 seconds
-      setTimeout(() => {
-        setShowConfirmationMessage(false);
-      }, 3000);
-    } catch (err) {
-      console.error("Error saving notes:", err);
-      setError("Failed to save notes. Please try again.");
-    } finally {
-      setIsSavingNotes(false);
     }
   };
 
@@ -500,7 +386,7 @@ const TechnicianJobDetails = () => {
         <div className="fixed top-4 left-0 right-0 mx-auto w-5/6 bg-success-100 border border-success-300 text-success-700 px-4 py-3 rounded z-50 flex items-center justify-between">
           <div className="flex items-center">
             <Check className="h-5 w-5 mr-2" />
-            <span>{job.status === 'completed' ? 'Job marked as completed!' : 'Notes saved successfully!'}</span>
+            <span>Job marked as completed!</span>
           </div>
           <button onClick={() => setShowConfirmationMessage(false)}>
             <X className="h-5 w-5" />
@@ -516,7 +402,6 @@ const TechnicianJobDetails = () => {
             setShowServiceDetails(false);
             setShowQuoteDetails(false);
             setShowInvoiceDetails(false);
-            setShowNotes(false);
           }}
           className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
             showJobDetails
@@ -532,7 +417,6 @@ const TechnicianJobDetails = () => {
             setShowServiceDetails(true);
             setShowQuoteDetails(false);
             setShowInvoiceDetails(false);
-            setShowNotes(false);
           }}
           className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
             showServiceDetails
@@ -548,7 +432,6 @@ const TechnicianJobDetails = () => {
             setShowServiceDetails(false);
             setShowQuoteDetails(true);
             setShowInvoiceDetails(false);
-            setShowNotes(false);
           }}
           className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
             showQuoteDetails
@@ -564,7 +447,6 @@ const TechnicianJobDetails = () => {
             setShowServiceDetails(false);
             setShowQuoteDetails(false);
             setShowInvoiceDetails(true);
-            setShowNotes(false);
           }}
           className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
             showInvoiceDetails
@@ -573,22 +455,6 @@ const TechnicianJobDetails = () => {
           }`}
         >
           Invoices
-        </button>
-        <button
-          onClick={() => {
-            setShowJobDetails(false);
-            setShowServiceDetails(false);
-            setShowQuoteDetails(false);
-            setShowInvoiceDetails(false);
-            setShowNotes(true);
-          }}
-          className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-            showNotes
-              ? 'text-primary-600 border-b-2 border-primary-600'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Notes
         </button>
       </div>
 
@@ -1014,33 +880,6 @@ const TechnicianJobDetails = () => {
             ) : (
               <p className="text-gray-500 text-center py-4">No invoices found</p>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Notes */}
-      {showNotes && (
-        <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-md font-medium mb-3">Technician Notes</h2>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full border border-gray-300 rounded-md p-2 min-h-[200px]"
-              placeholder="Add your notes about this job here..."
-            />
-            <button
-              onClick={handleSaveNotes}
-              className="btn btn-primary w-full mt-3"
-              disabled={isSavingNotes}
-            >
-              {isSavingNotes ? (
-                <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-              ) : (
-                <Check className="h-4 w-4 mr-2" />
-              )}
-              Save Notes
-            </button>
           </div>
         </div>
       )}
