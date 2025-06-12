@@ -268,26 +268,28 @@ const TechnicianJobDetails = () => {
           setRepairData(repairData[0]);
         }
 
-        // Check current clock status
-        const { data: clockData, error: clockError } = await supabase
-          .from('job_clock_events')
-          .select('*')
-          .eq('job_id', id)
-          .eq('user_id', technicianId)
-          .order('event_time', { ascending: true });
-          
-        if (clockError) {
-          console.error('Error fetching clock events:', clockError);
-          // Don't throw here, just log the error
-        } else if (clockData && clockData.length > 0) {
-          // Determine current clock status from the last event
-          const lastEvent = clockData[clockData.length - 1];
-          if (lastEvent.event_type === 'clock_in') {
-            setCurrentClockStatus('clocked_in');
-          } else if (lastEvent.event_type === 'break_start') {
-            setCurrentClockStatus('on_break');
-          } else {
-            setCurrentClockStatus('clocked_out');
+        // Check current clock status - Only if technicianId is available
+        if (technicianId) {
+          const { data: clockData, error: clockError } = await supabase
+            .from('job_clock_events')
+            .select('*')
+            .eq('job_id', id)
+            .eq('user_id', technicianId)
+            .order('event_time', { ascending: true });
+            
+          if (clockError) {
+            console.error('Error fetching clock events:', clockError);
+            // Don't throw here, just log the error
+          } else if (clockData && clockData.length > 0) {
+            // Determine current clock status from the last event
+            const lastEvent = clockData[clockData.length - 1];
+            if (lastEvent.event_type === 'clock_in') {
+              setCurrentClockStatus('clocked_in');
+            } else if (lastEvent.event_type === 'break_start') {
+              setCurrentClockStatus('on_break');
+            } else {
+              setCurrentClockStatus('clocked_out');
+            }
           }
         }
       } catch (err) {
