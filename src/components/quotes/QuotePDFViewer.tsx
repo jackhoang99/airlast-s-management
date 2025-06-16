@@ -27,6 +27,7 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({ jobId, quoteType, onBac
         setIsLoading(true);
         setError(null);
 
+        // Fetch job details with locations and units
         const { data: jobData, error: jobError } = await supabase
           .from('jobs')
           .select(`
@@ -49,32 +50,54 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({ jobId, quoteType, onBac
           .single();
         if (jobError) throw jobError;
 
-        let inspectionData = null;
-        if (['inspection', 'repair', 'replacement'].includes(quoteType)) {
-          const { data, error } = await supabase
-            .from('job_inspections')
-            .select('*')
-            .eq('job_id', jobId)
-            .eq('completed', true);
-          if (error) throw error;
-          inspectionData = data;
-        }
+        // Fetch inspection data
+        const { data: inspectionData, error: inspectionError } = await supabase
+          .from('job_inspections')
+          .select('*')
+          .eq('job_id', jobId)
+          .eq('completed', true);
+        if (inspectionError) throw inspectionError;
 
-        let repairData = null;
-        if (['repair', 'replacement'].includes(quoteType)) {
-          const { data, error } = await supabase
-            .from('job_repairs')
-            .select('*')
-            .eq('job_id', jobId);
-          if (error && !error.message.includes('contains 0 rows')) throw error;
-          repairData = data && data.length > 0 ? data[0] : null;
-        }
+        // Fetch repair data
+        const { data: repairData, error: repairError } = await supabase
+          .from('job_repairs')
+          .select('*')
+          .eq('job_id', jobId);
+        if (repairError && !repairError.message.includes('contains 0 rows')) throw repairError;
 
+        // Fetch job items
         const { data: jobItems, error: itemsError } = await supabase
           .from('job_items')
           .select('*')
           .eq('job_id', jobId);
         if (itemsError) throw itemsError;
+
+        // Organize repair data by inspection_id
+        const repairDataByInspection: {[key: string]: any} = {};
+        if (repairData && repairData.length > 0) {
+          repairData.forEach(item => {
+            if (item.inspection_id) {
+              repairDataByInspection[item.inspection_id] = {
+                needsCrane: item.needs_crane,
+                phase1: item.phase1,
+                phase2: item.phase2,
+                phase3: item.phase3,
+                labor: item.labor,
+                refrigerationRecovery: item.refrigeration_recovery,
+                startUpCosts: item.start_up_costs,
+                accessories: item.accessories,
+                thermostatStartup: item.thermostat_startup,
+                removalCost: item.removal_cost,
+                warranty: item.warranty,
+                additionalItems: item.additional_items,
+                permitCost: item.permit_cost,
+                selectedPhase: item.selected_phase,
+                totalCost: item.total_cost,
+                created_at: item.created_at
+              };
+            }
+          });
+        }
 
         // Try to fetch default template
         const { data: templateData, error: templateError } = await supabase
@@ -135,8 +158,9 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({ jobId, quoteType, onBac
             templateId: templateToUse.id,
             jobData,
             inspectionData,
-            repairData,
-            jobItems
+            repairData: repairData && repairData.length > 0 ? repairData[0] : null,
+            jobItems,
+            repairDataByInspection
           })
         });
 

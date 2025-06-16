@@ -64,25 +64,37 @@ const SendEmailModal = ({
   const [quoteNumber, setQuoteNumber] = useState(`QT-${jobNumber}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [jobItems, setJobItems] = useState<any[]>([]);
+  const [inspectionData, setInspectionData] = useState<any[]>([]);
 
-  // Fetch job items when modal opens
+  // Fetch job items and inspection data when modal opens
   useEffect(() => {
     if (isOpen && supabase && jobId) {
-      const fetchJobItems = async () => {
+      const fetchData = async () => {
         try {
-          const { data, error } = await supabase
+          // Fetch job items
+          const { data: itemsData, error: itemsError } = await supabase
             .from('job_items')
             .select('*')
             .eq('job_id', jobId);
             
-          if (error) throw error;
-          setJobItems(data || []);
+          if (itemsError) throw itemsError;
+          setJobItems(itemsData || []);
+          
+          // Fetch inspection data
+          const { data: inspData, error: inspError } = await supabase
+            .from('job_inspections')
+            .select('*')
+            .eq('job_id', jobId)
+            .eq('completed', true);
+            
+          if (inspError) throw inspError;
+          setInspectionData(inspData || []);
         } catch (err) {
-          console.error('Error fetching job items:', err);
+          console.error('Error fetching data:', err);
         }
       };
       
-      fetchJobItems();
+      fetchData();
     }
   }, [isOpen, supabase, jobId]);
 
@@ -146,7 +158,8 @@ const SendEmailModal = ({
       permit_cost: Number(data.permit_cost) || 0,
       needs_crane: Boolean(data.needsCrane),
       selected_phase: data.selectedPhase || 'phase2',
-      total_cost: Number(data.totalCost) || 0
+      total_cost: Number(data.totalCost) || 0,
+      created_at: data.created_at || new Date().toISOString()
     };
   };
 
@@ -252,6 +265,20 @@ const SendEmailModal = ({
         } : null
       };
       
+      // Fetch inspection data if not already provided
+      let inspData = inspectionData;
+      if (inspData.length === 0) {
+        const { data: fetchedInspData } = await supabase
+          .from('job_inspections')
+          .select('*')
+          .eq('job_id', jobId)
+          .eq('completed', true);
+          
+        if (fetchedInspData) {
+          inspData = fetchedInspData;
+        }
+      }
+      
       // Sanitize data for the PDF generation
       const sanitizedRepairData = sanitizeRepairData(repairData);
       
@@ -268,6 +295,7 @@ const SendEmailModal = ({
           quoteNumber,
           templateId: templateData.id,
           jobData: minimalJobData,
+          inspectionData: inspData,
           repairData: sanitizedRepairData,
           jobItems: jobItems.filter(item => quoteType === 'replacement' ? item.type === 'part' : true),
           repairDataByInspection: sanitizeRepairDataByInspection(repairDataByInspection)
@@ -346,7 +374,8 @@ const SendEmailModal = ({
           pdfUrl: generateResult.pdfUrl,
           repairDataByInspection: quoteType === 'repair' ? 
             sanitizeRepairDataByInspection(repairDataByInspection) : {},
-          replacementItems: quoteType === 'replacement' ? replacementItems : []
+          replacementItems: quoteType === 'replacement' ? replacementItems : [],
+          inspectionData: inspData
         };
       } else {
         apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-quote-email`;
@@ -362,7 +391,8 @@ const SendEmailModal = ({
           jobItems: [],
           quoteNumber,
           emailTemplate,
-          pdfUrl: generateResult.pdfUrl
+          pdfUrl: generateResult.pdfUrl,
+          inspectionData: inspData
         };
       }
       

@@ -55,6 +55,7 @@ const JobQuoteSection = ({
   });
   const [repairDataByInspection, setRepairDataByInspection] = useState<{[key: string]: any}>({});
   const [totalRepairCost, setTotalRepairCost] = useState(0);
+  const [inspectionData, setInspectionData] = useState<any[]>([]);
   
   // New state for replacement data
   const [replacementDataByInspection, setReplacementDataByInspection] = useState<{[key: string]: any}>({});
@@ -67,6 +68,16 @@ const JobQuoteSection = ({
       if (!supabase || !job) return;
 
       try {
+        // Fetch inspection data
+        const { data: inspData, error: inspError } = await supabase
+          .from('job_inspections')
+          .select('*')
+          .eq('job_id', job.id)
+          .eq('completed', true);
+          
+        if (inspError) throw inspError;
+        setInspectionData(inspData || []);
+        
         // Check for repair data
         const { data: repairData, error: repairError } = await supabase
           .from('job_repairs')
@@ -105,7 +116,8 @@ const JobQuoteSection = ({
                 additionalItems: item.additional_items,
                 permitCost: item.permit_cost,
                 selectedPhase: item.selected_phase,
-                totalCost: item.total_cost
+                totalCost: item.total_cost,
+                created_at: item.created_at
               };
               
               totalRepairCostSum += Number(item.total_cost || 0);
@@ -141,7 +153,8 @@ const JobQuoteSection = ({
             address: job.locations.address,
             city: job.locations.city,
             state: job.locations.state,
-            zip: job.locations.zip
+            zip: job.locations.zip,
+            companies: job.locations.companies
           });
         }
         
