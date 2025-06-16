@@ -255,6 +255,7 @@ const SendEmailModal = ({
       // Sanitize data for the PDF generation
       const sanitizedRepairData = sanitizeRepairData(repairData);
       
+      // Important: Pass repairDataByInspection to the PDF generator
       const response = await fetch(generatePdfUrl, {
         method: 'POST',
         headers: {
@@ -268,7 +269,8 @@ const SendEmailModal = ({
           templateId: templateData.id,
           jobData: minimalJobData,
           repairData: sanitizedRepairData,
-          jobItems: jobItems.filter(item => quoteType === 'replacement' ? item.type === 'part' : true)
+          jobItems: jobItems.filter(item => quoteType === 'replacement' ? item.type === 'part' : true),
+          repairDataByInspection: sanitizeRepairDataByInspection(repairDataByInspection)
         })
       });
       

@@ -34,6 +34,7 @@ import QuoteConfirmation from "./pages/QuoteConfirmation";
 import QuoteTemplates from "./pages/QuoteTemplates";
 import TechnicianApp from "./technician-side/TechnicianApp";
 import MyAccount from "./pages/MyAccount";
+import TemplateDebug from "./pages/TemplateDebug";
 
 function App() {
   const { supabase } = useSupabase();
@@ -107,6 +108,7 @@ function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="item-prices" element={<ItemPrices />} />
           <Route path="account" element={<MyAccount />} />
+          <Route path="template-debug" element={<TemplateDebug />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Route>
