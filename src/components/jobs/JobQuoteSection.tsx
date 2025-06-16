@@ -4,7 +4,6 @@ import { useSupabase } from '../../lib/supabase-context';
 import { Database } from '../../types/supabase';
 import { Eye, Send, FileCheck2, AlertTriangle, Check, X, Clipboard, Home, Package, Edit, List, FileText } from 'lucide-react';
 import SendEmailModal from './SendEmailModal';
-import QuoteEmailTemplateModal from './QuoteEmailTemplateModal';
 
 type JobQuoteSectionProps = {
   job: Job;
@@ -24,7 +23,6 @@ const JobQuoteSection = ({
   const { supabase } = useSupabase();
   const [activeTab, setActiveTab] = useState<'repair' | 'replacement' | 'all'>('repair');
   const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [hasRepairData, setHasRepairData] = useState(false);
   const [hasReplacementData, setHasReplacementData] = useState(false);
@@ -61,6 +59,15 @@ const JobQuoteSection = ({
   const [replacementDataByInspection, setReplacementDataByInspection] = useState<{[key: string]: any}>({});
   const [totalReplacementCost, setTotalReplacementCost] = useState(0);
   const [hasPartItems, setHasPartItems] = useState(false);
+  
+  // Track sent quotes by type
+  const [sentQuoteTypes, setSentQuoteTypes] = useState<{
+    repair: boolean;
+    replacement: boolean;
+  }>({
+    repair: false,
+    replacement: false
+  });
 
   // Check if job has repair or replacement data
   useEffect(() => {
@@ -173,6 +180,15 @@ const JobQuoteSection = ({
 
         if (!quotesError && quotesData) {
           setAllQuotes(quotesData);
+          
+          // Check if we have sent quotes by type
+          const sentRepair = quotesData.some(q => q.quote_type === 'repair');
+          const sentReplacement = quotesData.some(q => q.quote_type === 'replacement');
+          
+          setSentQuoteTypes({
+            repair: sentRepair,
+            replacement: sentReplacement
+          });
         } else if (quotesError) {
           console.error("Error fetching quotes:", quotesError);
         }
@@ -230,11 +246,6 @@ const JobQuoteSection = ({
     }
   }, [jobItems]);
 
-  const handleSaveTemplate = (template: any) => {
-    setEmailTemplate(template);
-    setShowTemplateModal(false);
-  };
-
   // Update email template when tab changes
   useEffect(() => {
     if (activeTab !== 'all' && defaultTemplates[activeTab]) {
@@ -260,20 +271,13 @@ const JobQuoteSection = ({
         <h2 className="text-lg font-medium">Quotes</h2>
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => setShowTemplateModal(true)}
-            className="btn btn-secondary btn-sm"
-          >
-            <Edit size={16} className="mr-2" />
-            Edit Template
-          </button>
-          <button
             onClick={() => onPreviewQuote(activeTab === 'all' ? 'repair' : activeTab)}
             className="btn btn-secondary btn-sm"
           >
             <Eye size={16} className="mr-2" />
             Preview Quote
           </button>
-          {!job.quote_sent ? (
+          {!job.quote_sent || (activeTab === 'repair' && !sentQuoteTypes.repair) || (activeTab === 'replacement' && !sentQuoteTypes.replacement) ? (
             <button
               onClick={() => {
                 setShowSendQuoteModal(true);
@@ -314,6 +318,9 @@ const JobQuoteSection = ({
           <div className="flex items-center">
             <Home size={16} className="mr-2" />
             Repair Quote
+            {sentQuoteTypes.repair && (
+              <span className="ml-2 w-2 h-2 bg-success-500 rounded-full"></span>
+            )}
           </div>
         </button>
         <button
@@ -327,6 +334,9 @@ const JobQuoteSection = ({
           <div className="flex items-center">
             <Package size={16} className="mr-2" />
             Replacement Quote
+            {sentQuoteTypes.replacement && (
+              <span className="ml-2 w-2 h-2 bg-success-500 rounded-full"></span>
+            )}
           </div>
         </button>
         <button
@@ -374,7 +384,7 @@ const JobQuoteSection = ({
               </div>
             )}
 
-            {job.quote_sent && job.quote_confirmed && (
+            {job.quote_confirmed && (
               <div className="mt-4 bg-success-50 border-l-4 border-success-500 p-4 rounded-md">
                 <div className="flex">
                   <div className="flex-shrink-0">
@@ -435,7 +445,7 @@ const JobQuoteSection = ({
               </div>
             )}
 
-            {job.quote_sent && job.quote_confirmed && (
+            {job.quote_confirmed && (
               <div className="mt-4 bg-success-50 border-l-4 border-success-500 p-4 rounded-md">
                 <div className="flex">
                   <div className="flex-shrink-0">
@@ -490,6 +500,9 @@ const JobQuoteSection = ({
                               {quote.approved ? 'Approved' : 'Declined'}
                             </span>
                           )}
+                          <span className={`text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-800`}>
+                            {quote.quote_type.charAt(0).toUpperCase() + quote.quote_type.slice(1)}
+                          </span>
                         </div>
                         <p className="text-sm text-gray-600">
                           {quote.quote_type.charAt(0).toUpperCase() + quote.quote_type.slice(1)} Quote
@@ -585,8 +598,14 @@ const JobQuoteSection = ({
         location={location}
         unit={unit}
         quoteType={activeTab === 'all' ? 'repair' : activeTab}
-        onEmailSent={() => {
+        onEmailSent={(updatedJob) => {
           if (job) {
+            // Update sent quote types
+            setSentQuoteTypes(prev => ({
+              ...prev,
+              [activeTab]: true
+            }));
+            
             onQuoteSent({
               ...job,
               quote_sent: true,
@@ -596,15 +615,7 @@ const JobQuoteSection = ({
         }}
         emailTemplate={emailTemplate}
         repairDataByInspection={activeTab === 'repair' ? repairDataByInspection : {}}
-      />
-
-      {/* Quote Email Template Modal */}
-      <QuoteEmailTemplateModal
-        isOpen={showTemplateModal}
-        onClose={() => setShowTemplateModal(false)}
-        template={emailTemplate}
-        onSave={handleSaveTemplate}
-        templateType={activeTab === 'all' ? 'repair' : activeTab}
+        inspectionData={inspectionData}
       />
     </div>
   );

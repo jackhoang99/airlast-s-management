@@ -17,6 +17,7 @@ const QuoteConfirmation = () => {
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
   const [invoiceCreated, setInvoiceCreated] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
+  const [quoteType, setQuoteType] = useState<'repair' | 'replacement'>('repair');
 
   // Get the approval status from URL query parameters
   useEffect(() => {
@@ -49,6 +50,7 @@ const QuoteConfirmation = () => {
 
           if (!quoteError && quoteData) {
             setQuoteDetails(quoteData);
+            setQuoteType(quoteData.quote_type as 'repair' | 'replacement');
             
             // If already confirmed, just return success
             if (quoteData.confirmed) {
@@ -168,6 +170,11 @@ const QuoteConfirmation = () => {
             if (updateQuoteError) {
               console.error('Error updating quote record:', updateQuoteError);
             }
+            
+            // Set quote type from the quote record
+            if (quoteDetails.quote_type) {
+              setQuoteType(quoteDetails.quote_type as 'repair' | 'replacement');
+            }
           }
           
           // Call the Supabase Edge Function to confirm the quote
@@ -189,6 +196,11 @@ const QuoteConfirmation = () => {
             const errorData = await response.json();
             console.error('Error response from confirm-quote:', errorData);
             throw new Error(errorData.error || 'Failed to confirm quote');
+          }
+          
+          const responseData = await response.json();
+          if (responseData.quoteType) {
+            setQuoteType(responseData.quoteType as 'repair' | 'replacement');
           }
           
           setSuccess(true);
@@ -345,18 +357,18 @@ const QuoteConfirmation = () => {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-center mb-4">
-            {approved ? 'Repairs Approved' : 'Repairs Declined'}
+            {quoteType === 'repair' ? 'Repairs' : 'Replacement'} {approved ? 'Approved' : 'Declined'}
           </h1>
           <p className="text-gray-600 text-center mb-6">
             {approved 
-              ? 'Thank you for approving the repairs. We will contact you shortly to schedule the service.'
-              : 'You have declined the repairs. An invoice for the inspection fee ($180.00) has been generated and will be sent to your email.'}
+              ? `Thank you for approving the ${quoteType}. We will contact you shortly to schedule the service.`
+              : `You have declined the ${quoteType}. An invoice for the inspection fee ($180.00) has been generated and will be sent to your email.`}
           </p>
           
           <div className="border rounded-lg p-6 mb-6">
             <h2 className="text-lg font-medium mb-4 flex items-center">
               <FileText className="h-5 w-5 mr-2 text-primary-600" />
-              Repair Details
+              {quoteType === 'repair' ? 'Repair' : 'Replacement'} Details
             </h2>
             
             <div className="space-y-4">
@@ -381,7 +393,7 @@ const QuoteConfirmation = () => {
               
               {repairData.length > 0 && (
                 <div>
-                  <h3 className="font-medium">Repair Details</h3>
+                  <h3 className="font-medium">{quoteType === 'repair' ? 'Repair' : 'Replacement'} Details</h3>
                   <div className="mt-2 space-y-4">
                     {repairData.map((repair, index) => {
                       const selectedPhase = repair.selected_phase || 'phase2';
@@ -420,7 +432,7 @@ const QuoteConfirmation = () => {
                     <div>
                       <h4 className="font-medium text-error-700">Inspection Fee</h4>
                       <p className="text-error-600">
-                        Since you've declined the repairs, an invoice for the inspection fee ($180.00) has been generated.
+                        Since you've declined the {quoteType}, an invoice for the inspection fee ($180.00) has been generated.
                         {invoiceCreated && invoiceNumber && (
                           <span> Invoice #{invoiceNumber} has been created and will be sent to your email.</span>
                         )}
@@ -452,9 +464,9 @@ const QuoteConfirmation = () => {
               <FileText className="h-12 w-12 text-primary-600" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-center mb-4">Repair Quote</h1>
+          <h1 className="text-2xl font-bold text-center mb-4">{quoteType === 'repair' ? 'Repair' : 'Replacement'} Quote</h1>
           <p className="text-gray-600 text-center mb-6">
-            Based on our assessment, we recommend proceeding with repairs. Please approve or deny the repairs below.
+            Based on our assessment, we recommend proceeding with {quoteType === 'repair' ? 'repairs' : 'replacement'}. Please approve or deny the {quoteType} below.
           </p>
           
           <div className="border rounded-lg p-6 mb-6">
@@ -477,7 +489,7 @@ const QuoteConfirmation = () => {
             
             {repairData.length > 0 && (
               <div className="mt-4">
-                <h3 className="font-medium">Repair Details</h3>
+                <h3 className="font-medium">{quoteType === 'repair' ? 'Repair' : 'Replacement'} Details</h3>
                 <div className="mt-2 space-y-4">
                   {repairData.map((repair, index) => {
                     const selectedPhase = repair.selected_phase || 'phase2';
@@ -516,19 +528,19 @@ const QuoteConfirmation = () => {
               className="btn btn-success flex-1 flex justify-center items-center"
             >
               <Check className="mr-2 h-5 w-5" />
-              Approve Repairs
+              Approve {quoteType === 'repair' ? 'Repairs' : 'Replacement'}
             </button>
             <button 
               onClick={() => setApproved(false)}
               className="btn btn-error flex-1 flex justify-center items-center"
             >
               <X className="mr-2 h-5 w-5" />
-              Deny Repairs
+              Deny {quoteType === 'repair' ? 'Repairs' : 'Replacement'}
             </button>
           </div>
           
           <p className="text-sm text-gray-500 text-center">
-            By approving, you authorize Airlast HVAC to proceed with the recommended repairs.
+            By approving, you authorize Airlast HVAC to proceed with the recommended {quoteType === 'repair' ? 'repairs' : 'replacement'}.
             <br />
             By denying, you will be charged $180.00 for the inspection service.
           </p>

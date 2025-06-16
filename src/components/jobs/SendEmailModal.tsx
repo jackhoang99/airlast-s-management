@@ -19,7 +19,7 @@ type SendEmailModalProps = {
   location?: any;
   unit?: any;
   quoteType?: 'repair' | 'replacement';
-  onEmailSent?: () => void;
+  onEmailSent?: (updatedJob: any) => void;
   emailTemplate?: {
     subject: string;
     greeting: string;
@@ -34,6 +34,7 @@ type SendEmailModalProps = {
   };
   repairDataByInspection?: {[key: string]: any};
   replacementItems?: any[];
+  inspectionData?: any[];
 };
 
 const SendEmailModal = ({
@@ -54,7 +55,8 @@ const SendEmailModal = ({
   onEmailSent,
   emailTemplate,
   repairDataByInspection = {},
-  replacementItems = []
+  replacementItems = [],
+  inspectionData = []
 }: SendEmailModalProps) => {
   const { supabase } = useSupabase();
   const [customerEmail, setCustomerEmail] = useState(initialEmail);
@@ -64,7 +66,7 @@ const SendEmailModal = ({
   const [quoteNumber, setQuoteNumber] = useState(`QT-${jobNumber}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [jobItems, setJobItems] = useState<any[]>([]);
-  const [inspectionData, setInspectionData] = useState<any[]>([]);
+  const [localInspectionData, setLocalInspectionData] = useState<any[]>(inspectionData || []);
 
   // Fetch job items and inspection data when modal opens
   useEffect(() => {
@@ -80,15 +82,17 @@ const SendEmailModal = ({
           if (itemsError) throw itemsError;
           setJobItems(itemsData || []);
           
-          // Fetch inspection data
-          const { data: inspData, error: inspError } = await supabase
-            .from('job_inspections')
-            .select('*')
-            .eq('job_id', jobId)
-            .eq('completed', true);
-            
-          if (inspError) throw inspError;
-          setInspectionData(inspData || []);
+          // Fetch inspection data if not provided
+          if (!inspectionData || inspectionData.length === 0) {
+            const { data: inspData, error: inspError } = await supabase
+              .from('job_inspections')
+              .select('*')
+              .eq('job_id', jobId)
+              .eq('completed', true);
+              
+            if (inspError) throw inspError;
+            setLocalInspectionData(inspData || []);
+          }
         } catch (err) {
           console.error('Error fetching data:', err);
         }
@@ -96,7 +100,7 @@ const SendEmailModal = ({
       
       fetchData();
     }
-  }, [isOpen, supabase, jobId]);
+  }, [isOpen, supabase, jobId, inspectionData]);
 
   // Calculate the actual total cost from all repair data
   const calculateActualTotalCost = () => {
@@ -265,8 +269,8 @@ const SendEmailModal = ({
         } : null
       };
       
-      // Fetch inspection data if not already provided
-      let inspData = inspectionData;
+      // Use provided inspection data or fetch it if not available
+      let inspData = localInspectionData;
       if (inspData.length === 0) {
         const { data: fetchedInspData } = await supabase
           .from('job_inspections')
@@ -276,6 +280,7 @@ const SendEmailModal = ({
           
         if (fetchedInspData) {
           inspData = fetchedInspData;
+          setLocalInspectionData(fetchedInspData);
         }
       }
       
@@ -413,7 +418,7 @@ const SendEmailModal = ({
       setSuccess(true);
       
       if (onEmailSent) {
-        onEmailSent();
+        onEmailSent(updatedJob);
       }
       
       setTimeout(() => {
