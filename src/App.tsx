@@ -35,6 +35,7 @@ import QuoteTemplates from "./pages/QuoteTemplates";
 import TechnicianApp from "./technician-side/TechnicianApp";
 import MyAccount from "./pages/MyAccount";
 import TemplateDebug from "./pages/TemplateDebug";
+import Contacts from "./pages/Contacts";
 
 function App() {
   const { supabase } = useSupabase();
@@ -87,6 +88,7 @@ function App() {
             <Route path=":id" element={<UnitDetails />} />
             <Route path=":id/edit" element={<EditUnit />} />
           </Route>
+          <Route path="contacts" element={<Contacts />} />
           <Route path="jobs">
             <Route index element={<AllJobs />} />
             <Route path=":id" element={<JobDetails />} />

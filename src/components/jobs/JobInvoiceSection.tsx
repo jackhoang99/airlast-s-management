@@ -4,6 +4,38 @@ import { useSupabase } from '../../lib/supabase-context';
 import { Database } from '../../types/supabase';
 import { X, FileInput as FileInvoice, Plus, AlertTriangle, DollarSign, Send, Printer, Eye, Mail, Check } from 'lucide-react';
 import InvoicePDFTemplate from '../invoices/InvoicePDFTemplate';
+import MarkAsPaidModal from '../invoices/MarkAsPaidModal';
+
+type Job = Database['public']['Tables']['jobs']['Row'] & {
+  locations?: {
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    companies: {
+      name: string;
+    };
+  };
+  units?: {
+    unit_number: string;
+  };
+  job_technicians?: {
+    id: string;
+    technician_id: string;
+    is_primary: boolean;
+    users: {
+      first_name: string;
+      last_name: string;
+      email: string;
+      phone: string;
+    };
+  }[];
+};
+
+type JobItem = Database['public']['Tables']['job_items']['Row'];
+type JobInvoice = Database['public']['Tables']['job_invoices']['Row'];
+type RepairData = Database['public']['Tables']['job_repairs']['Row'];
 
 type JobInvoiceSectionProps = {
   job: Job;
@@ -447,42 +479,38 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
     }
   };
 
-  const handleMarkAsPaid = async () => {
-    if (!supabase || !selectedInvoice) {
-      setInvoiceError('Cannot mark invoice as paid at this time');
-      return;
-    }
-    
-    setIsMarkingAsPaid(true);
-    setInvoiceError(null);
+  const handleMarkAsPaid = () => {
+    setShowMarkAsPaidModal(true);
+  };
+
+  const handleInvoiceMarkedAsPaid = async () => {
+    // Refresh invoices list
+    if (!supabase || !job) return;
     
     try {
-      // Update invoice status to paid
-      const { data: updatedInvoice, error: updateError } = await supabase
+      const { data, error } = await supabase
         .from('job_invoices')
-        .update({
-          status: 'paid',
-          paid_date: new Date().toISOString().split('T')[0]
-        })
-        .eq('id', selectedInvoice.id)
-        .select()
-        .single();
+        .select('*')
+        .eq('job_id', job.id)
+        .order('created_at', { ascending: false });
         
-      if (updateError) throw updateError;
+      if (error) throw error;
+      setInvoices(data || []);
       
-      // Update invoices list
-      setInvoices(prev => prev.map(inv => 
-        inv.id === updatedInvoice.id ? updatedInvoice : inv
-      ));
-      setSelectedInvoice(updatedInvoice);
-      
-      setShowMarkAsPaidModal(false);
-      
+      // Update selected invoice if it exists in the new list
+      if (selectedInvoice) {
+        const updatedInvoice = data?.find(inv => inv.id === selectedInvoice.id);
+        if (updatedInvoice) {
+          setSelectedInvoice(updatedInvoice);
+        } else if (data && data.length > 0) {
+          // If the selected invoice is no longer in the list, select the first one
+          setSelectedInvoice(data[0]);
+        } else {
+          setSelectedInvoice(null);
+        }
+      }
     } catch (err) {
-      console.error('Error marking invoice as paid:', err);
-      setInvoiceError(err instanceof Error ? err.message : 'Failed to mark invoice as paid');
-    } finally {
-      setIsMarkingAsPaid(false);
+      console.error('Error refreshing invoices:', err);
     }
   };
 
@@ -569,7 +597,7 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
           )}
           {selectedInvoice && selectedInvoice.status === 'issued' && (
             <button
-              onClick={() => setShowMarkAsPaidModal(true)}
+              onClick={handleMarkAsPaid}
               className="btn btn-success btn-sm"
             >
               <DollarSign size={16} className="mr-2" />
@@ -653,7 +681,25 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
                       <p className="font-medium">{selectedInvoice.paid_date}</p>
                     </div>
                   )}
+                  {selectedInvoice.payment_method && (
+                    <div>
+                      <p className="text-sm text-gray-500">Payment Method</p>
+                      <p className="font-medium capitalize">{selectedInvoice.payment_method.replace('_', ' ')}</p>
+                    </div>
+                  )}
+                  {selectedInvoice.payment_reference && (
+                    <div>
+                      <p className="text-sm text-gray-500">Reference Number</p>
+                      <p className="font-medium">{selectedInvoice.payment_reference}</p>
+                    </div>
+                  )}
                 </div>
+                {selectedInvoice.payment_notes && (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-500">Payment Notes</p>
+                    <p className="mt-1 text-sm">{selectedInvoice.payment_notes}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -934,76 +980,14 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
       )}
 
       {/* Mark as Paid Modal */}
-      {showMarkAsPaidModal && selectedInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-            <div className="flex items-center justify-center text-success-600 mb-4">
-              <DollarSign size={40} />
-            </div>
-            <h3 className="text-lg font-semibold text-center mb-4">
-              Mark Invoice as Paid
-            </h3>
-            
-            {invoiceError && (
-              <div className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
-                {invoiceError}
-              </div>
-            )}
-            
-            <div className="mb-6">
-              <p className="text-gray-600 mb-4">
-                This will mark invoice #{selectedInvoice.invoice_number} as paid with today's date.
-              </p>
-              
-              <div className="bg-gray-50 p-4 rounded-md">
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Invoice Number:</span>
-                  <span className="font-medium">{selectedInvoice.invoice_number}</span>
-                </div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Issue Date:</span>
-                  <span className="font-medium">{selectedInvoice.issued_date}</span>
-                </div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Due Date:</span>
-                  <span className="font-medium">{selectedInvoice.due_date}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Amount:</span>
-                  <span className="font-medium">${Number(selectedInvoice.amount).toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-3">
-              <button 
-                className="btn btn-secondary"
-                onClick={() => setShowMarkAsPaidModal(false)}
-                disabled={isMarkingAsPaid}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn btn-success"
-                onClick={handleMarkAsPaid}
-                disabled={isMarkingAsPaid}
-              >
-                {isMarkingAsPaid ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Check size={16} className="mr-2" />
-                    Mark as Paid
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <MarkAsPaidModal
+        isOpen={showMarkAsPaidModal}
+        onClose={() => setShowMarkAsPaidModal(false)}
+        onSuccess={handleInvoiceMarkedAsPaid}
+        invoice={selectedInvoice}
+        jobName={job.name}
+        customerName={job.contact_name || undefined}
+      />
     </div>
   );
 };

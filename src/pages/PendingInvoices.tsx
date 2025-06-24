@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
-import { ArrowLeft, Plus, FileInput as FileInvoice, Search, Filter, DollarSign, Calendar, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, FileInput as FileInvoice, Search, Filter, DollarSign, Calendar, CheckCircle, AlertTriangle } from 'lucide-react';
+import MarkAsPaidModal from '../components/invoices/MarkAsPaidModal';
 
 type JobInvoice = Database['public']['Tables']['job_invoices']['Row'] & {
   jobs: {
     id: string;
     number: string;
     name: string;
+    contact_name: string | null;
     locations: {
       name: string;
       companies: {
@@ -24,6 +26,8 @@ const PendingInvoices = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showMarkAsPaidModal, setShowMarkAsPaidModal] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<JobInvoice | null>(null);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -38,6 +42,7 @@ const PendingInvoices = () => {
               id,
               number,
               name,
+              contact_name,
               locations (
                 name,
                 companies (
@@ -91,25 +96,40 @@ const PendingInvoices = () => {
     return dueDate >= today && dueDate <= sevenDaysFromNow;
   });
 
-  const handleMarkAsPaid = async (invoiceId: string) => {
-    if (!supabase) return;
+  const handleOpenMarkAsPaidModal = (invoice: JobInvoice) => {
+    setSelectedInvoice(invoice);
+    setShowMarkAsPaidModal(true);
+  };
 
+  const handleInvoiceMarkedAsPaid = async () => {
+    // Refresh the invoices list
+    if (!supabase) return;
+    
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('job_invoices')
-        .update({ 
-          status: 'paid',
-          paid_date: new Date().toISOString().split('T')[0]
-        })
-        .eq('id', invoiceId);
+        .select(`
+          *,
+          jobs (
+            id,
+            number,
+            name,
+            contact_name,
+            locations (
+              name,
+              companies (
+                name
+              )
+            )
+          )
+        `)
+        .eq('status', 'issued')
+        .order('due_date');
 
       if (error) throw error;
-      
-      // Update local state
-      setInvoices(prev => prev.filter(invoice => invoice.id !== invoiceId));
+      setInvoices(data || []);
     } catch (err) {
-      console.error('Error marking invoice as paid:', err);
-      setError('Failed to mark invoice as paid. Please try again.');
+      console.error('Error refreshing invoices:', err);
     }
   };
 
@@ -130,7 +150,7 @@ const PendingInvoices = () => {
             Export to Spreadsheet
           </button>
           <Link to="/jobs" className="btn btn-primary">
-            <Plus size={16} className="mr-2" />
+            <FileInvoice className="h-4 w-4 mr-2" />
             Create Invoice
           </Link>
         </div>
@@ -264,7 +284,7 @@ const PendingInvoices = () => {
                             View
                           </Link>
                           <button
-                            onClick={() => handleMarkAsPaid(invoice.id)}
+                            onClick={() => handleOpenMarkAsPaidModal(invoice)}
                             className="text-success-600 hover:text-success-800"
                           >
                             Mark Paid
@@ -279,6 +299,16 @@ const PendingInvoices = () => {
           </div>
         )}
       </div>
+
+      {/* Mark as Paid Modal */}
+      <MarkAsPaidModal
+        isOpen={showMarkAsPaidModal}
+        onClose={() => setShowMarkAsPaidModal(false)}
+        onSuccess={handleInvoiceMarkedAsPaid}
+        invoice={selectedInvoice}
+        jobName={selectedInvoice?.jobs?.name || ''}
+        customerName={selectedInvoice?.jobs?.contact_name || undefined}
+      />
     </div>
   );
 };

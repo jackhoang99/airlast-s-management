@@ -642,6 +642,50 @@ export interface Database {
           created_at?: string
         }
       }
+      job_invoices: {
+        Row: {
+          id: string
+          job_id: string
+          invoice_number: string
+          amount: number
+          status: string
+          issued_date: string | null
+          due_date: string | null
+          paid_date: string | null
+          created_at: string
+          payment_method: string | null
+          payment_reference: string | null
+          payment_notes: string | null
+        }
+        Insert: {
+          id?: string
+          job_id: string
+          invoice_number: string
+          amount: number
+          status: string
+          issued_date?: string | null
+          due_date?: string | null
+          paid_date?: string | null
+          created_at?: string
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_notes?: string | null
+        }
+        Update: {
+          id?: string
+          job_id?: string
+          invoice_number?: string
+          amount?: number
+          status?: string
+          issued_date?: string | null
+          due_date?: string | null
+          paid_date?: string | null
+          created_at?: string
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_notes?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never

@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
-import { Database } from '../types/supabase';
-import { Building2, Plus, Filter } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useSupabase } from "../lib/supabase-context";
+import { Database } from "../types/supabase";
+import { Building2, Plus, Filter } from "lucide-react";
 
-type Unit = Database['public']['Tables']['units']['Row'] & {
+type Unit = Database["public"]["Tables"]["units"]["Row"] & {
   locations: {
     name: string;
     building_name: string;
@@ -19,12 +19,12 @@ const Units = () => {
   const { supabase } = useSupabase();
   const [units, setUnits] = useState<Unit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
-    unitNumber: '',
-    location: '',
-    company: '',
-    status: '',
+    unitNumber: "",
+    location: "",
+    company: "",
+    status: "",
   });
 
   useEffect(() => {
@@ -32,9 +32,7 @@ const Units = () => {
       if (!supabase) return;
 
       try {
-        let query = supabase
-          .from('units')
-          .select(`
+        let query = supabase.from("units").select(`
             *,
             locations (
               name,
@@ -48,18 +46,18 @@ const Units = () => {
 
         // Apply filters
         if (filters.unitNumber) {
-          query = query.ilike('unit_number', `%${filters.unitNumber}%`);
+          query = query.ilike("unit_number", `%${filters.unitNumber}%`);
         }
         if (filters.status) {
-          query = query.eq('status', filters.status);
+          query = query.eq("status", filters.status);
         }
 
-        const { data, error } = await query.order('unit_number');
+        const { data, error } = await query.order("unit_number");
 
         if (error) throw error;
         setUnits(data || []);
       } catch (err) {
-        console.error('Error fetching units:', err);
+        console.error("Error fetching units:", err);
       } finally {
         setIsLoading(false);
       }
@@ -68,40 +66,52 @@ const Units = () => {
     fetchUnits();
   }, [supabase, filters]);
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const resetFilters = () => {
     setFilters({
-      unitNumber: '',
-      location: '',
-      company: '',
-      status: '',
+      unitNumber: "",
+      location: "",
+      company: "",
+      status: "",
     });
   };
 
-  const filteredUnits = units.filter(unit => {
-    const matchesSearch = searchQuery.toLowerCase().split(' ').every(term =>
-      unit.unit_number.toLowerCase().includes(term) ||
-      unit.locations?.name.toLowerCase().includes(term) ||
-      unit.locations?.companies?.name.toLowerCase().includes(term)
-    );
+  const filteredUnits = units.filter((unit) => {
+    const matchesSearch = searchQuery
+      .toLowerCase()
+      .split(" ")
+      .every(
+        (term) =>
+          unit.unit_number.toLowerCase().includes(term) ||
+          unit.locations?.name.toLowerCase().includes(term) ||
+          unit.locations?.companies?.name.toLowerCase().includes(term)
+      );
 
-    const matchesLocation = !filters.location || 
-      unit.locations?.name.toLowerCase().includes(filters.location.toLowerCase());
+    const matchesLocation =
+      !filters.location ||
+      unit.locations?.name
+        .toLowerCase()
+        .includes(filters.location.toLowerCase());
 
-    const matchesCompany = !filters.company ||
-      unit.locations?.companies?.name.toLowerCase().includes(filters.company.toLowerCase());
+    const matchesCompany =
+      !filters.company ||
+      unit.locations?.companies?.name
+        .toLowerCase()
+        .includes(filters.company.toLowerCase());
 
     return matchesSearch && matchesLocation && matchesCompany;
   });
 
   const getStatusClass = (status: string) => {
-    return status.toLowerCase() === 'active' 
-      ? 'bg-success-100 text-success-800' 
-      : 'bg-error-100 text-error-800';
+    return status.toLowerCase() === "active"
+      ? "bg-success-100 text-success-800"
+      : "bg-error-100 text-error-800";
   };
 
   return (
@@ -111,7 +121,7 @@ const Units = () => {
           <Building2 size={24} className="mr-2" />
           Units
         </h1>
-        <Link to="/units/add" className="btn btn-primary">
+        <Link to="/locations" className="btn btn-primary">
           <Plus size={16} className="mr-2" />
           Add Unit
         </Link>
@@ -134,7 +144,10 @@ const Units = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
           <div>
-            <label htmlFor="unitNumber" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="unitNumber"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Unit Number
             </label>
             <input
@@ -147,7 +160,10 @@ const Units = () => {
             />
           </div>
           <div>
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="location"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Location
             </label>
             <input
@@ -160,7 +176,10 @@ const Units = () => {
             />
           </div>
           <div>
-            <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="company"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Company
             </label>
             <input
@@ -173,7 +192,10 @@ const Units = () => {
             />
           </div>
           <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="status"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Status
             </label>
             <select
@@ -198,7 +220,7 @@ const Units = () => {
             </span>
           </div>
           {Object.values(filters).some(Boolean) && (
-            <button 
+            <button
               onClick={resetFilters}
               className="text-sm text-primary-600 hover:text-primary-800"
             >
@@ -214,7 +236,10 @@ const Units = () => {
         ) : filteredUnits.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500">No units found.</p>
-            <Link to="/units/add" className="text-primary-600 hover:text-primary-800 mt-2 inline-block">
+            <Link
+              to="/locations"
+              className="text-primary-600 hover:text-primary-800 mt-2 inline-block"
+            >
               Add your first unit
             </Link>
           </div>
@@ -223,23 +248,40 @@ const Units = () => {
             <table className="w-full border-collapse">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Unit Number</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Location</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Company</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Status</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Phone</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Primary Contact Type</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Primary Contact Email</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Primary Contact Phone</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Billing Entity</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
+                    Unit Number
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
+                    Location
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
+                    Company
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
+                    Primary Contact Type
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
+                    Primary Contact Email
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
+                    Primary Contact Phone
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
+                    Billing Entity
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredUnits.map((unit) => (
                   <tr key={unit.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium">
-                      <Link 
+                      <Link
                         to={`/units/${unit.id}`}
                         className="text-primary-600 hover:text-primary-800"
                       >
@@ -247,7 +289,7 @@ const Units = () => {
                       </Link>
                     </td>
                     <td className="px-4 py-3">
-                      <Link 
+                      <Link
                         to={`/locations/${unit.location_id}`}
                         className="text-primary-600 hover:text-primary-800"
                       >
@@ -255,7 +297,7 @@ const Units = () => {
                       </Link>
                     </td>
                     <td className="px-4 py-3">
-                      <Link 
+                      <Link
                         to={`/companies/${unit.locations?.company_id}`}
                         className="text-primary-600 hover:text-primary-800"
                       >
@@ -267,11 +309,16 @@ const Units = () => {
                         {unit.status.toLowerCase()}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{unit.phone || '-'}</td>
-                    <td className="px-4 py-3">{unit.primary_contact_type || '-'}</td>
-                    <td className="px-4 py-3">{unit.primary_contact_email || '-'}</td>
-                    <td className="px-4 py-3">{unit.primary_contact_phone || '-'}</td>
-                    <td className="px-4 py-3">{unit.billing_entity || '-'}</td>
+                    <td className="px-4 py-3">
+                      {unit.primary_contact_type || "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {unit.primary_contact_email || "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {unit.primary_contact_phone || "-"}
+                    </td>
+                    <td className="px-4 py-3">{unit.billing_entity || "-"}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center space-x-3">
                         <Link

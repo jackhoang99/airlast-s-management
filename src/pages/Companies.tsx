@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
-import { Database } from '../types/supabase';
-import { ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useSupabase } from "../lib/supabase-context";
+import { Database } from "../types/supabase";
+import { ArrowLeft } from "lucide-react";
 
-type Company = Database['public']['Tables']['companies']['Row'];
+type Company = Database["public"]["Tables"]["companies"]["Row"];
 
 const Companies = () => {
   const { supabase } = useSupabase();
@@ -12,17 +12,17 @@ const Companies = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
-    company: '',
-    city: '',
-    state: '',
-    zipcode: '',
+    company: "",
+    city: "",
+    state: "",
+    zipcode: "",
   });
   const [limit, setLimit] = useState(25);
 
   useEffect(() => {
     const fetchCompanies = async () => {
       if (!supabase) {
-        setError('Supabase client not initialized');
+        setError("Supabase client not initialized");
         setIsLoading(false);
         return;
       }
@@ -30,25 +30,23 @@ const Companies = () => {
       setIsLoading(true);
 
       try {
-        let query = supabase
-          .from('companies')
-          .select('*');
+        let query = supabase.from("companies").select("*");
 
         // Apply filters
         if (filters.company) {
-          query = query.ilike('name', `%${filters.company}%`);
+          query = query.ilike("name", `%${filters.company}%`);
         }
         if (filters.city) {
-          query = query.ilike('city', `%${filters.city}%`);
+          query = query.ilike("city", `%${filters.city}%`);
         }
         if (filters.state) {
-          query = query.ilike('state', `%${filters.state}%`);
+          query = query.ilike("state", `%${filters.state}%`);
         }
         if (filters.zipcode) {
-          query = query.ilike('zip', `%${filters.zipcode}%`);
+          query = query.ilike("zip", `%${filters.zipcode}%`);
         }
 
-        query = query.limit(limit).order('name');
+        query = query.limit(limit).order("name");
 
         const { data, error: supabaseError } = await query;
 
@@ -59,8 +57,8 @@ const Companies = () => {
         setCompanies(data || []);
         setError(null);
       } catch (err) {
-        console.error('Error fetching companies:', err);
-        setError('Failed to fetch companies. Please try again.');
+        console.error("Error fetching companies:", err);
+        setError("Failed to fetch companies. Please try again.");
       } finally {
         setIsLoading(false);
       }
@@ -69,17 +67,19 @@ const Companies = () => {
     fetchCompanies();
   }, [supabase, filters, limit]);
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const resetFilters = () => {
     setFilters({
-      company: '',
-      city: '',
-      state: '',
-      zipcode: '',
+      company: "",
+      city: "",
+      state: "",
+      zipcode: "",
     });
   };
 
@@ -93,9 +93,6 @@ const Companies = () => {
           <h1>Companies</h1>
         </div>
         <div className="flex gap-2">
-          <button className="btn btn-secondary">
-            Export to Spreadsheet
-          </button>
           <Link to="/companies/create" className="btn btn-primary">
             Create Customer Company
           </Link>
@@ -169,10 +166,8 @@ const Companies = () => {
         </div>
         <div className="flex justify-between mt-4">
           <div className="flex items-center gap-2">
-            <button className="btn btn-primary">
-              Search
-            </button>
-            <button 
+            <button className="btn btn-primary">Search</button>
+            <button
               onClick={resetFilters}
               className="text-primary-600 hover:text-primary-800"
             >
@@ -197,42 +192,27 @@ const Companies = () => {
             <div key={company.id} className="bg-white rounded-lg shadow p-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <Link 
+                  <Link
                     to={`/companies/${company.id}`}
                     className="text-primary-600 hover:text-primary-800 font-medium text-lg"
                   >
                     {company.name}
                   </Link>
                   <div className="text-gray-600 mt-1">
-                    {company.address && (
-                      <div>
-                        {company.address}
-                      </div>
-                    )}
+                    {company.address && <div>{company.address}</div>}
                     <div>
                       {company.city}, {company.state} {company.zip}
                     </div>
-                    {company.phone && (
-                      <div>
-                        {company.phone}
-                      </div>
-                    )}
+                    {company.phone && <div>{company.phone}</div>}
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
                   <div className="flex gap-2">
-                    <Link 
+                    <Link
                       to={`/companies/${company.id}/edit`}
                       className="text-primary-600 hover:text-primary-800"
                     >
                       Edit
-                    </Link>
-                    <span className="text-gray-300">•</span>
-                    <Link 
-                      to={`/companies/${company.id}/report`}
-                      className="text-primary-600 hover:text-primary-800"
-                    >
-                      Asset Report
                     </Link>
                   </div>
                 </div>
