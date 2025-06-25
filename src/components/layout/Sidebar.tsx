@@ -55,8 +55,12 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
     if (supabase) {
       await supabase.auth.signOut();
     }
+    // Clear all session storage items
     sessionStorage.removeItem("isAuthenticated");
     sessionStorage.removeItem("username");
+    sessionStorage.removeItem("isTechAuthenticated");
+    sessionStorage.removeItem("techUsername");
+    
     navigate("/login");
   };
 

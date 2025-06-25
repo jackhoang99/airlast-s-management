@@ -29,6 +29,7 @@ const TechnicianLogin = () => {
       sessionStorage.removeItem("isAuthenticated"); // Clear admin auth
       sessionStorage.removeItem("isTechAuthenticated");
       sessionStorage.removeItem("techUsername");
+      sessionStorage.removeItem("username");
 
       // First check if the user exists in the users table
       const { data: userData, error: userError } = await supabase

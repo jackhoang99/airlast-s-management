@@ -21,77 +21,37 @@ const RequireTechAuth = () => {
 
       try {
         setIsLoading(true);
-
+        
         // Check if we already have a session
         if (session) {
           console.log("Session found, checking if user is a technician");
 
           // Check if user exists in users table
-          const username = sessionStorage.getItem("techUsername");
-
-          if (username) {
-            const { data: userData, error: userError } = await supabase
-              .from("users")
-              .select("id, role")
-              .eq("username", username)
-              .maybeSingle();
-
-            if (userError && !userError.message.includes("contains 0 rows")) {
-              console.error("Error checking user:", userError);
-              throw userError;
-            }
-
-            // If user exists and is a technician, we're good
-            if (userData && userData.role === "technician") {
-              console.log("User is a technician");
-              setIsTechnician(true);
-              setIsAuthenticated(true);
-              sessionStorage.setItem("isTechAuthenticated", "true");
-              setIsLoading(false);
-              return;
-            }
-
-            // If user exists but is not a technician, deny access
-            if (userData && userData.role !== "technician") {
-              console.log("User found but not a technician:", userData);
-              setError("Access denied. Only technicians can access this area.");
-              setIsAuthenticated(false);
-              setIsTechnician(false);
-              sessionStorage.removeItem("isTechAuthenticated");
-              sessionStorage.removeItem("techUsername");
-              setIsLoading(false);
-              return;
-            }
-
-            // If user doesn't exist, we'll check by email next
-          }
-
-          // Try to find user by email
-          const { data: emailUser, error: emailError } = await supabase
+          const { data: userData, error: userError } = await supabase
             .from("users")
-            .select("id, username, role")
+            .select("id, role")
             .eq("email", session.user.email)
             .maybeSingle();
 
-          if (emailError && !emailError.message.includes("contains 0 rows")) {
-            console.error("Error checking user by email:", emailError);
-            throw emailError;
+          if (userError && !userError.message.includes("contains 0 rows")) {
+            console.error("Error checking user:", userError);
+            throw userError;
           }
 
-          // If user exists by email and is a technician, we're good
-          if (emailUser && emailUser.role === "technician") {
-            console.log("User is a technician (found by email)");
+          // If user exists and is a technician, we're good
+          if (userData && userData.role === "technician") {
+            console.log("User is a technician");
             setIsTechnician(true);
             setIsAuthenticated(true);
             sessionStorage.setItem("isTechAuthenticated", "true");
-            sessionStorage.setItem("techUsername", emailUser.username);
+            sessionStorage.setItem("techUsername", session.user.email?.split('@')[0] || "tech");
             setIsLoading(false);
             return;
           }
 
-          // If user exists by email but is not a technician, deny access
-          if (emailUser && emailUser.role !== "technician") {
-            console.log("User found by email but not a technician:", emailUser);
+          // If user exists but is not a technician, deny access
+          if (userData && userData.role !== "technician") {
+            console.log("User found but not a technician:", userData);
             setError("Access denied. Only technicians can access this area.");
             setIsAuthenticated(false);
             setIsTechnician(false);
@@ -101,40 +61,24 @@ const RequireTechAuth = () => {
             return;
           }
 
-          // If we get here, the user doesn't exist in our users table
-          // We'll create a new user record with technician role
-          const usernameToUse =
-            username || session.user.email?.split("@")[0] || "tech";
-
-          // Create a unique username to avoid conflicts
-          const timestamp = new Date().getTime().toString().slice(-6);
-          const uniqueUsername = `${usernameToUse}_${timestamp}`;
-
-          const { data: newUser, error: createError } = await supabase
-            .from("users")
-            .insert({
-              id: session.user.id,
-              auth_id: session.user.id,
-              email: session.user.email,
-              username: uniqueUsername,
-              role: "technician",
-              status: "active",
-            })
-            .select()
-            .single();
-
-          if (createError) {
-            console.error("Error creating user:", createError);
-            throw createError;
+          // If user doesn't exist, we'll check by username next
+          const username = sessionStorage.getItem("techUsername");
+          if (username) {
+            const { data: usernameUser, error: usernameError } = await supabase
+              .from("users")
+              .select("id, role")
+              .eq("username", username)
+              .eq("role", "technician")
+              .maybeSingle();
+              
+            if (!usernameError && usernameUser) {
+              console.log("User is a technician (found by username)");
+              setIsTechnician(true);
+              setIsAuthenticated(true);
+              setIsLoading(false);
+              return;
+            }
           }
-
-          console.log("Created new technician user:", newUser);
-          setIsTechnician(true);
-          setIsAuthenticated(true);
-          sessionStorage.setItem("isTechAuthenticated", "true");
-          sessionStorage.setItem("techUsername", uniqueUsername);
-          setIsLoading(false);
-          return;
         }
 
         // If session storage says we're authenticated but Supabase doesn't have a session,

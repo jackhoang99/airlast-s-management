@@ -28,6 +28,22 @@ const Login = () => {
 
       // If supabase is available and we have a session, set as authenticated
       if (supabase && session) {
+        // Check if this is a technician
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("role")
+          .eq("email", session.user.email)
+          .maybeSingle();
+          
+        if (!userError && userData && userData.role === 'technician') {
+          // This is a technician, redirect to tech portal
+          sessionStorage.setItem("isTechAuthenticated", "true");
+          sessionStorage.setItem("techUsername", session.user.email?.split('@')[0] || "tech");
+          navigate('/tech', { replace: true });
+          return;
+        }
+        
+        // Not a technician, proceed with admin authentication
         sessionStorage.setItem("isAuthenticated", "true");
         sessionStorage.setItem("username", session.user.email?.split('@')[0] || "user");
         navigate(from, { replace: true });
@@ -44,6 +60,12 @@ const Login = () => {
 
     try {
       if (!supabase) throw new Error("Supabase client not initialized");
+
+      // Clear any existing auth data to prevent conflicts
+      sessionStorage.removeItem("isAuthenticated");
+      sessionStorage.removeItem("isTechAuthenticated");
+      sessionStorage.removeItem("techUsername");
+      sessionStorage.removeItem("username");
 
       // Check if the username exists in our users table
       const { data: userData, error: userError } = await supabase

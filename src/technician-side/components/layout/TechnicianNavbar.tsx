@@ -36,10 +36,11 @@ const TechnicianNavbar = ({ open, setOpen }: TechnicianNavbarProps) => {
     if (supabase) {
       await supabase.auth.signOut();
     }
-    // Clear all technician-specific session storage items
+    // Clear all session storage items
     sessionStorage.removeItem("isTechAuthenticated");
     sessionStorage.removeItem("techUsername");
     sessionStorage.removeItem("isAuthenticated"); // Also clear admin auth if present
+    sessionStorage.removeItem("username");
 
     // Force redirect to technician login
     navigate("/tech/login");
@@ -58,13 +59,29 @@ const TechnicianNavbar = ({ open, setOpen }: TechnicianNavbarProps) => {
           const { data, error } = await supabase
             .from("users")
             .select("first_name, last_name")
-            .eq("id", user.id)
+            .eq("email", user.email)
             .maybeSingle();
 
           if (!error && data) {
             setFirstName(data.first_name || "");
             setLastName(data.last_name || "");
             setTechnicianName(`${data.first_name} ${data.last_name}`);
+          } else {
+            // Try with username from session storage
+            const username = sessionStorage.getItem("techUsername");
+            if (username) {
+              const { data: usernameData, error: usernameError } = await supabase
+                .from("users")
+                .select("first_name, last_name")
+                .eq("username", username)
+                .maybeSingle();
+                
+              if (!usernameError && usernameData) {
+                setFirstName(usernameData.first_name || "");
+                setLastName(usernameData.last_name || "");
+                setTechnicianName(`${usernameData.first_name} ${usernameData.last_name}`);
+              }
+            }
           }
         }
       } catch (err) {

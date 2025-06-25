@@ -21,6 +21,25 @@ const RequireAuth = () => {
         
         // Check if we already have a session
         if (session) {
+          // Check if this user is a technician trying to access admin
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('role')
+            .eq('email', session.user.email)
+            .maybeSingle();
+            
+          if (!userError && userData && userData.role === 'technician') {
+            // This is a technician trying to access admin area
+            console.log('Technician trying to access admin area, redirecting to tech portal');
+            sessionStorage.removeItem('isAuthenticated');
+            sessionStorage.setItem('isTechAuthenticated', 'true');
+            sessionStorage.setItem('techUsername', session.user.email?.split('@')[0] || 'tech');
+            setIsAuthenticated(false);
+            setIsLoading(false);
+            return;
+          }
+          
+          // Not a technician, proceed with admin authentication
           setIsAuthenticated(true);
           sessionStorage.setItem('isAuthenticated', 'true');
           sessionStorage.setItem('username', session.user.email?.split('@')[0] || 'user');
