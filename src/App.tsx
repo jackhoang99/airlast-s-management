@@ -36,6 +36,7 @@ import TechnicianApp from "./technician-side/TechnicianApp";
 import MyAccount from "./pages/MyAccount";
 import TemplateDebug from "./pages/TemplateDebug";
 import Contacts from "./pages/Contacts";
+import PublicUnitDetails from "./pages/PublicUnitDetails";
 
 function App() {
   const { supabase } = useSupabase();
@@ -55,6 +56,9 @@ function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/quote/confirm/:token" element={<QuoteConfirmation />} />
+      
+      {/* Public Unit Details Route - No Auth Required */}
+      <Route path="/units/public/:id" element={<PublicUnitDetails />} />
 
       {/* Technician Routes */}
       <Route path="/tech/*" element={<TechnicianApp />} />

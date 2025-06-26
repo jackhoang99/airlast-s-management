@@ -13,6 +13,7 @@ import {
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
 import Map from "../components/ui/Map";
+import UnitQRCode from "../components/units/UnitQRCode";
 
 type Unit = Database["public"]["Tables"]["units"]["Row"] & {
   locations: {
@@ -486,7 +487,7 @@ const UnitDetails = () => {
           </div>
         </div>
 
-        <div>
+        <div className="space-y-6">
           <div className="card">
             <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
             <div className="space-y-3">
@@ -505,6 +506,9 @@ const UnitDetails = () => {
               </Link>
             </div>
           </div>
+
+          {/* QR Code Section */}
+          <UnitQRCode unitId={unit.id} unitNumber={unit.unit_number} />
 
           {/* Job Statistics */}
           {jobs.length > 0 && (
