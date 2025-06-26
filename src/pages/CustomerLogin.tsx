@@ -1,57 +1,19 @@
-import { useState, FormEvent, useEffect } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useState, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
-import { Wind } from "lucide-react";
+import { Wind, AlertTriangle } from "lucide-react";
 
-const Login = () => {
-  const { supabase, session } = useSupabase();
+const CustomerLogin = () => {
+  const { supabase } = useSupabase();
   const navigate = useNavigate();
-  const location = useLocation();
-  const from = location.state?.from?.pathname || "/";
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>('/airlast-logo.svg');
   const [credentials, setCredentials] = useState({
-    username: "",
+    companyName: "",
     password: "",
   });
-
-  // Check if user is already logged in
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      // If already authenticated in session storage, redirect
-      if (sessionStorage.getItem("isAuthenticated") === "true") {
-        navigate(from, { replace: true });
-        return;
-      }
-
-      // If supabase is available and we have a session, set as authenticated
-      if (supabase && session) {
-        // Check if this is a technician
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("role")
-          .eq("email", session.user.email)
-          .maybeSingle();
-          
-        if (!userError && userData && userData.role === 'technician') {
-          // This is a technician, redirect to tech portal
-          sessionStorage.setItem("isTechAuthenticated", "true");
-          sessionStorage.setItem("techUsername", session.user.email?.split('@')[0] || "tech");
-          navigate('/tech', { replace: true });
-          return;
-        }
-        
-        // Not a technician, proceed with admin authentication
-        sessionStorage.setItem("isAuthenticated", "true");
-        sessionStorage.setItem("username", session.user.email?.split('@')[0] || "user");
-        navigate(from, { replace: true });
-      }
-    };
-
-    checkAuthStatus();
-  }, [supabase, session, navigate, from]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -62,53 +24,34 @@ const Login = () => {
       if (!supabase) throw new Error("Supabase client not initialized");
 
       // Clear any existing auth data to prevent conflicts
-      sessionStorage.removeItem("isAuthenticated");
-      sessionStorage.removeItem("isTechAuthenticated");
-      sessionStorage.removeItem("techUsername");
-      sessionStorage.removeItem("username");
+      sessionStorage.removeItem('customerPortalCompanyId');
 
-      // Check if the username exists in our users table
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("username, email, role")
-        .eq("username", credentials.username)
-        .maybeSingle();
+      // Check if the company exists
+      const { data: companyData, error: companyError } = await supabase
+        .from("companies")
+        .select("id, name")
+        .ilike("name", credentials.companyName.trim())
+        .limit(1);
 
-      // If user doesn't exist in our users table, show error
-      if (userError && !userError.message.includes("The result contains 0 rows")) {
-        console.error("User lookup error:", userError);
-        throw new Error("Error checking user credentials");
+      if (companyError) throw companyError;
+
+      if (!companyData || companyData.length === 0) {
+        throw new Error("Company not found. Please check the company name and try again.");
       }
 
-      // Check if this is a technician trying to log in to the admin portal
-      if (userData?.role === 'technician') {
-        // Redirect to technician login
-        navigate('/tech/login', { state: { from: location } });
-        return;
+      // For demo purposes, we're using a fixed password
+      if (credentials.password !== "hvac123") {
+        throw new Error("Invalid password. Please try again.");
       }
 
-      // Use the email from users table if available, otherwise construct demo email
-      const email = userData?.email || `${credentials.username}@airlast-demo.com`;
+      // Store company ID in session storage
+      sessionStorage.setItem('customerPortalCompanyId', companyData[0].id);
       
-      // Try to sign in with Supabase Auth
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: credentials.password
-      });
-
-      if (signInError) {
-        // If sign-in fails with invalid credentials, show error
-        console.error("Sign in error:", signInError);
-        throw new Error("Invalid username or password");
-      }
-
-      // If we get here, login is successful
-      sessionStorage.setItem("isAuthenticated", "true");
-      sessionStorage.setItem("username", credentials.username);
-      navigate(from, { replace: true });
+      // Navigate to customer portal
+      navigate('/customer');
     } catch (err) {
       console.error("Login error:", err);
-      setError(err instanceof Error ? err.message : "Invalid username or password");
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -130,8 +73,11 @@ const Login = () => {
           )}
         </div>
         <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-          HVAC Administration
+          Customer Portal
         </h2>
+        <p className="mt-2 text-center text-sm text-gray-600">
+          Access your HVAC service information
+        </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -139,13 +85,14 @@ const Login = () => {
           {isLoading && !error ? (
             <div className="flex justify-center items-center py-6">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
-              <p className="ml-2 text-gray-600">Checking authentication...</p>
+              <p className="ml-2 text-gray-600">Checking credentials...</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
                 <div className="bg-error-50 border-l-4 border-error-500 p-4 rounded">
                   <div className="flex">
+                    <AlertTriangle className="h-5 w-5 text-error-500" />
                     <div className="ml-3">
                       <p className="text-sm text-error-700">{error}</p>
                     </div>
@@ -155,26 +102,29 @@ const Login = () => {
 
               <div>
                 <label
-                  htmlFor="username"
+                  htmlFor="companyName"
                   className="block text-sm font-medium text-gray-700"
                 >
-                  Username
+                  Company Name
                 </label>
                 <div className="mt-1">
                   <input
-                    id="username"
+                    id="companyName"
                     type="text"
-                    value={credentials.username}
+                    value={credentials.companyName}
                     onChange={(e) =>
                       setCredentials((prev) => ({
                         ...prev,
-                        username: e.target.value,
+                        companyName: e.target.value,
                       }))
                     }
                     required
                     className="input"
                   />
                 </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Enter your company name exactly as it appears on your account
+                </p>
               </div>
 
               <div>
@@ -220,17 +170,6 @@ const Login = () => {
                   )}
                 </button>
               </div>
-              
-              <div className="text-center mt-4 space-y-2">
-                <Link to="/tech/login" className="text-sm text-primary-600 hover:text-primary-800">
-                  Technician? Login here
-                </Link>
-                <div>
-                  <Link to="/customer/login" className="text-sm text-primary-600 hover:text-primary-800">
-                    Customer? Access your portal here
-                  </Link>
-                </div>
-              </div>
             </form>
           )}
         </div>
@@ -239,4 +178,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default CustomerLogin;

@@ -38,6 +38,19 @@ import TemplateDebug from "./pages/TemplateDebug";
 import Contacts from "./pages/Contacts";
 import PublicUnitDetails from "./pages/PublicUnitDetails";
 
+// Customer Portal
+import CustomerLogin from "./pages/CustomerLogin";
+import CustomerPortal from "./pages/CustomerPortal";
+import CustomerDashboard from "./pages/CustomerDashboard";
+import CustomerLocations from "./pages/CustomerLocations";
+import CustomerLocationDetails from "./pages/CustomerLocationDetails";
+import CustomerUnits from "./pages/CustomerUnits";
+import CustomerUnitDetails from "./pages/CustomerUnitDetails";
+import CustomerJobs from "./pages/CustomerJobs";
+import CustomerJobDetails from "./pages/CustomerJobDetails";
+import CustomerInvoices from "./pages/CustomerInvoices";
+import CustomerInvoiceDetails from "./pages/CustomerInvoiceDetails";
+
 function App() {
   const { supabase } = useSupabase();
 
@@ -62,6 +75,20 @@ function App() {
 
       {/* Technician Routes */}
       <Route path="/tech/*" element={<TechnicianApp />} />
+      
+      {/* Customer Portal Routes */}
+      <Route path="/customer/login" element={<CustomerLogin />} />
+      <Route path="/customer" element={<CustomerPortal />}>
+        <Route index element={<CustomerDashboard />} />
+        <Route path="locations" element={<CustomerLocations />} />
+        <Route path="locations/:id" element={<CustomerLocationDetails />} />
+        <Route path="units" element={<CustomerUnits />} />
+        <Route path="units/:id" element={<CustomerUnitDetails />} />
+        <Route path="jobs" element={<CustomerJobs />} />
+        <Route path="jobs/:id" element={<CustomerJobDetails />} />
+        <Route path="invoices" element={<CustomerInvoices />} />
+        <Route path="invoices/:id" element={<CustomerInvoiceDetails />} />
+      </Route>
 
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
