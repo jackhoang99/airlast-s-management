@@ -16,6 +16,7 @@ const JobTimeTracking = ({ jobId }: JobTimeTrackingProps) => {
   const [clockEvents, setClockEvents] = useState<ClockEvent[]>([]);
   const [totalHours, setTotalHours] = useState<number>(0);
   const [technicians, setTechnicians] = useState<{[key: string]: {first_name: string, last_name: string}}>({}); 
+  const [authUserMap, setAuthUserMap] = useState<{[key: string]: string}>({});
 
   useEffect(() => {
     const fetchClockEvents = async () => {
@@ -42,27 +43,58 @@ const JobTimeTracking = ({ jobId }: JobTimeTrackingProps) => {
           // Get unique technician IDs
           const techIds = [...new Set(clockData.map(event => event.user_id))];
           
-          // Fetch technician details
+          // Fetch technician details from users table
           if (techIds.length > 0) {
+            // First try to fetch users directly
             const { data: techData, error: techError } = await supabase
               .from('users')
               .select('id, first_name, last_name')
               .in('id', techIds);
+               
+            if (techError) {
+              console.error('Error fetching users:', techError);
+            } else if (techData) {
+              // Create a map of technician IDs to names
+              const techMap: {[key: string]: {first_name: string, last_name: string}} = {};
               
-            if (techError && !techError.message.includes('contains 0 rows')) {
-              throw techError;
+              techData.forEach(tech => {
+                techMap[tech.id] = {
+                  first_name: tech.first_name || '',
+                  last_name: tech.last_name || ''
+                };
+              });
+              
+              setTechnicians(techMap);
             }
             
-            // Create a map of technician IDs to names
-            const techMap: {[key: string]: {first_name: string, last_name: string}} = {};
-            techData?.forEach(tech => {
-              techMap[tech.id] = {
-                first_name: tech.first_name || '',
-                last_name: tech.last_name || ''
-              };
-            });
-            
-            setTechnicians(techMap);
+            // Now try to map auth IDs to user IDs
+            try {
+              // Get all users with auth_id
+              const { data: usersWithAuth, error: usersError } = await supabase
+                .from('users')
+                .select('id, auth_id, first_name, last_name')
+                .not('auth_id', 'is', null);
+                
+              if (!usersError && usersWithAuth) {
+                const authMap: {[key: string]: string} = {};
+                const additionalTechMap: {[key: string]: {first_name: string, last_name: string}} = {};
+                
+                usersWithAuth.forEach(user => {
+                  if (user.auth_id) {
+                    authMap[user.auth_id] = user.id;
+                    additionalTechMap[user.id] = {
+                      first_name: user.first_name || '',
+                      last_name: user.last_name || ''
+                    };
+                  }
+                });
+                
+                setAuthUserMap(authMap);
+                setTechnicians(prev => ({...prev, ...additionalTechMap}));
+              }
+            } catch (err) {
+              console.error('Error mapping auth IDs to users:', err);
+            }
           }
           
           // Calculate time for each technician
@@ -141,11 +173,25 @@ const JobTimeTracking = ({ jobId }: JobTimeTrackingProps) => {
   };
 
   const getTechnicianName = (userId: string) => {
+    // First check if this is a direct match in our technicians map
     const tech = technicians[userId];
     if (tech) {
-      return `${tech.first_name} ${tech.last_name}`;
+      if (tech.first_name || tech.last_name) {
+        return `${tech.first_name} ${tech.last_name}`.trim();
+      }
     }
-    return 'Unknown Technician';
+    
+    // Next, check if this is an auth ID that maps to a user ID
+    const mappedUserId = authUserMap[userId];
+    if (mappedUserId) {
+      const mappedTech = technicians[mappedUserId];
+      if (mappedTech && (mappedTech.first_name || mappedTech.last_name)) {
+        return `${mappedTech.first_name} ${mappedTech.last_name}`.trim();
+      }
+    }
+    
+    // If we still don't have a name, show a truncated ID
+    return userId.substring(0, 8) + "...";
   };
 
   if (isLoading) {

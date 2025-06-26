@@ -8,6 +8,7 @@ import JobInvoiceSection from "../../components/jobs/JobInvoiceSection";
 import TechnicianNavigation from '../components/navigation/TechnicianNavigation';
 import JobTimeTracking from "../../components/jobs/JobTimeTracking";
 import JobComments from "../../components/jobs/JobComments";
+import ClockInOut from "../components/jobs/ClockInOut";
 
 const TechnicianJobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,10 +27,6 @@ const TechnicianJobDetails = () => {
   const [showCompleteJobModal, setShowCompleteJobModal] = useState(false);
   const [jobStatus, setJobStatus] = useState<'scheduled' | 'unscheduled' | 'completed' | 'cancelled'>('scheduled');
   const [currentClockStatus, setCurrentClockStatus] = useState<'clocked_out' | 'clocked_in' | 'on_break'>('clocked_out');
-  const [isClockingIn, setIsClockingIn] = useState(false);
-  const [isClockingOut, setIsClockingOut] = useState(false);
-  const [isStartingBreak, setIsStartingBreak] = useState(false);
-  const [isEndingBreak, setIsEndingBreak] = useState(false);
   const [showNavigationModal, setShowNavigationModal] = useState(false);
   const [quoteNeedsUpdate, setQuoteNeedsUpdate] = useState(false);
   const [lastQuoteUpdateTime, setLastQuoteUpdateTime] = useState<string | null>(null);
@@ -39,118 +36,62 @@ const TechnicianJobDetails = () => {
   const [showQuoteSection, setShowQuoteSection] = useState(false);
   const [showInvoiceSection, setShowInvoiceSection] = useState(false);
 
-  // Get technician ID
+  // Get technician ID directly from auth
   useEffect(() => {
-    const fetchTechnicianInfo = async () => {
+    const fetchAuthUser = async () => {
       if (!supabase) return;
       
       try {
-        // Get username from session storage
-        const username = sessionStorage.getItem('techUsername');
+        // Get the authenticated user from Supabase session
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
         
-        if (username) {
-          console.log("Looking up technician with username:", username);
+        if (authError) {
+          console.error('Error getting authenticated user:', authError);
+          setError('Authentication error');
+          return;
+        }
+        
+        if (!user) {
+          console.error('No authenticated user found');
+          setError('No authenticated user');
+          return;
+        }
+        
+        // Use the auth user ID directly - this is the ID that should be used for clock events
+        setTechnicianId(user.id);
+        console.log("Using authenticated user ID for clock events:", user.id);
+        
+        // Try to get display name from users table
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('first_name, last_name, username')
+          .eq('id', user.id)
+          .maybeSingle();
           
-          // Try to find user by username
-          const { data, error } = await supabase
-            .from('users')
-            .select('id, first_name, last_name')
-            .eq('username', username)
-            .maybeSingle();
-            
-          if (error && !error.message.includes("contains 0 rows")) {
-            console.error('Error fetching technician by username:', error);
-            throw error;
-          }
-          
-          if (data) {
-            console.log("Found technician by username:", data);
-            setTechnicianId(data.id);
-            setTechnicianName(`${data.first_name || ''} ${data.last_name || ''}`);
-          } else {
-            // Try with email format
-            const email = `${username}@airlast-demo.com`;
-            console.log("Trying with email:", email);
-            
-            const { data: emailData, error: emailError } = await supabase
-              .from('users')
-              .select('id, first_name, last_name')
-              .eq('email', email)
-              .maybeSingle();
-              
-            if (emailError && !emailError.message.includes("contains 0 rows")) {
-              console.error('Error fetching technician by email:', emailError);
-              throw emailError;
-            }
-            
-            if (emailData) {
-              console.log("Found technician by email:", emailData);
-              setTechnicianId(emailData.id);
-              setTechnicianName(`${emailData.first_name || ''} ${emailData.last_name || ''}`);
-            } else {
-              console.error("Could not find technician with username or email");
-              setError('Could not find technician record');
-            }
+        if (userError && !userError.message.includes("contains 0 rows")) {
+          console.error('Error fetching user details:', userError);
+          // Don't throw here, just use email as fallback
+        }
+        
+        if (userData) {
+          console.log("Found user details:", userData);
+          setTechnicianName(`${userData.first_name || ''} ${userData.last_name || ''}`.trim());
+          if (userData.username) {
+            sessionStorage.setItem('techUsername', userData.username);
           }
         } else {
-          // Fallback to auth user if username not in session
-          const { data: { user } } = await supabase.auth.getUser();
-          
-          if (user) {
-            console.log("Looking up technician with auth user:", user.email);
-            
-            // Try to find by email
-            const { data, error } = await supabase
-              .from('users')
-              .select('id, username, first_name, last_name')
-              .eq('email', user.email)
-              .maybeSingle();
-              
-            if (error && !error.message.includes("contains 0 rows")) {
-              console.error('Error fetching technician by email:', error);
-              throw error;
-            }
-            
-            if (data) {
-              console.log("Found technician by email:", data);
-              setTechnicianId(data.id);
-              setTechnicianName(`${data.first_name || ''} ${data.last_name || ''}`);
-              sessionStorage.setItem('techUsername', data.username);
-            } else {
-              // Try with username from email
-              const username = user.email.split('@')[0];
-              console.log("Trying with username from email:", username);
-              
-              const { data: usernameData, error: usernameError } = await supabase
-                .from('users')
-                .select('id, first_name, last_name')
-                .eq('username', username)
-                .maybeSingle();
-                
-              if (usernameError && !usernameError.message.includes("contains 0 rows")) {
-                console.error('Error fetching technician by username from email:', usernameError);
-                throw usernameError;
-              }
-              
-              if (usernameData) {
-                console.log("Found technician by username from email:", usernameData);
-                setTechnicianId(usernameData.id);
-                setTechnicianName(`${usernameData.first_name || ''} ${usernameData.last_name || ''}`);
-                sessionStorage.setItem('techUsername', username);
-              } else {
-                console.error("Could not find technician with any method");
-                setError('Could not find technician record');
-              }
-            }
-          }
+          // Fallback to using email as display name
+          console.log("No user details found, using email as display name");
+          setTechnicianName(user.email || 'Unknown User');
         }
+        
       } catch (err) {
         console.error('Error fetching technician info:', err);
         setError('Failed to load technician information');
       }
     };
     
-    fetchTechnicianInfo();
+    fetchAuthUser();
   }, [supabase]);
 
   // Fetch job details
@@ -300,65 +241,6 @@ const TechnicianJobDetails = () => {
 
     fetchJobDetails();
   }, [supabase, id, technicianId]);
-
-  const handleClockEvent = async (eventType: 'clock_in' | 'clock_out' | 'break_start' | 'break_end') => {
-    if (!supabase || !id || !technicianId) {
-      setError("Unable to record time - missing required information");
-      return;
-    }
-
-    // Set the appropriate loading state
-    if (eventType === 'clock_in') setIsClockingIn(true);
-    else if (eventType === 'clock_out') setIsClockingOut(true);
-    else if (eventType === 'break_start') setIsStartingBreak(true);
-    else if (eventType === 'break_end') setIsEndingBreak(true);
-
-    try {
-      console.log("Recording clock event:", {
-        job_id: id,
-        user_id: technicianId,
-        event_type: eventType,
-        event_time: new Date().toISOString()
-      });
-
-      const { data, error } = await supabase
-        .from('job_clock_events')
-        .insert({
-          job_id: id,
-          user_id: technicianId,
-          event_type: eventType,
-          event_time: new Date().toISOString()
-        })
-        .select();
-
-      if (error) {
-        console.error(`Error recording ${eventType}:`, error);
-        throw error;
-      }
-
-      console.log("Clock event recorded successfully:", data);
-
-      // Update current status
-      if (eventType === 'clock_in') {
-        setCurrentClockStatus('clocked_in');
-      } else if (eventType === 'clock_out') {
-        setCurrentClockStatus('clocked_out');
-      } else if (eventType === 'break_start') {
-        setCurrentClockStatus('on_break');
-      } else if (eventType === 'break_end') {
-        setCurrentClockStatus('clocked_in');
-      }
-    } catch (err) {
-      console.error(`Error recording ${eventType}:`, err);
-      setError(`Failed to record ${eventType.replace('_', ' ')}. Please try again.`);
-    } finally {
-      // Reset all loading states
-      setIsClockingIn(false);
-      setIsClockingOut(false);
-      setIsStartingBreak(false);
-      setIsEndingBreak(false);
-    }
-  };
 
   const handleCompleteJob = async () => {
     if (!supabase || !id || !technicianId) return;
@@ -622,15 +504,6 @@ const TechnicianJobDetails = () => {
                     <p>{job.locations.city}, {job.locations.state} {job.locations.zip}</p>
                   </div>
                 </div>
-                <div className="mt-2">
-                  <button 
-                    onClick={() => setShowNavigationModal(true)}
-                    className="btn btn-primary"
-                  >
-                    <Navigation size={16} className="mr-2" />
-                    Navigate
-                  </button>
-                </div>
               </div>
             ) : (
               <p className="text-gray-500">No location assigned</p>
@@ -719,64 +592,15 @@ const TechnicianJobDetails = () => {
       </div>
 
       {/* Clock In/Out Section */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex flex-wrap gap-3 mb-4">
-          {currentClockStatus === 'clocked_out' ? (
-            <button
-              onClick={() => handleClockEvent('clock_in')}
-              className="btn btn-primary"
-              disabled={isClockingIn || jobStatus === 'completed' || jobStatus === 'cancelled'}
-            >
-              {isClockingIn ? (
-                <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-              ) : (
-                <Clock size={16} className="mr-2" />
-              )}
-              Clock In
-            </button>
-          ) : currentClockStatus === 'clocked_in' ? (
-            <>
-              <button
-                onClick={() => handleClockEvent('clock_out')}
-                className="btn btn-error"
-                disabled={isClockingOut}
-              >
-                {isClockingOut ? (
-                  <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                ) : (
-                  <Clock size={16} className="mr-2" />
-                )}
-                Clock Out
-              </button>
-              <button
-                onClick={() => handleClockEvent('break_start')}
-                className="btn btn-secondary"
-                disabled={isStartingBreak}
-              >
-                {isStartingBreak ? (
-                  <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                ) : (
-                  <Clock size={16} className="mr-2" />
-                )}
-                Start Break
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => handleClockEvent('break_end')}
-              className="btn btn-primary"
-              disabled={isEndingBreak}
-            >
-              {isEndingBreak ? (
-                <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-              ) : (
-                <Clock size={16} className="mr-2" />
-              )}
-              End Break
-            </button>
-          )}
-        </div>
-      </div>
+      {technicianId && (
+        <ClockInOut 
+          jobId={id || ''}
+          technicianId={technicianId}
+          currentClockStatus={currentClockStatus}
+          jobStatus={jobStatus}
+          onStatusChange={setCurrentClockStatus}
+        />
+      )}
 
       {/* Service Details - Mobile-Optimized Collapsible Sections */}
       <div className="bg-white rounded-lg shadow p-4">

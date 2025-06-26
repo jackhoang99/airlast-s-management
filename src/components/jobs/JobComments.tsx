@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { MessageSquare, Send, AlertTriangle } from 'lucide-react';
 import { useSupabase } from '../../lib/supabase-context';
-import { Database } from '../../types/supabase';
+import { User, Mail, Phone, Shield, Key, Save, X, AlertTriangle, MessageSquare, Send } from 'lucide-react';
 
 type JobCommentsProps = {
   jobId: string;
@@ -28,6 +27,8 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>('');
+  const [userMap, setUserMap] = useState<{[key: string]: {first_name: string, last_name: string}}>({});
+  const [authUserMap, setAuthUserMap] = useState<{[key: string]: string}>({});
 
   useEffect(() => {
     const fetchComments = async () => {
@@ -51,39 +52,72 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
 
         if (commentsError) throw commentsError;
         
-        // For each comment, fetch the user details separately
-        const commentsWithUsers = await Promise.all(
-          (commentsData || []).map(async (comment) => {
-            try {
-              const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('first_name, last_name')
-                .eq('id', comment.user_id)
-                .maybeSingle();
-              
-              if (userError && !userError.message.includes('contains 0 rows')) {
-                console.error('Error fetching user for comment:', userError);
-                return {
-                  ...comment,
-                  user: { first_name: 'Unknown', last_name: 'User' }
-                };
-              }
-              
-              return {
-                ...comment,
-                user: userData || { first_name: 'Unknown', last_name: 'User' }
-              };
-            } catch (err) {
-              console.error('Error processing comment user:', err);
-              return {
-                ...comment,
-                user: { first_name: 'Unknown', last_name: 'User' }
-              };
-            }
-          })
-        );
+        // Get all unique user IDs from comments
+        const userIds = [...new Set(commentsData?.map(comment => comment.user_id) || [])];
         
-        setComments(commentsWithUsers);
+        // Fetch user details
+        if (userIds.length > 0) {
+          // First, fetch direct user matches
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id, first_name, last_name')
+            .in('id', userIds);
+            
+          if (userError) {
+            console.error('Error fetching users for comments:', userError);
+          } else if (userData) {
+            // Create a map of user IDs to names
+            const userMapData: {[key: string]: {first_name: string, last_name: string}} = {};
+            
+            userData.forEach(user => {
+              userMapData[user.id] = {
+                first_name: user.first_name || '',
+                last_name: user.last_name || ''
+              };
+            });
+            
+            setUserMap(userMapData);
+          }
+          
+          // Now try to map auth IDs to user IDs
+          try {
+            // Get all users with auth_id
+            const { data: usersWithAuth, error: usersError } = await supabase
+              .from('users')
+              .select('id, auth_id, first_name, last_name')
+              .not('auth_id', 'is', null);
+              
+            if (!usersError && usersWithAuth) {
+              const authMap: {[key: string]: string} = {};
+              const additionalUserMap: {[key: string]: {first_name: string, last_name: string}} = {};
+              
+              usersWithAuth.forEach(user => {
+                if (user.auth_id) {
+                  authMap[user.auth_id] = user.id;
+                  additionalUserMap[user.id] = {
+                    first_name: user.first_name || '',
+                    last_name: user.last_name || ''
+                  };
+                }
+              });
+              
+              setAuthUserMap(authMap);
+              setUserMap(prev => ({...prev, ...additionalUserMap}));
+            }
+          } catch (err) {
+            console.error('Error mapping auth IDs to users for comments:', err);
+          }
+        }
+        
+        // Process comments with user info
+        const processedComments = commentsData?.map(comment => {
+          return {
+            ...comment,
+            user: getUserInfo(comment.user_id)
+          };
+        }) || [];
+        
+        setComments(processedComments);
         
         // Get current user ID
         if (session?.user) {
@@ -98,6 +132,17 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
             
           if (!userError && userData) {
             setCurrentUserName(`${userData.first_name || ''} ${userData.last_name || ''}`);
+          } else {
+            // Try to find by auth_id
+            const { data: authUserData, error: authUserError } = await supabase
+              .from('users')
+              .select('first_name, last_name')
+              .eq('auth_id', session.user.id)
+              .maybeSingle();
+              
+            if (!authUserError && authUserData) {
+              setCurrentUserName(`${authUserData.first_name || ''} ${authUserData.last_name || ''}`);
+            }
           }
         }
       } catch (err) {
@@ -110,6 +155,33 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
 
     fetchComments();
   }, [supabase, jobId, session]);
+
+  const getUserInfo = (userId: string): {first_name: string, last_name: string} => {
+    // First check if this is a direct match in our user map
+    if (userMap[userId]) {
+      return userMap[userId];
+    }
+    
+    // Next, check if this is an auth ID that maps to a user ID
+    const mappedUserId = authUserMap[userId];
+    if (mappedUserId && userMap[mappedUserId]) {
+      return userMap[mappedUserId];
+    }
+    
+    // If we still don't have a name, return empty values
+    return { first_name: '', last_name: '' };
+  };
+
+  const getUserDisplayName = (userId: string): string => {
+    const userInfo = getUserInfo(userId);
+    
+    if (userInfo.first_name || userInfo.last_name) {
+      return `${userInfo.first_name} ${userInfo.last_name}`.trim();
+    }
+    
+    // If we still don't have a name, return a default
+    return 'User';
+  };
 
   const handleAddComment = async () => {
     if (!supabase || !jobId || !currentUserId || !newComment.trim()) return;
@@ -135,8 +207,8 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
         {
           ...data,
           user: {
-            first_name: currentUserName.split(' ')[0] || 'Unknown',
-            last_name: currentUserName.split(' ')[1] || 'User'
+            first_name: currentUserName.split(' ')[0] || '',
+            last_name: currentUserName.split(' ')[1] || ''
           }
         },
         ...comments
@@ -201,7 +273,9 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
             <div key={comment.id} className="p-4 bg-gray-50 rounded-lg">
               <div className="flex justify-between items-start">
                 <div className="font-medium">
-                  {comment.user?.first_name} {comment.user?.last_name}
+                  {comment.user?.first_name || comment.user?.last_name 
+                    ? `${comment.user.first_name || ''} ${comment.user.last_name || ''}`.trim()
+                    : getUserDisplayName(comment.user_id)}
                 </div>
                 <div className="text-xs text-gray-500">
                   {new Date(comment.created_at).toLocaleString()}
