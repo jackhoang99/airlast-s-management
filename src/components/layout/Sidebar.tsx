@@ -60,7 +60,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
     sessionStorage.removeItem("username");
     sessionStorage.removeItem("isTechAuthenticated");
     sessionStorage.removeItem("techUsername");
-    
+
     navigate("/login");
   };
 
@@ -78,7 +78,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
       <div
         className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out md:translate-x-0 md:relative md:z-0 ${
           open ? "translate-x-0" : "-translate-x-full"
-        }`}
+        } overflow-y-auto`}
       >
         {/* Close button (mobile only) */}
         <button
@@ -110,7 +110,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
         </div>
 
         {/* Main navigation */}
-        <nav className="px-4 py-4">
+        <nav className="px-4 py-4 overflow-y-auto">
           <ul className="space-y-1">
             <li>
               <Link
@@ -143,77 +143,79 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                   }`}
                 />
               </button>
-              <ul
-                className={`space-y-1 pl-7 overflow-hidden transition-all duration-200 ${
-                  isCustomersOpen ? "max-h-96" : "max-h-0"
+              <div
+                className={`transition-all duration-200 overflow-hidden ${
+                  isCustomersOpen ? "max-h-[500px]" : "max-h-0"
                 }`}
               >
-                <li>
-                  <Link
-                    to="/dashboard"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname === "/dashboard"
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <ClipboardList size={16} className="mr-3" />
-                    Dashboard
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/companies"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes("/companies")
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <Building size={16} className="mr-3" />
-                    Companies
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/locations"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes("/locations")
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <MapPin size={16} className="mr-3" />
-                    Locations
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/units"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes("/units")
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <Building2 size={16} className="mr-3" />
-                    Units
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/contacts"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes("/contacts")
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <Phone size={16} className="mr-3" />
-                    Contacts
-                  </Link>
-                </li>
-              </ul>
+                <ul className="space-y-1 pl-7">
+                  <li>
+                    <Link
+                      to="/dashboard"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname === "/dashboard"
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <ClipboardList size={16} className="mr-3" />
+                      Dashboard
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/companies"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname.includes("/companies")
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Building size={16} className="mr-3" />
+                      Companies
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/locations"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname.includes("/locations")
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <MapPin size={16} className="mr-3" />
+                      Locations
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/units"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname.includes("/units")
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Building2 size={16} className="mr-3" />
+                      Units
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/contacts"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname.includes("/contacts")
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Phone size={16} className="mr-3" />
+                      Contacts
+                    </Link>
+                  </li>
+                </ul>
+              </div>
             </li>
 
             {/* Jobs Section */}
@@ -233,64 +235,66 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                   }`}
                 />
               </button>
-              <ul
-                className={`space-y-1 pl-7 overflow-hidden transition-all duration-200 ${
-                  isJobsOpen ? "max-h-96" : "max-h-0"
+              <div
+                className={`transition-all duration-200 overflow-hidden ${
+                  isJobsOpen ? "max-h-[500px]" : "max-h-0"
                 }`}
               >
-                <li>
-                  <Link
-                    to="/jobs"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname === "/jobs"
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <ClipboardList size={16} className="mr-3" />
-                    All Jobs
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/jobs/dispatch"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes("/jobs/dispatch")
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <Calendar size={16} className="mr-3" />
-                    Dispatch & Schedule
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/jobs/opportunities"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes("/jobs/opportunities")
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <Wrench size={16} className="mr-3" />
-                    Service Opportunities
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/jobs/scorecard"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes("/jobs/scorecard")
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <ClipboardList size={16} className="mr-3" />
-                    Tech Scorecard
-                  </Link>
-                </li>
-              </ul>
+                <ul className="space-y-1 pl-7">
+                  <li>
+                    <Link
+                      to="/jobs"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname === "/jobs"
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <ClipboardList size={16} className="mr-3" />
+                      All Jobs
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/jobs/dispatch"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname.includes("/jobs/dispatch")
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Calendar size={16} className="mr-3" />
+                      Dispatch & Schedule
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/jobs/opportunities"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname.includes("/jobs/opportunities")
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Wrench size={16} className="mr-3" />
+                      Service Opportunities
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/jobs/scorecard"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname.includes("/jobs/scorecard")
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <ClipboardList size={16} className="mr-3" />
+                      Tech Scorecard
+                    </Link>
+                  </li>
+                </ul>
+              </div>
             </li>
 
             {/* Quotes Section */}
@@ -310,25 +314,27 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                   }`}
                 />
               </button>
-              <ul
-                className={`space-y-1 pl-7 overflow-hidden transition-all duration-200 ${
-                  isQuotesOpen ? "max-h-96" : "max-h-0"
+              <div
+                className={`transition-all duration-200 overflow-hidden ${
+                  isQuotesOpen ? "max-h-[500px]" : "max-h-0"
                 }`}
               >
-                <li>
-                  <Link
-                    to="/quotes/templates"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes("/quotes/templates")
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <FileSpreadsheet size={16} className="mr-3" />
-                    Quote Templates
-                  </Link>
-                </li>
-              </ul>
+                <ul className="space-y-1 pl-7">
+                  <li>
+                    <Link
+                      to="/quotes/templates"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname.includes("/quotes/templates")
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <FileSpreadsheet size={16} className="mr-3" />
+                      Quote Templates
+                    </Link>
+                  </li>
+                </ul>
+              </div>
             </li>
 
             {/* Invoices Section */}
@@ -348,64 +354,66 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                   }`}
                 />
               </button>
-              <ul
-                className={`space-y-1 pl-7 overflow-hidden transition-all duration-200 ${
-                  isInvoicesOpen ? "max-h-96" : "max-h-0"
+              <div
+                className={`transition-all duration-200 overflow-hidden ${
+                  isInvoicesOpen ? "max-h-[500px]" : "max-h-0"
                 }`}
               >
-                <li>
-                  <Link
-                    to="/invoices"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname === "/invoices"
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <FileInvoice size={16} className="mr-3" />
-                    All Invoices
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/invoices/pending"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes("/invoices/pending")
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <FileEdit size={16} className="mr-3" />
-                    Pending Invoices
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/invoices/paid"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes("/invoices/paid")
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <FileCheck size={16} className="mr-3" />
-                    Paid Invoices
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/invoices/reports"
-                    className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      location.pathname.includes("/invoices/reports")
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <DollarSign size={16} className="mr-3" />
-                    Financial Reports
-                  </Link>
-                </li>
-              </ul>
+                <ul className="space-y-1 pl-7">
+                  <li>
+                    <Link
+                      to="/invoices"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname === "/invoices"
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <FileInvoice size={16} className="mr-3" />
+                      All Invoices
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/invoices/pending"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname.includes("/invoices/pending")
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <FileEdit size={16} className="mr-3" />
+                      Pending Invoices
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/invoices/paid"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname.includes("/invoices/paid")
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <FileCheck size={16} className="mr-3" />
+                      Paid Invoices
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/invoices/reports"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname.includes("/invoices/reports")
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <DollarSign size={16} className="mr-3" />
+                      Financial Reports
+                    </Link>
+                  </li>
+                </ul>
+              </div>
             </li>
 
             {/* Item Prices */}
@@ -441,38 +449,36 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
         </nav>
 
         {/* Account and settings */}
-        <div className="absolute bottom-0 left-0 right-0 border-t border-gray-200 mt-8">
-          <div className="px-4 py-4">
-            <ul className="space-y-1">
-              <li>
-                <Link
-                  to="/account"
-                  className="flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
-                >
-                  <User size={18} className="mr-3" />
-                  My Account
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/help"
-                  className="flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
-                >
-                  <HelpCircle size={18} className="mr-3" />
-                  Help
-                </Link>
-              </li>
-              <li>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
-                >
-                  <LogOut size={18} className="mr-3" />
-                  Logout
-                </button>
-              </li>
-            </ul>
-          </div>
+        <div className="border-t border-gray-200 mt-8 py-4 px-4">
+          <ul className="space-y-1">
+            <li>
+              <Link
+                to="/account"
+                className="flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
+              >
+                <User size={18} className="mr-3" />
+                My Account
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/help"
+                className="flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
+              >
+                <HelpCircle size={18} className="mr-3" />
+                Help
+              </Link>
+            </li>
+            <li>
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
+              >
+                <LogOut size={18} className="mr-3" />
+                Logout
+              </button>
+            </li>
+          </ul>
         </div>
       </div>
     </>
