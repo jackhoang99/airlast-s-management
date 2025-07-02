@@ -1,10 +1,11 @@
-import { useState, FormEvent, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Database } from '../../types/supabase';
-import { useSupabase } from '../../lib/supabase-context';
-import { Search } from 'lucide-react';
+import { useState, FormEvent, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { Database } from "../../types/supabase";
+import { useSupabase } from "../../lib/supabase-context";
+import { Search } from "lucide-react";
+import { Loader } from "@googlemaps/js-api-loader";
 
-type Company = Database['public']['Tables']['companies']['Row'];
+type Company = Database["public"]["Tables"]["companies"]["Row"];
 
 type CompanyFormProps = {
   initialData?: Company;
@@ -19,16 +20,56 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
   const [searchResults, setSearchResults] = useState<Company[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [existingCompany, setExistingCompany] = useState<Company | null>(null);
-  
+  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
+  const [addressPredictions, setAddressPredictions] = useState<
+    google.maps.places.AutocompletePrediction[]
+  >([]);
+  const [showAddressPredictions, setShowAddressPredictions] = useState(false);
+  const autocompleteService =
+    useRef<google.maps.places.AutocompleteService | null>(null);
+  const placesService = useRef<google.maps.places.PlacesService | null>(null);
+  const dummyElement = useRef<HTMLDivElement>(null);
+
   const [formData, setFormData] = useState({
-    name: initialData?.name || '',
-    address: initialData?.address || '',
-    city: initialData?.city || '',
-    state: initialData?.state || '',
-    zip: initialData?.zip || '',
-    phone: initialData?.phone || '',
+    name: initialData?.name || "",
+    address: initialData?.address || "",
+    city: initialData?.city || "",
+    state: initialData?.state || "",
+    zip: initialData?.zip || "",
+    phone: initialData?.phone || "",
   });
-  
+
+  // Load Google Maps API
+  useEffect(() => {
+    const loadGoogleMapsAPI = async () => {
+      try {
+        const loader = new Loader({
+          apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
+          version: "weekly",
+          libraries: ["places"],
+        });
+
+        const google = await loader.load();
+        setGoogleMapsLoaded(true);
+
+        // Initialize autocomplete service
+        autocompleteService.current =
+          new google.maps.places.AutocompleteService();
+
+        // Initialize places service (requires a DOM element)
+        if (dummyElement.current) {
+          placesService.current = new google.maps.places.PlacesService(
+            dummyElement.current
+          );
+        }
+      } catch (error) {
+        console.error("Error loading Google Maps API:", error);
+      }
+    };
+
+    loadGoogleMapsAPI();
+  }, []);
+
   const searchCompanies = async (query: string) => {
     if (!supabase || query.length < 2) {
       setSearchResults([]);
@@ -37,51 +78,164 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
 
     try {
       const { data, error } = await supabase
-        .from('companies')
-        .select('*')
-        .ilike('name', `%${query}%`)
+        .from("companies")
+        .select("*")
+        .ilike("name", `%${query}%`)
         .limit(5);
 
       if (error) throw error;
       setSearchResults(data || []);
     } catch (err) {
-      console.error('Error searching companies:', err);
+      console.error("Error searching companies:", err);
     }
   };
 
   const handleNameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setFormData(prev => ({ ...prev, name: value }));
+    setFormData((prev) => ({ ...prev, name: value }));
     setExistingCompany(null);
     setShowResults(true);
     searchCompanies(value);
   };
-  
+
+  const handleAddressChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = e.target.value;
+    setFormData((prev) => ({ ...prev, address: value }));
+
+    if (googleMapsLoaded && autocompleteService.current && value.length > 3) {
+      try {
+        // Prioritize Atlanta in the results
+        const request = {
+          input: value,
+          componentRestrictions: { country: "us" },
+          location: new google.maps.LatLng(33.7489954, -84.3902397), // Atlanta coordinates
+          radius: 50000, // 50km radius around Atlanta
+        };
+
+        autocompleteService.current.getPlacePredictions(
+          request,
+          (predictions, status) => {
+            if (
+              status === google.maps.places.PlacesServiceStatus.OK &&
+              predictions
+            ) {
+              // Sort predictions to prioritize Atlanta addresses
+              const sortedPredictions = [...predictions].sort((a, b) => {
+                const aHasAtlanta = a.description
+                  .toLowerCase()
+                  .includes("atlanta");
+                const bHasAtlanta = b.description
+                  .toLowerCase()
+                  .includes("atlanta");
+
+                if (aHasAtlanta && !bHasAtlanta) return -1;
+                if (!aHasAtlanta && bHasAtlanta) return 1;
+                return 0;
+              });
+
+              setAddressPredictions(sortedPredictions);
+              setShowAddressPredictions(true);
+            } else {
+              setAddressPredictions([]);
+              setShowAddressPredictions(false);
+            }
+          }
+        );
+      } catch (error) {
+        console.error("Error getting address predictions:", error);
+      }
+    } else {
+      setAddressPredictions([]);
+      setShowAddressPredictions(false);
+    }
+  };
+
+  const handleAddressSelect = (placeId: string) => {
+    if (googleMapsLoaded && placesService.current) {
+      placesService.current.getDetails(
+        {
+          placeId: placeId,
+          fields: ["address_component", "formatted_address"],
+        },
+        (place, status) => {
+          if (
+            status === google.maps.places.PlacesServiceStatus.OK &&
+            place &&
+            place.address_components
+          ) {
+            let streetNumber = "";
+            let route = "";
+            let city = "";
+            let state = "";
+            let zip = "";
+
+            // Extract address components
+            place.address_components.forEach((component) => {
+              const types = component.types;
+
+              if (types.includes("street_number")) {
+                streetNumber = component.long_name;
+              } else if (types.includes("route")) {
+                route = component.long_name;
+              } else if (types.includes("locality")) {
+                city = component.long_name;
+              } else if (types.includes("administrative_area_level_1")) {
+                state = component.short_name;
+              } else if (types.includes("postal_code")) {
+                zip = component.long_name;
+              }
+            });
+
+            // Update form data
+            setFormData((prev) => ({
+              ...prev,
+              address:
+                streetNumber && route
+                  ? `${streetNumber} ${route}`
+                  : place.formatted_address || prev.address,
+              city: city || prev.city,
+              state: state || prev.state,
+              zip: zip || prev.zip,
+            }));
+
+            setShowAddressPredictions(false);
+          }
+        }
+      );
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
-  
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
+
     if (!supabase) {
-      setError('Supabase client not initialized');
+      setError("Supabase client not initialized");
       return;
     }
-    
+
     setIsSubmitting(true);
     setError(null);
-    
+
     try {
       // Check for exact name match
       const { data: existingCompanies } = await supabase
-        .from('companies')
-        .select('*')
-        .ilike('name', formData.name.trim())
+        .from("companies")
+        .select("*")
+        .ilike("name", formData.name.trim())
         .limit(1);
 
-      if (existingCompanies && existingCompanies.length > 0 && existingCompanies[0].id !== initialData?.id) {
+      if (
+        existingCompanies &&
+        existingCompanies.length > 0 &&
+        existingCompanies[0].id !== initialData?.id
+      ) {
         setExistingCompany(existingCompanies[0]);
         setIsSubmitting(false);
         return;
@@ -90,39 +244,35 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
       if (initialData) {
         // Update existing company
         const { error } = await supabase
-          .from('companies')
+          .from("companies")
           .update(formData)
-          .eq('id', initialData.id);
-        
+          .eq("id", initialData.id);
+
         if (error) throw error;
       } else {
         // Create new company
-        const { error } = await supabase
-          .from('companies')
-          .insert(formData);
-        
+        const { error } = await supabase.from("companies").insert(formData);
+
         if (error) throw error;
       }
-      
+
       if (onSuccess) {
         onSuccess();
       } else {
-        navigate('/companies');
+        navigate("/companies");
       }
     } catch (err) {
-      console.error('Error saving company:', err);
-      setError('Failed to save company. Please try again.');
+      console.error("Error saving company:", err);
+      setError("Failed to save company. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
-  
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="bg-error-50 text-error-700 p-3 rounded-md">
-          {error}
-        </div>
+        <div className="bg-error-50 text-error-700 p-3 rounded-md">{error}</div>
       )}
 
       {existingCompany && (
@@ -134,10 +284,13 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
               </h3>
               <div className="mt-2 text-sm text-warning-700">
                 <p>
-                  A company with the name "{formData.name}" already exists. Would you like to{' '}
+                  A company with the name "{formData.name}" already exists.
+                  Would you like to{" "}
                   <button
                     type="button"
-                    onClick={() => navigate(`/companies/${existingCompany.id}/location/new`)}
+                    onClick={() =>
+                      navigate(`/companies/${existingCompany.id}/location/new`)
+                    }
                     className="text-warning-800 font-medium underline hover:text-warning-900"
                   >
                     add a location to the existing company
@@ -149,10 +302,13 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
           </div>
         </div>
       )}
-      
+
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div className="relative sm:col-span-2">
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="name"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             Company Name *
           </label>
           <div className="relative">
@@ -167,18 +323,21 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
               className="input pr-10"
               placeholder="Enter company name..."
             />
-            <Search className="absolute right-3 top-3 text-gray-400" size={16} />
+            <Search
+              className="absolute right-3 top-3 text-gray-400"
+              size={16}
+            />
           </div>
-          
+
           {showResults && searchResults.length > 0 && !initialData && (
             <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200">
               <ul className="py-1">
-                {searchResults.map(company => (
+                {searchResults.map((company) => (
                   <li
                     key={company.id}
                     className="px-4 py-2 hover:bg-gray-50 cursor-pointer"
                     onClick={() => {
-                      setFormData(prev => ({ ...prev, name: company.name }));
+                      setFormData((prev) => ({ ...prev, name: company.name }));
                       setExistingCompany(company);
                       setShowResults(false);
                     }}
@@ -194,8 +353,11 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
           )}
         </div>
 
-        <div>
-          <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+        <div className="relative">
+          <label
+            htmlFor="address"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             Address *
           </label>
           <input
@@ -203,14 +365,34 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
             id="address"
             name="address"
             value={formData.address}
-            onChange={handleChange}
+            onChange={handleAddressChange}
+            onFocus={() => setShowAddressPredictions(true)}
             required
             className="input"
           />
+
+          {showAddressPredictions && addressPredictions.length > 0 && (
+            <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200">
+              <ul className="py-1">
+                {addressPredictions.map((prediction) => (
+                  <li
+                    key={prediction.place_id}
+                    className="px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => handleAddressSelect(prediction.place_id)}
+                  >
+                    <div className="text-sm">{prediction.description}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
-        
+
         <div>
-          <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="city"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             City *
           </label>
           <input
@@ -223,9 +405,12 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
             className="input"
           />
         </div>
-        
+
         <div>
-          <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="state"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             State *
           </label>
           <input
@@ -239,9 +424,12 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
             maxLength={2}
           />
         </div>
-        
+
         <div>
-          <label htmlFor="zip" className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="zip"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             Zip Code *
           </label>
           <input
@@ -257,7 +445,10 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
         </div>
 
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="phone"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             Phone Number
           </label>
           <input
@@ -271,11 +462,11 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
           />
         </div>
       </div>
-      
+
       <div className="flex justify-end space-x-3 pt-4">
         <button
           type="button"
-          onClick={() => navigate('/companies')}
+          onClick={() => navigate("/companies")}
           className="btn btn-secondary"
           disabled={isSubmitting}
         >
@@ -291,9 +482,16 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
               <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
               Saving...
             </>
-          ) : initialData ? 'Update Company' : 'Create Company'}
+          ) : initialData ? (
+            "Update Company"
+          ) : (
+            "Create Company"
+          )}
         </button>
       </div>
+
+      {/* Hidden div for PlacesService */}
+      <div ref={dummyElement} style={{ display: "none" }}></div>
     </form>
   );
 };

@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { Loader } from '@googlemaps/js-api-loader';
+import { useEffect, useRef } from "react";
+import { Loader } from "@googlemaps/js-api-loader";
 
 interface MapProps {
   address: string;
@@ -9,7 +9,7 @@ interface MapProps {
   className?: string;
 }
 
-const Map = ({ address, city, state, zip, className = '' }: MapProps) => {
+const Map = ({ address, city, state, zip, className = "" }: MapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const fullAddress = `${address}, ${city}, ${state} ${zip}`;
 
@@ -17,17 +17,18 @@ const Map = ({ address, city, state, zip, className = '' }: MapProps) => {
     const initMap = async () => {
       try {
         const loader = new Loader({
-          apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-          version: 'weekly',
+          apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
+          version: "weekly",
+          libraries: ["places"],
         });
 
         const google = await loader.load();
-        
+
         if (mapRef.current) {
           const geocoder = new google.maps.Geocoder();
-          
+
           geocoder.geocode({ address: fullAddress }, (results, status) => {
-            if (status === 'OK' && results && results[0] && mapRef.current) {
+            if (status === "OK" && results && results[0] && mapRef.current) {
               const map = new google.maps.Map(mapRef.current, {
                 center: results[0].geometry.location,
                 zoom: 16,
@@ -41,7 +42,7 @@ const Map = ({ address, city, state, zip, className = '' }: MapProps) => {
           });
         }
       } catch (error) {
-        console.error('Error loading Google Maps:', error);
+        console.error("Error loading Google Maps:", error);
       }
     };
 
