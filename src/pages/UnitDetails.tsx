@@ -9,6 +9,7 @@ import {
   Clock,
   Tag,
   Plus,
+  Package,
 } from "lucide-react";
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
@@ -36,6 +37,24 @@ type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
   }[];
 };
 
+type Asset = {
+  id: string;
+  unit_id: string;
+  model: {
+    model_number: string;
+    serial_number: string;
+    age: number;
+    tonnage: string;
+    unit_type: string;
+    system_type: string;
+    job_id: string;
+    inspection_id: string;
+  };
+  inspection_date: string;
+  created_at: string;
+  updated_at: string;
+};
+
 // UUID validation regex
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -45,6 +64,7 @@ const UnitDetails = () => {
   const { supabase } = useSupabase();
   const [unit, setUnit] = useState<Unit | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,19 +139,42 @@ const UnitDetails = () => {
       }
     };
 
+    const fetchAssets = async () => {
+      if (!supabase || !id) return;
+
+      // Don't fetch assets if UUID is invalid
+      if (!UUID_REGEX.test(id)) return;
+
+      try {
+        const { data, error: fetchError } = await supabase
+          .from("assets")
+          .select("*")
+          .eq("unit_id", id)
+          .order("inspection_date", { ascending: false });
+
+        if (fetchError) throw fetchError;
+        setAssets(data || []);
+      } catch (err) {
+        console.error("Error fetching assets for unit:", err);
+      }
+    };
+
     fetchUnit();
     fetchJobs();
+    fetchAssets();
   }, [supabase, id]);
 
-  const formatDateTime = (date: string) => {
-    return new Date(date).toLocaleString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
+  const formatDateTime = (dateString: string) => {
+    if (!dateString) return "Not scheduled";
+    const date = new Date(dateString);
+    return date.toLocaleString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
-      timeZoneName: "short",
     });
   };
 
@@ -156,6 +199,8 @@ const UnitDetails = () => {
         return "bg-purple-100 text-purple-800";
       case "service call":
         return "bg-cyan-100 text-cyan-800";
+      case "inspection":
+        return "bg-blue-100 text-blue-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -485,6 +530,71 @@ const UnitDetails = () => {
               </div>
             )}
           </div>
+
+          {/* Asset Summary */}
+          <div className="card">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Package className="h-5 w-5 text-gray-400" />
+                Asset Summary
+              </h2>
+              <Link
+                to={`/units/${unit.id}/assets`}
+                className="text-sm text-primary-600 hover:text-primary-800"
+              >
+                View All
+              </Link>
+            </div>
+
+            {assets.length > 0 ? (
+              <div className="space-y-3">
+                {assets.slice(0, 3).map((asset) => (
+                  <Link
+                    key={asset.id}
+                    to={`/units/${unit.id}/assets`}
+                    className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium">
+                          {asset.model?.model_number || "No model number"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          S/N: {asset.model?.serial_number || "N/A"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Age: {asset.model?.age || "N/A"} • Tonnage:{" "}
+                          {asset.model?.tonnage || "N/A"}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600">
+                          {new Date(asset.inspection_date).toLocaleDateString()}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {asset.model?.unit_type || "N/A"} •{" "}
+                          {asset.model?.system_type || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+                {assets.length > 3 && (
+                  <p className="text-center text-sm text-gray-500">
+                    +{assets.length - 3} more assets
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-6 bg-gray-50 rounded-lg">
+                <Package className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                <p className="text-gray-500">No assets found</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Complete an inspection to create assets
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -503,6 +613,13 @@ const UnitDetails = () => {
                 className="btn btn-secondary w-full justify-start"
               >
                 Edit Unit
+              </Link>
+              <Link
+                to={`/units/${unit.id}/assets`}
+                className="btn btn-secondary w-full justify-start"
+              >
+                <Package size={16} className="mr-2" />
+                View Assets
               </Link>
             </div>
           </div>

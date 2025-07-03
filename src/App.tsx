@@ -15,6 +15,7 @@ import CreateJob from "./pages/CreateJob";
 import JobDetails from "./pages/JobDetails";
 import DispatchSchedule from "./pages/DispatchSchedule";
 import UnitDetails from "./pages/UnitDetails";
+import UnitAssets from "./pages/UnitAssets";
 import AddUnit from "./pages/AddUnit";
 import EditUnit from "./pages/EditUnit";
 import Units from "./pages/Units";
@@ -69,13 +70,13 @@ function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/quote/confirm/:token" element={<QuoteConfirmation />} />
-      
+
       {/* Public Unit Details Route - No Auth Required */}
       <Route path="/units/public/:id" element={<PublicUnitDetails />} />
 
       {/* Technician Routes */}
       <Route path="/tech/*" element={<TechnicianApp />} />
-      
+
       {/* Customer Portal Routes */}
       <Route path="/customer/login" element={<CustomerLogin />} />
       <Route path="/customer" element={<CustomerPortal />}>
@@ -117,6 +118,7 @@ function App() {
           <Route path="units">
             <Route index element={<Units />} />
             <Route path=":id" element={<UnitDetails />} />
+            <Route path=":id/assets" element={<UnitAssets />} />
             <Route path=":id/edit" element={<EditUnit />} />
           </Route>
           <Route path="contacts" element={<Contacts />} />
