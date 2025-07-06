@@ -44,6 +44,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
   const [isJobsOpen, setIsJobsOpen] = useState(false);
   const [isQuotesOpen, setIsQuotesOpen] = useState(false);
   const [isInvoicesOpen, setIsInvoicesOpen] = useState(false);
+  const [isAssetsOpen, setIsAssetsOpen] = useState(false);
   const { supabase } = useSupabase();
   const [logoUrl, setLogoUrl] = useState<string | null>("/airlast-logo.svg");
 
@@ -291,6 +292,59 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                     >
                       <ClipboardList size={16} className="mr-3" />
                       Tech Scorecard
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+            </li>
+
+            {/* Assets Section */}
+            <li className="pt-4 mt-4">
+              <button
+                onClick={() => setIsAssetsOpen(!isAssetsOpen)}
+                className="w-full px-2 mb-2 flex items-center justify-between text-sm font-medium text-gray-900 hover:bg-gray-50 rounded-md"
+              >
+                <div className="flex items-center">
+                  <Package size={18} className="mr-3 text-gray-400" />
+                  <span>Assets</span>
+                </div>
+                <ChevronDown
+                  size={16}
+                  className={`text-gray-400 transition-transform duration-200 ${
+                    isAssetsOpen ? "transform rotate-180" : ""
+                  }`}
+                />
+              </button>
+              <div
+                className={`transition-all duration-200 overflow-hidden ${
+                  isAssetsOpen ? "max-h-[500px]" : "max-h-0"
+                }`}
+              >
+                <ul className="space-y-1 pl-7">
+                  <li>
+                    <Link
+                      to="/assets"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname === "/assets"
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Package size={16} className="mr-3" />
+                      All Assets
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/assets/inspections"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname.includes("/assets/inspections")
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <ClipboardList size={16} className="mr-3" />
+                      Inspections
                     </Link>
                   </li>
                 </ul>
