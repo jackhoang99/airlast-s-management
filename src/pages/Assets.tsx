@@ -176,7 +176,7 @@ const Assets = () => {
           <Link to="/" className="text-gray-500 hover:text-gray-700">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold">Assets</h1>
+          <h1 className="text-2xl font-bold">Inspection Assets</h1>
         </div>
       </div>
 
@@ -304,7 +304,7 @@ const Assets = () => {
                           to={`/units/${asset.units.id}`}
                           className="text-primary-600 hover:text-primary-800"
                         >
-                          Unit {asset.units.unit_number}
+                          {asset.units.unit_number}
                         </Link>
                       ) : (
                         "N/A"

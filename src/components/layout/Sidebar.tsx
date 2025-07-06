@@ -331,20 +331,20 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                       }`}
                     >
                       <Package size={16} className="mr-3" />
-                      All Assets
+                      Inspection Assets
                     </Link>
                   </li>
                   <li>
                     <Link
                       to="/assets/inspections"
                       className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                        location.pathname.includes("/assets/inspections")
+                        location.pathname.includes("/assets/PM history")
                           ? "bg-primary-50 text-primary-700"
                           : "text-gray-700 hover:bg-gray-100"
                       }`}
                     >
                       <ClipboardList size={16} className="mr-3" />
-                      Inspections
+                      PM History
                     </Link>
                   </li>
                 </ul>

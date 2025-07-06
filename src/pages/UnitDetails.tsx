@@ -243,7 +243,7 @@ const UnitDetails = () => {
           </Link>
           <h1 className="flex items-center gap-2">
             <Building2 className="h-6 w-6" />
-            Unit {unit.unit_number}
+            {unit.unit_number}
           </h1>
         </div>
         <div className="flex gap-2">
