@@ -2,23 +2,30 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
-import { Settings as SettingsIcon, Plus, AlertTriangle, Building, Users, Briefcase, Tag, Edit, Package, DollarSign } from 'lucide-react';
+import { Settings as SettingsIcon, Plus, AlertTriangle, Building, Users, Briefcase, Tag, Edit, Package, DollarSign, Bell, Calendar, Clock, Check, X, Mail, MessageSquare } from 'lucide-react';
 
 type User = Database['public']['Tables']['users']['Row'];
 type JobType = Database['public']['Tables']['job_types']['Row'];
 type ServiceType = Database['public']['Tables']['service_lines']['Row'];
 type Settings = Database['public']['Tables']['settings']['Row'];
 type JobItemPrice = Database['public']['Tables']['job_item_prices']['Row'];
+type JobReminder = Database['public']['Tables']['job_reminders']['Row'];
 
 const Settings = () => {
   const { supabase } = useSupabase();
   const [jobTypes, setJobTypes] = useState<JobType[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [reminders, setReminders] = useState<JobReminder[]>([]);
   const [itemPrices, setItemPrices] = useState<JobItemPrice[]>([]);
   const [companySettings, setCompanySettings] = useState<Settings | null>(null);
+  const [reminderSettings, setReminderSettings] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reminderError, setReminderError] = useState<string | null>(null);
+  const [reminderSuccess, setReminderSuccess] = useState<string | null>(null);
+  const [isSchedulingReminders, setIsSchedulingReminders] = useState(false);
+  const [isSendingReminders, setIsSendingReminders] = useState(false);
   
   const [newServiceType, setNewServiceType] = useState({
     name: '',
@@ -40,6 +47,8 @@ const Settings = () => {
     unit_cost: '',
     type: 'part' as 'part' | 'labor' | 'item'
   });
+
+  const [isRunningReminders, setIsRunningReminders] = useState(false);
 
   const [newUser, setNewUser] = useState({
     username: '',
@@ -127,6 +136,36 @@ const Settings = () => {
 
         if (settingsError) throw settingsError;
         setCompanySettings(settingsData);
+
+        // Fetch reminder settings
+        const { data: reminderSettingsData, error: reminderSettingsError } = await supabase
+          .from('settings')
+          .select('*')
+          .eq('key', 'job_reminders')
+          .single();
+
+        if (!reminderSettingsError) {
+          setReminderSettings(reminderSettingsData);
+        }
+
+        // Fetch pending reminders
+        const { data: remindersData, error: remindersError } = await supabase
+          .from('job_reminders')
+          .select(`
+            *,
+            jobs (
+              id,
+              number,
+              name,
+              schedule_start
+            )
+          `)
+          .eq('status', 'pending')
+          .order('scheduled_for', { ascending: true });
+
+        if (remindersError) throw remindersError;
+        setReminders(remindersData || []);
+
       } catch (err) {
         console.error('Error fetching settings data:', err);
         setError('Failed to load settings data');
@@ -137,6 +176,122 @@ const Settings = () => {
 
     fetchData();
   }, [supabase]);
+
+  const handleScheduleJobReminders = async () => {
+    if (!supabase) return;
+
+    setIsSchedulingReminders(true);
+    setReminderError(null);
+    setReminderSuccess(null);
+
+    try {
+      // Call the Supabase Edge Function
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/schedule-job-reminders`;
+      
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to schedule job reminders');
+      }
+
+      const result = await response.json();
+      setReminderSuccess(result.message);
+
+      // Refresh reminders list
+      const { data: remindersData, error: remindersError } = await supabase
+        .from('job_reminders')
+        .select(`
+          *,
+          jobs (
+            id,
+            number,
+            name,
+            schedule_start
+          )
+        `)
+        .eq('status', 'pending')
+        .order('scheduled_for', { ascending: true });
+
+      if (remindersError) throw remindersError;
+      setReminders(remindersData || []);
+    } catch (err) {
+      console.error('Error scheduling job reminders:', err);
+      setReminderError(err instanceof Error ? err.message : 'Failed to schedule job reminders');
+    } finally {
+      setIsSchedulingReminders(false);
+    }
+  };
+
+  const handleSendJobReminders = async () => {
+    if (!supabase) return;
+
+    setIsSendingReminders(true);
+    setReminderError(null);
+    setReminderSuccess(null);
+
+    try {
+      // Call the Supabase Edge Function
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-job-reminders`;
+      
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send job reminders');
+      }
+
+      const result = await response.json();
+      setReminderSuccess(result.message);
+
+      // Refresh reminders list
+      const { data: remindersData, error: remindersError } = await supabase
+        .from('job_reminders')
+        .select(`
+          *,
+          jobs (
+            id,
+            number,
+            name,
+            schedule_start
+          )
+        `)
+        .eq('status', 'pending')
+        .order('scheduled_for', { ascending: true });
+
+      if (remindersError) throw remindersError;
+      setReminders(remindersData || []);
+    } catch (err) {
+      console.error('Error sending job reminders:', err);
+      setReminderError(err instanceof Error ? err.message : 'Failed to send job reminders');
+    } finally {
+      setIsSendingReminders(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   const handleAddServiceType = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -419,6 +574,241 @@ const Settings = () => {
         )}
       </div>
 
+      {/* Job Reminders Section */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold mb-6 flex items-center">
+          <Bell className="h-5 w-5 text-gray-500 mr-2" />
+          Job Reminders
+        </h2>
+
+        {reminderError && (
+          <div className="bg-error-50 border-l-4 border-error-500 p-4 rounded-md mb-4">
+            <div className="flex">
+              <AlertTriangle className="h-5 w-5 text-error-500" />
+              <div className="ml-3">
+                <p className="text-sm text-error-700">{reminderError}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {reminderSuccess && (
+          <div className="bg-success-50 border-l-4 border-success-500 p-4 rounded-md mb-4">
+            <div className="flex">
+              <Check className="h-5 w-5 text-success-500" />
+              <div className="ml-3">
+                <p className="text-sm text-success-700">{reminderSuccess}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div>
+            <h3 className="text-md font-medium mb-3">Schedule Reminders</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Schedule email reminders for jobs that will occur in the next week. This creates pending reminders in the system.
+            </p>
+            
+            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              {reminders.filter(r => r.status === 'pending').length === 0 ? (
+                <p className="text-gray-500">No jobs found for scheduling reminders</p>
+              ) : (
+                <p className="text-gray-700">
+                  {reminders.filter(r => r.status === 'pending').length} pending reminders
+                </p>
+              )}
+            </div>
+            
+            <button
+              onClick={handleScheduleJobReminders}
+              className="btn btn-primary"
+              disabled={isSchedulingReminders}
+            >
+              {isSchedulingReminders ? (
+                <>
+                  <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                  Scheduling...
+                </>
+              ) : (
+                <>
+                  <Calendar size={16} className="mr-2" />
+                  Schedule Reminders
+                </>
+              )}
+            </button>
+          </div>
+          
+          <div>
+            <h3 className="text-md font-medium mb-3">Send Reminders</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Send email reminders for jobs scheduled in the next week. This will send an email to jackhoang.99@gmail.com with a list of upcoming jobs.
+            </p>
+            
+            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              {reminders.filter(r => r.status === 'pending').length === 0 ? (
+                <p className="text-gray-500">No pending reminders to send</p>
+              ) : (
+                <p className="text-gray-700">
+                  {reminders.filter(r => r.status === 'pending').length} pending reminders to send
+                </p>
+              )}
+            </div>
+            
+            <button
+              onClick={handleSendJobReminders}
+              className="btn btn-primary"
+              disabled={isSendingReminders || reminders.filter(r => r.status === 'pending').length === 0}
+            >
+              {isSendingReminders ? (
+                <>
+                  <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Mail size={16} className="mr-2" />
+                  Send Reminders
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200 pt-6">
+          <h3 className="text-md font-medium mb-3">Reminder Settings</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <div className="text-sm">
+                {reminderSettings?.value?.enabled ? (
+                  <span className="text-success-600 flex items-center">
+                    <Check size={16} className="mr-1" />
+                    Enabled
+                  </span>
+                ) : (
+                  <span className="text-error-600 flex items-center">
+                    <X size={16} className="mr-1" />
+                    Disabled
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Default Email
+              </label>
+              <div className="text-sm">
+                {reminderSettings?.value?.default_email || 'jackhoang.99@gmail.com'}
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Days Before
+              </label>
+              <div className="text-sm">
+                {reminderSettings?.value?.days_before || 7} days
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Reminder Types
+              </label>
+              <div className="flex gap-2">
+                {reminderSettings?.value?.reminder_types?.includes('email') && (
+                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full flex items-center">
+                    <Mail size={12} className="mr-1" />
+                    Email
+                  </span>
+                )}
+                {reminderSettings?.value?.reminder_types?.includes('in_app') && (
+                  <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full flex items-center">
+                    <MessageSquare size={12} className="mr-1" />
+                    In-App
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {reminders.length > 0 && (
+          <div className="mt-6 border-t border-gray-200 pt-6">
+            <h3 className="text-md font-medium mb-3">Pending Reminders</h3>
+            
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipient</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheduled For</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {reminders.map((reminder) => (
+                    <tr key={reminder.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {reminder.jobs?.name || 'Unknown Job'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Job #{reminder.jobs?.number}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center">
+                          {reminder.reminder_type === 'email' ? (
+                            <Mail size={16} className="text-blue-500 mr-2" />
+                          ) : reminder.reminder_type === 'in_app' ? (
+                            <MessageSquare size={16} className="text-green-500 mr-2" />
+                          ) : (
+                            <Bell size={16} className="text-purple-500 mr-2" />
+                          )}
+                          <span className="text-sm capitalize">{reminder.reminder_type}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {reminder.recipient}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(reminder.scheduled_for)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                          Pending
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-sm font-medium text-gray-700 mb-2">About Job Reminders</h3>
+          <p className="text-sm text-gray-600">
+            Job reminders are sent to notify about upcoming scheduled jobs. The system works in two steps:
+          </p>
+          <ol className="list-decimal list-inside text-sm text-gray-600 mt-2 space-y-1">
+            <li>First, schedule reminders for jobs that will occur in the next week</li>
+            <li>Then, send the scheduled reminders via email</li>
+          </ol>
+          <p className="text-sm text-gray-600 mt-2">
+            In a production environment, these would be automatically triggered by a cron job, but for demonstration purposes, you can manually trigger them here.
+          </p>
+        </div>
+      </div>
 
       {/* Users Section */}
       <div className="bg-white rounded-lg shadow p-6">

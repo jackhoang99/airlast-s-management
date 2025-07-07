@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
-import { AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, Bell, ChevronDown, ChevronUp } from "lucide-react";
 import { Job, JobItem } from "../types/job";
 import JobHeader from "../components/jobs/JobHeader";
 import JobDetailsCard from "../components/jobs/JobDetailsCard";
@@ -14,8 +14,10 @@ import JobSidebar from "../components/jobs/JobSidebar";
 import JobUnitSection from "../components/jobs/JobUnitSection";
 import AppointmentModal from "../components/jobs/AppointmentModal";
 import QuotePDFViewer from "../components/quotes/QuotePDFViewer";
+import JobReminderBanner from "../components/jobs/JobReminderBanner";
 import JobTimeTracking from "../components/jobs/JobTimeTracking";
 import JobComments from "../components/jobs/JobComments";
+import JobReminderList from "../components/jobs/JobReminderList";
 
 const JobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -415,9 +417,15 @@ const JobDetails = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
           {/* Job Details Card */}
+          <JobReminderBanner jobId={job.id} scheduleStart={job.schedule_start} />
+          
           <JobDetailsCard job={job} />
 
           {/* Location and Contact - Collapsible */}
+          {job.status !== 'completed' && job.status !== 'cancelled' && (
+            <JobReminderBanner jobId={job.id} />
+          )}
+          
           <div className="card">
             <div 
               className="flex justify-between items-center cursor-pointer"
@@ -616,6 +624,16 @@ const JobDetails = () => {
           <div className="card">
             <JobComments jobId={job.id} />
           </div>
+          
+          {/* Reminders */}
+          <div className="card">
+            <h3 className="text-lg font-medium flex items-center mb-4">
+              <Bell className="h-5 w-5 mr-2 text-primary-600" />
+              Reminders
+            </h3>
+            <JobReminderList jobId={job.id} />
+          </div>
+          
         </div>
 
         <div className="space-y-4">

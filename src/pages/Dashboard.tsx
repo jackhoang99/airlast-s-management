@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
 import { Database } from '../types/supabase';
 import { Building, Users, Briefcase, Tag, Plus, Filter, Building2, Home, Users as UsersIcon, Calendar, Clock, ClipboardList, AlertTriangle, FileCheck2, Bell, FileInput as FileInvoice, CalendarClock, Send } from 'lucide-react';
+import UpcomingReminders from "../components/dashboard/UpcomingReminders";
 
 const Dashboard = () => {
   const { supabase } = useSupabase();
@@ -224,6 +225,21 @@ const Dashboard = () => {
             </p>
           </div>
         </div>
+      </div>
+      
+      {/* Reminders Section */}
+      <div className="card">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-gray-500" />
+            <h2 className="text-lg font-semibold">Upcoming Reminders</h2>
+          </div>
+          <Link to="/settings" className="text-sm text-primary-600 hover:text-primary-800">
+            Manage Reminders
+          </Link>
+        </div>
+        
+        <UpcomingReminders />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
