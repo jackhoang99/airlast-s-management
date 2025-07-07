@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
+import { useSupabase } from '../../lib/supabase-context';
 import { MapPin, Building, Building2, Search, Filter, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
-import Map from '../components/ui/Map';
+import Map from '../../components/ui/Map';
 
 const CustomerLocations = () => {
   const { supabase } = useSupabase();

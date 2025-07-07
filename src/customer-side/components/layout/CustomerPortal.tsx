@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link, Outlet, useLocation } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
-import { Building, MapPin, Building2, FileText, FileInput, Menu, X, LogOut, Home, User, Search } from 'lucide-react';
+import { useSupabase } from '../../../lib/supabase-context';
+import { Building, MapPin, Building2, FileText, FileInput, Menu, X, LogOut, Home, User, Search, Package } from 'lucide-react';
 
 const CustomerPortal = () => {
   const { supabase } = useSupabase();
@@ -12,6 +12,14 @@ const CustomerPortal = () => {
   const [company, setCompany] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // Handle mobile resize
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -176,6 +184,20 @@ const CustomerPortal = () => {
               >
                 <Building2 size={16} className="mr-3" />
                 Units
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/customer/assets"
+                className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                  location.pathname.includes('/customer/assets')
+                    ? "bg-primary-50 text-primary-700"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+                onClick={() => setSidebarOpen(false)}
+              >
+                <Package size={16} className="mr-3" />
+                Assets
               </Link>
             </li>
             <li>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
+import { useSupabase } from '../../lib/supabase-context';
 import { Building2, Search, Filter, AlertTriangle } from 'lucide-react';
 
 const CustomerUnits = () => {
@@ -244,7 +244,12 @@ const CustomerUnits = () => {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center">
                     <Building2 size={16} className="text-gray-400 mr-2" />
-                    <h3 className="font-medium">Unit {unit.unit_number}</h3>
+                    <Link 
+                      to={`/customer/units/${unit.id}`}
+                      className="font-medium hover:text-primary-600"
+                    >
+                      Unit {unit.unit_number}
+                    </Link>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
                     unit.status === 'active' ? 'bg-success-100 text-success-800' : 'bg-error-100 text-error-800'

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
+import { useSupabase } from '../../lib/supabase-context';
 import { ArrowLeft, Building2, MapPin, Building, FileText, Calendar, Clock, AlertTriangle } from 'lucide-react';
-import Map from '../components/ui/Map';
+import Map from '../../components/ui/Map';
 
 const CustomerUnitDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -286,8 +286,32 @@ const CustomerUnitDetails = () => {
                 city={unit.locations?.city}
                 state={unit.locations?.state}
                 zip={unit.locations?.zip}
-                className="h-[300px] w-full rounded-lg"
               />
+              
+              <div className="mt-4 space-y-2">
+                <Link
+                  to={`/customer/jobs?unitId=${unit.id}`}
+                  className="btn btn-primary w-full justify-start"
+                >
+                  <Calendar size={16} className="mr-2" />
+                  View Service History
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="card">
+            <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+            <div className="space-y-2">
+              <Link
+                to={`/customer/units/${unit.id}/assets`}
+                className="btn btn-secondary w-full justify-start"
+              >
+                <Building2 size={16} className="mr-2" />
+                View Assets
+              </Link>
             </div>
           </div>
         </div>

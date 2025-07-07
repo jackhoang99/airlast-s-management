@@ -1,6 +1,8 @@
 import { Routes, Route } from "react-router-dom";
 import Layout from "./components/layout/Layout";
 import Login from "./pages/Login";
+import { useEffect } from "react";
+import { useSupabase } from "./lib/supabase-context";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Companies from "./pages/Companies";
@@ -23,8 +25,6 @@ import Settings from "./pages/Settings";
 import ItemPrices from "./pages/ItemPrices";
 import NotFound from "./pages/NotFound";
 import RequireAuth from "./components/auth/RequireAuth";
-import { useEffect } from "react";
-import { useSupabase } from "./lib/supabase-context";
 import AddTechnician from "./pages/AddTechnician";
 import Locations from "./pages/Locations";
 import Invoices from "./pages/Invoices";
@@ -34,6 +34,7 @@ import InvoiceReports from "./pages/InvoiceReports";
 import QuoteConfirmation from "./pages/QuoteConfirmation";
 import QuoteTemplates from "./pages/QuoteTemplates";
 import TechnicianApp from "./technician-side/TechnicianApp";
+import CustomerApp from "./customer-side/CustomerApp";
 import MyAccount from "./pages/MyAccount";
 import TemplateDebug from "./pages/TemplateDebug";
 import Contacts from "./pages/Contacts";
@@ -43,16 +44,6 @@ import AssetDetails from "./pages/AssetDetails";
 
 // Customer Portal
 import CustomerLogin from "./pages/CustomerLogin";
-import CustomerPortal from "./pages/CustomerPortal";
-import CustomerDashboard from "./pages/CustomerDashboard";
-import CustomerLocations from "./pages/CustomerLocations";
-import CustomerLocationDetails from "./pages/CustomerLocationDetails";
-import CustomerUnits from "./pages/CustomerUnits";
-import CustomerUnitDetails from "./pages/CustomerUnitDetails";
-import CustomerJobs from "./pages/CustomerJobs";
-import CustomerJobDetails from "./pages/CustomerJobDetails";
-import CustomerInvoices from "./pages/CustomerInvoices";
-import CustomerInvoiceDetails from "./pages/CustomerInvoiceDetails";
 
 function App() {
   const { supabase } = useSupabase();
@@ -80,18 +71,7 @@ function App() {
       <Route path="/tech/*" element={<TechnicianApp />} />
 
       {/* Customer Portal Routes */}
-      <Route path="/customer/login" element={<CustomerLogin />} />
-      <Route path="/customer" element={<CustomerPortal />}>
-        <Route index element={<CustomerDashboard />} />
-        <Route path="locations" element={<CustomerLocations />} />
-        <Route path="locations/:id" element={<CustomerLocationDetails />} />
-        <Route path="units" element={<CustomerUnits />} />
-        <Route path="units/:id" element={<CustomerUnitDetails />} />
-        <Route path="jobs" element={<CustomerJobs />} />
-        <Route path="jobs/:id" element={<CustomerJobDetails />} />
-        <Route path="invoices" element={<CustomerInvoices />} />
-        <Route path="invoices/:id" element={<CustomerInvoiceDetails />} />
-      </Route>
+      <Route path="/customer/*" element={<CustomerApp />} />
 
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>

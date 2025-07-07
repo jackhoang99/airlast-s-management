@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useOutletContext, useLocation } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
-import { FileText, Search, Filter, Calendar, Clock, MapPin, Building2, AlertTriangle } from 'lucide-react';
+import { useSupabase } from '../../lib/supabase-context';
+import { FileText, Search, Filter, Calendar, Clock, MapPin, Building2, AlertTriangle, Package } from 'lucide-react';
 
 const CustomerJobs = () => {
   const { supabase } = useSupabase();
@@ -26,6 +26,7 @@ const CustomerJobs = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [locations, setLocations] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
+  const [assets, setAssets] = useState<{[key: string]: any[]}>({});
 
   useEffect(() => {
     // Set local search term from global search if provided
@@ -113,6 +114,33 @@ const CustomerJobs = () => {
         
         if (jobsError) throw jobsError;
         setJobs(data || []);
+        
+        // Fetch assets for units
+        if (unitIds.length > 0) {
+          const { data: assetsData, error: assetsError } = await supabase
+            .from('assets')
+            .select(`
+              *,
+              units (
+                id,
+                unit_number
+              )
+            `)
+            .in('unit_id', unitIds);
+            
+          if (assetsError) throw assetsError;
+          
+          // Group assets by unit_id
+          const assetsByUnit: {[key: string]: any[]} = {};
+          assetsData?.forEach(asset => {
+            if (!assetsByUnit[asset.unit_id]) {
+              assetsByUnit[asset.unit_id] = [];
+            }
+            assetsByUnit[asset.unit_id].push(asset);
+          });
+          
+          setAssets(assetsByUnit);
+        }
       } catch (err) {
         console.error('Error fetching jobs:', err);
         setError('Failed to load jobs');
@@ -389,7 +417,21 @@ const CustomerJobs = () => {
                       {job.units ? (
                         <div className="flex items-center">
                           <Building2 size={14} className="text-gray-400 mr-1" />
-                          <span>Unit {job.units.unit_number}</span>
+                          <span className="flex items-center">
+                            Unit {job.units.unit_number}
+                            {assets[job.unit_id] && assets[job.unit_id].length > 0 && (
+                              <span className="ml-2 flex items-center text-primary-600">
+                                <Package size={12} className="mr-1" />
+                                <Link 
+                                  to={`/customer/units/${job.unit_id}/assets`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-primary-600 hover:text-primary-800"
+                                >
+                                  {assets[job.unit_id].length} assets
+                                </Link>
+                              </span>
+                            )}
+                          </span>
                         </div>
                       ) : (
                         '-'

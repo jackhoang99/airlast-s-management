@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
+import { useSupabase } from '../../lib/supabase-context';
 import { ArrowLeft, FileInput, MapPin, Building2, Calendar, Clock, CheckCircle, AlertTriangle, Printer, Download, Eye } from 'lucide-react';
 
 const CustomerInvoiceDetails = () => {

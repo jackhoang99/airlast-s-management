@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
+import { useSupabase } from '../../lib/supabase-context';
 import { ArrowLeft, FileText, MapPin, Building2, Calendar, Clock, CheckCircle, AlertTriangle, User, Phone, Mail, Clipboard, FileInput } from 'lucide-react';
-import Map from '../components/ui/Map';
+import Map from '../../components/ui/Map';
 
 const CustomerJobDetails = () => {
   const { id } = useParams<{ id: string }>();

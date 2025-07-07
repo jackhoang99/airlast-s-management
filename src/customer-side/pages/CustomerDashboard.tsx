@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
+import { useSupabase } from '../../lib/supabase-context';
 import { Building, MapPin, Building2, FileText, FileInput, Calendar, Clock, CheckCircle, AlertTriangle, DollarSign, Thermometer, Wind, ArrowRight } from 'lucide-react';
 
 const CustomerDashboard = () => {
@@ -348,6 +348,11 @@ const CustomerDashboard = () => {
             <Link to="/customer/units" className="text-sm text-primary-600 hover:text-primary-800">
               View all units →
             </Link>
+            <div className="mt-2">
+              <Link to="/customer/assets" className="text-sm text-primary-600 hover:text-primary-800">
+                View all assets →
+              </Link>
+            </div>
           </div>
         </div>
 

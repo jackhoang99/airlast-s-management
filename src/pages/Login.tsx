@@ -11,7 +11,7 @@ const Login = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [logoUrl, setLogoUrl] = useState<string | null>('/airlast-logo.svg');
+  const [logoUrl, setLogoUrl] = useState<string | null>("/airlast-logo.svg");
   const [credentials, setCredentials] = useState({
     username: "",
     password: "",
@@ -34,18 +34,24 @@ const Login = () => {
           .select("role")
           .eq("email", session.user.email)
           .maybeSingle();
-          
-        if (!userError && userData && userData.role === 'technician') {
+
+        if (!userError && userData && userData.role === "technician") {
           // This is a technician, redirect to tech portal
           sessionStorage.setItem("isTechAuthenticated", "true");
-          sessionStorage.setItem("techUsername", session.user.email?.split('@')[0] || "tech");
-          navigate('/tech', { replace: true });
+          sessionStorage.setItem(
+            "techUsername",
+            session.user.email?.split("@")[0] || "tech"
+          );
+          navigate("/tech", { replace: true });
           return;
         }
-        
+
         // Not a technician, proceed with admin authentication
         sessionStorage.setItem("isAuthenticated", "true");
-        sessionStorage.setItem("username", session.user.email?.split('@')[0] || "user");
+        sessionStorage.setItem(
+          "username",
+          session.user.email?.split("@")[0] || "user"
+        );
         navigate(from, { replace: true });
       }
     };
@@ -75,26 +81,31 @@ const Login = () => {
         .maybeSingle();
 
       // If user doesn't exist in our users table, show error
-      if (userError && !userError.message.includes("The result contains 0 rows")) {
+      if (
+        userError &&
+        !userError.message.includes("The result contains 0 rows")
+      ) {
         console.error("User lookup error:", userError);
         throw new Error("Error checking user credentials");
       }
 
       // Check if this is a technician trying to log in to the admin portal
-      if (userData?.role === 'technician') {
+      if (userData?.role === "technician") {
         // Redirect to technician login
-        navigate('/tech/login', { state: { from: location } });
+        navigate("/tech/login", { state: { from: location } });
         return;
       }
 
       // Use the email from users table if available, otherwise construct demo email
-      const email = userData?.email || `${credentials.username}@airlast-demo.com`;
-      
+      const email =
+        userData?.email || `${credentials.username}@airlast-demo.com`;
+
       // Try to sign in with Supabase Auth
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: credentials.password
-      });
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: email,
+          password: credentials.password,
+        });
 
       if (signInError) {
         // If sign-in fails with invalid credentials, show error
@@ -108,7 +119,9 @@ const Login = () => {
       navigate(from, { replace: true });
     } catch (err) {
       console.error("Login error:", err);
-      setError(err instanceof Error ? err.message : "Invalid username or password");
+      setError(
+        err instanceof Error ? err.message : "Invalid username or password"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -199,9 +212,7 @@ const Login = () => {
                     className="input"
                   />
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  For demo purposes, use "hvac123" as the password
-                </p>
+                <p className="mt-1 text-xs text-gray-500"></p>
               </div>
 
               <div>
@@ -220,13 +231,19 @@ const Login = () => {
                   )}
                 </button>
               </div>
-              
+
               <div className="text-center mt-4 space-y-2">
-                <Link to="/tech/login" className="text-sm text-primary-600 hover:text-primary-800">
+                <Link
+                  to="/tech/login"
+                  className="text-sm text-primary-600 hover:text-primary-800"
+                >
                   Technician? Login here
                 </Link>
                 <div>
-                  <Link to="/customer/login" className="text-sm text-primary-600 hover:text-primary-800">
+                  <Link
+                    to="/customer/login"
+                    className="text-sm text-primary-600 hover:text-primary-800"
+                  >
                     Customer? Access your portal here
                   </Link>
                 </div>
