@@ -1,28 +1,24 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSupabase } from '../lib/supabase-context';
-import { Database } from '../types/supabase';
-import { ArrowLeft, Plus, Edit, Trash2, Search, Filter, Package, Wrench, ShoppingCart, Check, X, AlertTriangle, Clock, DollarSign, Truck, Home } from 'lucide-react';
+import { Database } from '../types/supabase'; 
+import { ArrowLeft, Plus, Edit, Trash2, Search, Filter, Gauge, Check, X, AlertTriangle, Clock, DollarSign, Truck, Home } from 'lucide-react';
 import AddJobPricingModal from '../components/jobs/AddJobPricingModal';
 
 type JobPartPrice = Database['public']['Tables']['job_part_prices']['Row'];
-type JobLaborPrice = Database['public']['Tables']['job_labor_prices']['Row'];
-type JobItemPrice = Database['public']['Tables']['job_item_prices']['Row'];
 
 const ItemPrices = () => {
   const { supabase } = useSupabase();
   const [partItems, setPartItems] = useState<JobPartPrice[]>([]);
-  const [laborItems, setLaborItems] = useState<JobLaborPrice[]>([]);
-  const [otherItems, setOtherItems] = useState<JobItemPrice[]>([]);
   
-  const [filteredItems, setFilteredItems] = useState<(JobPartPrice | JobLaborPrice | JobItemPrice)[]>([]);
+  const [filteredItems, setFilteredItems] = useState<JobPartPrice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<JobPartPrice | JobLaborPrice | JobItemPrice | null>(null);
+  const [selectedItem, setSelectedItem] = useState<JobPartPrice | null>(null);
   const [filters, setFilters] = useState({
     type: 'all',
     serviceLine: 'all'
@@ -33,8 +29,10 @@ const ItemPrices = () => {
     name: '',
     description: '',
     service_line: 'HVACGEN',
-    unit_cost: 0,
-    type: 'part' as 'part' | 'labor' | 'item'
+    parts_cost: '',
+    estimated_hours: '',
+    flat_rate_non_contract: '',
+    flat_rate_pm_contract: ''
   });
   
   const [serviceLines, setServiceLines] = useState<any[]>([]);
@@ -74,25 +72,6 @@ const ItemPrices = () => {
           
         if (partError) throw partError;
         setPartItems(partData || []);
-        
-        // Fetch labor items
-        const { data: laborData, error: laborError } = await supabase
-          .from('job_labor_prices')
-          .select('*')
-          .order('code');
-          
-        if (laborError) throw laborError;
-        setLaborItems(laborData || []);
-        
-        // Fetch other items
-        const { data: otherData, error: otherError } = await supabase
-          .from('job_item_prices')
-          .select('*')
-          .order('code');
-          
-        if (otherError) throw otherError;
-        setOtherItems(otherData || []);
-        
       } catch (err) {
         console.error('Error fetching items:', err);
         setError('Failed to load item prices');
@@ -106,19 +85,10 @@ const ItemPrices = () => {
   
   useEffect(() => {
     // Apply filters and search
-    let result: (JobPartPrice | JobLaborPrice | JobItemPrice)[] = [];
+    let result: JobPartPrice[] = [];
     
-    // Apply type filter
-    if (filters.type === 'part') {
-      result = [...partItems];
-    } else if (filters.type === 'labor') {
-      result = [...laborItems];
-    } else if (filters.type === 'item') {
-      result = [...otherItems];
-    } else {
-      // All types
-      result = [...partItems, ...laborItems, ...otherItems];
-    }
+    // Get all part items
+    result = [...partItems];
     
     // Apply service line filter
     if (filters.serviceLine !== 'all') {
@@ -137,97 +107,56 @@ const ItemPrices = () => {
     }
     
     setFilteredItems(result);
-  }, [partItems, laborItems, otherItems, filters, searchTerm]);
+  }, [partItems, filters, searchTerm]);
   
-  const handleAddItem = async () => {
+  const handleAddItem = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!supabase) return;
     
     try {
-      if (newItem.type === 'part') {
-        const { error } = await supabase
-          .from('job_part_prices')
-          .insert({
-            code: newItem.code,
-            name: newItem.name,
-            description: newItem.description || null,
-            service_line: newItem.service_line,
-            unit_cost: newItem.unit_cost,
-            parts_cost: 0,
-            estimated_hours: 1.0,
-            complexity_multiplier: 1.0,
-            adjusted_labor_cost: 60.0,
-            truck_fee: 10,
-            roof_access_fee: 75,
-            total_base_cost: 60.0 + 10 + 75,
-            flat_rate_non_contract: newItem.unit_cost,
-            flat_rate_pm_contract: newItem.unit_cost * 0.9
-          });
+      const { error } = await supabase
+        .from('job_part_prices')
+        .insert({
+          code: newItem.code,
+          name: newItem.name,
+          description: newItem.description,
+          service_line: newItem.service_line,
+          parts_cost: parseFloat(newItem.parts_cost),
+          estimated_hours: parseFloat(newItem.estimated_hours),
+          complexity_multiplier: 1.0,
+          adjusted_labor_cost: 60.0,
+          truck_fee: 10,
+          roof_access_fee: 75,
+          total_base_cost: parseFloat(newItem.parts_cost) + 60.0 + 10 + 75,
+          flat_rate_non_contract: parseFloat(newItem.flat_rate_non_contract),
+          flat_rate_pm_contract: parseFloat(newItem.flat_rate_pm_contract)
+        });
           
-        if (error) throw error;
-      } else if (newItem.type === 'labor') {
-        const { error } = await supabase
-          .from('job_labor_prices')
-          .insert({
-            code: newItem.code,
-            name: newItem.name,
-            description: newItem.description || null,
-            service_line: newItem.service_line,
-            unit_cost: newItem.unit_cost,
-            skill_level: 'standard',
-            is_overtime: false,
-            is_emergency: false,
-            duration_hours: 1.0
-          });
-          
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('job_item_prices')
-          .insert({
-            code: newItem.code,
-            name: newItem.name,
-            description: newItem.description || null,
-            service_line: newItem.service_line,
-            unit_cost: newItem.unit_cost,
-            category: 'General',
-            is_taxable: true
-          });
-          
-        if (error) throw error;
-      }
-      
-      // Refresh items
-      const tableName = newItem.type === 'part' 
-        ? 'job_part_prices' 
-        : newItem.type === 'labor' 
-          ? 'job_labor_prices' 
-          : 'job_item_prices';
-          
+      if (error) throw error;
+
+      // Refresh the items list
       const { data, error: fetchError } = await supabase
-        .from(tableName)
+        .from('job_part_prices')
         .select('*')
         .order('code');
         
       if (fetchError) throw fetchError;
+      setPartItems(data || []);
       
-      if (newItem.type === 'part') {
-        setPartItems(data || []);
-      } else if (newItem.type === 'labor') {
-        setLaborItems(data || []);
-      } else {
-        setOtherItems(data || []);
-      }
-      
-      // Reset form and close modal
+      // Reset form
       setNewItem({
         code: '',
         name: '',
         description: '',
         service_line: 'HVACGEN',
-        unit_cost: 0,
-        type: 'part'
+        parts_cost: '',
+        estimated_hours: '',
+        flat_rate_non_contract: '',
+        flat_rate_pm_contract: ''
       });
-      setShowAddModal(false);
+      
+      // Hide the form
+      document.getElementById('addItemPriceForm')?.classList.add('hidden');
     } catch (err) {
       console.error('Error adding item:', err);
       setError('Failed to add item');
@@ -235,76 +164,33 @@ const ItemPrices = () => {
   };
   
   const handleEditItem = async () => {
-    if (!supabase || !selectedItem) return;
+    if (!supabase || !selectedItem || !('parts_cost' in selectedItem)) return;
     
     try {
-      if ('parts_cost' in selectedItem) {
-        // It's a part item
-        const { error } = await supabase
-          .from('job_part_prices')
-          .update({
-            name: newItem.name,
-            description: newItem.description || null,
-            service_line: newItem.service_line,
-            unit_cost: newItem.unit_cost
-          })
-          .eq('id', selectedItem.id);
-          
-        if (error) throw error;
+      // Update part item
+      const { error } = await supabase
+        .from('job_part_prices')
+        .update({
+          name: newItem.name,
+          description: newItem.description || null,
+          service_line: newItem.service_line,
+          parts_cost: parseFloat(newItem.parts_cost),
+          estimated_hours: parseFloat(newItem.estimated_hours),
+          flat_rate_non_contract: parseFloat(newItem.flat_rate_non_contract),
+          flat_rate_pm_contract: parseFloat(newItem.flat_rate_pm_contract)
+        })
+        .eq('id', selectedItem.id);
         
-        // Refresh items
-        const { data, error: fetchError } = await supabase
-          .from('job_part_prices')
-          .select('*')
-          .order('code');
-          
-        if (fetchError) throw fetchError;
-        setPartItems(data || []);
-      } else if ('skill_level' in selectedItem) {
-        // It's a labor item
-        const { error } = await supabase
-          .from('job_labor_prices')
-          .update({
-            name: newItem.name,
-            description: newItem.description || null,
-            service_line: newItem.service_line,
-            unit_cost: newItem.unit_cost
-          })
-          .eq('id', selectedItem.id);
-          
-        if (error) throw error;
+      if (error) throw error;
+      
+      // Refresh items
+      const { data, error: fetchError } = await supabase
+        .from('job_part_prices')
+        .select('*')
+        .order('code');
         
-        // Refresh items
-        const { data, error: fetchError } = await supabase
-          .from('job_labor_prices')
-          .select('*')
-          .order('code');
-          
-        if (fetchError) throw fetchError;
-        setLaborItems(data || []);
-      } else {
-        // It's an other item
-        const { error } = await supabase
-          .from('job_item_prices')
-          .update({
-            name: newItem.name,
-            description: newItem.description || null,
-            service_line: newItem.service_line,
-            unit_cost: newItem.unit_cost
-          })
-          .eq('id', selectedItem.id);
-          
-        if (error) throw error;
-        
-        // Refresh items
-        const { data, error: fetchError } = await supabase
-          .from('job_item_prices')
-          .select('*')
-          .order('code');
-          
-        if (fetchError) throw fetchError;
-        setOtherItems(data || []);
-      }
+      if (fetchError) throw fetchError;
+      setPartItems(data || []);
       
       // Reset form and close modal
       setSelectedItem(null);
@@ -313,8 +199,10 @@ const ItemPrices = () => {
         name: '',
         description: '',
         service_line: 'HVACGEN',
-        unit_cost: 0,
-        type: 'part'
+        parts_cost: '',
+        estimated_hours: '',
+        flat_rate_non_contract: '',
+        flat_rate_pm_contract: ''
       });
       setShowEditModal(false);
     } catch (err) {
@@ -324,61 +212,25 @@ const ItemPrices = () => {
   };
   
   const handleDeleteItem = async () => {
-    if (!supabase || !selectedItem) return;
+    if (!supabase || !selectedItem || !('parts_cost' in selectedItem)) return;
     
     try {
-      if ('parts_cost' in selectedItem) {
-        // It's a part item
-        const { error } = await supabase
-          .from('job_part_prices')
-          .delete()
-          .eq('id', selectedItem.id);
-          
-        if (error) throw error;
+      // Delete part item
+      const { error } = await supabase
+        .from('job_part_prices')
+        .delete()
+        .eq('id', selectedItem.id);
         
-        // Refresh items
-        const { data, error: fetchError } = await supabase
-          .from('job_part_prices')
-          .select('*')
-          .order('code');
-          
-        if (fetchError) throw fetchError;
-        setPartItems(data || []);
-      } else if ('skill_level' in selectedItem) {
-        // It's a labor item
-        const { error } = await supabase
-          .from('job_labor_prices')
-          .delete()
-          .eq('id', selectedItem.id);
-          
-        if (error) throw error;
+      if (error) throw error;
+      
+      // Refresh items
+      const { data, error: fetchError } = await supabase
+        .from('job_part_prices')
+        .select('*')
+        .order('code');
         
-        // Refresh items
-        const { data, error: fetchError } = await supabase
-          .from('job_labor_prices')
-          .select('*')
-          .order('code');
-          
-        if (fetchError) throw fetchError;
-        setLaborItems(data || []);
-      } else {
-        // It's an other item
-        const { error } = await supabase
-          .from('job_item_prices')
-          .delete()
-          .eq('id', selectedItem.id);
-          
-        if (error) throw error;
-        
-        // Refresh items
-        const { data, error: fetchError } = await supabase
-          .from('job_item_prices')
-          .select('*')
-          .order('code');
-          
-        if (fetchError) throw fetchError;
-        setOtherItems(data || []);
-      }
+      if (fetchError) throw fetchError;
+      setPartItems(data || []);
       
       // Reset form and close modal
       setSelectedItem(null);
@@ -389,38 +241,34 @@ const ItemPrices = () => {
     }
   };
   
-  const openEditModal = (item: JobPartPrice | JobLaborPrice | JobItemPrice) => {
-    setSelectedItem(item);
-    setNewItem({
-      code: item.code,
-      name: item.name,
-      description: item.description || '',
-      service_line: item.service_line,
-      unit_cost: Number(item.unit_cost),
-      type: 'parts_cost' in item ? 'part' : 'skill_level' in item ? 'labor' : 'item'
-    });
-    setShowEditModal(true);
+  const openEditModal = (item: JobPartPrice) => {
+    if ('parts_cost' in item) {
+      setSelectedItem(item);
+      setNewItem({
+        code: item.code,
+        name: item.name,
+        description: item.description || '',
+        service_line: item.service_line,
+        parts_cost: Number(item.parts_cost).toString(),
+        estimated_hours: Number(item.estimated_hours).toString(),
+        flat_rate_non_contract: Number(item.flat_rate_non_contract).toString(),
+        flat_rate_pm_contract: Number(item.flat_rate_pm_contract).toString()
+      });
+      setShowEditModal(true);
+    }
   };
   
-  const openDeleteModal = (item: JobPartPrice | JobLaborPrice | JobItemPrice) => {
+  const openDeleteModal = (item: JobPartPrice) => {
     setSelectedItem(item);
     setShowDeleteModal(true);
   };
   
-  const getTypeIcon = (item: JobPartPrice | JobLaborPrice | JobItemPrice) => {
-    if ('parts_cost' in item) {
-      return <Package size={16} className="text-blue-500" />;
-    } else if ('skill_level' in item) {
-      return <Wrench size={16} className="text-green-500" />;
-    } else {
-      return <ShoppingCart size={16} className="text-purple-500" />;
-    }
+  const getTypeIcon = (item: JobPartPrice) => {
+    return <Gauge size={16} className="text-blue-500" />;
   };
   
-  const getItemType = (item: JobPartPrice | JobLaborPrice | JobItemPrice): string => {
-    if ('parts_cost' in item) return 'part';
-    if ('skill_level' in item) return 'labor';
-    return 'item';
+  const getItemType = (item: JobPartPrice): string => {
+    return 'part';
   };
 
   const handlePriceAdded = async () => {
@@ -435,28 +283,9 @@ const ItemPrices = () => {
         .from('job_part_prices')
         .select('*')
         .order('code');
-        
+          
       if (partError) throw partError;
       setPartItems(partData || []);
-      
-      // Fetch labor items
-      const { data: laborData, error: laborError } = await supabase
-        .from('job_labor_prices')
-        .select('*')
-        .order('code');
-        
-      if (laborError) throw laborError;
-      setLaborItems(laborData || []);
-      
-      // Fetch other items
-      const { data: otherData, error: otherError } = await supabase
-        .from('job_item_prices')
-        .select('*')
-        .order('code');
-        
-      if (otherError) throw otherError;
-      setOtherItems(otherData || []);
-      
     } catch (err) {
       console.error('Error refreshing items:', err);
       setError('Failed to refresh item prices');
@@ -472,14 +301,14 @@ const ItemPrices = () => {
           <Link to="/" className="text-gray-500 hover:text-gray-700">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1>Service</h1>
+          <h1>Parts Pricing</h1>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
           className="btn btn-primary"
         >
           <Plus size={16} className="mr-2" />
-          Add Service Item
+          Add Part
         </button>
       </div>
       
@@ -500,7 +329,7 @@ const ItemPrices = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search items..."
+              placeholder="Search parts..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 input w-full"
@@ -508,19 +337,6 @@ const ItemPrices = () => {
           </div>
           
           <div className="flex gap-4">
-            <div>
-              <select
-                value={filters.type}
-                onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
-                className="select"
-              >
-                <option value="all">All Types</option>
-                <option value="part">Parts</option>
-                <option value="labor">Labor</option>
-                <option value="item">Items</option>
-              </select>
-            </div>
-            
             <div>
               <select
                 value={filters.serviceLine}
@@ -552,11 +368,13 @@ const ItemPrices = () => {
               <thead className="bg-gray-50 text-left">
                 <tr>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">TYPE</th>
-                  <th className="px-4 py-3 text-sm font-medium text-gray-500">CODE</th>
-                  <th className="px-4 py-3 text-sm font-medium text-gray-500">ITEM</th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">PART CODE</th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">PART NAME</th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">SERVICE LINE</th>
-                  <th className="px-4 py-3 text-sm font-medium text-gray-500">UNIT COST</th>
-                  <th className="px-4 py-3 text-sm font-medium text-gray-500">DETAILS</th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">PARTS COST</th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">HOURS</th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">NON-CONTRACT</th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">PM CONTRACT</th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">ACTIONS</th>
                 </tr>
               </thead>
@@ -579,31 +397,10 @@ const ItemPrices = () => {
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm">{item.service_line}</td>
-                      <td className="px-4 py-3 text-sm font-medium">${Number(item.unit_cost).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-sm">
-                        {itemType === 'part' && 'parts_cost' in item && (
-                          <div className="flex items-center gap-1">
-                            <DollarSign size={14} className="text-blue-500" />
-                            <span>${Number(item.parts_cost).toFixed(2)}</span>
-                            <Clock size={14} className="ml-2 text-blue-500" />
-                            <span>{Number(item.estimated_hours).toFixed(1)}h</span>
-                          </div>
-                        )}
-                        {itemType === 'labor' && 'skill_level' in item && (
-                          <div className="flex items-center gap-1">
-                            <Wrench size={14} className="text-green-500" />
-                            <span className="capitalize">{item.skill_level || 'Standard'}</span>
-                            <Clock size={14} className="ml-2 text-green-500" />
-                            <span>{Number(item.duration_hours).toFixed(1)}h</span>
-                          </div>
-                        )}
-                        {itemType === 'item' && 'category' in item && (
-                          <div className="flex items-center gap-1">
-                            <ShoppingCart size={14} className="text-purple-500" />
-                            <span>{item.category || 'General'}</span>
-                          </div>
-                        )}
-                      </td>
+                      <td className="px-4 py-3 text-sm font-medium">${'parts_cost' in item ? Number(item.parts_cost).toFixed(2) : '0.00'}</td>
+                      <td className="px-4 py-3 text-sm font-medium">{Number(item.estimated_hours).toFixed(1)}</td>
+                      <td className="px-4 py-3 text-sm font-medium">${Number(item.flat_rate_non_contract).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm font-medium">${Number(item.flat_rate_pm_contract).toFixed(2)}</td>
                       <td className="px-4 py-3 text-sm">
                         <div className="flex items-center gap-2">
                           <button
@@ -658,12 +455,12 @@ const ItemPrices = () => {
                   className="input bg-gray-100"
                   disabled
                 />
-                <p className="text-xs text-gray-500 mt-1">Item code cannot be changed</p>
+                <p className="text-xs text-gray-500 mt-1">Part code cannot be changed</p>
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Item Name *
+                  Part Name *
                 </label>
                 <input
                   type="text"
@@ -705,89 +502,56 @@ const ItemPrices = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Unit Cost *
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={newItem.unit_cost}
-                    onChange={(e) => setNewItem(prev => ({ ...prev, unit_cost: parseFloat(e.target.value) || 0 }))}
-                    className="input pl-7"
-                    required
-                  />
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Parts Cost</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newItem.parts_cost}
+                  onChange={(e) => setNewItem(prev => ({ ...prev, parts_cost: e.target.value }))}
+                  className="input"
+                  required
+                />
               </div>
               
-              {/* Display additional fields based on item type */}
-              {'parts_cost' in selectedItem && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Part Details</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-xs text-gray-500">Parts Cost</span>
-                      <p className="text-sm">${Number(selectedItem.parts_cost).toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-500">Estimated Hours</span>
-                      <p className="text-sm">{Number(selectedItem.estimated_hours).toFixed(1)}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-500">Flat Rate (Non-Contract)</span>
-                      <p className="text-sm">${Number(selectedItem.flat_rate_non_contract).toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-500">Flat Rate (PM Contract)</span>
-                      <p className="text-sm">${Number(selectedItem.flat_rate_pm_contract).toFixed(2)}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Hours</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={newItem.estimated_hours}
+                  onChange={(e) => setNewItem(prev => ({ ...prev, estimated_hours: e.target.value }))}
+                  className="input"
+                  required
+                />
+              </div>
               
-              {'skill_level' in selectedItem && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Labor Details</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-xs text-gray-500">Skill Level</span>
-                      <p className="text-sm capitalize">{selectedItem.skill_level || 'Standard'}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-500">Duration (Hours)</span>
-                      <p className="text-sm">{Number(selectedItem.duration_hours).toFixed(1)}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-500">Overtime</span>
-                      <p className="text-sm">{selectedItem.is_overtime ? 'Yes' : 'No'}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-500">Emergency</span>
-                      <p className="text-sm">{selectedItem.is_emergency ? 'Yes' : 'No'}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Flat Rate (Non-Contract)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newItem.flat_rate_non_contract}
+                  onChange={(e) => setNewItem(prev => ({ ...prev, flat_rate_non_contract: e.target.value }))}
+                  className="input"
+                  required
+                />
+              </div>
               
-              {'category' in selectedItem && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Item Details</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-xs text-gray-500">Category</span>
-                      <p className="text-sm">{selectedItem.category || 'General'}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-500">Taxable</span>
-                      <p className="text-sm">{selectedItem.is_taxable ? 'Yes' : 'No'}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Flat Rate (PM Contract)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newItem.flat_rate_pm_contract}
+                  onChange={(e) => setNewItem(prev => ({ ...prev, flat_rate_pm_contract: e.target.value }))}
+                  className="input"
+                  required
+                />
+              </div>
             </div>
             
             <div className="flex justify-end gap-3 mt-6">
@@ -800,7 +564,7 @@ const ItemPrices = () => {
               <button
                 onClick={handleEditItem}
                 className="btn btn-primary"
-                disabled={!newItem.name || newItem.unit_cost <= 0}
+                disabled={!newItem.name || !newItem.parts_cost || !newItem.estimated_hours || !newItem.flat_rate_non_contract || !newItem.flat_rate_pm_contract}
               >
                 <Check size={16} className="mr-2" />
                 Save Changes
@@ -818,7 +582,7 @@ const ItemPrices = () => {
               <AlertTriangle size={40} />
             </div>
             <h3 className="text-lg font-semibold text-center mb-4">
-              Delete Item Price
+              Delete Part Price
             </h3>
             <p className="text-center text-gray-600 mb-6">
               Are you sure you want to delete <strong>{selectedItem.name}</strong> ({selectedItem.code})? 

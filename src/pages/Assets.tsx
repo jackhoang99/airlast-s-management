@@ -259,9 +259,6 @@ const Assets = () => {
                     TYPE
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
-                    INSPECTION DATE
-                  </th>
-                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
                     UNIT
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
@@ -269,6 +266,9 @@ const Assets = () => {
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
                     COMPANY
+                  </th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
+                    INSPECTION DATE
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
                     DETAILS
@@ -294,9 +294,6 @@ const Assets = () => {
                       {asset.model?.unit_type ||
                         asset.model?.system_type ||
                         "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {formatDate(asset.inspection_date)}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {asset.units ? (
@@ -333,6 +330,9 @@ const Assets = () => {
                       ) : (
                         "N/A"
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {formatDate(asset.inspection_date)}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <Link

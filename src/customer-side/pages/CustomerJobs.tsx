@@ -70,6 +70,8 @@ const CustomerJobs = () => {
         if (unitError) throw unitError;
         setUnits(unitData || []);
         
+        const unitIds = unitData?.map(unit => unit.id) || [];
+        
         // Then fetch all jobs for these locations
         let query = supabase
           .from('jobs')

@@ -18,6 +18,7 @@ const TechnicianJobDetails = () => {
   const [job, setJob] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [jobAssets, setJobAssets] = useState<any[]>([]);
   const [jobItems, setJobItems] = useState<any[]>([]);
   const [inspectionData, setInspectionData] = useState<any[]>([]);
   const [repairData, setRepairData] = useState<any | null>(null);
@@ -205,6 +206,19 @@ const TechnicianJobDetails = () => {
           // Don't throw here, just log the error
         } else if (repairData && repairData.length > 0) {
           setRepairData(repairData[0]);
+        }
+        
+        // Fetch assets related to this job
+        const { data: assetsData, error: assetsError } = await supabase
+          .from('assets')
+          .select('*')
+          .eq('model->>job_id', id);
+          
+        if (assetsError) {
+          console.error('Error fetching job assets:', assetsError);
+          // Don't throw here, just log the error
+        } else {
+          setJobAssets(assetsData || []);
         }
 
         // Check current clock status - Only if technicianId is available
@@ -590,6 +604,50 @@ const TechnicianJobDetails = () => {
           )}
         </div>
       </div>
+
+      {/* Inspection Results Section */}
+      {jobAssets.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-4 mt-4">
+          <h2 className="text-lg font-semibold mb-4 flex items-center">
+            <Clipboard className="h-5 w-5 mr-2 text-primary-600" />
+            Inspection Results
+          </h2>
+          
+          <div className="space-y-4">
+            {jobAssets.map((asset) => (
+              <div key={asset.id} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="font-medium mb-2">Inspection from {formatDateTime(asset.inspection_date)}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Model Number</p>
+                    <p>{asset.model?.model_number || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Serial Number</p>
+                    <p>{asset.model?.serial_number || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Age (Years)</p>
+                    <p>{asset.model?.age || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Tonnage</p>
+                    <p>{asset.model?.tonnage || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Unit Type</p>
+                    <p>{asset.model?.unit_type || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">System Type</p>
+                    <p>{asset.model?.system_type || "N/A"}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Clock In/Out Section */}
       {technicianId && (

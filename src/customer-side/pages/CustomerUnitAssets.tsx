@@ -224,14 +224,6 @@ const CustomerUnitAssets = () => {
                         {selectedAsset.model?.tonnage || "N/A"}
                       </p>
                     </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">
-                    System Information
-                  </h3>
-                  <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
                     <div>
                       <label className="text-xs text-gray-500">Unit Type</label>
                       <p className="font-medium">
@@ -246,6 +238,14 @@ const CustomerUnitAssets = () => {
                         {selectedAsset.model?.system_type || "N/A"}
                       </p>
                     </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">
+                    Inspection Information
+                  </h3>
+                  <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
                     <div>
                       <label className="text-xs text-gray-500">
                         Inspection Date

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Search, Package, Plus, Info, Wrench, ShoppingCart, Check, Users } from 'lucide-react';
+import { X, Search, Package, Plus, Info, Wrench, ShoppingCart, Check, Users, Gauge } from 'lucide-react';
 import { useSupabase } from '../../lib/supabase-context';
 import { Database } from '../../types/supabase';
 
@@ -33,18 +33,12 @@ const AddJobPricingModal = ({
   
   // Items from database
   const [partItems, setPartItems] = useState<JobPartPrice[]>([]);
-  const [laborItems, setLaborItems] = useState<JobLaborPrice[]>([]);
-  const [otherItems, setOtherItems] = useState<JobItemPrice[]>([]);
   
   // Filtered items based on search
   const [filteredPartItems, setFilteredPartItems] = useState<JobPartPrice[]>([]);
-  const [filteredLaborItems, setFilteredLaborItems] = useState<JobLaborPrice[]>([]);
-  const [filteredOtherItems, setFilteredOtherItems] = useState<JobItemPrice[]>([]);
   
   // Selected item
   const [selectedPartItem, setSelectedPartItem] = useState<JobPartPrice | null>(null);
-  const [selectedLaborItem, setSelectedLaborItem] = useState<JobLaborPrice | null>(null);
-  const [selectedOtherItem, setSelectedOtherItem] = useState<JobItemPrice | null>(null);
   
   // Roof access fee toggle
   const [includeRoofAccessFee, setIncludeRoofAccessFee] = useState(true);
@@ -122,26 +116,6 @@ const AddJobPricingModal = ({
         if (partError) throw partError;
         setPartItems(partData || []);
         setFilteredPartItems(partData || []);
-        
-        // Fetch labor items
-        const { data: laborData, error: laborError } = await supabase
-          .from('job_labor_prices')
-          .select('*')
-          .order('code');
-          
-        if (laborError) throw laborError;
-        setLaborItems(laborData || []);
-        setFilteredLaborItems(laborData || []);
-        
-        // Fetch other items
-        const { data: otherData, error: otherError } = await supabase
-          .from('job_item_prices')
-          .select('*')
-          .order('code');
-          
-        if (otherError) throw otherError;
-        setOtherItems(otherData || []);
-        setFilteredOtherItems(otherData || []);
       } catch (err) {
         console.error('Error fetching items:', err);
         setError('Failed to load items');
@@ -187,8 +161,6 @@ const AddJobPricingModal = ({
       });
       setSearchTerm('');
       setSelectedPartItem(null);
-      setSelectedLaborItem(null);
-      setSelectedOtherItem(null);
       setSelectedItemCode('0121G00072PDGS-GPH PANEL');
     }
   }, [selectedTab, editItem]);
@@ -197,8 +169,6 @@ const AddJobPricingModal = ({
   useEffect(() => {
     if (searchTerm.trim() === '') {
       setFilteredPartItems(partItems);
-      setFilteredLaborItems(laborItems);
-      setFilteredOtherItems(otherItems);
       return;
     }
     
@@ -212,24 +182,7 @@ const AddJobPricingModal = ({
       )
     );
     
-    // Filter labor items
-    setFilteredLaborItems(
-      laborItems.filter(item => 
-        item.code.toLowerCase().includes(lowerSearchTerm) ||
-        item.name.toLowerCase().includes(lowerSearchTerm) ||
-        (item.description?.toLowerCase().includes(lowerSearchTerm) ?? false)
-      )
-    );
-    
-    // Filter other items
-    setFilteredOtherItems(
-      otherItems.filter(item => 
-        item.code.toLowerCase().includes(lowerSearchTerm) ||
-        item.name.toLowerCase().includes(lowerSearchTerm) ||
-        (item.description?.toLowerCase().includes(lowerSearchTerm) ?? false)
-      )
-    );
-  }, [searchTerm, partItems, laborItems, otherItems]);
+  }, [searchTerm, partItems]);
 
   // Calculate derived values for parts
   useEffect(() => {
@@ -274,8 +227,6 @@ const AddJobPricingModal = ({
 
   const handleSelectPartItem = (item: JobPartPrice) => {
     setSelectedPartItem(item);
-    setSelectedLaborItem(null);
-    setSelectedOtherItem(null);
     
     setNewItem({
       ...newItem,
@@ -302,48 +253,6 @@ const AddJobPricingModal = ({
     setSelectedItemCode(`${item.code}${item.description ? ` - ${item.description}` : ''}`);
   };
   
-  const handleSelectLaborItem = (item: JobLaborPrice) => {
-    setSelectedLaborItem(item);
-    setSelectedPartItem(null);
-    setSelectedOtherItem(null);
-    
-    setNewItem({
-      ...newItem,
-      code: item.code,
-      name: item.name,
-      description: item.description || '',
-      service_line: item.service_line,
-      unit_cost: Number(item.unit_cost),
-      skill_level: item.skill_level || 'standard',
-      is_overtime: item.is_overtime || false,
-      is_emergency: item.is_emergency || false,
-      duration_hours: Number(item.duration_hours) || 1.0
-    });
-    
-    // Update selected item code display
-    setSelectedItemCode(`${item.code}${item.description ? ` - ${item.description}` : ''}`);
-  };
-  
-  const handleSelectOtherItem = (item: JobItemPrice) => {
-    setSelectedOtherItem(item);
-    setSelectedPartItem(null);
-    setSelectedLaborItem(null);
-    
-    setNewItem({
-      ...newItem,
-      code: item.code,
-      name: item.name,
-      description: item.description || '',
-      service_line: item.service_line,
-      unit_cost: Number(item.unit_cost),
-      category: item.category || 'General',
-      is_taxable: item.is_taxable || true
-    });
-    
-    // Update selected item code display
-    setSelectedItemCode(`${item.code}${item.description ? ` - ${item.description}` : ''}`);
-  };
-
   const handleSubmit = async () => {
     if (!supabase) return;
 
@@ -354,7 +263,7 @@ const AddJobPricingModal = ({
       if (editItem) {
         // Update existing job item
         const { error: updateError } = await supabase
-          .from('job_items')
+          .from('job_items') 
           .update({
             quantity: newItem.quantity,
             unit_cost: newItem.unit_cost,
@@ -386,58 +295,25 @@ const AddJobPricingModal = ({
           if (jobItemError) throw jobItemError;
         } 
         // Only add to price tables if no jobId is provided (we're in the pricing management section)
-        else {
-          // First, add the item to the appropriate price table if it doesn't exist
-          if (selectedTab === 'part') {
-            const { error } = await supabase
-              .from('job_part_prices')
-              .insert({
-                code: newItem.code,
-                name: newItem.name,
-                description: newItem.description || null,
-                service_line: newItem.service_line,
-                parts_cost: newItem.parts_cost,
-                estimated_hours: newItem.estimated_hours,
-                complexity_multiplier: newItem.complexity_multiplier,
-                adjusted_labor_cost: multipleTechs ? newItem.adjusted_labor_cost + 50 : newItem.adjusted_labor_cost,
-                truck_fee: newItem.truck_fee,
-                roof_access_fee: includeRoofAccessFee ? newItem.roof_access_fee : 0,
-                total_base_cost: newItem.total_base_cost,
-                flat_rate_non_contract: newItem.flat_rate_non_contract,
-                flat_rate_pm_contract: newItem.flat_rate_pm_contract
-              });
-            if (error) throw error;
-          } 
-          else if (selectedTab === 'labor') {
-            const { error } = await supabase
-              .from('job_labor_prices')
-              .insert({
-                code: newItem.code,
-                name: newItem.name,
-                description: newItem.description || null,
-                service_line: newItem.service_line,
-                unit_cost: newItem.unit_cost,
-                skill_level: newItem.skill_level,
-                is_overtime: newItem.is_overtime,
-                is_emergency: newItem.is_emergency,
-                duration_hours: newItem.duration_hours
-              });
-            if (error) throw error;
-          }
-          else if (selectedTab === 'item') {
-            const { error } = await supabase
-              .from('job_item_prices')
-              .insert({
-                code: newItem.code,
-                name: newItem.name,
-                description: newItem.description || null,
-                service_line: newItem.service_line,
-                unit_cost: newItem.unit_cost,
-                category: newItem.category,
-                is_taxable: newItem.is_taxable
-              });
-            if (error) throw error;
-          }
+        else if (selectedTab === 'part') {
+          const { error } = await supabase
+            .from('job_part_prices')
+            .insert({
+              code: newItem.code,
+              name: newItem.name,
+              description: newItem.description || null,
+              service_line: newItem.service_line,
+              parts_cost: newItem.parts_cost,
+              estimated_hours: newItem.estimated_hours,
+              complexity_multiplier: newItem.complexity_multiplier,
+              adjusted_labor_cost: multipleTechs ? newItem.adjusted_labor_cost + 50 : newItem.adjusted_labor_cost,
+              truck_fee: newItem.truck_fee,
+              roof_access_fee: includeRoofAccessFee ? newItem.roof_access_fee : 0,
+              total_base_cost: newItem.total_base_cost,
+              flat_rate_non_contract: newItem.flat_rate_non_contract,
+              flat_rate_pm_contract: newItem.flat_rate_pm_contract
+            });
+          if (error) throw error;
         }
       }
 
@@ -479,45 +355,12 @@ const AddJobPricingModal = ({
         {/* Tabs - Only show if not editing */}
         {!editItem && (
           <div className="mb-6 flex border-b border-gray-200 overflow-x-auto">
-            <button
-              onClick={() => setSelectedTab('part')}
-              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-                selectedTab === 'part'
-                  ? 'text-gray-900 border-b-2 border-gray-900'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
+            <div className="px-4 py-2 font-medium text-sm whitespace-nowrap text-gray-900 border-b-2 border-gray-900">
               <div className="flex items-center">
-                <Package size={16} className="mr-2" />
-                Part
+                <Gauge size={16} className="mr-2" />
+                Parts
               </div>
-            </button>
-            <button
-              onClick={() => setSelectedTab('labor')}
-              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-                selectedTab === 'labor'
-                  ? 'text-gray-900 border-b-2 border-gray-900'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <div className="flex items-center">
-                <Wrench size={16} className="mr-2" />
-                Labor
-              </div>
-            </button>
-            <button
-              onClick={() => setSelectedTab('item')}
-              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-                selectedTab === 'item'
-                  ? 'text-gray-900 border-b-2 border-gray-900'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <div className="flex items-center">
-                <ShoppingCart size={16} className="mr-2" />
-                Item
-              </div>
-            </button>
+            </div>
           </div>
         )}
 
@@ -525,15 +368,15 @@ const AddJobPricingModal = ({
         <div className="space-y-6 overflow-y-auto flex-1">
           {/* Search and Item Selection - Only show if not editing */}
           {!editItem && (
-            <div className="mb-6">
+            <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Search Items
+                Search Parts
               </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder={`Search ${selectedTab}s...`}
+                  placeholder="Search parts..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9 input w-full"
@@ -542,75 +385,33 @@ const AddJobPricingModal = ({
               
               {/* Item List */}
               <div className="mt-2 max-h-40 overflow-y-auto border rounded-md">
-                {selectedTab === 'part' && (
-                  filteredPartItems.length > 0 ? (
-                    <div className="divide-y">
-                      {filteredPartItems.map(item => (
-                        <div 
-                          key={item.id}
-                          className={`p-2 hover:bg-gray-50 cursor-pointer ${selectedPartItem?.id === item.id ? 'bg-primary-50' : ''}`}
-                          onClick={() => handleSelectPartItem(item)}
-                        >
-                          <div className="font-medium">{item.code}{item.description ? ` - ${item.description}` : ''}</div>
-                          <div className="text-xs text-gray-500 flex justify-between">
-                            <span>
-                              {Number(item.flat_rate_non_contract) > 0 
-                                ? `$${Number(item.flat_rate_non_contract).toFixed(2)} - $${Number(item.flat_rate_pm_contract).toFixed(2)}` 
-                                : Number(item.unit_cost) > 0 
-                                  ? `$${Number(item.unit_cost).toFixed(2)}`
-                                  : 'Price not set'}
-                            </span>
-                          </div>
+                {filteredPartItems.length > 0 ? (
+                  <div className="divide-y">
+                    {filteredPartItems.map(item => (
+                      <div 
+                        key={item.id}
+                        className={`p-2 hover:bg-gray-50 cursor-pointer ${selectedPartItem?.id === item.id ? 'bg-primary-50' : ''}`}
+                        onClick={() => handleSelectPartItem(item)}
+                      >
+                        <div className="font-medium">{item.code}{item.description ? ` - ${item.description}` : ''}</div>
+                        <div className="text-xs text-gray-500 flex justify-between">
+                          <span>
+                            Parts: ${Number(item.parts_cost).toFixed(2)} | Hours: {Number(item.estimated_hours).toFixed(1)}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center text-gray-500">No part items found</div>
-                  )
-                )}
-                
-                {selectedTab === 'labor' && (
-                  filteredLaborItems.length > 0 ? (
-                    <div className="divide-y">
-                      {filteredLaborItems.map(item => (
-                        <div 
-                          key={item.id}
-                          className={`p-2 hover:bg-gray-50 cursor-pointer ${selectedLaborItem?.id === item.id ? 'bg-primary-50' : ''}`}
-                          onClick={() => handleSelectLaborItem(item)}
-                        >
-                          <div className="font-medium">{item.code}{item.description ? ` - ${item.description}` : ''}</div>
-                          <div className="text-xs text-gray-500 flex justify-between">
-                            <span>{item.name}</span>
-                            <span>${Number(item.unit_cost).toFixed(2)}</span>
-                          </div>
+                        <div className="text-xs text-gray-500 flex justify-between">
+                          <span>
+                            Non-Contract: ${Number(item.flat_rate_non_contract).toFixed(2)}
+                          </span>
+                          <span>
+                            PM-Contract: ${Number(item.flat_rate_pm_contract).toFixed(2)}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center text-gray-500">No labor items found</div>
-                  )
-                )}
-                
-                {selectedTab === 'item' && (
-                  filteredOtherItems.length > 0 ? (
-                    <div className="divide-y">
-                      {filteredOtherItems.map(item => (
-                        <div 
-                          key={item.id}
-                          className={`p-2 hover:bg-gray-50 cursor-pointer ${selectedOtherItem?.id === item.id ? 'bg-primary-50' : ''}`}
-                          onClick={() => handleSelectOtherItem(item)}
-                        >
-                          <div className="font-medium">{item.code}{item.description ? ` - ${item.description}` : ''}</div>
-                          <div className="text-xs text-gray-500 flex justify-between">
-                            <span>{item.name}</span>
-                            <span>${Number(item.unit_cost).toFixed(2)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center text-gray-500">No other items found</div>
-                  )
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 text-center text-gray-500">No part items found</div>
                 )}
               </div>
             </div>
@@ -747,19 +548,6 @@ const AddJobPricingModal = ({
           {/* Part-specific fields */}
           {selectedTab === 'part' && !editItem && (
             <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <input
-                  type="text"
-                  value={newItem.description}
-                  onChange={e => setNewItem(prev => ({ ...prev, description: e.target.value }))}
-                  className="input"
-                  placeholder="Description (optional)"
-                />
-              </div>
-              
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -904,7 +692,7 @@ const AddJobPricingModal = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div 
                   className={`p-4 rounded-lg cursor-pointer border ${
                     selectedPricingType === 'non-contract' 
@@ -952,138 +740,6 @@ const AddJobPricingModal = ({
               </div>
             </>
           )}
-
-          {/* Labor-specific fields */}
-          {selectedTab === 'labor' && !editItem && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Skill Level
-                  </label>
-                  <select
-                    value={newItem.skill_level}
-                    onChange={e => setNewItem(prev => ({ ...prev, skill_level: e.target.value }))}
-                    className="select"
-                  >
-                    <option value="helper">Helper</option>
-                    <option value="standard">Standard</option>
-                    <option value="senior">Senior</option>
-                    <option value="master">Master</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Duration (Hours)
-                  </label>
-                  <input
-                    type="number"
-                    min="0.1"
-                    step="0.1"
-                    value={newItem.duration_hours}
-                    onChange={e => setNewItem(prev => ({ ...prev, duration_hours: parseFloat(e.target.value) || 1 }))}
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Unit Cost *
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={newItem.unit_cost}
-                      onChange={e => setNewItem(prev => ({ ...prev, unit_cost: parseFloat(e.target.value) || 0 }))}
-                      className="input pl-7"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={newItem.is_overtime}
-                    onChange={e => setNewItem(prev => ({ ...prev, is_overtime: e.target.checked }))}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Overtime Rate</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={newItem.is_emergency}
-                    onChange={e => setNewItem(prev => ({ ...prev, is_emergency: e.target.checked }))}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Emergency Rate</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={multipleTechs}
-                    onChange={e => setMultipleTechs(e.target.checked)}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Multiple Technicians (+$50/hr)</span>
-                </label>
-              </div>
-            </>
-          )}
-
-          {/* Item-specific fields */}
-          {selectedTab === 'item' && !editItem && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category
-                  </label>
-                  <input
-                    type="text"
-                    value={newItem.category}
-                    onChange={e => setNewItem(prev => ({ ...prev, category: e.target.value }))}
-                    className="input"
-                    placeholder="General"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Unit Cost *
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={newItem.unit_cost}
-                      onChange={e => setNewItem(prev => ({ ...prev, unit_cost: parseFloat(e.target.value) || 0 }))}
-                      className="input pl-7"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={newItem.is_taxable}
-                    onChange={e => setNewItem(prev => ({ ...prev, is_taxable: e.target.checked }))}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Taxable</span>
-                </label>
-              </div>
-            </>
-          )}
         </div>
 
         {/* Footer buttons */}
@@ -1092,8 +748,7 @@ const AddJobPricingModal = ({
           <button
             onClick={handleSubmit}
             className="btn btn-primary"
-            disabled={isLoading || 
-              (editItem ? false : !newItem.code || (selectedTab !== 'part' && !newItem.name) || (selectedTab !== 'part' && newItem.unit_cost <= 0))}
+            disabled={isLoading || (editItem ? false : !newItem.code)}
           >
             {isLoading
               ? <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>

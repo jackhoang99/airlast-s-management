@@ -13,6 +13,7 @@ const CustomerJobDetails = () => {
   const [job, setJob] = useState<any>(null);
   const [jobItems, setJobItems] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [jobAssets, setJobAssets] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -84,6 +85,15 @@ const CustomerJobDetails = () => {
           
         if (itemsError) throw itemsError;
         setJobItems(itemsData || []);
+        
+        // Fetch assets related to this job
+        const { data: assetsData, error: assetsError } = await supabase
+          .from('assets')
+          .select('*')
+          .eq('model->>job_id', id);
+          
+        if (assetsError) throw assetsError;
+        setJobAssets(assetsData || []);
         
         // Fetch invoices
         const { data: invoicesData, error: invoicesError } = await supabase
@@ -322,6 +332,46 @@ const CustomerJobDetails = () => {
                               {tech.users.email}
                             </div>
                           )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Job Assets Section - Show inspection results */}
+            {jobAssets.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-md font-medium mb-3">Inspection Results</h3>
+                <div className="space-y-4">
+                  {jobAssets.map((asset) => (
+                    <div key={asset.id} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <h4 className="font-medium mb-2">Inspection from {formatDate(asset.inspection_date)}</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-gray-600">Model Number:</p>
+                          <p className="font-medium">{asset.model?.model_number || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Serial Number:</p>
+                          <p className="font-medium">{asset.model?.serial_number || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Age:</p>
+                          <p className="font-medium">{asset.model?.age || "N/A"} years</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Tonnage:</p>
+                          <p className="font-medium">{asset.model?.tonnage || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Unit Type:</p>
+                          <p className="font-medium">{asset.model?.unit_type || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">System Type:</p>
+                          <p className="font-medium">{asset.model?.system_type || "N/A"}</p>
                         </div>
                       </div>
                     </div>

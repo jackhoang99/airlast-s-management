@@ -24,6 +24,7 @@ const JobDetails = () => {
 
   const [job, setJob] = useState<Job | null>(null);
   const [jobItems, setJobItems] = useState<JobItem[]>([]);
+  const [jobAssets, setJobAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
@@ -156,6 +157,20 @@ const JobDetails = () => {
         if (repairData) {
           setRepairData(repairData);
         }
+        
+        // Fetch assets related to this job
+        const { data: assetsData, error: assetsError } = await supabase
+          .from('assets')
+          .select('*')
+          .eq('model->>job_id', id);
+          
+        if (assetsError) {
+          console.error('Error fetching job assets:', assetsError);
+          // Don't throw here, just log the error
+        } else {
+          setJobAssets(assetsData || []);
+        }
+        
       } catch (err: any) {
         console.error("Error fetching job details:", err);
         setError(err.message || "Failed to fetch job details");
@@ -446,6 +461,66 @@ const JobDetails = () => {
               </div>
             )}
           </div>
+
+          {/* Assets Section - Show inspection results */}
+          {jobAssets.length > 0 && (
+            <div className="card mt-6">
+              <div 
+                className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
+                onClick={() => setShowUnitSection(!showUnitSection)}
+              >
+                <h2 className="text-lg font-medium">Inspection Results</h2>
+                <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
+                  {showUnitSection ? (
+                    <>Hide <ChevronUp size={16} className="ml-1" /></>
+                  ) : (
+                    <>Show <ChevronDown size={16} className="ml-1" /></>
+                  )}
+                </span>
+              </div>
+              
+              {showUnitSection && (
+                <div className="mt-4 space-y-4">
+                  {jobAssets.map((asset) => (
+                    <div key={asset.id} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <h3 className="font-medium mb-2">Inspection from {new Date(asset.inspection_date).toLocaleDateString()}</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Model Number</p>
+                          <p>{asset.model?.model_number || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Serial Number</p>
+                          <p>{asset.model?.serial_number || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Age (Years)</p>
+                          <p>{asset.model?.age || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Tonnage</p>
+                          <p>{asset.model?.tonnage || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Unit Type</p>
+                          <p>{asset.model?.unit_type || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">System Type</p>
+                          <p>{asset.model?.system_type || "N/A"}</p>
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <Link to={`/assets/${asset.id}`} className="text-primary-600 hover:text-primary-800 text-sm">
+                          View Asset Details
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Service Section - Collapsible */}
           <div className="card">

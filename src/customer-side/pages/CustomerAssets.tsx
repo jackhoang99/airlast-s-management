@@ -251,8 +251,6 @@ const CustomerAssets = () => {
                 className="select"
               >
                 <option value="">All Types</option>
-                <option value="Gas">Gas</option>
-                <option value="Electric">Electric</option>
               </select>
             </div>
             
@@ -292,7 +290,7 @@ const CustomerAssets = () => {
                   .filter(unit => !filters.location || unit.location_id === filters.location)
                   .map(unit => (
                     <option key={unit.id} value={unit.id}>
-                      Unit {unit.unit_number}
+                      {unit.unit_number}
                     </option>
                   ))}
               </select>

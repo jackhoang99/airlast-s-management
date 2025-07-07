@@ -210,7 +210,7 @@ const AssetDetails = () => {
                         to={`/units/${asset.units.id}`}
                         className="text-lg font-medium text-primary-600 hover:text-primary-800"
                       >
-                        Unit {asset.units.unit_number}
+                       {asset.units.unit_number}
                       </Link>
                       <p className="text-sm text-gray-500">
                         Status:{" "}
@@ -223,6 +223,20 @@ const AssetDetails = () => {
                         >
                           {asset.units.status}
                         </span>
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">Unit Type</label>
+                      <p className="font-medium">
+                        {asset.model?.unit_type || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">
+                        System Type
+                      </label>
+                      <p className="font-medium">
+                        {asset.model?.system_type || "N/A"}
                       </p>
                     </div>
                   </div>
@@ -315,22 +329,19 @@ const AssetDetails = () => {
                   <Link
                     key={relatedAsset.id}
                     to={`/assets/${relatedAsset.id}`}
-                    className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+                    className="block p-4 rounded-lg border hover:border-primary-500 transition-colors"
                   >
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-start">
                       <div>
                         <p className="font-medium">
-                          {relatedAsset.model?.model_number ||
-                            "No model number"}
+                          {relatedAsset.model?.model_number || "N/A"}
                         </p>
-                        <p className="text-xs text-gray-500">
-                          S/N: {relatedAsset.model?.serial_number || "N/A"}
+                        <p className="text-sm text-gray-500">
+                          {relatedAsset.model?.serial_number || "N/A"}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-gray-600">
-                          {formatDate(relatedAsset.inspection_date)}
-                        </p>
+                        <p className="text-sm text-gray-600"></p>
                       </div>
                     </div>
                   </Link>
