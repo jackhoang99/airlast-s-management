@@ -18,17 +18,17 @@ serve(async (req)=>{
       throw new Error("Supabase environment variables are not set");
     }
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { jobId, quoteType, quoteNumber, templateId, jobData, inspectionData, repairData, jobItems, repairDataByInspection } = await req.json();
+    const { jobId, quoteType, quoteNumber, templateId, jobData, inspectionData, replacementData, jobItems, replacementDataByInspection } = await req.json();
     // Log received data for debugging
     console.log("Received data:", {
-      jobId,
-      quoteType,
-      quoteNumber,
-      templateId,
+      jobId, 
+      quoteType, 
+      quoteNumber, 
+      templateId, 
       hasJobData: !!jobData,
       inspectionCount: Array.isArray(inspectionData) ? inspectionData.length : 0,
-      hasRepairDataByInspection: !!repairDataByInspection,
-      repairDataByInspectionKeys: repairDataByInspection ? Object.keys(repairDataByInspection) : []
+      hasReplacementDataByInspection: !!replacementDataByInspection,
+      replacementDataByInspectionKeys: replacementDataByInspection ? Object.keys(replacementDataByInspection) : []
     });
     if (!jobId || !quoteType || !templateId) {
       return new Response(JSON.stringify({
@@ -254,34 +254,50 @@ serve(async (req)=>{
       }
       y -= lineHeight;
     }
-    // Process repair data from repairDataByInspection (preferred) or repairData
-    let repairsToProcess = [];
-    if (repairDataByInspection && typeof repairDataByInspection === 'object' && Object.keys(repairDataByInspection).length > 0) {
-      // Convert repairDataByInspection object to array
-      repairsToProcess = Object.entries(repairDataByInspection).map(([inspectionId, data], index)=>{
-        return {
+    // Process replacement data from replacementDataByInspection (preferred) or replacementData
+    let replacementsToProcess = [];
+    if (replacementDataByInspection && typeof replacementDataByInspection === 'object' && Object.keys(replacementDataByInspection).length > 0) {
+      if (quoteType === 'replacement') {
+        // For replacement quotes, include all options and details
+        replacementsToProcess = Object.entries(replacementDataByInspection).map(([inspectionId, data], index) => {
+          return {
+            ...data,
+            inspectionId,
+            replacementNumber: index + 1,
+            created_at: data.created_at || new Date().toISOString()
+          };
+        });
+      } else {
+        // For repair quotes, simplify to just include pricing
+        replacementsToProcess = Object.entries(replacementDataByInspection).map(([inspectionId, data], index) => {
+          return {
+            ...data,
+            inspectionId,
+            replacementNumber: index + 1,
+            created_at: data.created_at || new Date().toISOString(),
+            // For repair quotes, we focus more on the pricing
+            simplifiedRepair: true
+          };
+        });
+      }
+    } else if (Array.isArray(replacementData) && replacementData.length > 0) {
+      replacementsToProcess = replacementData.map((data, index) => ({
           ...data,
-          inspectionId,
-          repairNumber: index + 1,
-          created_at: data.created_at || new Date().toISOString()
-        };
-      });
-    } else if (Array.isArray(repairData) && repairData.length > 0) {
-      repairsToProcess = repairData.map((data, index)=>({
-          ...data,
-          repairNumber: index + 1
+          replacementNumber: index + 1,
+          simplifiedRepair: quoteType === 'repair'
         }));
-    } else if (repairData && !Array.isArray(repairData)) {
-      // Single repair data object
-      repairsToProcess = [
+    } else if (replacementData && !Array.isArray(replacementData)) {
+      // Single replacement data object
+      replacementsToProcess = [
         {
-          ...repairData,
-          repairNumber: 1
+          ...replacementData,
+          replacementNumber: 1,
+          simplifiedRepair: quoteType === 'repair'
         }
       ];
     }
-    console.log("Repairs to process:", repairsToProcess.length);
-    if (repairsToProcess.length > 0) {
+    console.log("Replacements to process:", replacementsToProcess.length);
+    if (replacementsToProcess.length > 0) {
       // Check if we need a new page
       if (y < 200) {
         dynamicPage = newPdfDoc.addPage();
@@ -295,17 +311,17 @@ serve(async (req)=>{
         });
       }
       // Draw repair summary header
-      dynamicPage.drawText("Repair Summary:", {
+      dynamicPage.drawText("Replacement Summary:", {
         x: margin,
         y,
         size: fontSize + 2,
         font: bold
       });
       y -= lineHeight * 2;
-      // Process each repair entry as a summary item
+      // Process each replacement entry as a summary item
       let combinedTotal = 0;
-      for(let i = 0; i < repairsToProcess.length; i++){
-        const entry = repairsToProcess[i];
+      for(let i = 0; i < replacementsToProcess.length; i++){
+        let entry = replacementsToProcess[i];
         // Check if we need a new page
         if (y < minY) {
           dynamicPage = newPdfDoc.addPage();
@@ -325,13 +341,15 @@ serve(async (req)=>{
         const phaseData = entry[selectedPhase] || {};
         const phaseName = selectedPhase === 'phase1' ? 'Economy' : selectedPhase === 'phase2' ? 'Standard' : 'Premium';
         const totalCost = Number(entry.totalCost || entry.total_cost || 0);
-        // Draw repair summary line
-        dynamicPage.drawText(`Repair ${entry.repairNumber} (${repairDate})`, {
+        
+        // Draw summary line with appropriate title based on quote type
+        dynamicPage.drawText(`${quoteType === 'replacement' ? 'Replacement' : 'Repair'} ${entry.replacementNumber} (${repairDate})`, {
           x: margin,
           y,
           size: fontSize,
           font: bold
         });
+        
         dynamicPage.drawText(`$${totalCost.toLocaleString()}`, {
           x: width - margin - 100,
           y,
@@ -339,22 +357,35 @@ serve(async (req)=>{
           font: bold
         });
         y -= lineHeight;
-        // Draw selected option
-        dynamicPage.drawText(`${phaseName} Option`, {
-          x: margin,
-          y,
-          size: fontSize,
-          font
-        });
-        // Add "Crane Required" if needed
-        if (entry.needsCrane || entry.needs_crane) {
-          dynamicPage.drawText("• Crane Required", {
-            x: margin + 150,
+        
+        if (quoteType === 'replacement' || !entry.simplifiedRepair) {
+          // For replacement quotes, show full details
+          dynamicPage.drawText(`${phaseName} Option`, {
+            x: margin,
+            y,
+            size: fontSize,
+            font
+          });
+          
+          // Add "Crane Required" if needed
+          if (entry.needsCrane || entry.needs_crane) {
+            dynamicPage.drawText("• Crane Required", {
+              x: margin + 150,
+              y,
+              size: fontSize,
+              font
+            });
+          }
+        } else {
+          // For repair quotes, show simplified information
+          dynamicPage.drawText(`Repair Service`, {
+            x: margin,
             y,
             size: fontSize,
             font
           });
         }
+        
         y -= lineHeight * 1.5;
         // Add to combined total
         combinedTotal += totalCost;
@@ -372,9 +403,9 @@ serve(async (req)=>{
         });
       }
       // Draw combined total if there are multiple repairs
-      if (repairsToProcess.length > 1) {
+      if (replacementsToProcess.length > 1) {
         // Add a separator line
-        dynamicPage.drawLine({
+        dynamicPage.drawLine({ 
           start: {
             x: margin,
             y: y + 10
@@ -387,7 +418,7 @@ serve(async (req)=>{
           color: rgb(0.8, 0.8, 0.8)
         });
         y -= lineHeight;
-        dynamicPage.drawText("Combined Total", {
+        dynamicPage.drawText(`Combined ${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Total`, {
           x: margin,
           y,
           size: fontSize + 2,
@@ -405,7 +436,7 @@ serve(async (req)=>{
     // Draw job items
     if (Array.isArray(jobItems) && jobItems.length) {
       // Check if we need a new page
-      if (y < 200) {
+      if (y < 200) { 
         dynamicPage = newPdfDoc.addPage();
         y = height - margin;
         // Add background to new page
@@ -418,7 +449,7 @@ serve(async (req)=>{
       }
       dynamicPage.drawText("Items:", {
         x: margin,
-        y,
+        y, 
         size: fontSize + 2,
         font: bold
       });
@@ -426,7 +457,7 @@ serve(async (req)=>{
       // Table header
       dynamicPage.drawText("Item", {
         x: margin,
-        y,
+        y, 
         size: fontSize,
         font: bold
       });
@@ -444,7 +475,7 @@ serve(async (req)=>{
       });
       y -= lineHeight;
       let totalAmount = 0;
-      for (const item of jobItems){
+      for (const item of jobItems) {
         // Check if we need a new page
         if (y < minY) {
           dynamicPage = newPdfDoc.addPage();
@@ -459,7 +490,7 @@ serve(async (req)=>{
           // Redraw table header on new page
           dynamicPage.drawText("Item", {
             x: margin,
-            y,
+            y, 
             size: fontSize,
             font: bold
           });
@@ -482,7 +513,7 @@ serve(async (req)=>{
         const cost = Number(item.total_cost || 0);
         dynamicPage.drawText(name, {
           x: margin,
-          y,
+          y, 
           size: fontSize,
           font
         });
@@ -494,7 +525,7 @@ serve(async (req)=>{
         });
         dynamicPage.drawText(`$${cost.toFixed(2)}`, {
           x: 400,
-          y,
+          y, 
           size: fontSize,
           font
         });
@@ -504,7 +535,7 @@ serve(async (req)=>{
       y -= lineHeight;
       dynamicPage.drawText("Total:", {
         x: 300,
-        y,
+        y, 
         size: fontSize + 2,
         font: bold
       });
@@ -518,7 +549,7 @@ serve(async (req)=>{
     // Copy remaining preserved pages
     for(let i = insertPos; i < sorted.length; i++){
       const p = sorted[i];
-      if (p > 0 && p <= pdfDoc.getPageCount()) {
+      if (p > 0 && p <= pdfDoc.getPageCount()) { 
         const [copied] = await newPdfDoc.copyPages(pdfDoc, [
           p - 1
         ]);
@@ -528,7 +559,7 @@ serve(async (req)=>{
     // Save PDF
     const outBytes = await newPdfDoc.save();
     // Upload to storage
-    const filePath = `quotes/${jobId}/${quoteNumber}.pdf`;
+    const filePath = `quotes/${jobId}/${quoteType}_${quoteNumber}.pdf`;
     const { error: uploadError } = await supabase.storage.from("quotes").upload(filePath, outBytes, {
       contentType: "application/pdf",
       upsert: true
@@ -540,7 +571,8 @@ serve(async (req)=>{
     return new Response(JSON.stringify({
       success: true,
       pdfUrl: signed.signedUrl,
-      quoteNumber
+      quoteNumber,
+      quoteType
     }), {
       status: 200,
       headers: {

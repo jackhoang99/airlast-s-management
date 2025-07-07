@@ -23,7 +23,7 @@ const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
 
   const getTypeBadgeClass = (type: string) => {
     switch (type) {
-      case 'preventative maintenance':
+      case 'replacement maintenance':
         return 'bg-purple-100 text-purple-800';
       case 'service call':
         return 'bg-cyan-100 text-cyan-800';

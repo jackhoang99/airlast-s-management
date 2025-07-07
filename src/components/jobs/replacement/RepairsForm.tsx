@@ -12,7 +12,7 @@ type AccessoryItem = {
   cost: string | number;
 };
 
-type RepairData = {
+type ReplacementData = {
   needsCrane: boolean;
   phase1: PhaseOption;
   phase2: PhaseOption;
@@ -47,8 +47,8 @@ type InspectionData = {
 type RepairFormProps = {
   jobId: string;
   inspectionId: string;
-  initialData?: RepairData;
-  onSave?: (data: RepairData, inspectionId: string) => void;
+  initialData?: ReplacementData;
+  onSave?: (data: ReplacementData, inspectionId: string) => void;
   selectedInspection?: InspectionData;
   onClose?: () => void;
 };
@@ -67,7 +67,7 @@ const RepairsForm = ({
   const [success, setSuccess] = useState<string | null>(null);
   const [inspectionData, setInspectionData] = useState<InspectionData | null>(null);
   const [allInspections, setAllInspections] = useState<InspectionData[]>([]);
-  const [repairData, setRepairData] = useState<RepairData>(
+  const [replacementData, setReplacementData] = useState<ReplacementData>(
     initialData || {
       needsCrane: false,
       phase1: { description: 'Economy Option', cost: '' },
@@ -93,48 +93,48 @@ const RepairsForm = ({
   const [activeTab, setActiveTab] = useState<'options' | 'accessories' | 'additional'>('options');
   const [expandedSection, setExpandedSection] = useState<'options' | 'accessories' | 'additional' | null>('options');
 
-  // Fetch existing repair + inspection + job details
+  // Fetch existing replacement + inspection + job details
   useEffect(() => {
     const fetchData = async () => {
       if (!supabase || !jobId || !inspectionId) return;
       try {
-        // 1) Load existing repair data (if any)
-        const { data: existingRepair, error: repairError } = await supabase
-          .from('job_repairs')
+        // 1) Load existing replacement data (if any)
+        const { data: existingReplacement, error: replacementError } = await supabase
+          .from('job_replacements')
           .select('*')
           .eq('job_id', jobId)
           .eq('inspection_id', inspectionId)
           .maybeSingle();
 
-        if (repairError && !repairError.message.includes('The result contains 0 rows')) {
-          throw repairError;
+        if (replacementError && !replacementError.message.includes('The result contains 0 rows')) {
+          throw replacementError;
         }
 
-        if (existingRepair) {
-          setRepairData({
-            needsCrane: existingRepair.needs_crane || false,
-            phase1: existingRepair.phase1 || { description: 'Economy Option', cost: '' },
-            phase2: existingRepair.phase2 || { description: 'Standard Option', cost: '' },
-            phase3: existingRepair.phase3 || { description: 'Premium Option', cost: '' },
-            labor: existingRepair.labor || '',
-            refrigerationRecovery: existingRepair.refrigeration_recovery || '',
-            startUpCosts: existingRepair.start_up_costs || '',
-            accessories: existingRepair.accessories || [{ name: '', cost: '' }],
-            thermostatStartup: existingRepair.thermostat_startup || '',
-            removalCost: existingRepair.removal_cost || '',
-            warranty: existingRepair.warranty || '',
-            additionalItems: existingRepair.additional_items || [{ name: '', cost: '' }],
-            permitCost: existingRepair.permit_cost || '',
-            selectedPhase: existingRepair.selected_phase,
-            totalCost: existingRepair.total_cost
+        if (existingReplacement) {
+          setReplacementData({
+            needsCrane: existingReplacement.needs_crane || false,
+            phase1: existingReplacement.phase1 || { description: 'Economy Option', cost: '' },
+            phase2: existingReplacement.phase2 || { description: 'Standard Option', cost: '' },
+            phase3: existingReplacement.phase3 || { description: 'Premium Option', cost: '' },
+            labor: existingReplacement.labor || '',
+            refrigerationRecovery: existingReplacement.refrigeration_recovery || '',
+            startUpCosts: existingReplacement.start_up_costs || '',
+            accessories: existingReplacement.accessories || [{ name: '', cost: '' }],
+            thermostatStartup: existingReplacement.thermostat_startup || '',
+            removalCost: existingReplacement.removal_cost || '',
+            warranty: existingReplacement.warranty || '',
+            additionalItems: existingReplacement.additional_items || [{ name: '', cost: '' }],
+            permitCost: existingReplacement.permit_cost || '',
+            selectedPhase: existingReplacement.selected_phase,
+            totalCost: existingReplacement.total_cost
           });
 
-          if (existingRepair.selected_phase) {
-            setSelectedPhase(existingRepair.selected_phase as 'phase1' | 'phase2' | 'phase3');
+          if (existingReplacement.selected_phase) {
+            setSelectedPhase(existingReplacement.selected_phase as 'phase1' | 'phase2' | 'phase3');
           }
           
-          if (existingRepair.total_cost) {
-            setTotalCost(existingRepair.total_cost);
+          if (existingReplacement.total_cost) {
+            setTotalCost(existingReplacement.total_cost);
           }
 
           // Always show the form when initialData is provided or when edit button is clicked
@@ -192,21 +192,21 @@ const RepairsForm = ({
     fetchData();
   }, [supabase, jobId, inspectionId, selectedInspection, initialData]);
 
-  // Calculate total cost whenever repair fields or selectedPhase change
+  // Calculate total cost whenever replacement fields or selectedPhase change
   useEffect(() => {
     const calculateTotalCost = () => {
       const phaseCost =
         (selectedPhase === 'phase1'
-          ? Number(repairData.phase1.cost)
+          ? Number(replacementData.phase1.cost)
           : selectedPhase === 'phase2'
-          ? Number(repairData.phase2.cost)
-          : Number(repairData.phase3.cost)) || 0;
-      const laborCost = Number(repairData.labor) || 0;
-      const refrigerationCost = Number(repairData.refrigerationRecovery) || 0;
-      const startUpCost = Number(repairData.startUpCosts) || 0;
-      const thermostatCost = Number(repairData.thermostatStartup) || 0;
-      const removalCost = Number(repairData.removalCost) || 0;
-      const permitCost = Number(repairData.permitCost) || 0;
+          ? Number(replacementData.phase2.cost)
+          : Number(replacementData.phase3.cost)) || 0;
+      const laborCost = Number(replacementData.labor) || 0;
+      const refrigerationCost = Number(replacementData.refrigerationRecovery) || 0;
+      const startUpCost = Number(replacementData.startUpCosts) || 0;
+      const thermostatCost = Number(replacementData.thermostatStartup) || 0;
+      const removalCost = Number(replacementData.removalCost) || 0;
+      const permitCost = Number(replacementData.permitCost) || 0;
 
       const baseCosts =
         phaseCost +
@@ -217,12 +217,12 @@ const RepairsForm = ({
         removalCost +
         permitCost;
 
-      const accessoriesCost = repairData.accessories.reduce(
+      const accessoriesCost = replacementData.accessories.reduce(
         (sum, item) => sum + (Number(item.cost) || 0),
         0
       );
 
-      const additionalItemsCost = repairData.additionalItems.reduce(
+      const additionalItemsCost = replacementData.additionalItems.reduce(
         (sum, item) => sum + (Number(item.cost) || 0),
         0
       );
@@ -233,7 +233,7 @@ const RepairsForm = ({
     };
 
     setTotalCost(calculateTotalCost());
-  }, [repairData, selectedPhase]);
+  }, [replacementData, selectedPhase]);
 
   // If selectedInspection prop changes, update local state
   useEffect(() => {
@@ -243,28 +243,28 @@ const RepairsForm = ({
   }, [selectedInspection]);
 
   const handleAddAccessory = () => {
-    setRepairData(prev => ({
+    setReplacementData(prev => ({
       ...prev,
       accessories: [...prev.accessories, { name: '', cost: '' }]
     }));
   };
 
   const handleRemoveAccessory = (index: number) => {
-    setRepairData(prev => ({
+    setReplacementData(prev => ({
       ...prev,
       accessories: prev.accessories.filter((_, i) => i !== index)
     }));
   };
 
   const handleAddAdditionalItem = () => {
-    setRepairData(prev => ({
+    setReplacementData(prev => ({
       ...prev,
       additionalItems: [...prev.additionalItems, { name: '', cost: '' }]
     }));
   };
 
   const handleRemoveAdditionalItem = (index: number) => {
-    setRepairData(prev => ({
+    setReplacementData(prev => ({
       ...prev,
       additionalItems: prev.additionalItems.filter((_, i) => i !== index)
     }));
@@ -283,9 +283,9 @@ const RepairsForm = ({
     setSuccess(null);
 
     try {
-      // Check if repair data already exists
+      // Check if replacement data already exists
       const { data: existingData, error: checkError } = await supabase
-        .from('job_repairs')
+        .from('job_replacements')
         .select('id')
         .eq('job_id', jobId)
         .eq('inspection_id', inspectionId)
@@ -296,34 +296,34 @@ const RepairsForm = ({
       const dataToSave = {
         job_id: jobId,
         inspection_id: inspectionId,
-        needs_crane: repairData.needsCrane,
+        needs_crane: replacementData.needsCrane,
         phase1: {
-          description: repairData.phase1.description,
-          cost: Number(repairData.phase1.cost) || 0,
+          description: replacementData.phase1.description,
+          cost: Number(replacementData.phase1.cost) || 0,
         },
         phase2: {
-          description: repairData.phase2.description,
-          cost: Number(repairData.phase2.cost) || 0,
+          description: replacementData.phase2.description,
+          cost: Number(replacementData.phase2.cost) || 0,
         },
         phase3: {
-          description: repairData.phase3.description,
-          cost: Number(repairData.phase3.cost) || 0,
+          description: replacementData.phase3.description,
+          cost: Number(replacementData.phase3.cost) || 0,
         },
-        labor: Number(repairData.labor) || 0,
-        refrigeration_recovery: Number(repairData.refrigerationRecovery) || 0,
-        start_up_costs: Number(repairData.startUpCosts) || 0,
-        accessories: repairData.accessories.map(item => ({
+        labor: Number(replacementData.labor) || 0,
+        refrigeration_recovery: Number(replacementData.refrigerationRecovery) || 0,
+        start_up_costs: Number(replacementData.startUpCosts) || 0,
+        accessories: replacementData.accessories.map(item => ({
           name: item.name,
           cost: Number(item.cost) || 0,
         })),
-        thermostat_startup: Number(repairData.thermostatStartup) || 0,
-        removal_cost: Number(repairData.removalCost) || 0,
-        warranty: repairData.warranty,
-        additional_items: repairData.additionalItems.map(item => ({
+        thermostat_startup: Number(replacementData.thermostatStartup) || 0,
+        removal_cost: Number(replacementData.removalCost) || 0,
+        warranty: replacementData.warranty,
+        additional_items: replacementData.additionalItems.map(item => ({
           name: item.name,
           cost: Number(item.cost) || 0,
         })),
-        permit_cost: Number(repairData.permitCost) || 0,
+        permit_cost: Number(replacementData.permitCost) || 0,
         updated_at: new Date().toISOString(),
         selected_phase: selectedPhase,
         total_cost: totalCost,
@@ -334,7 +334,7 @@ const RepairsForm = ({
       if (existingData) {
         // Update
         const { data, error: updateError } = await supabase
-          .from('job_repairs')
+          .from('job_replacements')
           .update(dataToSave)
           .eq('id', existingData.id)
           .select();
@@ -344,7 +344,7 @@ const RepairsForm = ({
       } else {
         // Insert
         const { data, error: insertError } = await supabase
-          .from('job_repairs')
+          .from('job_replacements')
           .insert(dataToSave)
           .select();
           
@@ -352,24 +352,24 @@ const RepairsForm = ({
         savedData = data?.[0];
       }
 
-      setSuccess('Repair data saved successfully');
+      setSuccess('Replacement data saved successfully');
       setIsFormVisible(false);
       
       // Create a properly formatted data object to pass to the parent component
       const formattedData = {
-        needsCrane: repairData.needsCrane,
-        phase1: repairData.phase1,
-        phase2: repairData.phase2,
-        phase3: repairData.phase3,
-        labor: repairData.labor,
-        refrigerationRecovery: repairData.refrigerationRecovery,
-        startUpCosts: repairData.startUpCosts,
-        accessories: repairData.accessories,
-        thermostatStartup: repairData.thermostatStartup,
-        removalCost: repairData.removalCost,
-        warranty: repairData.warranty,
-        additionalItems: repairData.additionalItems,
-        permitCost: repairData.permitCost,
+        needsCrane: replacementData.needsCrane,
+        phase1: replacementData.phase1,
+        phase2: replacementData.phase2,
+        phase3: replacementData.phase3,
+        labor: replacementData.labor,
+        refrigerationRecovery: replacementData.refrigerationRecovery,
+        startUpCosts: replacementData.startUpCosts,
+        accessories: replacementData.accessories,
+        thermostatStartup: replacementData.thermostatStartup,
+        removalCost: replacementData.removalCost,
+        warranty: replacementData.warranty,
+        additionalItems: replacementData.additionalItems,
+        permitCost: replacementData.permitCost,
         selectedPhase: selectedPhase,
         totalCost: totalCost
       };
@@ -382,8 +382,8 @@ const RepairsForm = ({
         onClose();
       }
     } catch (err) {
-      console.error('Error saving repair data:', err);
-      setError('Failed to save repair data');
+      console.error('Error saving replacement data:', err);
+      setError('Failed to save replacement data');
     } finally {
       setIsLoading(false);
     }
@@ -398,7 +398,7 @@ const RepairsForm = ({
       {/* Modal Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center">
         <h3 className="font-medium text-lg">
-          {initialData ? 'Edit Repair Details' : 'Add Repair Details'}
+          {initialData ? 'Edit Replacement Details' : 'Add Replacement Details'}
         </h3>
         <button 
           onClick={onClose}
@@ -413,7 +413,7 @@ const RepairsForm = ({
           <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <div className="flex justify-between items-center mb-2">
               <h4 className="font-medium text-blue-800">
-                Repair Details for Inspection from {inspectionDateLabel}
+                Replacement Details for Inspection from {inspectionDateLabel}
               </h4>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -459,13 +459,13 @@ const RepairsForm = ({
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
-            {/* Repair Options Section - Collapsible */}
+            {/* Replacement Options Section - Collapsible */}
             <div className="border rounded-lg overflow-hidden">
               <div 
                 className="flex justify-between items-center p-3 bg-blue-50 cursor-pointer"
                 onClick={() => toggleSection('options')}
               >
-                <h3 className="font-medium">Repair Options</h3>
+                <h3 className="font-medium">Replacement Options</h3>
                 {expandedSection === 'options' ? (
                   <ChevronUp size={20} className="text-gray-500" />
                 ) : (
@@ -479,9 +479,9 @@ const RepairsForm = ({
                     <input
                       type="checkbox"
                       id="needsCrane"
-                      checked={repairData.needsCrane}
+                      checked={replacementData.needsCrane}
                       onChange={e =>
-                        setRepairData(prev => ({ ...prev, needsCrane: e.target.checked }))
+                        setReplacementData(prev => ({ ...prev, needsCrane: e.target.checked }))
                       }
                       className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
                     />
@@ -493,7 +493,7 @@ const RepairsForm = ({
                   {/* Phase Selection */}
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Select Repair Option
+                      Select Replacement Option
                     </label>
                     <div className="space-y-3">
                       {/* Economy Option Card */}
@@ -515,9 +515,9 @@ const RepairsForm = ({
                         </div>
                         <input
                           type="text"
-                          value={repairData.phase1.description}
+                          value={replacementData.phase1.description}
                           onChange={e =>
-                            setRepairData(prev => ({
+                            setReplacementData(prev => ({
                               ...prev,
                               phase1: { ...prev.phase1, description: e.target.value }
                             }))
@@ -532,10 +532,10 @@ const RepairsForm = ({
                           <input
                             type="text"
                             inputMode="numeric"
-                            value={repairData.phase1.cost}
+                            value={replacementData.phase1.cost}
                             onChange={e => {
                               const value = e.target.value.replace(/^0+/, '');
-                              setRepairData(prev => ({
+                              setReplacementData(prev => ({
                                 ...prev,
                                 phase1: { ...prev.phase1, cost: value }
                               }));
@@ -565,9 +565,9 @@ const RepairsForm = ({
                         </div>
                         <input
                           type="text"
-                          value={repairData.phase2.description}
+                          value={replacementData.phase2.description}
                           onChange={e =>
-                            setRepairData(prev => ({
+                            setReplacementData(prev => ({
                               ...prev,
                               phase2: { ...prev.phase2, description: e.target.value }
                             }))
@@ -582,10 +582,10 @@ const RepairsForm = ({
                           <input
                             type="text"
                             inputMode="numeric"
-                            value={repairData.phase2.cost}
+                            value={replacementData.phase2.cost}
                             onChange={e => {
                               const value = e.target.value.replace(/^0+/, '');
-                              setRepairData(prev => ({
+                              setReplacementData(prev => ({
                                 ...prev,
                                 phase2: { ...prev.phase2, cost: value }
                               }));
@@ -615,9 +615,9 @@ const RepairsForm = ({
                         </div>
                         <input
                           type="text"
-                          value={repairData.phase3.description}
+                          value={replacementData.phase3.description}
                           onChange={e =>
-                            setRepairData(prev => ({
+                            setReplacementData(prev => ({
                               ...prev,
                               phase3: { ...prev.phase3, description: e.target.value }
                             }))
@@ -632,10 +632,10 @@ const RepairsForm = ({
                           <input
                             type="text"
                             inputMode="numeric"
-                            value={repairData.phase3.cost}
+                            value={replacementData.phase3.cost}
                             onChange={e => {
                               const value = e.target.value.replace(/^0+/, '');
-                              setRepairData(prev => ({
+                              setReplacementData(prev => ({
                                 ...prev,
                                 phase3: { ...prev.phase3, cost: value }
                               }));
@@ -660,10 +660,10 @@ const RepairsForm = ({
                         <input
                           type="text"
                           inputMode="numeric"
-                          value={repairData.labor}
+                          value={replacementData.labor}
                           onChange={e => {
                             const value = e.target.value.replace(/^0+/, '');
-                            setRepairData(prev => ({ ...prev, labor: value }));
+                            setReplacementData(prev => ({ ...prev, labor: value }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -680,10 +680,10 @@ const RepairsForm = ({
                         <input
                           type="text"
                           inputMode="numeric"
-                          value={repairData.refrigerationRecovery}
+                          value={replacementData.refrigerationRecovery}
                           onChange={e => {
                             const value = e.target.value.replace(/^0+/, '');
-                            setRepairData(prev => ({ ...prev, refrigerationRecovery: value }));
+                            setReplacementData(prev => ({ ...prev, refrigerationRecovery: value }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -700,10 +700,10 @@ const RepairsForm = ({
                         <input
                           type="text"
                           inputMode="numeric"
-                          value={repairData.startUpCosts}
+                          value={replacementData.startUpCosts}
                           onChange={e => {
                             const value = e.target.value.replace(/^0+/, '');
-                            setRepairData(prev => ({ ...prev, startUpCosts: value }));
+                            setReplacementData(prev => ({ ...prev, startUpCosts: value }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -720,10 +720,10 @@ const RepairsForm = ({
                         <input
                           type="text"
                           inputMode="numeric"
-                          value={repairData.thermostatStartup}
+                          value={replacementData.thermostatStartup}
                           onChange={e => {
                             const value = e.target.value.replace(/^0+/, '');
-                            setRepairData(prev => ({ ...prev, thermostatStartup: value }));
+                            setReplacementData(prev => ({ ...prev, thermostatStartup: value }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -740,10 +740,10 @@ const RepairsForm = ({
                         <input
                           type="text"
                           inputMode="numeric"
-                          value={repairData.removalCost}
+                          value={replacementData.removalCost}
                           onChange={e => {
                             const value = e.target.value.replace(/^0+/, '');
-                            setRepairData(prev => ({ ...prev, removalCost: value }));
+                            setReplacementData(prev => ({ ...prev, removalCost: value }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -760,10 +760,10 @@ const RepairsForm = ({
                         <input
                           type="text"
                           inputMode="numeric"
-                          value={repairData.permitCost}
+                          value={replacementData.permitCost}
                           onChange={e => {
                             const value = e.target.value.replace(/^0+/, '');
-                            setRepairData(prev => ({ ...prev, permitCost: value }));
+                            setReplacementData(prev => ({ ...prev, permitCost: value }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -776,8 +776,8 @@ const RepairsForm = ({
                       Warranty Information
                     </label>
                     <textarea
-                      value={repairData.warranty}
-                      onChange={e => setRepairData(prev => ({ ...prev, warranty: e.target.value }))}
+                      value={replacementData.warranty}
+                      onChange={e => setReplacementData(prev => ({ ...prev, warranty: e.target.value }))}
                       className="input w-full text-sm"
                       rows={2}
                     />
@@ -815,16 +815,16 @@ const RepairsForm = ({
                       Add Accessory
                     </button>
                   </div>
-                  {repairData.accessories.map((accessory, index) => (
+                  {replacementData.accessories.map((accessory, index) => (
                     <div key={index} className="flex gap-2 mb-2">
                       <input
                         type="text"
                         placeholder="Accessory name"
                         value={accessory.name}
                         onChange={e => {
-                          const newAccessories = [...repairData.accessories];
+                          const newAccessories = [...replacementData.accessories];
                           newAccessories[index].name = e.target.value;
-                          setRepairData(prev => ({ ...prev, accessories: newAccessories }));
+                          setReplacementData(prev => ({ ...prev, accessories: newAccessories }));
                         }}
                         className="input flex-grow text-sm"
                       />
@@ -839,9 +839,9 @@ const RepairsForm = ({
                           value={accessory.cost}
                           onChange={e => {
                             const value = e.target.value.replace(/^0+/, '');
-                            const newAccessories = [...repairData.accessories];
+                            const newAccessories = [...replacementData.accessories];
                             newAccessories[index].cost = value;
-                            setRepairData(prev => ({ ...prev, accessories: newAccessories }));
+                            setReplacementData(prev => ({ ...prev, accessories: newAccessories }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -890,16 +890,16 @@ const RepairsForm = ({
                       Add Item
                     </button>
                   </div>
-                  {repairData.additionalItems.map((item, index) => (
+                  {replacementData.additionalItems.map((item, index) => (
                     <div key={index} className="flex gap-2 mb-2">
                       <input
                         type="text"
                         placeholder="Item name"
                         value={item.name}
                         onChange={e => {
-                          const newItems = [...repairData.additionalItems];
+                          const newItems = [...replacementData.additionalItems];
                           newItems[index].name = e.target.value;
-                          setRepairData(prev => ({ ...prev, additionalItems: newItems }));
+                          setReplacementData(prev => ({ ...prev, additionalItems: newItems }));
                         }}
                         className="input flex-grow text-sm"
                       />
@@ -914,9 +914,9 @@ const RepairsForm = ({
                           value={item.cost}
                           onChange={e => {
                             const value = e.target.value.replace(/^0+/, '');
-                            const newItems = [...repairData.additionalItems];
+                            const newItems = [...replacementData.additionalItems];
                             newItems[index].cost = value;
-                            setRepairData(prev => ({ ...prev, additionalItems: newItems }));
+                            setReplacementData(prev => ({ ...prev, additionalItems: newItems }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -953,7 +953,7 @@ const RepairsForm = ({
                         : 'Premium Option'}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {repairData[selectedPhase].description}
+                      {replacementData[selectedPhase].description}
                     </div>
                   </div>
                   <div className="text-lg font-bold text-primary-700">
@@ -992,7 +992,7 @@ const RepairsForm = ({
           ) : (
             <>
               <Save size={16} className="mr-2" />
-              Save Repair
+              Save Replacement
             </>
           )}
         </button>

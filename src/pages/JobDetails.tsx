@@ -144,7 +144,7 @@ const JobDetails = () => {
 
         // Fetch repair data
         const { data: repairData, error: repairError } = await supabase
-          .from("job_repairs")
+          .from("job_replacements")
           .select("*")
           .eq("job_id", id)
           .limit(1)

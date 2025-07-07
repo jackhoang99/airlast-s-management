@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSupabase } from '../../lib/supabase-context';
 import { Database } from '../../types/supabase';
-import { Eye, Send, FileCheck2, AlertTriangle, Check, X, Clipboard, Home, Package, Edit, List, FileText } from 'lucide-react';
+import { Eye, Send, FileCheck2, AlertTriangle, Package, Home, Check, X, Clipboard, Edit, List } from 'lucide-react';
 import SendEmailModal from './SendEmailModal';
 
 type JobQuoteSectionProps = {
   job: Job;
   jobItems: JobItem[];
   onQuoteSent: (updatedJob: Job) => void;
-  onPreviewQuote: (quoteType: 'repair' | 'replacement') => void;
+  onPreviewQuote: (quoteType: 'replacement' | 'repair') => void;
   quoteNeedsUpdate: boolean;
 };
 
@@ -21,55 +21,55 @@ const JobQuoteSection = ({
   quoteNeedsUpdate
 }: JobQuoteSectionProps) => {
   const { supabase } = useSupabase();
-  const [activeTab, setActiveTab] = useState<'repair' | 'replacement' | 'all'>('repair');
+  const [activeTab, setActiveTab] = useState<'replacement' | 'repair' | 'all'>('replacement');
   const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
-  const [hasRepairData, setHasRepairData] = useState(false);
   const [hasReplacementData, setHasReplacementData] = useState(false);
-  const [repairData, setRepairData] = useState<any | null>(null);
+  const [hasRepairData, setHasRepairData] = useState(false);
+  const [replacementData, setReplacementData] = useState<any | null>(null);
   const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
   const [totalCost, setTotalCost] = useState<number>(0);
   const [location, setLocation] = useState<any | null>(null);
   const [unit, setUnit] = useState<any | null>(null);
   const [allQuotes, setAllQuotes] = useState<any[]>([]);
   const [emailTemplate, setEmailTemplate] = useState({
-    subject: 'Repair Quote from Airlast HVAC',
+    subject: 'Replacement Quote from Airlast HVAC',
     greeting: 'Dear Customer,',
-    introText: 'Thank you for choosing Airlast HVAC services. Based on our inspection, we have prepared a repair quote for your review.',
-    approvalText: 'Please click one of the buttons below to approve or deny the recommended repairs:',
-    approveButtonText: 'Approve Repairs',
-    denyButtonText: 'Deny Repairs',
-    approvalNote: 'If you approve, we will schedule the repair work at your earliest convenience.',
+    introText: 'Thank you for choosing Airlast HVAC services. Based on our inspection, we have prepared a replacement quote for your review.',
+    approvalText: 'Please click one of the buttons below to approve or deny the recommended replacements:',
+    approveButtonText: 'Approve Replacements',
+    denyButtonText: 'Deny Replacements',
+    approvalNote: 'If you approve, we will schedule the replacement work at your earliest convenience.',
     denialNote: 'If you deny, you will be charged $180.00 for the inspection service.',
     closingText: 'If you have any questions, please don\'t hesitate to contact us.',
     signature: 'Best regards,\nAirlast HVAC Team'
   });
   const [defaultTemplates, setDefaultTemplates] = useState<{
-    repair: any | null;
     replacement: any | null;
+    repair: any | null;
   }>({
-    repair: null,
-    replacement: null
+    replacement: null,
+    repair: null
   });
-  const [repairDataByInspection, setRepairDataByInspection] = useState<{[key: string]: any}>({});
-  const [totalRepairCost, setTotalRepairCost] = useState(0);
-  const [inspectionData, setInspectionData] = useState<any[]>([]);
-  
-  // New state for replacement data
   const [replacementDataByInspection, setReplacementDataByInspection] = useState<{[key: string]: any}>({});
   const [totalReplacementCost, setTotalReplacementCost] = useState(0);
+  const [inspectionData, setInspectionData] = useState<any[]>([]);
+  
+  // New state for repair data
+  const [repairDataByInspection, setRepairDataByInspection] = useState<{[key: string]: any}>({});
+  const [totalRepairCost, setTotalRepairCost] = useState(0);
   const [hasPartItems, setHasPartItems] = useState(false);
   
   // Track sent quotes by type
   const [sentQuoteTypes, setSentQuoteTypes] = useState<{
-    repair: boolean;
     replacement: boolean;
+    repair: boolean;
   }>({
-    repair: false,
-    replacement: false
+    replacement: false,
+    repair: false
   });
 
-  // Check if job has repair or replacement data
+  // Check if job has replacement or repair data
   useEffect(() => {
     const checkJobData = async () => {
       if (!supabase || !job) return;
@@ -85,30 +85,30 @@ const JobQuoteSection = ({
         if (inspError) throw inspError;
         setInspectionData(inspData || []);
         
-        // Check for repair data
-        const { data: repairData, error: repairError } = await supabase
-          .from('job_repairs')
+        // Check for replacement data
+        const { data: replacementData, error: replacementError } = await supabase
+          .from('job_replacements')
           .select('*')
           .eq('job_id', job.id);
 
-        if (!repairError && repairData && repairData.length > 0) {
-          console.log("Found repair/replacement data:", repairData);
+        if (!replacementError && replacementData && replacementData.length > 0) {
+          console.log("Found replacement/repair data:", replacementData);
           
-          // Store the first repair data for sending quotes
-          if (repairData[0]) {
-            setRepairData(repairData[0]);
-            setSelectedPhase(repairData[0].selected_phase || 'phase2');
-            setTotalCost(repairData[0].total_cost || 0);
+          // Store the first replacement data for sending quotes
+          if (replacementData[0]) {
+            setReplacementData(replacementData[0]);
+            setSelectedPhase(replacementData[0].selected_phase || 'phase2');
+            setTotalCost(replacementData[0].total_cost || 0);
           }
           
-          // Organize repair data by inspection_id
-          const repairDataMap: {[key: string]: any} = {};
-          let totalRepairCostSum = 0;
+          // Organize replacement data by inspection_id
+          const replacementDataMap: {[key: string]: any} = {};
+          let totalReplacementCostSum = 0;
           
-          repairData.forEach(item => {
+          replacementData.forEach(item => {
             if (item.inspection_id) {
-              // For repair data
-              repairDataMap[item.inspection_id] = {
+              // For replacement data
+              replacementDataMap[item.inspection_id] = {
                 needsCrane: item.needs_crane,
                 phase1: item.phase1,
                 phase2: item.phase2,
@@ -127,30 +127,30 @@ const JobQuoteSection = ({
                 created_at: item.created_at
               };
               
-              totalRepairCostSum += Number(item.total_cost || 0);
+              totalReplacementCostSum += Number(item.total_cost || 0);
             }
           });
           
-          setRepairDataByInspection(repairDataMap);
-          setTotalRepairCost(totalRepairCostSum);
+          setReplacementDataByInspection(replacementDataMap);
+          setTotalReplacementCost(totalReplacementCostSum);
           
-          // Check if we have part items to determine if replacement is available
+          // Check if we have part items to determine if repair is available
           const hasPartItems = jobItems.some(item => item.type === 'part');
           setHasPartItems(hasPartItems);
           
           // Set availability flags
-          setHasRepairData(Object.keys(repairDataMap).length > 0);
-          setHasReplacementData(hasPartItems);
+          setHasReplacementData(Object.keys(replacementDataMap).length > 0);
+          setHasRepairData(hasPartItems);
         } else {
-          console.log("No repair/replacement data found");
-          if (repairError) {
-            console.error("Error fetching repair data:", repairError);
+          console.log("No replacement/repair data found");
+          if (replacementError) {
+            console.error("Error fetching replacement data:", replacementError);
           }
           
-          // Check if we have part items to determine if replacement is available
+          // Check if we have part items to determine if repair is available
           const hasPartItems = jobItems.some(item => item.type === 'part');
           setHasPartItems(hasPartItems);
-          setHasReplacementData(hasPartItems);
+          setHasRepairData(hasPartItems);
         }
         
         // Set location and unit data for quote emails
@@ -182,12 +182,12 @@ const JobQuoteSection = ({
           setAllQuotes(quotesData);
           
           // Check if we have sent quotes by type
-          const sentRepair = quotesData.some(q => q.quote_type === 'repair');
           const sentReplacement = quotesData.some(q => q.quote_type === 'replacement');
+          const sentRepair = quotesData.some(q => q.quote_type === 'repair');
           
           setSentQuoteTypes({
-            repair: sentRepair,
-            replacement: sentReplacement
+            replacement: sentReplacement,
+            repair: sentRepair
           });
         } else if (quotesError) {
           console.error("Error fetching quotes:", quotesError);
@@ -202,8 +202,8 @@ const JobQuoteSection = ({
 
         if (!templatesError && defaultEmailTemplates) {
           const templates = {
-            repair: defaultEmailTemplates.find(t => t.template_data.templateType === 'repair') || null,
-            replacement: defaultEmailTemplates.find(t => t.template_data.templateType === 'replacement') || null
+            replacement: defaultEmailTemplates.find(t => t.template_data.templateType === 'replacement') || null,
+            repair: defaultEmailTemplates.find(t => t.template_data.templateType === 'repair') || null
           };
           
           setDefaultTemplates(templates);
@@ -232,17 +232,17 @@ const JobQuoteSection = ({
     checkJobData();
   }, [supabase, job, activeTab, jobItems]);
 
-  // Calculate replacement cost from part items
+  // Calculate repair cost from part items
   useEffect(() => {
     if (jobItems && jobItems.length > 0) {
       const partItemsTotal = jobItems
         .filter(item => item.type === 'part')
         .reduce((total, item) => total + Number(item.total_cost), 0);
       
-      setTotalReplacementCost(partItemsTotal);
-      setHasReplacementData(partItemsTotal > 0);
+      setTotalRepairCost(partItemsTotal);
+      setHasRepairData(partItemsTotal > 0);
     } else {
-      setTotalReplacementCost(0);
+      setTotalRepairCost(0);
     }
   }, [jobItems]);
 
@@ -271,20 +271,20 @@ const JobQuoteSection = ({
         <h2 className="text-lg font-medium">Quotes</h2>
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => onPreviewQuote(activeTab === 'all' ? 'repair' : activeTab)}
+            onClick={() => onPreviewQuote(activeTab === 'all' ? 'replacement' : activeTab)}
             className="btn btn-secondary btn-sm"
           >
             <Eye size={16} className="mr-2" />
             Preview Quote
           </button>
-          {!job.quote_sent || (activeTab === 'repair' && !sentQuoteTypes.repair) || (activeTab === 'replacement' && !sentQuoteTypes.replacement) ? (
+          {!job.quote_sent || (activeTab === 'replacement' && !sentQuoteTypes.replacement) || (activeTab === 'repair' && !sentQuoteTypes.repair) ? (
             <button
               onClick={() => {
                 setShowSendQuoteModal(true);
               }}
               className="btn btn-primary btn-sm"
-              disabled={(activeTab === 'repair' && !hasRepairData) || 
-                       (activeTab === 'replacement' && !hasReplacementData) ||
+              disabled={(activeTab === 'replacement' && !hasReplacementData) || 
+                       (activeTab === 'repair' && !hasRepairData) ||
                        activeTab === 'all'}
             >
               <Send size={16} className="mr-2" />
@@ -308,22 +308,6 @@ const JobQuoteSection = ({
       {/* Quote Type Tabs */}
       <div className="mb-6 flex border-b border-gray-200 overflow-x-auto">
         <button
-          onClick={() => setActiveTab('repair')}
-          className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-            activeTab === 'repair'
-              ? 'text-gray-900 border-b-2 border-gray-900'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <div className="flex items-center">
-            <Home size={16} className="mr-2" />
-            Repair Quote
-            {sentQuoteTypes.repair && (
-              <span className="ml-2 w-2 h-2 bg-success-500 rounded-full"></span>
-            )}
-          </div>
-        </button>
-        <button
           onClick={() => setActiveTab('replacement')}
           className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
             activeTab === 'replacement'
@@ -332,9 +316,25 @@ const JobQuoteSection = ({
           }`}
         >
           <div className="flex items-center">
-            <Package size={16} className="mr-2" />
+            <Home size={16} className="mr-2" />
             Replacement Quote
             {sentQuoteTypes.replacement && (
+              <span className="ml-2 w-2 h-2 bg-success-500 rounded-full"></span>
+            )}
+          </div>
+        </button>
+        <button
+          onClick={() => setActiveTab('repair')}
+          className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+            activeTab === 'repair'
+              ? 'text-gray-900 border-b-2 border-gray-900'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <div className="flex items-center">
+            <Package size={16} className="mr-2" />
+            Repair Quote
+            {sentQuoteTypes.repair && (
               <span className="ml-2 w-2 h-2 bg-success-500 rounded-full"></span>
             )}
           </div>
@@ -356,9 +356,9 @@ const JobQuoteSection = ({
 
       {/* Quote Content Based on Active Tab */}
       <div className="space-y-4">
-        {activeTab === 'repair' && (
+        {activeTab === 'replacement' && (
           <div>
-            {hasRepairData ? (
+            {hasReplacementData ? (
               <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-md">
                 <div className="flex">
                   <div className="flex-shrink-0">
@@ -366,11 +366,11 @@ const JobQuoteSection = ({
                   </div>
                   <div className="ml-3">
                     <h3 className="text-sm font-medium text-blue-800">
-                      Repair Data Available
+                      Replacement Data Available
                     </h3>
                     <div className="mt-2 text-sm text-blue-700">
                       <p>
-                        Repair data is available for this job. You can send a repair quote to the customer.
+                        Replacement data is available for this job. You can send a replacement quote to the customer.
                       </p>
                     </div>
                   </div>
@@ -379,7 +379,7 @@ const JobQuoteSection = ({
             ) : (
               <div className="bg-gray-50 p-4 rounded-md">
                 <p className="text-gray-600 text-center">
-                  No repair data available. Complete a repair assessment first before sending a repair quote.
+                  No replacement data available. Complete a replacement assessment first before sending a replacement quote.
                 </p>
               </div>
             )}
@@ -401,9 +401,9 @@ const JobQuoteSection = ({
                       <p className="mt-1">
                         <span className="font-medium">
                           Customer {job.repair_approved ? (
-                            <span className="text-success-700">approved repairs</span>
+                            <span className="text-success-700">approved replacements</span>
                           ) : (
-                            <span className="text-error-700">declined repairs</span>
+                            <span className="text-error-700">declined replacements</span>
                           )}
                         </span>
                       </p>
@@ -415,9 +415,9 @@ const JobQuoteSection = ({
           </div>
         )}
 
-        {activeTab === 'replacement' && (
+        {activeTab === 'repair' && (
           <div>
-            {hasReplacementData ? (
+            {hasRepairData ? (
               <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-md">
                 <div className="flex">
                   <div className="flex-shrink-0">
@@ -425,13 +425,13 @@ const JobQuoteSection = ({
                   </div>
                   <div className="ml-3">
                     <h3 className="text-sm font-medium text-blue-800">
-                      Replacement Data Available
+                      Repair Data Available
                     </h3>
                     <div className="mt-2 text-sm text-blue-700">
                       <p>
                         {hasPartItems ? 
-                          "Replacement parts have been added to this job. You can send a replacement quote to the customer." :
-                          "Replacement data is available for this job. You can send a replacement quote to the customer."}
+                          "Repair parts have been added to this job. You can send a repair quote to the customer." :
+                          "Repair data is available for this job. You can send a repair quote to the customer."}
                       </p>
                     </div>
                   </div>
@@ -440,7 +440,7 @@ const JobQuoteSection = ({
             ) : (
               <div className="bg-gray-50 p-4 rounded-md">
                 <p className="text-gray-600 text-center">
-                  No replacement data available. Add replacement parts or complete a replacement assessment first before sending a replacement quote.
+                  No repair data available. Add repair parts or complete a repair assessment first before sending a repair quote.
                 </p>
               </div>
             )}
@@ -462,9 +462,9 @@ const JobQuoteSection = ({
                       <p className="mt-1">
                         <span className="font-medium">
                           Customer {job.repair_approved ? (
-                            <span className="text-success-700">approved replacement</span>
+                            <span className="text-success-700">approved repair</span>
                           ) : (
-                            <span className="text-error-700">declined replacement</span>
+                            <span className="text-error-700">declined repair</span>
                           )}
                         </span>
                       </p>
@@ -592,12 +592,12 @@ const JobQuoteSection = ({
         jobName={job.name}
         customerName={job.contact_name || undefined}
         initialEmail={job.contact_email || ''}
-        repairData={repairData}
+        replacementData={replacementData}
         selectedPhase={selectedPhase || undefined}
-        totalCost={activeTab === 'repair' ? totalRepairCost : totalReplacementCost}
+        totalCost={activeTab === 'replacement' ? totalReplacementCost : totalRepairCost}
         location={location}
         unit={unit}
-        quoteType={activeTab === 'all' ? 'repair' : activeTab}
+        quoteType={activeTab === 'all' ? 'replacement' : activeTab}
         onEmailSent={(updatedJob) => {
           if (job) {
             // Update sent quote types
@@ -614,7 +614,7 @@ const JobQuoteSection = ({
           }
         }}
         emailTemplate={emailTemplate}
-        repairDataByInspection={activeTab === 'repair' ? repairDataByInspection : {}}
+        replacementDataByInspection={activeTab === 'replacement' ? replacementDataByInspection : {}}
         inspectionData={inspectionData}
       />
     </div>

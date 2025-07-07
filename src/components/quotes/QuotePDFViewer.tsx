@@ -5,7 +5,7 @@ import { ArrowLeft, Printer, Download, AlertTriangle } from 'lucide-react';
 
 interface QuotePDFViewerProps {
   jobId: string;
-  quoteType: 'inspection' | 'repair' | 'replacement';
+  quoteType: 'replacement' | 'repair';
   onBack: () => void;
 }
 
@@ -58,12 +58,12 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({ jobId, quoteType, onBac
           .eq('completed', true);
         if (inspectionError) throw inspectionError;
 
-        // Fetch repair data
-        const { data: repairData, error: repairError } = await supabase
-          .from('job_repairs')
+        // Fetch replacement data
+        const { data: replacementData, error: replacementError } = await supabase
+          .from('job_replacements')
           .select('*')
           .eq('job_id', jobId);
-        if (repairError && !repairError.message.includes('contains 0 rows')) throw repairError;
+        if (replacementError && !replacementError.message.includes("contains 0 rows")) throw replacementError;
 
         // Fetch job items
         const { data: jobItems, error: itemsError } = await supabase
@@ -72,28 +72,28 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({ jobId, quoteType, onBac
           .eq('job_id', jobId);
         if (itemsError) throw itemsError;
 
-        // Organize repair data by inspection_id
-        const repairDataByInspection: {[key: string]: any} = {};
-        if (repairData && repairData.length > 0) {
-          repairData.forEach(item => {
+        // Organize replacement data by inspection_id
+        const replacementDataByInspection: {[key: string]: any} = {};
+        if (replacementData && replacementData.length > 0) {
+          replacementData.forEach(item => {
             if (item.inspection_id) {
-              repairDataByInspection[item.inspection_id] = {
-                needsCrane: item.needs_crane,
-                phase1: item.phase1,
-                phase2: item.phase2,
-                phase3: item.phase3,
-                labor: item.labor,
-                refrigerationRecovery: item.refrigeration_recovery,
-                startUpCosts: item.start_up_costs,
-                accessories: item.accessories,
-                thermostatStartup: item.thermostat_startup,
-                removalCost: item.removal_cost,
-                warranty: item.warranty,
-                additionalItems: item.additional_items,
-                permitCost: item.permit_cost,
-                selectedPhase: item.selected_phase,
-                totalCost: item.total_cost,
-                created_at: item.created_at
+              replacementDataByInspection[item.inspection_id] = {
+                needsCrane: item.needs_crane || false,
+                phase1: item.phase1 || {},
+                phase2: item.phase2 || {},
+                phase3: item.phase3 || {},
+                labor: item.labor || 0,
+                refrigerationRecovery: item.refrigeration_recovery || 0,
+                startUpCosts: item.start_up_costs || 0,
+                accessories: item.accessories || [],
+                thermostatStartup: item.thermostat_startup || 0,
+                removalCost: item.removal_cost || 0,
+                warranty: item.warranty || '',
+                additionalItems: item.additional_items || [],
+                permitCost: item.permit_cost || 0,
+                selectedPhase: item.selected_phase || 'phase2',
+                totalCost: item.total_cost || 0,
+                created_at: item.created_at || ''
               };
             }
           });
@@ -158,9 +158,9 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({ jobId, quoteType, onBac
             templateId: templateToUse.id,
             jobData,
             inspectionData,
-            repairData: repairData && repairData.length > 0 ? repairData[0] : null,
+            replacementData: replacementData && replacementData.length > 0 ? replacementData[0] : null,
             jobItems,
-            repairDataByInspection
+            replacementDataByInspection
           })
         });
 

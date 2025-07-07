@@ -12,13 +12,13 @@ type SendEmailModalProps = {
   jobName: string;
   customerName?: string;
   initialEmail: string;
-  repairData?: any;
-  allRepairData?: any[];
+  replacementData?: any;
+  allReplacementData?: any[];
   selectedPhase?: string;
   totalCost?: number;
   location?: any;
   unit?: any;
-  quoteType?: 'repair' | 'replacement';
+  quoteType?: 'replacement' | 'repair';
   onEmailSent?: (updatedJob: any) => void;
   emailTemplate?: {
     subject: string;
@@ -32,8 +32,8 @@ type SendEmailModalProps = {
     closingText: string;
     signature: string;
   };
-  repairDataByInspection?: {[key: string]: any};
-  replacementItems?: any[];
+  replacementDataByInspection?: {[key: string]: any};
+  repairItems?: any[];
   inspectionData?: any[];
 };
 
@@ -45,17 +45,17 @@ const SendEmailModal = ({
   jobName,
   customerName,
   initialEmail = '',
-  repairData,
-  allRepairData = [],
+  replacementData,
+  allReplacementData = [],
   selectedPhase,
   totalCost = 0,
   location,
   unit,
-  quoteType = 'repair',
+  quoteType = 'replacement',
   onEmailSent,
   emailTemplate,
-  repairDataByInspection = {},
-  replacementItems = [],
+  replacementDataByInspection = {},
+  repairItems = [],
   inspectionData = []
 }: SendEmailModalProps) => {
   const { supabase } = useSupabase();
@@ -73,13 +73,22 @@ const SendEmailModal = ({
     if (isOpen && supabase && jobId) {
       const fetchData = async () => {
         try {
+          // Check if supabase client is properly initialized
+          if (!supabase) {
+            console.error('Supabase client not available');
+            return;
+          }
+
           // Fetch job items
           const { data: itemsData, error: itemsError } = await supabase
             .from('job_items')
             .select('*')
             .eq('job_id', jobId);
             
-          if (itemsError) throw itemsError;
+          if (itemsError) {
+            console.error('Error fetching job items:', itemsError);
+            throw itemsError;
+          }
           setJobItems(itemsData || []);
           
           // Fetch inspection data if not provided
@@ -90,11 +99,15 @@ const SendEmailModal = ({
               .eq('job_id', jobId)
               .eq('completed', true);
               
-            if (inspError) throw inspError;
+            if (inspError) {
+              console.error('Error fetching inspection data:', inspError);
+              throw inspError;
+            }
             setLocalInspectionData(inspData || []);
           }
         } catch (err) {
           console.error('Error fetching data:', err);
+          setError('Failed to load job data. Please check your connection and try again.');
         }
       };
       
@@ -102,18 +115,18 @@ const SendEmailModal = ({
     }
   }, [isOpen, supabase, jobId, inspectionData]);
 
-  // Calculate the actual total cost from all repair data
+  // Calculate the actual total cost from all replacement data
   const calculateActualTotalCost = () => {
-    // For repair quotes, use the total from repair data by inspection
-    if (quoteType === 'repair' && repairDataByInspection && Object.keys(repairDataByInspection).length > 0) {
-      return Object.values(repairDataByInspection).reduce(
+    // For replacement quotes, use the total from replacement data by inspection
+    if (quoteType === 'replacement' && replacementDataByInspection && Object.keys(replacementDataByInspection).length > 0) {
+      return Object.values(replacementDataByInspection).reduce(
         (sum, data: any) => sum + Number(data.totalCost || 0),
         0
       );
     }
     
-    // For replacement quotes, use the total cost of part items
-    if (quoteType === 'replacement') {
+    // For repair quotes, use the total cost of part items
+    if (quoteType === 'repair') {
       const partItemsTotal = jobItems
         .filter(item => item.type === 'part')
         .reduce((total, item) => total + Number(item.total_cost), 0);
@@ -125,11 +138,11 @@ const SendEmailModal = ({
   };
 
   const actualTotalCost = calculateActualTotalCost();
-  const repairOptionsCount = quoteType === 'repair' ? Object.keys(repairDataByInspection || {}).length : 0;
-  const replacementOptionsCount = quoteType === 'replacement' ? jobItems.filter(item => item.type === 'part').length : 0;
+  const replacementOptionsCount = quoteType === 'replacement' ? Object.keys(replacementDataByInspection || {}).length : 0;
+  const repairOptionsCount = quoteType === 'repair' ? jobItems.filter(item => item.type === 'part').length : 0;
 
-  // Helper function to sanitize repair data
-  const sanitizeRepairData = (data: any) => {
+  // Helper function to sanitize replacement data
+  const sanitizeReplacementData = (data: any) => {
     if (!data) return null;
     
     return {
@@ -189,14 +202,14 @@ const SendEmailModal = ({
     };
   };
 
-  // Helper function to sanitize repair data by inspection
-  const sanitizeRepairDataByInspection = (data: { [key: string]: any }) => {
+  // Helper function to sanitize replacement data by inspection
+  const sanitizeReplacementDataByInspection = (data: { [key: string]: any }) => {
     if (!data || typeof data !== 'object') return {};
     
     const result: { [key: string]: any } = {};
     
     for (const [key, value] of Object.entries(data)) {
-      result[key] = sanitizeRepairData(value);
+      result[key] = sanitizeReplacementData(value);
     }
     
     return result;
@@ -285,9 +298,9 @@ const SendEmailModal = ({
       }
       
       // Sanitize data for the PDF generation
-      const sanitizedRepairData = sanitizeRepairData(repairData);
+      const sanitizedReplacementData = sanitizeReplacementData(replacementData);
       
-      // Important: Pass repairDataByInspection to the PDF generator
+      // Important: Pass replacementDataByInspection to the PDF generator
       const response = await fetch(generatePdfUrl, {
         method: 'POST',
         headers: {
@@ -301,9 +314,9 @@ const SendEmailModal = ({
           templateId: templateData.id,
           jobData: minimalJobData,
           inspectionData: inspData,
-          repairData: sanitizedRepairData,
-          jobItems: jobItems.filter(item => quoteType === 'replacement' ? item.type === 'part' : true),
-          repairDataByInspection: sanitizeRepairDataByInspection(repairDataByInspection)
+          replacementData: sanitizedReplacementData,
+          jobItems: jobItems.filter(item => quoteType === 'repair' ? item.type === 'part' : true),
+          replacementDataByInspection: sanitizeReplacementDataByInspection(replacementDataByInspection)
         })
       });
       
@@ -342,21 +355,21 @@ const SendEmailModal = ({
       let apiUrl;
       let requestBody;
 
-      if (quoteType === 'repair' || quoteType === 'replacement') {
+      if (quoteType === 'replacement' || quoteType === 'repair') {
         apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-repair-quote`;
         
-        // Get all repair data
-        const { data: fetchedRepairData, error: repairError } = await supabase
-          .from('job_repairs')
+        // Get all replacement data
+        const { data: fetchedReplacementData, error: replacementError } = await supabase
+          .from('job_replacements')
           .select('*')
           .eq('job_id', jobId);
           
-        if (repairError) throw repairError;
+        if (replacementError) throw replacementError;
         
-        const sanitizedAllRepairData = fetchedRepairData ? fetchedRepairData.map(sanitizeRepairData) : [];
+        const sanitizedAllReplacementData = fetchedReplacementData ? fetchedReplacementData.map(sanitizeReplacementData) : [];
         
-        // For replacement quotes, get all part items
-        const replacementItems = quoteType === 'replacement' 
+        // For repair quotes, get all part items
+        const repairItems = quoteType === 'repair' 
           ? jobItems.filter(item => item.type === 'part')
           : [];
         
@@ -367,8 +380,8 @@ const SendEmailModal = ({
           jobNumber,
           jobName,
           customerName,
-          repairData: sanitizedRepairData,
-          allRepairData: sanitizedAllRepairData,
+          replacementData: sanitizedReplacementData,
+          allReplacementData: sanitizedAllReplacementData,
           selectedPhase,
           totalCost: actualTotalCost,
           location: sanitizeLocationData(location),
@@ -377,9 +390,9 @@ const SendEmailModal = ({
           quoteType,
           emailTemplate,
           pdfUrl: generateResult.pdfUrl,
-          repairDataByInspection: quoteType === 'repair' ? 
-            sanitizeRepairDataByInspection(repairDataByInspection) : {},
-          replacementItems: quoteType === 'replacement' ? replacementItems : [],
+          replacementDataByInspection: quoteType === 'replacement' ? 
+            sanitizeReplacementDataByInspection(replacementDataByInspection) : {},
+          repairItems: quoteType === 'repair' ? repairItems : [],
           inspectionData: inspData
         };
       } else {
@@ -442,7 +455,7 @@ const SendEmailModal = ({
           <Send size={40} />
         </div>
         <h3 className="text-lg font-semibold text-center mb-4">
-          {quoteType === 'repair' ? 'Send Repair Quote' : 'Send Replacement Quote'}
+          {quoteType === 'replacement' ? 'Send Replacement Quote' : 'Send Repair Quote'}
         </h3>
         
         {error && (
@@ -503,12 +516,12 @@ const SendEmailModal = ({
                     <span className="text-gray-600">Customer:</span>
                     <span className="font-medium">{customerName || 'Not specified'}</span>
                   </div>
-                  {quoteType === 'repair' && (
+                  {quoteType === 'replacement' && (
                     <>
                       <div className="flex justify-between mb-2">
-                        <span className="text-gray-600">Repair Options:</span>
+                        <span className="text-gray-600">Replacement Options:</span>
                         <span className="font-medium">
-                          {repairOptionsCount} option(s)
+                          {replacementOptionsCount} option(s)
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -517,12 +530,12 @@ const SendEmailModal = ({
                       </div>
                     </>
                   )}
-                  {quoteType === 'replacement' && (
+                  {quoteType === 'repair' && (
                     <>
                       <div className="flex justify-between mb-2">
-                        <span className="text-gray-600">Replacement Items:</span>
+                        <span className="text-gray-600">Repair Items:</span>
                         <span className="font-medium">
-                          {replacementOptionsCount} item(s)
+                          {repairOptionsCount} item(s)
                         </span>
                       </div>
                       <div className="flex justify-between">

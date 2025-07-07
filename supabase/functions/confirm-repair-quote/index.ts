@@ -70,7 +70,7 @@ serve(async (req)=>{
     const { error: updateError } = await supabase.from('jobs').update({
       quote_confirmed: true,
       quote_confirmed_at: new Date().toISOString(),
-      repair_approved: approved
+      replacement_approved: approved
     }).eq('id', jobData.id);
     if (updateError) {
       throw updateError;
@@ -78,8 +78,8 @@ serve(async (req)=>{
     return new Response(JSON.stringify({
       success: true,
       message: `Quote ${approved ? 'approved' : 'declined'} successfully`,
-      // Default to repair if no quote type is specified
-      quoteType: "repair"
+      // Default to replacement if no quote type is specified
+      quoteType: "replacement"
     }), {
       status: 200,
       headers: {

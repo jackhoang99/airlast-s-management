@@ -522,7 +522,7 @@ export interface Database {
           repair_approved?: boolean | null
         }
       }
-      job_repairs: {  // Changed from job_replacements to job_repairs
+      job_replacements: {
         Row: {
           id: string
           job_id: string

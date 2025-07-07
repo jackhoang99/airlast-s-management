@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSupabase } from '../../lib/supabase-context';
 import { Database } from '../../types/supabase';
-import { Plus, Edit, Trash2, Search, Filter, Package, Wrench, ShoppingCart, Clipboard, Home, Send, ChevronDown, ChevronUp, X, CheckCircle, AlertTriangle, Clock, FileText, Check, Users } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Filter, Package, Wrench, ShoppingCart, Clipboard, Home, Send, ChevronDown, ChevronUp, X, CheckCircle, AlertTriangle, Clock, Users, FileText } from 'lucide-react';
 import AddJobPricingModal from './AddJobPricingModal';
 import EditJobItemModal from './EditJobItemModal';
 import RepairsForm from './replacement/RepairsForm';
@@ -27,17 +27,17 @@ const ServiceSection = ({
   const [showEditItemModal, setShowEditItemModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'repair' | 'replacement'>('repair');
+  const [activeTab, setActiveTab] = useState<'replacement' | 'repair'>('replacement');
 
   const [jobDetails, setJobDetails] = useState<any>(null);
   const [selectedInspection, setSelectedInspection] = useState<any>(null);
-  const [showRepairsForm, setShowRepairsForm] = useState(false);
+  const [showReplacementsForm, setShowReplacementsForm] = useState(false);
   const [showInspectionForm, setShowInspectionForm] = useState(false);
   const [inspectionToEdit, setInspectionToEdit] = useState<any>(null);
 
-  // Hold all repair data for every inspection
-  const [repairDataByInspection, setRepairDataByInspection] = useState<{ [key: string]: any }>({});
-  const [allRepairData, setAllRepairData] = useState<any[]>([]);
+  // Hold all replacement data for every inspection
+  const [replacementDataByInspection, setReplacementDataByInspection] = useState<{ [key: string]: any }>({});
+  const [allReplacementData, setAllReplacementData] = useState<any[]>([]);
 
   const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
   const [allInspections, setAllInspections] = useState<any[]>([]);
@@ -45,7 +45,7 @@ const ServiceSection = ({
   const [quoteReady, setQuoteReady] = useState(false);
 
   // Combined total across all inspections
-  const [totalRepairCost, setTotalRepairCost] = useState(0);
+  const [totalReplacementCost, setTotalReplacementCost] = useState(0);
   
   // Add a refresh trigger
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -58,30 +58,30 @@ const ServiceSection = ({
     return groups;
   }, {} as Record<string, any[]>);
 
-  // Fetch repair data for all inspections
+  // Fetch replacement data for all inspections
   useEffect(() => {
-    const fetchRepairData = async () => {
+    const fetchReplacementData = async () => {
       if (!supabase || !jobId) return;
       
       try {
-        const { data: repairData, error: repairError } = await supabase
-          .from('job_repairs')
+        const { data: replacementData, error: replacementError } = await supabase
+          .from('job_replacements')
           .select('*')
           .eq('job_id', jobId);
 
-        if (repairError) {
-          console.error('Error fetching repair data:', repairError);
-          throw repairError;
+        if (replacementError) {
+          console.error('Error fetching replacement data:', replacementError);
+          throw replacementError;
         }
         
-        if (repairData && repairData.length > 0) {
+        if (replacementData && replacementData.length > 0) {
           // Organize by inspection_id
-          const repairDataMap: {[key: string]: any} = {};
-          let totalRepairCostSum = 0;
+          const replacementDataMap: {[key: string]: any} = {};
+          let totalReplacementCostSum = 0;
           
-          repairData.forEach(item => {
+          replacementData.forEach(item => {
             if (item.inspection_id) {
-              repairDataMap[item.inspection_id] = {
+              replacementDataMap[item.inspection_id] = {
                 needsCrane: item.needs_crane,
                 phase1: item.phase1,
                 phase2: item.phase2,
@@ -96,25 +96,26 @@ const ServiceSection = ({
                 additionalItems: item.additional_items,
                 permitCost: item.permit_cost,
                 selectedPhase: item.selected_phase,
-                totalCost: item.total_cost
+                totalCost: item.total_cost,
+                created_at: item.created_at
               };
               
-              totalRepairCostSum += Number(item.total_cost || 0);
+              totalReplacementCostSum += Number(item.total_cost || 0);
             }
           });
           
-          setRepairDataByInspection(repairDataMap);
-          setAllRepairData(repairData);
+          setReplacementDataByInspection(replacementDataMap);
+          setAllReplacementData(replacementData);
           
-          // Calculate total repair cost
-          setTotalRepairCost(totalRepairCostSum);
+          // Calculate total replacement cost
+          setTotalReplacementCost(totalReplacementCostSum);
         }
       } catch (err) {
-        console.error('Error fetching repair data:', err);
+        console.error('Error fetching replacement data:', err);
       }
     };
     
-    fetchRepairData();
+    fetchReplacementData();
   }, [supabase, jobId, refreshTrigger]);
 
   // Fetch inspections and job details
@@ -213,17 +214,17 @@ const ServiceSection = ({
     }
   };
 
-  // When a repair is saved for a particular inspection
-  const handleSaveRepair = (data: any, inspectionId: string) => {
-    console.log('Repair data saved for inspection:', inspectionId, data);
+  // When a replacement is saved for a particular inspection
+  const handleSaveReplacement = (data: any, inspectionId: string) => {
+    console.log('Replacement data saved for inspection:', inspectionId, data);
 
     // Update local state
-    setRepairDataByInspection((prev) => ({
+    setReplacementDataByInspection((prev) => ({
       ...prev,
       [inspectionId]: data,
     }));
 
-    setShowRepairsForm(false);
+    setShowReplacementsForm(false);
     onItemsUpdated();
     if (onQuoteStatusChange) {
       onQuoteStatusChange();
@@ -233,21 +234,21 @@ const ServiceSection = ({
     setRefreshTrigger(prev => prev + 1);
   };
 
-  // User clicks an inspection: either show existing repairs or open new form
+  // User clicks an inspection: either show existing replacements or open new form
   const handleSelectInspection = (inspection: any) => {
     setSelectedInspection(inspection);
 
-    if (inspection && repairDataByInspection[inspection.id]) {
-      // If repair data exists, show the form with existing data
-      setShowRepairsForm(true);
+    if (inspection && replacementDataByInspection[inspection.id]) {
+      // If replacement data exists, show the form with existing data
+      setShowReplacementsForm(true);
     } else {
-      // If no repair data exists, show the form to create new data
-      setShowRepairsForm(true);
+      // If no replacement data exists, show the form to create new data
+      setShowReplacementsForm(true);
     }
   };
 
-  // "Finish Repair Details" button: mark all inspections complete, fetch everything, compute totals, then open modal
-  const handleFinishRepairDetails = async () => {
+  // "Finish Replacement Details" button: mark all inspections complete, fetch everything, compute totals, then open modal
+  const handleFinishReplacementDetails = async () => {
     if (!supabase) return;
 
     try {
@@ -283,23 +284,23 @@ const ServiceSection = ({
       if (jobError) throw jobError;
       setJobDetails(jobData);
 
-      // Fetch all repair rows for this job
-      const { data: allRepData, error: repairError } = await supabase
-        .from('job_repairs')
+      // Fetch all replacement rows for this job
+      const { data: allRepData, error: replacementError } = await supabase
+        .from('job_replacements')
         .select('*')
         .eq('job_id', jobId);
 
-      if (repairError) throw repairError;
+      if (replacementError) throw replacementError;
 
-      // Store all repair rows for the modal
-      setAllRepairData(allRepData || []);
+      // Store all replacement rows for the modal
+      setAllReplacementData(allRepData || []);
 
-      // Calculate the actual total cost from all repair data
-      const actualTotalCost = Object.values(repairDataByInspection).reduce(
+      // Calculate the actual total cost from all replacement data
+      const actualTotalCost = Object.values(replacementDataByInspection).reduce(
         (sum, data: any) => sum + (data.totalCost || 0), 
         0
       );
-      setTotalRepairCost(actualTotalCost);
+      setTotalReplacementCost(actualTotalCost);
 
       // Finally, open the "Send Quote" modal
       setShowSendQuoteModal(true);
@@ -328,13 +329,13 @@ const ServiceSection = ({
     if (!supabase) return;
     
     try {
-      // First delete any associated repair data
-      const { error: repairDeleteError } = await supabase
-        .from('job_repairs')
+      // First delete any associated replacement data
+      const { error: replacementDeleteError } = await supabase
+        .from('job_replacements')
         .delete()
         .eq('inspection_id', inspectionId);
         
-      if (repairDeleteError) throw repairDeleteError;
+      if (replacementDeleteError) throw replacementDeleteError;
       
       // Then delete the inspection
       const { error } = await supabase
@@ -366,21 +367,21 @@ const ServiceSection = ({
       
       // Check if job_repairs record exists for each inspection
       for (const inspection of allInspections) {
-        const { data: repairData, error: repairError } = await supabase
-          .from('job_repairs')
+        const { data: replacementData, error: replacementError } = await supabase
+          .from('job_replacements')
           .select('id')
           .eq('job_id', jobId)
           .eq('inspection_id', inspection.id)
           .maybeSingle();
           
-        if (repairError && !repairError.message.includes('The result contains 0 rows')) {
-          throw repairError;
+        if (replacementError && !replacementError.message.includes("The result contains 0 rows")) {
+          throw replacementError;
         }
         
-        // If no repair record exists for this inspection, create one
-        if (!repairData) {
+        // If no replacement record exists for this inspection, create one
+        if (!replacementData) {
           const { error: insertError } = await supabase
-            .from('job_repairs')
+            .from('job_replacements')
             .insert({
               job_id: jobId,
               inspection_id: inspection.id,
@@ -427,17 +428,6 @@ const ServiceSection = ({
       {/* View Toggle */}
       <div className="flex border rounded-lg overflow-hidden">
         <button
-          onClick={() => setActiveTab('repair')}
-          className={`flex-1 py-2 px-3 text-sm font-medium ${
-            activeTab === 'repair' 
-              ? 'bg-primary-50 text-primary-700' 
-              : 'bg-white text-gray-700 hover:bg-gray-50'
-          }`}
-        >
-          <Home size={16} className="inline-block mr-1" />
-          Repair
-        </button>
-        <button
           onClick={() => setActiveTab('replacement')}
           className={`flex-1 py-2 px-3 text-sm font-medium ${
             activeTab === 'replacement' 
@@ -445,13 +435,24 @@ const ServiceSection = ({
               : 'bg-white text-gray-700 hover:bg-gray-50'
           }`}
         >
-          <Package size={16} className="inline-block mr-1" />
+          <Home size={16} className="inline-block mr-1" />
           Replacement
+        </button>
+        <button
+          onClick={() => setActiveTab('repair')}
+          className={`flex-1 py-2 px-3 text-sm font-medium ${
+            activeTab === 'repair' 
+              ? 'bg-primary-50 text-primary-700' 
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <Package size={16} className="inline-block mr-1" />
+          Repair
         </button>
       </div>
 
-      {/* Repair View */}
-      {activeTab === 'repair' && (
+      {/* Replacement View */}
+      {activeTab === 'replacement' && (
         <div className="space-y-4">
           {showInspectionForm ? (
             <InspectionForm 
@@ -463,14 +464,14 @@ const ServiceSection = ({
                 setInspectionToEdit(null);
               }}
             />
-          ) : showRepairsForm && selectedInspection ? (
+          ) : showReplacementsForm && selectedInspection ? (
             <RepairsForm 
               jobId={jobId} 
               inspectionId={selectedInspection.id} 
-              initialData={repairDataByInspection[selectedInspection.id]}
-              onSave={(data) => handleSaveRepair(data, selectedInspection.id)}
+              initialData={replacementDataByInspection[selectedInspection.id]}
+              onSave={(data) => handleSaveReplacement(data, selectedInspection.id)}
               selectedInspection={selectedInspection}
-              onClose={() => setShowRepairsForm(false)}
+              onClose={() => setShowReplacementsForm(false)}
             />
           ) : (
             <div className="space-y-4">
@@ -478,7 +479,7 @@ const ServiceSection = ({
               <div className="border rounded-lg overflow-hidden">
                 <div className="bg-blue-50 p-4 flex justify-between items-center">
                   <h3 className="text-md font-medium flex items-center">
-                    <Clipboard size={16} className="mr-2 text-blue-500" />
+                    <Clipboard size={14} className="mr-1 text-blue-500" />
                     Inspection Details
                   </h3>
                   <div className="flex gap-2">
@@ -510,7 +511,7 @@ const ServiceSection = ({
                         <p className="text-sm text-success-700">Inspections completed</p>
                         {quoteReady && !jobDetails?.quote_sent && (
                           <p className="text-sm mt-1 text-success-700">
-                            Ready to add repair details for each inspection.
+                            Ready to add replacement details for each inspection.
                           </p>
                         )}
                         {jobDetails?.quote_sent && !jobDetails?.quote_confirmed && (
@@ -526,12 +527,12 @@ const ServiceSection = ({
                             {jobDetails.repair_approved ? (
                               <p className="text-success-700 flex items-center mt-1">
                                 <Check size={14} className="mr-1" />
-                                Customer approved repairs
+                                Customer approved replacements
                               </p>
                             ) : jobDetails.repair_approved === false ? (
                               <p className="text-error-700 flex items-center mt-1">
                                 <X size={14} className="mr-1" />
-                                Customer declined repairs
+                                Customer declined replacements
                               </p>
                             ) : null}
                           </div>
@@ -545,11 +546,11 @@ const ServiceSection = ({
                 {allInspections.length > 0 ? (
                   <div className="p-4 space-y-3">
                     {allInspections.map((inspection) => {
-                      const hasRepairData = repairDataByInspection[inspection.id];
-                      const repairStatus = hasRepairData ? {
-                        selectedPhase: hasRepairData.selectedPhase || 'phase2',
-                        totalCost: hasRepairData.totalCost || 0,
-                        needsCrane: hasRepairData.needsCrane || false
+                      const hasReplacementData = replacementDataByInspection[inspection.id];
+                      const replacementStatus = hasReplacementData ? {
+                        selectedPhase: hasReplacementData.selectedPhase || 'phase2',
+                        totalCost: hasReplacementData.totalCost || 0,
+                        needsCrane: hasReplacementData.needsCrane || false
                       } : null;
                       
                       return (
@@ -576,24 +577,24 @@ const ServiceSection = ({
                                       Selected
                                     </span>
                                   )}
-                                  {hasRepairData && (
+                                  {hasReplacementData && (
                                     <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                                      Repair Data
+                                      Replacement Data
                                     </span>
                                   )}
                                 </div>
                               </div>
                               
-                              {/* Show compact repair info if available */}
-                              {hasRepairData && (
+                              {/* Show compact replacement info if available */}
+                              {hasReplacementData && (
                                 <div className="text-xs text-gray-600 mt-1">
                                   <span className="font-medium">
-                                    {repairStatus?.selectedPhase === 'phase1' ? 'Economy' : 
-                                     repairStatus?.selectedPhase === 'phase2' ? 'Standard' : 'Premium'} Option
+                                    {replacementStatus?.selectedPhase === 'phase1' ? 'Economy' : 
+                                     replacementStatus?.selectedPhase === 'phase2' ? 'Standard' : 'Premium'} Option
                                   </span>
                                   <span className="mx-1">•</span>
-                                  <span className="font-medium">${repairStatus?.totalCost.toLocaleString()}</span>
-                                  {repairStatus?.needsCrane && (
+                                  <span className="font-medium">${replacementStatus?.totalCost.toLocaleString()}</span>
+                                  {replacementStatus?.needsCrane && (
                                     <span className="ml-1">(Crane Required)</span>
                                   )}
                                 </div>
@@ -606,7 +607,7 @@ const ServiceSection = ({
                               onClick={() => handleSelectInspection(inspection)}
                               className="btn btn-primary btn-sm"
                             >
-                              {hasRepairData ? 'Edit Repair' : 'Add Repair'}
+                              {hasReplacementData ? 'Edit Replacement' : 'Add Replacement'}
                             </button>
                             <button
                               onClick={() => handleEditInspection(inspection)}
@@ -675,28 +676,28 @@ const ServiceSection = ({
                 )}
               </div>
               
-              {/* Repair Summary */}
-              {Object.keys(repairDataByInspection).length > 0 && (
+              {/* Replacement Summary */}
+              {Object.keys(replacementDataByInspection).length > 0 && (
                 <div className="border rounded-lg overflow-hidden">
                   <div className="bg-green-50 p-4 flex justify-between items-center">
                     <h3 className="text-md font-medium flex items-center">
                       <Home size={16} className="mr-2 text-green-500" />
-                      Repair Summary
+                      Replacement Summary
                     </h3>
                     <button
-                      onClick={handleFinishRepairDetails}
+                      onClick={handleFinishReplacementDetails}
                       className="btn btn-primary btn-sm"
-                      disabled={Object.keys(repairDataByInspection).length === 0}
+                      disabled={Object.keys(replacementDataByInspection).length === 0}
                     >
                       <Send size={14} className="mr-1" />
-                      Send Repair Quote
+                      Send Replacement Quote
                     </button>
                   </div>
                   
                   <div className="p-4">
-                    {/* Display repair details for each inspection */}
+                    {/* Display replacement details for each inspection */}
                     <div className="space-y-3 mb-4">
-                      {Object.entries(repairDataByInspection).map(([inspectionId, data], index) => {
+                      {Object.entries(replacementDataByInspection).map(([inspectionId, data], index) => {
                         const inspection = allInspections.find(insp => insp.id === inspectionId);
                         return (
                           <div 
@@ -705,7 +706,7 @@ const ServiceSection = ({
                           >
                             <div className="flex justify-between items-center">
                               <h5 className="font-medium text-sm">
-                                Repair {index + 1} {inspection ? `(${new Date(inspection.created_at).toLocaleDateString()})` : ''}
+                                Replacement {index + 1} {inspection ? `(${new Date(inspection.created_at).toLocaleDateString()})` : ''}
                               </h5>
                               <div className="text-sm font-bold text-green-800">
                                 ${Number(data.totalCost).toLocaleString()}
@@ -728,7 +729,7 @@ const ServiceSection = ({
                           Combined Total
                         </p>
                         <p className="text-blue-800 font-bold">
-                          ${totalRepairCost.toLocaleString()}
+                          ${totalReplacementCost.toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -745,7 +746,7 @@ const ServiceSection = ({
                       <h4 className="font-medium text-blue-800">Start with an Inspection</h4>
                       <p className="text-sm text-blue-700 mt-1">
                         Begin by adding an inspection to record equipment details. After completing the inspection, 
-                        you can add repair details and send a quote to the customer.
+                        you can add replacement details and send a quote to the customer.
                       </p>
                       <button
                         onClick={handleAddInspection}
@@ -768,7 +769,7 @@ const ServiceSection = ({
                       <h4 className="font-medium text-blue-800">Complete Your Inspections</h4>
                       <p className="text-sm text-blue-700 mt-1">
                         Once you've added all necessary inspections, click "Complete Inspections" to proceed 
-                        with adding repair details for each inspection.
+                        with adding replacement details for each inspection.
                       </p>
                       <button
                         onClick={handleCompleteInspections}
@@ -782,19 +783,19 @@ const ServiceSection = ({
                 </div>
               )}
               
-              {/* Guidance for adding repair details */}
-              {inspectionCompleted && Object.keys(repairDataByInspection).length < allInspections.length && (
+              {/* Guidance for adding replacement details */}
+              {inspectionCompleted && Object.keys(replacementDataByInspection).length < allInspections.length && (
                 <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
                   <div className="flex items-start">
                     <FileText className="h-5 w-5 text-yellow-500 mt-0.5 mr-2" />
                     <div>
-                      <h4 className="font-medium text-yellow-800">Add Repair Details</h4>
+                      <h4 className="font-medium text-yellow-800">Add Replacement Details</h4>
                       <p className="text-sm text-yellow-700 mt-1">
-                        Click "Add Repair" or "Edit Repair" on each inspection to add repair details. 
-                        Once all inspections have repair details, you can send a quote to the customer.
+                        Click "Add Replacement" or "Edit Replacement" on each inspection to add replacement details. 
+                        Once all inspections have replacement details, you can send a quote to the customer.
                       </p>
                       <p className="text-sm text-yellow-700 mt-1 font-medium">
-                        {Object.keys(repairDataByInspection).length} of {allInspections.length} inspections have repair details
+                        {Object.keys(replacementDataByInspection).length} of {allInspections.length} inspections have replacement details
                       </p>
                     </div>
                   </div>
@@ -805,14 +806,14 @@ const ServiceSection = ({
         </div>
       )}
 
-      {/* Replacement Items Tab */}
-      {activeTab === 'replacement' &&
+      {/* Repair Items Tab */}
+      {activeTab === 'repair' &&
         (jobItems.length > 0 ? (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-md font-medium flex items-center">
                 <Package size={16} className="mr-2 text-blue-500" />
-                Replacement Items
+                Repair Items
               </h3>
               <button
                 onClick={() => setShowAddPricingModal(true)}
@@ -965,7 +966,7 @@ const ServiceSection = ({
                   className="btn btn-primary"
                 >
                   <Send size={16} className="mr-2" />
-                  Send Replacement Quote
+                  Send Repair Quote
                 </button>
               </div>
             )}
@@ -999,7 +1000,7 @@ const ServiceSection = ({
         item={selectedItem}
       />
 
-      {/* Send Quote Modal (for all inspections & combined repair data) */}
+      {/* Send Quote Modal (for all inspections & combined replacement data) */}
       {showSendQuoteModal && jobDetails && (
         <SendEmailModal
           isOpen={showSendQuoteModal}
@@ -1009,8 +1010,8 @@ const ServiceSection = ({
           jobName={jobDetails.name}
           customerName={jobDetails.contact_name}
           initialEmail={jobDetails.contact_email || ''}
-          allRepairData={allRepairData}
-          totalCost={activeTab === 'repair' ? totalRepairCost : calculatePartItemsCost()}
+          allReplacementData={allReplacementData}
+          totalCost={activeTab === 'replacement' ? totalReplacementCost : calculatePartItemsCost()}
           location={
             jobDetails.locations
               ? {
@@ -1033,7 +1034,7 @@ const ServiceSection = ({
           onEmailSent={() => {
             window.location.reload();
           }}
-          repairDataByInspection={activeTab === 'repair' ? repairDataByInspection : {}}
+          replacementDataByInspection={activeTab === 'replacement' ? replacementDataByInspection : {}}
         />
       )}
     </div>

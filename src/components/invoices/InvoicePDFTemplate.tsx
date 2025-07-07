@@ -30,55 +30,55 @@ type Job = Database['public']['Tables']['jobs']['Row'] & {
 
 type JobItem = Database['public']['Tables']['job_items']['Row'];
 type JobInvoice = Database['public']['Tables']['job_invoices']['Row'];
-type RepairData = Database['public']['Tables']['job_repairs']['Row'];
+type ReplacementData = Database['public']['Tables']['job_replacements']['Row'];
 
 interface InvoicePDFTemplateProps {
   job: Job;
   jobItems: JobItem[];
   invoice: JobInvoice;
-  repairData?: RepairData;
+  replacementData?: ReplacementData;
 }
 
-const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, invoice, repairData }) => {
+const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, invoice, replacementData }) => {
   // Determine invoice type based on amount and items
   const isInspectionInvoice = invoice.amount === 180.00 && jobItems.some(item => item.code === 'INSP-FEE');
   
-  // Check if this is a replacement invoice (only parts)
-  const isReplacementInvoice = jobItems.filter(item => item.type === 'part').length > 0 && 
-                              jobItems.every(item => item.type === 'part');
+  // Check if this is a repair invoice (only parts)
+  const isRepairInvoice = jobItems.filter(item => item.type === 'part').length > 0 && 
+                          jobItems.every(item => item.type === 'part');
   
-  // Check if this is a repair invoice
-  const isRepairInvoice = invoice.amount > 0 && repairData && 
+  // Check if this is a replacement invoice
+  const isReplacementInvoice = invoice.amount > 0 && replacementData && 
     jobItems.filter(item => (item.type === 'labor' || item.type === 'item') && item.code !== 'INSP-FEE').length === 0;
   
   // Filter items based on invoice type
   let filteredItems = jobItems;
-  let itemLabel = 'Replacement Parts';
+  let itemLabel = 'Repair Parts';
   
   if (isInspectionInvoice) {
     // For inspection invoice, only include the inspection fee
     filteredItems = jobItems.filter(item => item.code === 'INSP-FEE');
     itemLabel = 'Inspection Fee';
-  } else if (isReplacementInvoice) {
-    // For replacement invoice, only include parts
-    filteredItems = jobItems.filter(item => item.type === 'part');
-    itemLabel = 'Replacement Parts';
   } else if (isRepairInvoice) {
-    // For repair invoice, we'll show repair details instead of items
+    // For repair invoice, only include parts
+    filteredItems = jobItems.filter(item => item.type === 'part');
+    itemLabel = 'Repair Parts';
+  } else if (isReplacementInvoice) {
+    // For replacement invoice, we'll show replacement details instead of items
     filteredItems = [];
-    itemLabel = 'Repair Services';
+    itemLabel = 'Replacement Services';
   } else {
     // For standard invoice, include all items
     filteredItems = jobItems;
     
-    // Check if this is a replacement-only invoice (only parts)
+    // Check if this is a repair-only invoice (only parts)
     const hasOnlyParts = filteredItems.every(item => item.type === 'part');
     const hasOnlyLaborAndItems = filteredItems.every(item => item.type === 'labor' || (item.type === 'item' && item.code !== 'INSP-FEE'));
     
     if (hasOnlyParts) {
-      itemLabel = 'Replacement Parts';
+      itemLabel = 'Repair Parts';
     } else if (hasOnlyLaborAndItems) {
-      itemLabel = 'Repair Services';
+      itemLabel = 'Replacement Services';
     } else {
       itemLabel = 'Services & Parts';
     }
@@ -94,46 +94,46 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, 
     return `${month}/${day}/${year}`;
   };
 
-  // Generate repair details content if this is a repair invoice
-  const renderRepairDetails = () => {
-    if (!isRepairInvoice || !repairData) return null;
+  // Generate replacement details content if this is a replacement invoice
+  const renderReplacementDetails = () => {
+    if (!isReplacementInvoice || !replacementData) return null;
     
-    const selectedPhase = repairData.selected_phase || 'phase2';
-    const phaseData = repairData[selectedPhase as keyof RepairData] as any;
+    const selectedPhase = replacementData.selected_phase || 'phase2';
+    const phaseData = replacementData[selectedPhase as keyof ReplacementData] as any;
     
     return (
       <div className="text-sm mt-2">
-        <p className="font-medium">Repair Details:</p>
+        <p className="font-medium">Replacement Details:</p>
         <ul className="list-disc pl-5 mt-1">
           {phaseData && phaseData.description && (
             <li>{phaseData.description} - ${Number(phaseData.cost).toFixed(2)}</li>
           )}
-          {Number(repairData.labor) > 0 && (
-            <li>Labor - ${Number(repairData.labor).toFixed(2)}</li>
+          {Number(replacementData.labor) > 0 && (
+            <li>Labor - ${Number(replacementData.labor).toFixed(2)}</li>
           )}
-          {Number(repairData.refrigeration_recovery) > 0 && (
-            <li>Refrigeration Recovery - ${Number(repairData.refrigeration_recovery).toFixed(2)}</li>
+          {Number(replacementData.refrigeration_recovery) > 0 && (
+            <li>Refrigeration Recovery - ${Number(replacementData.refrigeration_recovery).toFixed(2)}</li>
           )}
-          {Number(repairData.start_up_costs) > 0 && (
-            <li>Start Up Costs - ${Number(repairData.start_up_costs).toFixed(2)}</li>
+          {Number(replacementData.start_up_costs) > 0 && (
+            <li>Start Up Costs - ${Number(replacementData.start_up_costs).toFixed(2)}</li>
           )}
-          {Number(repairData.thermostat_startup) > 0 && (
-            <li>Thermostat Startup - ${Number(repairData.thermostat_startup).toFixed(2)}</li>
+          {Number(replacementData.thermostat_startup) > 0 && (
+            <li>Thermostat Startup - ${Number(replacementData.thermostat_startup).toFixed(2)}</li>
           )}
-          {Number(repairData.removal_cost) > 0 && (
-            <li>Removal of Old Equipment - ${Number(repairData.removal_cost).toFixed(2)}</li>
+          {Number(replacementData.removal_cost) > 0 && (
+            <li>Removal of Old Equipment - ${Number(replacementData.removal_cost).toFixed(2)}</li>
           )}
-          {Number(repairData.permit_cost) > 0 && (
-            <li>Permit Cost - ${Number(repairData.permit_cost).toFixed(2)}</li>
+          {Number(replacementData.permit_cost) > 0 && (
+            <li>Permit Cost - ${Number(replacementData.permit_cost).toFixed(2)}</li>
           )}
           
           {/* Accessories */}
-          {repairData.accessories && Array.isArray(repairData.accessories) && 
-           repairData.accessories.length > 0 && repairData.accessories.some((acc: any) => acc.name && acc.cost > 0) && (
+          {replacementData.accessories && Array.isArray(replacementData.accessories) && 
+           replacementData.accessories.length > 0 && replacementData.accessories.some((acc: any) => acc.name && acc.cost > 0) && (
             <li>
               Accessories:
               <ul className="list-circle pl-5">
-                {repairData.accessories.map((acc: any, idx: number) => 
+                {replacementData.accessories.map((acc: any, idx: number) => 
                   acc.name && acc.cost > 0 ? (
                     <li key={idx}>{acc.name} - ${Number(acc.cost).toFixed(2)}</li>
                   ) : null
@@ -143,12 +143,12 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, 
           )}
           
           {/* Additional Items */}
-          {repairData.additional_items && Array.isArray(repairData.additional_items) && 
-           repairData.additional_items.length > 0 && repairData.additional_items.some((item: any) => item.name && item.cost > 0) && (
+          {replacementData.additional_items && Array.isArray(replacementData.additional_items) && 
+           replacementData.additional_items.length > 0 && replacementData.additional_items.some((item: any) => item.name && item.cost > 0) && (
             <li>
               Additional Items:
               <ul className="list-circle pl-5">
-                {repairData.additional_items.map((item: any, idx: number) => 
+                {replacementData.additional_items.map((item: any, idx: number) => 
                   item.name && item.cost > 0 ? (
                     <li key={idx}>{item.name} - ${Number(item.cost).toFixed(2)}</li>
                   ) : null
@@ -157,8 +157,8 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, 
             </li>
           )}
           
-          {repairData.warranty && (
-            <li>Warranty: {repairData.warranty}</li>
+          {replacementData.warranty && (
+            <li>Warranty: {replacementData.warranty}</li>
           )}
         </ul>
       </div>
@@ -239,11 +239,11 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, 
               {job.name}
               {job.units && <span> - Unit {job.units.unit_number}</span>}
               
-              {isRepairInvoice ? (
-                renderRepairDetails()
-              ) : isReplacementInvoice ? (
+              {isReplacementInvoice ? (
+                renderReplacementDetails()
+              ) : isRepairInvoice ? (
                 <div className="text-sm text-gray-500 mt-2">
-                  <p>Replacement Parts:</p>
+                  <p>Repair Parts:</p>
                   <ul className="list-disc pl-5 mt-1">
                     {filteredItems.map((item, index) => (
                       <li key={index}>

@@ -202,7 +202,7 @@ const JobInvoiceSection = ({ job, jobItems, onInvoiceCreated }: JobInvoiceSectio
       
       try {
         const { data: repairData, error: repairError } = await supabase
-          .from('job_repairs')
+          .from('job_replacements')
           .select('*')
           .eq('job_id', job.id);
 

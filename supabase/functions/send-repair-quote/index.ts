@@ -1,26 +1,51 @@
 // supabase/functions/send-repair-quote/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import sgMail from "npm:@sendgrid/mail";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
-serve(async (req)=>{
+
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: corsHeaders
     });
   }
+
   try {
     const { SENDGRID_API_KEY } = Deno.env.toObject();
     if (!SENDGRID_API_KEY) {
       throw new Error("SENDGRID_API_KEY is not set");
     }
+
     sgMail.setApiKey(SENDGRID_API_KEY);
+
     // Parse request body
     const requestData = await req.json();
-    const { jobId, customerEmail, quoteToken, jobNumber, jobName, customerName, inspectionData, repairData, allRepairData, location, unit, selectedPhase, totalCost, quoteNumber, quoteType = 'repair', emailTemplate, pdfUrl, repairDataByInspection } = requestData;
+    const {
+      jobId,
+      customerEmail,
+      quoteToken,
+      jobNumber,
+      jobName,
+      customerName,
+      inspectionData,
+      replacementData,
+      allReplacementData,
+      location,
+      unit,
+      selectedPhase,
+      totalCost,
+      quoteNumber,
+      quoteType = 'replacement',
+      emailTemplate,
+      pdfUrl,
+      replacementDataByInspection
+    } = requestData;
+
     console.log("Received repair quote request:", {
       jobId,
       customerEmail,
@@ -29,10 +54,11 @@ serve(async (req)=>{
       quoteType,
       totalCost: totalCost || 0,
       hasInspectionData: Array.isArray(inspectionData) && inspectionData.length > 0,
-      hasRepairData: !!repairData,
-      hasAllRepairData: Array.isArray(allRepairData) && allRepairData.length > 0,
+      hasReplacementData: !!replacementData,
+      hasAllReplacementData: Array.isArray(allReplacementData) && allReplacementData.length > 0,
       hasPdfUrl: !!pdfUrl
     });
+
     if (!jobId || !customerEmail || !quoteToken || !jobNumber) {
       return new Response(JSON.stringify({
         error: "Missing required fields"
@@ -44,17 +70,21 @@ serve(async (req)=>{
         }
       });
     }
+
     const confirmationUrl = `${req.headers.get("origin")}/quote/confirm/${quoteToken}`;
+
     // Build inspection details HTML and text
     let inspectionHtml = "";
     let inspectionText = "";
+
     if (Array.isArray(inspectionData) && inspectionData.length > 0) {
       inspectionHtml = `<div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
         <h3 style="margin-top:0;">Inspection Details</h3>`;
       inspectionText = "Inspection Details:\n\n";
+
       // Loop through inspections (limit to first 3 for email readability)
       const displayInspections = inspectionData.slice(0, 3);
-      displayInspections.forEach((inspection, index)=>{
+      displayInspections.forEach((inspection, index) => {
         // Safe access to properties with fallbacks
         const modelNumber = inspection?.model_number || 'N/A';
         const serialNumber = inspection?.serial_number || 'N/A';
@@ -62,6 +92,7 @@ serve(async (req)=>{
         const tonnage = inspection?.tonnage || 'N/A';
         const unitType = inspection?.unit_type || 'N/A';
         const systemType = inspection?.system_type || 'N/A';
+
         inspectionHtml += `
           <div style="margin-bottom: ${index < displayInspections.length - 1 ? '20px' : '0'}; ${index > 0 ? 'border-top: 1px solid #ddd; padding-top: 15px;' : ''}">
             <h4 style="margin-top:0;">Inspection ${index + 1}</h4>
@@ -92,6 +123,7 @@ serve(async (req)=>{
               </tr>
             </table>
           </div>`;
+
         inspectionText += `Inspection ${index + 1}:\n`;
         inspectionText += `- Model Number: ${modelNumber}\n`;
         inspectionText += `- Serial Number: ${serialNumber}\n`;
@@ -100,6 +132,7 @@ serve(async (req)=>{
         inspectionText += `- Unit Type: ${unitType}\n`;
         inspectionText += `- System Type: ${systemType}\n\n`;
       });
+
       if (inspectionData.length > 3) {
         inspectionHtml += `
           <div style="margin-top: 10px; font-style: italic; color: #666;">
@@ -107,20 +140,24 @@ serve(async (req)=>{
           </div>`;
         inspectionText += `And ${inspectionData.length - 3} more inspection(s)...\n\n`;
       }
+
       inspectionHtml += `</div>`;
     }
-    // Build repair details HTML and text
-    let repairHtml = "";
-    let repairText = "";
-    // First try to use repairDataByInspection if available
-    if (repairDataByInspection && Object.keys(repairDataByInspection).length > 0) {
-      repairHtml = `
+
+    // Build replacement details HTML and text
+    let replacementHtml = "";
+    let replacementText = "";
+
+    // First try to use replacementDataByInspection if available
+    if (replacementDataByInspection && Object.keys(replacementDataByInspection).length > 0) {
+      replacementHtml = `
         <div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
           <h3 style="margin-top:0;">${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendations</h3>`;
-      repairText = `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendations:\n\n`;
+      replacementText = `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendations:\n\n`;
+
       // Limit to first 2 repair options for email readability
-      const repairEntries = Object.entries(repairDataByInspection).slice(0, 2);
-      repairEntries.forEach(([inspectionId, data], index)=>{
+      const replacementEntries = Object.entries(replacementDataByInspection).slice(0, 2);
+      replacementEntries.forEach(([inspectionId, data], index) => {
         // Safe access with fallbacks
         const selectedPhase = data?.selectedPhase || 'phase2';
         const phaseData = data?.[selectedPhase] || {};
@@ -128,8 +165,9 @@ serve(async (req)=>{
         const description = phaseData?.description || phaseName;
         const needsCrane = data?.needsCrane || false;
         const totalCost = data?.totalCost || 0;
-        repairHtml += `
-          <div style="margin-bottom: ${index < repairEntries.length - 1 ? '20px' : '0'}; ${index > 0 ? 'border-top: 1px solid #ddd; padding-top: 15px;' : ''}">
+
+        replacementHtml += `
+          <div style="margin-bottom: ${index < replacementEntries.length - 1 ? '20px' : '0'}; ${index > 0 ? 'border-top: 1px solid #ddd; padding-top: 15px;' : ''}">
             <h4 style="margin-top:0;">${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Option ${index + 1}</h4>
             <table style="width:100%; border-collapse: collapse;">
               <tr>
@@ -150,21 +188,24 @@ serve(async (req)=>{
               </tr>
             </table>
           </div>`;
-        repairText += `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Option ${index + 1}:\n`;
-        repairText += `- Selected Option: ${phaseName}\n`;
-        repairText += `- Description: ${description}\n`;
-        repairText += `- Requires Crane: ${needsCrane ? 'Yes' : 'No'}\n`;
-        repairText += `- ${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Cost: $${Number(totalCost).toLocaleString()}\n\n`;
+
+        replacementText += `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Option ${index + 1}:\n`;
+        replacementText += `- Selected Option: ${phaseName}\n`;
+        replacementText += `- Description: ${description}\n`;
+        replacementText += `- Requires Crane: ${needsCrane ? 'Yes' : 'No'}\n`;
+        replacementText += `- ${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Cost: $${Number(totalCost).toLocaleString()}\n\n`;
       });
-      if (Object.keys(repairDataByInspection).length > 2) {
-        repairHtml += `
+
+      if (Object.keys(replacementDataByInspection).length > 2) {
+        replacementHtml += `
           <div style="margin-top: 10px; font-style: italic; color: #666;">
-            And ${Object.keys(repairDataByInspection).length - 2} more repair option(s)...
+            And ${Object.keys(replacementDataByInspection).length - 2} more replacement option(s)...
           </div>`;
-        repairText += `And ${Object.keys(repairDataByInspection).length - 2} more repair option(s)...\n\n`;
+        replacementText += `And ${Object.keys(replacementDataByInspection).length - 2} more replacement option(s)...\n\n`;
       }
+
       // Add total cost for all repairs
-      repairHtml += `
+      replacementHtml += `
           <div style="margin-top: 20px; padding: 10px; background-color: #e6f7ef; border-radius: 5px;">
             <table style="width:100%; border-collapse: collapse;">
               <tr style="background-color:#e6f7ef; font-weight:bold;">
@@ -174,24 +215,26 @@ serve(async (req)=>{
             </table>
           </div>
         </div>`;
-      repairText += `TOTAL COST FOR ALL ${quoteType === 'replacement' ? 'REPLACEMENTS' : 'REPAIRS'}: $${Number(totalCost || 0).toLocaleString()}\n\n`;
-    } else if (Array.isArray(allRepairData) && allRepairData.length > 0) {
-      repairHtml = `
+      replacementText += `TOTAL COST FOR ALL ${quoteType === 'replacement' ? 'REPLACEMENTS' : 'REPAIRS'}: $${Number(totalCost || 0).toLocaleString()}\n\n`;
+    } else if (Array.isArray(allReplacementData) && allReplacementData.length > 0) {
+      replacementHtml = `
         <div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
           <h3 style="margin-top:0;">${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendations</h3>`;
-      repairText = `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendations:\n\n`;
+      replacementText = `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendations:\n\n`;
+
       // Limit to first 2 repair options for email readability
-      const displayRepairs = allRepairData.slice(0, 2);
-      displayRepairs.forEach((repair, index)=>{
+      const displayReplacements = allReplacementData.slice(0, 2);
+      displayReplacements.forEach((replacement, index) => {
         // Safe access with fallbacks
-        const repairPhase = repair?.selected_phase || 'phase2';
-        const phaseData = repair?.[repairPhase] || {};
-        const phaseName = repairPhase === 'phase1' ? 'Economy Option' : repairPhase === 'phase2' ? 'Standard Option' : 'Premium Option';
+        const replacementPhase = replacement?.selected_phase || 'phase2';
+        const phaseData = replacement?.[replacementPhase] || {};
+        const phaseName = replacementPhase === 'phase1' ? 'Economy Option' : replacementPhase === 'phase2' ? 'Standard Option' : 'Premium Option';
         const description = phaseData?.description || phaseName;
-        const needsCrane = repair?.needs_crane || false;
-        const repairCost = repair?.total_cost || 0;
-        repairHtml += `
-          <div style="margin-bottom: ${index < displayRepairs.length - 1 ? '20px' : '0'}; ${index > 0 ? 'border-top: 1px solid #ddd; padding-top: 15px;' : ''}">
+        const needsCrane = replacement?.needs_crane || false;
+        const replacementCost = replacement?.total_cost || 0;
+
+        replacementHtml += `
+          <div style="margin-bottom: ${index < displayReplacements.length - 1 ? '20px' : '0'}; ${index > 0 ? 'border-top: 1px solid #ddd; padding-top: 15px;' : ''}">
             <h4 style="margin-top:0;">${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Option ${index + 1}</h4>
             <table style="width:100%; border-collapse: collapse;">
               <tr>
@@ -208,25 +251,28 @@ serve(async (req)=>{
               </tr>
               <tr style="background-color:#f0f0f0;">
                 <td style="padding:8px; border:1px solid #ddd;"><strong>${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Cost:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${Number(repairCost).toLocaleString()}</td>
+                <td style="padding:8px; border:1px solid #ddd;">$${Number(replacementCost).toLocaleString()}</td>
               </tr>
             </table>
           </div>`;
-        repairText += `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Option ${index + 1}:\n`;
-        repairText += `- Selected Option: ${phaseName}\n`;
-        repairText += `- Description: ${description}\n`;
-        repairText += `- Requires Crane: ${needsCrane ? 'Yes' : 'No'}\n`;
-        repairText += `- ${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Cost: $${Number(repairCost).toLocaleString()}\n\n`;
+
+        replacementText += `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Option ${index + 1}:\n`;
+        replacementText += `- Selected Option: ${phaseName}\n`;
+        replacementText += `- Description: ${description}\n`;
+        replacementText += `- Requires Crane: ${needsCrane ? 'Yes' : 'No'}\n`;
+        replacementText += `- ${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Cost: $${Number(replacementCost).toLocaleString()}\n\n`;
       });
-      if (allRepairData.length > 2) {
-        repairHtml += `
+
+      if (allReplacementData.length > 2) {
+        replacementHtml += `
           <div style="margin-top: 10px; font-style: italic; color: #666;">
-            And ${allRepairData.length - 2} more repair option(s)...
+            And ${allReplacementData.length - 2} more replacement option(s)...
           </div>`;
-        repairText += `And ${allRepairData.length - 2} more repair option(s)...\n\n`;
+        replacementText += `And ${allReplacementData.length - 2} more replacement option(s)...\n\n`;
       }
+
       // Add total cost for all repairs
-      repairHtml += `
+      replacementHtml += `
           <div style="margin-top: 20px; padding: 10px; background-color: #e6f7ef; border-radius: 5px;">
             <table style="width:100%; border-collapse: collapse;">
               <tr style="background-color:#e6f7ef; font-weight:bold;">
@@ -236,15 +282,16 @@ serve(async (req)=>{
             </table>
           </div>
         </div>`;
-      repairText += `TOTAL COST FOR ALL ${quoteType === 'replacement' ? 'REPLACEMENTS' : 'REPAIRS'}: $${Number(totalCost || 0).toLocaleString()}\n\n`;
-    } else if (repairData) {
+      replacementText += `TOTAL COST FOR ALL ${quoteType === 'replacement' ? 'REPLACEMENTS' : 'REPAIRS'}: $${Number(totalCost || 0).toLocaleString()}\n\n`;
+    } else if (replacementData) {
       // Safe access with fallbacks
-      const repairPhase = selectedPhase || repairData?.selected_phase || 'phase2';
-      const phaseData = repairData?.[repairPhase] || {};
-      const phaseName = repairPhase === 'phase1' ? 'Economy Option' : repairPhase === 'phase2' ? 'Standard Option' : 'Premium Option';
+      const replacementPhase = selectedPhase || replacementData?.selected_phase || 'phase2';
+      const phaseData = replacementData?.[replacementPhase] || {};
+      const phaseName = replacementPhase === 'phase1' ? 'Economy Option' : replacementPhase === 'phase2' ? 'Standard Option' : 'Premium Option';
       const description = phaseData?.description || phaseName;
-      const needsCrane = repairData?.needsCrane || false;
-      repairHtml = `
+      const needsCrane = replacementData?.needsCrane || false;
+
+      replacementHtml = `
         <div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
           <h3 style="margin-top:0;">${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendation</h3>
           <table style="width:100%; border-collapse: collapse;">
@@ -266,7 +313,8 @@ serve(async (req)=>{
             </tr>
           </table>
         </div>`;
-      repairText = `
+
+      replacementText = `
 ${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendation:
 - Selected Option: ${phaseName}
 - Description: ${description}
@@ -274,9 +322,11 @@ ${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendation:
 - TOTAL COST: $${Number(totalCost || 0).toLocaleString()}
 `;
     }
+
     // Location and unit information
     let locationHtml = "";
     let locationText = "";
+
     if (location) {
       // Safe access to location properties with fallbacks
       const locationName = location?.name || '';
@@ -285,6 +335,7 @@ ${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendation:
       const state = location?.state || '';
       const zip = location?.zip || '';
       const unitNumber = unit?.unit_number || '';
+
       locationHtml = `
         <div style="margin-bottom:15px;">
           <h3>Service Location</h3>
@@ -293,6 +344,7 @@ ${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Recommendation:
           <p>${city}, ${state} ${zip}</p>
           ${unitNumber ? `<p>Unit: ${unitNumber}</p>` : ''}
         </div>`;
+
       locationText = `
 Service Location:
 ${locationName}
@@ -301,20 +353,24 @@ ${city}, ${state} ${zip}
 ${unitNumber ? `Unit: ${unitNumber}` : ''}
 `;
     }
+
     // Use custom email template if provided, otherwise use defaults
     const subject = emailTemplate?.subject || `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Quote #${quoteNumber} from Airlast HVAC`;
     const greeting = emailTemplate?.greeting || `Dear ${customerName || "Customer"},`;
     const introText = emailTemplate?.introText || `Thank you for choosing Airlast HVAC services. Based on our inspection, we have prepared a ${quoteType === 'replacement' ? 'replacement' : 'repair'} quote for your review.`;
-    const approvalText = emailTemplate?.approvalText || `Please click one of the buttons below to approve or deny the recommended ${quoteType === 'replacement' ? 'replacement' : 'repairs'}:`;
-    const approveButtonText = emailTemplate?.approveButtonText || `Approve ${quoteType === 'replacement' ? 'Replacement' : 'Repairs'}`;
-    const denyButtonText = emailTemplate?.denyButtonText || `Deny ${quoteType === 'replacement' ? 'Replacement' : 'Repairs'}`;
+    const approvalText = emailTemplate?.approvalText || `Please click one of the buttons below to approve or deny the recommended ${quoteType === 'replacement' ? 'replacements' : 'repairs'}:`;
+    const approveButtonText = emailTemplate?.approveButtonText || `Approve ${quoteType === 'replacement' ? 'Replacements' : 'Repairs'}`;
+    const denyButtonText = emailTemplate?.denyButtonText || `Deny ${quoteType === 'replacement' ? 'Replacements' : 'Repairs'}`;
     const approvalNote = emailTemplate?.approvalNote || `If you approve, we will schedule the ${quoteType === 'replacement' ? 'replacement' : 'repair'} work at your earliest convenience.`;
     const denialNote = emailTemplate?.denialNote || "If you deny, you will be charged $180.00 for the inspection service.";
     const closingText = emailTemplate?.closingText || "If you have any questions, please don't hesitate to contact us.";
     const signature = emailTemplate?.signature || "Best regards,\nAirlast HVAC Team";
+
     // Prepare email with attachment if pdfUrl is provided
     let attachments = [];
     let viewPdfButtonHtml = "";
+
+
     if (pdfUrl) {
       try {
         // Fetch the PDF content
@@ -326,7 +382,7 @@ ${unitNumber ? `Unit: ${unitNumber}` : ''}
             const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
             attachments.push({
               content: pdfBase64,
-              filename: `Quote-${quoteNumber || jobNumber}.pdf`,
+              filename: `${quoteType.charAt(0).toUpperCase() + quoteType.slice(1)}-Quote-${quoteNumber || jobNumber}.pdf`,
               type: 'application/pdf',
               disposition: 'attachment'
             });
@@ -362,10 +418,11 @@ ${unitNumber ? `Unit: ${unitNumber}` : ''}
           </div>`;
       }
     }
+
     const msg = {
       to: customerEmail,
       from: "support@airlast-management.com",
-      subject: subject,
+      subject: `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Quote #${quoteNumber} from Airlast HVAC`,
       text: `${greeting}
 
 ${introText}
@@ -376,7 +433,7 @@ ${locationText}
 
 ${inspectionText}
 
-${repairText}
+${replacementText}
 
 Please click the link below to approve or deny the recommended ${quoteType === 'replacement' ? 'replacement' : 'repairs'}:
 
@@ -403,11 +460,12 @@ ${signature}`,
             <div style="background-color:#f0f7ff; padding:10px; border-radius:5px; margin:15px 0;">
               <h2 style="margin-top:0; color:#0672be;">Quote #${quoteNumber}</h2>
               <p>Job #${jobNumber} - ${jobName || "HVAC Service"}</p>
+              <p><strong>${quoteType === 'replacement' ? 'Replacement' : 'Repair'} Quote</strong></p>
             </div>
 
             ${locationHtml}
             ${inspectionHtml}
-            ${repairHtml}
+            ${replacementHtml}
             ${viewPdfButtonHtml}
 
             <p>${approvalText}</p>
@@ -436,9 +494,11 @@ ${signature}`,
         </div>`,
       attachments: attachments
     };
+
     console.log("Sending email to:", customerEmail);
     await sgMail.send(msg);
     console.log("Email sent successfully");
+
     return new Response(JSON.stringify({
       success: true,
       message: `${quoteType === 'replacement' ? 'Replacement' : 'Repair'} quote email sent successfully`

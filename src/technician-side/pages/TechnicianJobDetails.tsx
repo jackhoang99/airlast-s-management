@@ -196,7 +196,7 @@ const TechnicianJobDetails = () => {
 
         // Fetch repair data - Fixed to handle multiple rows
         const { data: repairData, error: repairError } = await supabase
-          .from('job_repairs')
+          .from('job_replacements')
           .select('*')
           .eq('job_id', id)
           .limit(1);

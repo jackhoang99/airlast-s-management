@@ -12,12 +12,12 @@ const QuoteConfirmation = () => {
   const [success, setSuccess] = useState(false);
   const [jobDetails, setJobDetails] = useState<any>(null);
   const [quoteDetails, setQuoteDetails] = useState<any>(null);
-  const [repairData, setRepairData] = useState<any[]>([]);
+  const [replacementData, setReplacementData] = useState<any[]>([]);
   const [approved, setApproved] = useState<boolean | null>(null);
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
   const [invoiceCreated, setInvoiceCreated] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
-  const [quoteType, setQuoteType] = useState<'repair' | 'replacement'>('repair');
+  const [quoteType, setQuoteType] = useState<'replacement' | 'repair'>('replacement');
 
   // Get the approval status from URL query parameters
   useEffect(() => {
@@ -50,7 +50,7 @@ const QuoteConfirmation = () => {
 
           if (!quoteError && quoteData) {
             setQuoteDetails(quoteData);
-            setQuoteType(quoteData.quote_type as 'repair' | 'replacement');
+            setQuoteType(quoteData.quote_type as 'replacement' | 'repair');
             
             // If already confirmed, just return success
             if (quoteData.confirmed) {
@@ -82,13 +82,13 @@ const QuoteConfirmation = () => {
               if (jobData) {
                 setJobDetails(jobData);
                 
-                // Fetch repair data
-                const { data: repairData } = await supabase
+                // Fetch replacement data
+                const { data: replacementData } = await supabase
                   .from('job_repairs')
                   .select('*')
                   .eq('job_id', jobData.id);
                   
-                setRepairData(repairData || []);
+                setReplacementData(replacementData || []);
               }
               
               setIsLoading(false);
@@ -132,18 +132,18 @@ const QuoteConfirmation = () => {
 
           setJobDetails(jobData);
 
-          // Fetch repair data
-          const { data: repairData, error: repairError } = await supabase
-            .from('job_repairs')
+          // Fetch replacement data
+          const { data: replacementData, error: replacementError } = await supabase
+            .from('job_replacements')
             .select('*')
             .eq('job_id', jobData.id);
 
-          if (repairError) {
-            console.error('Error fetching repair data:', repairError);
-            throw repairError;
+          if (replacementError) {
+            console.error('Error fetching replacement data:', replacementError);
+            throw replacementError;
           }
           
-          setRepairData(repairData || []);
+          setReplacementData(replacementData || []);
 
           // If already confirmed, just return success
           if (jobData.quote_confirmed) {
@@ -173,7 +173,7 @@ const QuoteConfirmation = () => {
             
             // Set quote type from the quote record
             if (quoteDetails.quote_type) {
-              setQuoteType(quoteDetails.quote_type as 'repair' | 'replacement');
+              setQuoteType(quoteDetails.quote_type as 'replacement' | 'repair');
             }
           }
           
@@ -200,7 +200,7 @@ const QuoteConfirmation = () => {
           
           const responseData = await response.json();
           if (responseData.quoteType) {
-            setQuoteType(responseData.quoteType as 'repair' | 'replacement');
+            setQuoteType(responseData.quoteType as 'replacement' | 'repair');
           }
           
           setSuccess(true);
@@ -357,7 +357,7 @@ const QuoteConfirmation = () => {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-center mb-4">
-            {quoteType === 'repair' ? 'Repairs' : 'Replacement'} {approved ? 'Approved' : 'Declined'}
+            {quoteType === 'replacement' ? 'Replacements' : 'Repairs'} {approved ? 'Approved' : 'Declined'}
           </h1>
           <p className="text-gray-600 text-center mb-6">
             {approved 
@@ -368,7 +368,7 @@ const QuoteConfirmation = () => {
           <div className="border rounded-lg p-6 mb-6">
             <h2 className="text-lg font-medium mb-4 flex items-center">
               <FileText className="h-5 w-5 mr-2 text-primary-600" />
-              {quoteType === 'repair' ? 'Repair' : 'Replacement'} Details
+              {quoteType === 'replacement' ? 'Replacement' : 'Repair'} Details
             </h2>
             
             <div className="space-y-4">
@@ -391,13 +391,13 @@ const QuoteConfirmation = () => {
                 {jobDetails.units && <p className="text-gray-600">Unit: {jobDetails.units.unit_number}</p>}
               </div>
               
-              {repairData.length > 0 && (
+              {replacementData.length > 0 && (
                 <div>
-                  <h3 className="font-medium">{quoteType === 'repair' ? 'Repair' : 'Replacement'} Details</h3>
+                  <h3 className="font-medium">{quoteType === 'replacement' ? 'Replacement' : 'Repair'} Details</h3>
                   <div className="mt-2 space-y-4">
-                    {repairData.map((repair, index) => {
-                      const selectedPhase = repair.selected_phase || 'phase2';
-                      const phaseData = repair[selectedPhase] || {};
+                    {replacementData.map((replacement, index) => {
+                      const selectedPhase = replacement.selected_phase || 'phase2';
+                      const phaseData = replacement[selectedPhase] || {};
                       
                       return (
                         <div key={index} className="bg-gray-50 p-4 rounded-lg">
@@ -411,11 +411,11 @@ const QuoteConfirmation = () => {
                             </div>
                             <div>
                               <p className="text-sm font-medium text-gray-500">Total Cost</p>
-                              <p className="font-medium">${Number(repair.total_cost || 0).toLocaleString()}</p>
+                              <p className="font-medium">${Number(replacement.total_cost || 0).toLocaleString()}</p>
                             </div>
                             <div>
                               <p className="text-sm font-medium text-gray-500">Requires Crane</p>
-                              <p>{repair.needs_crane ? 'Yes' : 'No'}</p>
+                              <p>{replacement.needs_crane ? 'Yes' : 'No'}</p>
                             </div>
                           </div>
                         </div>
@@ -464,9 +464,9 @@ const QuoteConfirmation = () => {
               <FileText className="h-12 w-12 text-primary-600" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-center mb-4">{quoteType === 'repair' ? 'Repair' : 'Replacement'} Quote</h1>
+          <h1 className="text-2xl font-bold text-center mb-4">{quoteType === 'replacement' ? 'Replacement' : 'Repair'} Quote</h1>
           <p className="text-gray-600 text-center mb-6">
-            Based on our assessment, we recommend proceeding with {quoteType === 'repair' ? 'repairs' : 'replacement'}. Please approve or deny the {quoteType} below.
+            Based on our assessment, we recommend proceeding with {quoteType === 'replacement' ? 'replacements' : 'repairs'}. Please approve or deny the {quoteType} below.
           </p>
           
           <div className="border rounded-lg p-6 mb-6">
@@ -487,13 +487,13 @@ const QuoteConfirmation = () => {
               </div>
             )}
             
-            {repairData.length > 0 && (
+            {replacementData.length > 0 && (
               <div className="mt-4">
-                <h3 className="font-medium">{quoteType === 'repair' ? 'Repair' : 'Replacement'} Details</h3>
+                <h3 className="font-medium">{quoteType === 'replacement' ? 'Replacement' : 'Repair'} Details</h3>
                 <div className="mt-2 space-y-4">
-                  {repairData.map((repair, index) => {
-                    const selectedPhase = repair.selected_phase || 'phase2';
-                    const phaseData = repair[selectedPhase] || {};
+                  {replacementData.map((replacement, index) => {
+                    const selectedPhase = replacement.selected_phase || 'phase2';
+                    const phaseData = replacement[selectedPhase] || {};
                     
                     return (
                       <div key={index} className="bg-gray-50 p-4 rounded-lg">
@@ -507,11 +507,11 @@ const QuoteConfirmation = () => {
                           </div>
                           <div>
                             <p className="text-sm font-medium text-gray-500">Total Cost</p>
-                            <p className="font-medium">${Number(repair.total_cost || 0).toLocaleString()}</p>
+                            <p className="font-medium">${Number(replacement.total_cost || 0).toLocaleString()}</p>
                           </div>
                           <div>
                             <p className="text-sm font-medium text-gray-500">Requires Crane</p>
-                            <p>{repair.needs_crane ? 'Yes' : 'No'}</p>
+                            <p>{replacement.needs_crane ? 'Yes' : 'No'}</p>
                           </div>
                         </div>
                       </div>
@@ -528,19 +528,19 @@ const QuoteConfirmation = () => {
               className="btn btn-success flex-1 flex justify-center items-center"
             >
               <Check className="mr-2 h-5 w-5" />
-              Approve {quoteType === 'repair' ? 'Repairs' : 'Replacement'}
+              Approve {quoteType === 'replacement' ? 'Replacements' : 'Repairs'}
             </button>
             <button 
               onClick={() => setApproved(false)}
               className="btn btn-error flex-1 flex justify-center items-center"
             >
               <X className="mr-2 h-5 w-5" />
-              Deny {quoteType === 'repair' ? 'Repairs' : 'Replacement'}
+              Deny {quoteType === 'replacement' ? 'Replacements' : 'Repairs'}
             </button>
           </div>
           
           <p className="text-sm text-gray-500 text-center">
-            By approving, you authorize Airlast HVAC to proceed with the recommended {quoteType === 'repair' ? 'repairs' : 'replacement'}.
+            By approving, you authorize Airlast HVAC to proceed with the recommended {quoteType === 'replacement' ? 'replacements' : 'repairs'}.
             <br />
             By denying, you will be charged $180.00 for the inspection service.
           </p>
