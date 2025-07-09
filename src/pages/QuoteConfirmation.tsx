@@ -84,7 +84,7 @@ const QuoteConfirmation = () => {
                 
                 // Fetch replacement data
                 const { data: replacementData } = await supabase
-                  .from('job_repairs')
+                  .from('job_replacements')
                   .select('*')
                   .eq('job_id', jobData.id);
                   
@@ -133,172 +133,176 @@ const QuoteConfirmation = () => {
           setJobDetails(jobData);
 
           // Fetch replacement data
-          const { data: replacementData, error: replacementError } = await supabase
-            .from('job_replacements')
-            .select('*')
-            .eq('job_id', jobData.id);
+          if (quoteDetails && quoteDetails.quote_type) {
+            const { data: replacementData, error: replacementError } = await supabase
+              .from('job_replacements')
+              .select('*')
+              .eq('job_id', jobData.id);
 
-          if (replacementError) {
-            console.error('Error fetching replacement data:', replacementError);
-            throw replacementError;
-          }
-          
-          setReplacementData(replacementData || []);
-
-          // If already confirmed, just return success
-          if (jobData.quote_confirmed) {
-            setSuccess(true);
-            setApproved(jobData.repair_approved);
-            setIsLoading(false);
-            return;
-          }
-        }
-
-        // Only proceed with confirmation if approval status is set
-        if (approved !== null) {
-          // Update the job_quotes record if it exists
-          if (quoteDetails) {
-            const { error: updateQuoteError } = await supabase!
-              .from('job_quotes')
-              .update({
-                confirmed: true,
-                confirmed_at: new Date().toISOString(),
-                approved: approved
-              })
-              .eq('id', quoteDetails.id);
-              
-            if (updateQuoteError) {
-              console.error('Error updating quote record:', updateQuoteError);
+            if (replacementError) {
+              console.error('Error fetching replacement data:', replacementError);
+              throw replacementError;
             }
             
-            // Set quote type from the quote record
-            if (quoteDetails.quote_type) {
-              setQuoteType(quoteDetails.quote_type as 'replacement' | 'repair');
+            setReplacementData(replacementData || []);
+
+            // If already confirmed, just return success
+            if (jobData.quote_confirmed) {
+              setSuccess(true);
+              setApproved(jobData.repair_approved);
+              setIsLoading(false);
+              return;
             }
           }
-          
-          // Call the Supabase Edge Function to confirm the quote
-          const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/confirm-repair-quote`;
-          
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify({ 
-              token,
-              approved 
-            })
-          });
-          
-          if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Error response from confirm-quote:', errorData);
-            throw new Error(errorData.error || 'Failed to confirm quote');
-          }
-          
-          const responseData = await response.json();
-          if (responseData.quoteType) {
-            setQuoteType(responseData.quoteType as 'replacement' | 'repair');
-          }
-          
-          setSuccess(true);
-          
-          // If repair is declined, create an inspection invoice
-          if (approved === false && supabase && jobDetails) {
-            setIsCreatingInvoice(true);
-            
-            try {
-              // Generate invoice number (JOB-INV-XXXX)
-              const invoiceNumber = `JOB-${jobDetails.number}-INV-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-              setInvoiceNumber(invoiceNumber);
-              
-              // Calculate due date (30 days from now)
-              const dueDate = new Date();
-              dueDate.setDate(dueDate.getDate() + 30);
-              
-              // Create inspection invoice for $180
-              const { data: invoiceData, error: invoiceError } = await supabase
-                .from('job_invoices')
-                .insert({
-                  job_id: jobDetails.id,
-                  invoice_number: invoiceNumber,
-                  amount: 180.00, // Fixed inspection fee
-                  status: 'issued',
-                  issued_date: new Date().toISOString().split('T')[0],
-                  due_date: dueDate.toISOString().split('T')[0]
+
+          // Only proceed with confirmation if approval status is set
+          if (approved !== null) {
+            // Update the job_quotes record if it exists
+            if (quoteDetails) {
+              const { error: updateQuoteError } = await supabase!
+                .from('job_quotes')
+                .update({
+                  confirmed: true,
+                  confirmed_at: new Date().toISOString(),
+                  approved: approved
                 })
-                .select()
-                .single();
+                .eq('id', quoteDetails.id);
                 
-              if (invoiceError) throw invoiceError;
-              
-              // Add inspection item to job_items
-              const { error: itemError } = await supabase
-                .from('job_items')
-                .insert({
-                  job_id: jobDetails.id,
-                  code: 'INSP-FEE',
-                  name: 'Inspection Fee',
-                  service_line: 'INSP',
-                  quantity: 1,
-                  unit_cost: 180.00,
-                  total_cost: 180.00,
-                  type: 'item'
-                });
-                
-              if (itemError) throw itemError;
-              
-              try {
-                // Call the Supabase Edge Function to send the email
-                const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice-email`;
-                
-                const response = await fetch(apiUrl, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-                  },
-                  body: JSON.stringify({
-                    jobId: jobDetails.id,
-                    invoiceId: invoiceData.id,
-                    customerEmail: jobDetails.contact_email,
-                    jobNumber: jobDetails.number,
-                    jobName: jobDetails.name,
-                    customerName: jobDetails.contact_name,
-                    invoiceNumber: invoiceNumber,
-                    amount: 180.00,
-                    issuedDate: new Date().toISOString().split('T')[0],
-                    dueDate: dueDate.toISOString().split('T')[0],
-                    jobItems: [{
-                      name: 'Inspection Fee',
-                      quantity: 1,
-                      total_cost: 180.00
-                    }]
-                  })
-                });
-                
-                if (!response.ok) {
-                  const errorData = await response.json();
-                  console.warn('Email service warning:', errorData.error || 'Failed to send invoice email');
-                  // Don't throw here, just log the warning - the invoice is still created
-                }
-              } catch (emailErr) {
-                // Log the email error but don't fail the whole operation
-                console.warn('Email sending failed, but invoice was created:', emailErr);
+              if (updateQuoteError) {
+                console.error('Error updating quote record:', updateQuoteError);
               }
               
-              setInvoiceCreated(true);
-              console.log('Invoice created successfully');
+              // Set quote type from the quote record
+              if (quoteDetails.quote_type) {
+                setQuoteType(quoteDetails.quote_type as 'replacement' | 'repair');
+              }
+            }
+            
+            // Call the Supabase Edge Function to confirm the quote
+            // Use the appropriate edge function based on quote type
+            const functionName = quoteType === 'repair' ? 'confirm-repair-quote' : 'confirm-replacement-quote';
+            const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}`;
+            
+            const response = await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+              },
+              body: JSON.stringify({ 
+                token,
+                approved 
+              })
+            });
+            
+            if (!response.ok) {
+              const errorData = await response.json();
+              console.error('Error response from confirm-quote:', errorData);
+              throw new Error(errorData.error || 'Failed to confirm quote');
+            }
+            
+            const responseData = await response.json();
+            if (responseData.quoteType) {
+              setQuoteType(responseData.quoteType as 'replacement' | 'repair');
+            }
+            
+            setSuccess(true);
+            setApproved(approved);
+            // If repair is declined, create an inspection invoice
+            if (approved === false && supabase && jobDetails) {
+              setIsCreatingInvoice(true);
               
-            } catch (err) {
-              console.error('Error creating inspection invoice:', err);
-              // Still set invoiceCreated to true so the user knows an invoice was generated
-              // even if there was an error with some part of the process
-              setInvoiceCreated(true);
-            } finally {
-              setIsCreatingInvoice(false);
+              try {
+                // Generate invoice number (JOB-INV-XXXX)
+                const invoiceNumber = `JOB-${jobDetails.number}-INV-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+                setInvoiceNumber(invoiceNumber);
+                
+                // Calculate due date (30 days from now)
+                const dueDate = new Date();
+                dueDate.setDate(dueDate.getDate() + 30);
+                
+                // Create inspection invoice for $180
+                const { data: invoiceData, error: invoiceError } = await supabase
+                  .from('job_invoices')
+                  .insert({
+                    job_id: jobDetails.id,
+                    invoice_number: invoiceNumber,
+                    amount: 180.00, // Fixed inspection fee
+                    status: 'issued',
+                    issued_date: new Date().toISOString().split('T')[0],
+                    due_date: dueDate.toISOString().split('T')[0]
+                  })
+                  .select()
+                  .single();
+                  
+                if (invoiceError) throw invoiceError;
+                
+                // Add inspection item to job_items
+                const { error: itemError } = await supabase
+                  .from('job_items')
+                  .insert({
+                    job_id: jobDetails.id,
+                    code: 'INSP-FEE',
+                    name: 'Inspection Fee',
+                    service_line: 'INSP',
+                    quantity: 1,
+                    unit_cost: 180.00,
+                    total_cost: 180.00,
+                    type: 'item'
+                  });
+                  
+                if (itemError) throw itemError;
+                
+                try {
+                  // Call the Supabase Edge Function to send the email
+                  const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invoice-email`;
+                  
+                  const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                      jobId: jobDetails.id,
+                      invoiceId: invoiceData.id,
+                      customerEmail: jobDetails.contact_email,
+                      jobNumber: jobDetails.number,
+                      jobName: jobDetails.name,
+                      customerName: jobDetails.contact_name,
+                      invoiceNumber: invoiceNumber,
+                      amount: 180.00,
+                      issuedDate: new Date().toISOString().split('T')[0],
+                      dueDate: dueDate.toISOString().split('T')[0],
+                      jobItems: [{
+                        name: 'Inspection Fee',
+                        quantity: 1,
+                        total_cost: 180.00
+                      }]
+                    })
+                  });
+                  
+                  if (!response.ok) {
+                    const errorData = await response.json();
+                    console.warn('Email service warning:', errorData.error || 'Failed to send invoice email');
+                    // Don't throw here, just log the warning - the invoice is still created
+                  }
+                } catch (emailErr) {
+                  // Log the email error but don't fail the whole operation
+                  console.warn('Email sending failed, but invoice was created:', emailErr);
+                }
+                
+                setInvoiceCreated(true);
+                console.log('Invoice created successfully');
+                
+              } catch (err) {
+                console.error('Error creating inspection invoice:', err);
+                // Still set invoiceCreated to true so the user knows an invoice was generated
+                // even if there was an error with some part of the process
+                setInvoiceCreated(true);
+              } finally {
+                setIsCreatingInvoice(false);
+              }
             }
           }
         }

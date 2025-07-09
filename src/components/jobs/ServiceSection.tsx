@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSupabase } from '../../lib/supabase-context';
 import { Database } from '../../types/supabase';
-import { Plus, Edit, Trash2, Search, Filter, Package, Wrench, ShoppingCart, Clipboard, Home, Send, ChevronDown, ChevronUp, X, CheckCircle, AlertTriangle, Clock, Users, FileText } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Filter, Package, Wrench, ShoppingCart, Clipboard, Home, Send, ChevronDown, ChevronUp, X, CheckCircle, AlertTriangle, Clock, Users, FileText, Check } from 'lucide-react';
 import AddJobPricingModal from './AddJobPricingModal';
 import EditJobItemModal from './EditJobItemModal';
 import RepairsForm from './replacement/RepairsForm';
