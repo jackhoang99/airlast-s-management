@@ -506,7 +506,7 @@ const TechnicianJobDetails = () => {
                 <div className="flex items-start gap-2">
                   <Home className="h-5 w-5 text-gray-400 mt-1" />
                   <div>
-                    <p className="font-medium">{job.locations.companies.name}</p>
+                    <p className="font-medium">{job.locations?.companies?.name}</p>
                     <p>{job.locations.name}</p>
                     {job.units && <p>Unit: {job.units.unit_number}</p>}
                   </div>
@@ -559,7 +559,7 @@ const TechnicianJobDetails = () => {
         <div className="mt-6 pt-4 border-t border-gray-200">
           <h3 className="text-md font-medium mb-3 flex items-center">
             <Users size={16} className="mr-2 text-primary-600" />
-            Assigned Technicians
+            Assigned Technicians 
           </h3>
           
           {job.job_technicians && job.job_technicians.length > 0 ? (
