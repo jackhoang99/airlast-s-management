@@ -85,7 +85,6 @@ const CustomerAssets = () => {
               locations (
                 id,
                 name,
-                company_id,
                 companies (
                   name
                 )

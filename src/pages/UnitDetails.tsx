@@ -19,7 +19,6 @@ import UnitQRCode from "../components/units/UnitQRCode";
 type Unit = Database["public"]["Tables"]["units"]["Row"] & {
   locations: {
     name: string;
-    building_name: string;
     address: string;
     city: string;
     state: string;
@@ -88,7 +87,6 @@ const UnitDetails = () => {
             *,
             locations (
               name,
-              building_name,
               address,
               city,
               state,

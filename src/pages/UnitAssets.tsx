@@ -35,7 +35,6 @@ const UnitAssets = () => {
             *,
             locations (
               name,
-              building_name,
               address,
               city,
               state,

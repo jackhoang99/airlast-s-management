@@ -7,7 +7,6 @@ import { Building2, Plus, Filter } from "lucide-react";
 type Unit = Database["public"]["Tables"]["units"]["Row"] & {
   locations: {
     name: string;
-    building_name: string;
     company_id: string;
     companies: {
       name: string;
@@ -36,7 +35,6 @@ const Units = () => {
             *,
             locations (
               name,
-              building_name,
               company_id,
               companies (
                 name

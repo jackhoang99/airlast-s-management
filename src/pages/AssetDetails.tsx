@@ -36,7 +36,6 @@ const AssetDetails = () => {
             units (
               id,
               unit_number,
-              status,
               location_id,
               locations (
                 id,

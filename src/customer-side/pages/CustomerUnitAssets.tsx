@@ -37,7 +37,6 @@ const CustomerUnitAssets = () => {
             locations (
               id,
               name,
-              building_name,
               address,
               city,
               state,

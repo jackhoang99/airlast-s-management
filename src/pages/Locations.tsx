@@ -215,4 +215,46 @@ const Locations = () => {
                       <div className="text-sm text-gray-600 mt-1">
                       </div>
                       <Link 
-                        to={`
+                        to={`/companies/${location.companies?.id || ''}`}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                      >
+                        {location.companies?.name}
+                      </Link>
+                    </div>
+                    <button
+                      onClick={() => toggleLocation(location.id)}
+                      className="flex items-center text-gray-400 hover:text-gray-600"
+                    >
+                      <ChevronDown 
+                        size={20} 
+                        className={`transform transition-transform ${
+                          expandedLocationId === location.id ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-600 mt-2">
+                    {location.address && (
+                      <div>{location.address}</div>
+                    )}
+                    <div>
+                      {location.city}, {location.state} {location.zip}
+                    </div>
+                  </div>
+                </div>
+                
+                {expandedLocationId === location.id && (
+                  <div className="border-t bg-gray-50">
+                    <UnitsList locationId={location.id} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Locations;

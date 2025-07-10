@@ -224,7 +224,6 @@ const CustomerLocations = () => {
                         </Link>
                       </div>
                       <div className="text-sm text-gray-600 mt-1">
-                        Building: {location.building_name}
                       </div>
                       <p className="text-sm text-gray-500 mt-1">
                         {location.address}

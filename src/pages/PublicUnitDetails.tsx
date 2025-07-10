@@ -67,7 +67,6 @@ const PublicUnitDetails = () => {
             *,
             locations (
               name,
-              building_name,
               address,
               city,
               state,
