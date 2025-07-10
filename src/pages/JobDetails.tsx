@@ -36,10 +36,14 @@ const JobDetails = () => {
   const [isDeletingJob, setIsDeletingJob] = useState(false);
   const [showQuotePDF, setShowQuotePDF] = useState(false);
   const [quoteNeedsUpdate, setQuoteNeedsUpdate] = useState(false);
-  const [lastQuoteUpdateTime, setLastQuoteUpdateTime] = useState<string | null>(null);
-  const [activeQuoteType, setActiveQuoteType] = useState<'repair' | 'replacement'>('repair');
+  const [lastQuoteUpdateTime, setLastQuoteUpdateTime] = useState<string | null>(
+    null
+  );
+  const [activeQuoteType, setActiveQuoteType] = useState<
+    "repair" | "replacement"
+  >("repair");
   const [repairData, setRepairData] = useState<any | null>(null);
-  
+
   // Collapsible section states - all set to true (expanded) by default
   const [showServiceSection, setShowServiceSection] = useState(true);
   const [showQuoteSection, setShowQuoteSection] = useState(true);
@@ -53,7 +57,11 @@ const JobDetails = () => {
 
       try {
         // First validate that we have a valid UUID
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        if (
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            id
+          )
+        ) {
           setError("Invalid job ID format");
           setIsLoading(false);
           return;
@@ -62,7 +70,8 @@ const JobDetails = () => {
         // Fetch job details
         const { data: jobData, error: jobError } = await supabase
           .from("jobs")
-          .select(`
+          .select(
+            `
             *,
             locations (
               name,
@@ -70,7 +79,6 @@ const JobDetails = () => {
               city,
               state,
               zip,
-              building_name,
               company_id,
               companies (
                 name
@@ -103,7 +111,8 @@ const JobDetails = () => {
                 phone
               )
             )
-          `)
+          `
+          )
           .eq("id", id)
           .limit(1)
           .maybeSingle();
@@ -155,24 +164,23 @@ const JobDetails = () => {
         if (repairError && !repairError.message.includes("contains 0 rows")) {
           throw repairError;
         }
-        
+
         if (repairData) {
           setRepairData(repairData);
         }
-        
+
         // Fetch assets related to this job
         const { data: assetsData, error: assetsError } = await supabase
-          .from('assets')
-          .select('*')
-          .eq('model->>job_id', id);
-          
+          .from("assets")
+          .select("*")
+          .eq("model->>job_id", id);
+
         if (assetsError) {
-          console.error('Error fetching job assets:', assetsError);
+          console.error("Error fetching job assets:", assetsError);
           // Don't throw here, just log the error
         } else {
           setJobAssets(assetsData || []);
         }
-        
       } catch (err: any) {
         console.error("Error fetching job details:", err);
         setError(err.message || "Failed to fetch job details");
@@ -294,11 +302,11 @@ const JobDetails = () => {
         .maybeSingle();
 
       if (jobError) throw jobError;
-      
+
       if (!updatedJob) {
         throw new Error("Failed to refresh job data");
       }
-      
+
       setJob(updatedJob);
       setShowAppointmentModal(false);
     } catch (err) {
@@ -367,7 +375,7 @@ const JobDetails = () => {
     setQuoteNeedsUpdate(false);
   };
 
-  const handlePreviewQuote = (quoteType: 'repair' | 'replacement') => {
+  const handlePreviewQuote = (quoteType: "repair" | "replacement") => {
     setActiveQuoteType(quoteType);
     setShowQuotePDF(true);
   };
@@ -398,7 +406,7 @@ const JobDetails = () => {
 
   if (showQuotePDF) {
     return (
-      <QuotePDFViewer 
+      <QuotePDFViewer
         jobId={job.id}
         quoteType={activeQuoteType}
         onBack={() => setShowQuotePDF(false)}
@@ -417,26 +425,33 @@ const JobDetails = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
           {/* Job Details Card */}
-          <JobReminderBanner jobId={job.id} scheduleStart={job.schedule_start} />
-          
+          <JobReminderBanner
+            jobId={job.id}
+            scheduleStart={job.schedule_start}
+          />
+
           <JobDetailsCard job={job} />
 
           {/* Location and Contact - Collapsible */}
-          {job.status !== 'completed' && job.status !== 'cancelled' && (
+          {job.status !== "completed" && job.status !== "cancelled" && (
             <JobReminderBanner jobId={job.id} />
           )}
-          
+
           <div className="card">
-            <div 
+            <div
               className="flex justify-between items-center cursor-pointer"
               onClick={() => setShowLocationSection(!showLocationSection)}
             >
               <h2 className="text-lg font-medium">Location & Contact</h2>
               <span className="text-gray-500">
-                {showLocationSection ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                {showLocationSection ? (
+                  <ChevronUp size={20} />
+                ) : (
+                  <ChevronDown size={20} />
+                )}
               </span>
             </div>
-            
+
             {showLocationSection && (
               <div className="mt-4">
                 <JobLocationContact job={job} />
@@ -453,16 +468,20 @@ const JobDetails = () => {
 
           {/* Unit Section - Collapsible */}
           <div className="card">
-            <div 
+            <div
               className="flex justify-between items-center cursor-pointer"
               onClick={() => setShowUnitSection(!showUnitSection)}
             >
               <h2 className="text-lg font-medium">Unit Information</h2>
               <span className="text-gray-500">
-                {showUnitSection ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                {showUnitSection ? (
+                  <ChevronUp size={20} />
+                ) : (
+                  <ChevronDown size={20} />
+                )}
               </span>
             </div>
-            
+
             {showUnitSection && (
               <div className="mt-4">
                 <JobUnitSection job={job} />
@@ -473,53 +492,78 @@ const JobDetails = () => {
           {/* Assets Section - Show inspection results */}
           {jobAssets.length > 0 && (
             <div className="card mt-6">
-              <div 
+              <div
                 className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
                 onClick={() => setShowUnitSection(!showUnitSection)}
               >
                 <h2 className="text-lg font-medium">Inspection Results</h2>
                 <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
                   {showUnitSection ? (
-                    <>Hide <ChevronUp size={16} className="ml-1" /></>
+                    <>
+                      Hide <ChevronUp size={16} className="ml-1" />
+                    </>
                   ) : (
-                    <>Show <ChevronDown size={16} className="ml-1" /></>
+                    <>
+                      Show <ChevronDown size={16} className="ml-1" />
+                    </>
                   )}
                 </span>
               </div>
-              
+
               {showUnitSection && (
                 <div className="mt-4 space-y-4">
                   {jobAssets.map((asset) => (
-                    <div key={asset.id} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <h3 className="font-medium mb-2">Inspection from {new Date(asset.inspection_date).toLocaleDateString()}</h3>
+                    <div
+                      key={asset.id}
+                      className="p-4 bg-blue-50 rounded-lg border border-blue-200"
+                    >
+                      <h3 className="font-medium mb-2">
+                        Inspection from{" "}
+                        {new Date(asset.inspection_date).toLocaleDateString()}
+                      </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                          <p className="text-sm font-medium text-gray-500">Model Number</p>
+                          <p className="text-sm font-medium text-gray-500">
+                            Model Number
+                          </p>
                           <p>{asset.model?.model_number || "N/A"}</p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-500">Serial Number</p>
+                          <p className="text-sm font-medium text-gray-500">
+                            Serial Number
+                          </p>
                           <p>{asset.model?.serial_number || "N/A"}</p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-500">Age (Years)</p>
+                          <p className="text-sm font-medium text-gray-500">
+                            Age (Years)
+                          </p>
                           <p>{asset.model?.age || "N/A"}</p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-500">Tonnage</p>
+                          <p className="text-sm font-medium text-gray-500">
+                            Tonnage
+                          </p>
                           <p>{asset.model?.tonnage || "N/A"}</p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-500">Unit Type</p>
+                          <p className="text-sm font-medium text-gray-500">
+                            Unit Type
+                          </p>
                           <p>{asset.model?.unit_type || "N/A"}</p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-500">System Type</p>
+                          <p className="text-sm font-medium text-gray-500">
+                            System Type
+                          </p>
                           <p>{asset.model?.system_type || "N/A"}</p>
                         </div>
                       </div>
                       <div className="mt-2">
-                        <Link to={`/assets/${asset.id}`} className="text-primary-600 hover:text-primary-800 text-sm">
+                        <Link
+                          to={`/assets/${asset.id}`}
+                          className="text-primary-600 hover:text-primary-800 text-sm"
+                        >
                           View Asset Details
                         </Link>
                       </div>
@@ -532,20 +576,24 @@ const JobDetails = () => {
 
           {/* Service Section - Collapsible */}
           <div className="card">
-            <div 
+            <div
               className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
               onClick={() => setShowServiceSection(!showServiceSection)}
             >
               <h2 className="text-lg font-medium">Service</h2>
               <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
                 {showServiceSection ? (
-                  <>Hide <ChevronUp size={16} className="ml-1" /></>
+                  <>
+                    Hide <ChevronUp size={16} className="ml-1" />
+                  </>
                 ) : (
-                  <>Show <ChevronDown size={16} className="ml-1" /></>
+                  <>
+                    Show <ChevronDown size={16} className="ml-1" />
+                  </>
                 )}
               </span>
             </div>
-            
+
             {showServiceSection && (
               <div className="mt-4">
                 <ServiceSection
@@ -562,20 +610,24 @@ const JobDetails = () => {
 
           {/* Quote Section - Collapsible */}
           <div className="card">
-            <div 
+            <div
               className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
               onClick={() => setShowQuoteSection(!showQuoteSection)}
             >
               <h2 className="text-lg font-medium">Quote</h2>
               <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
                 {showQuoteSection ? (
-                  <>Hide <ChevronUp size={16} className="ml-1" /></>
+                  <>
+                    Hide <ChevronUp size={16} className="ml-1" />
+                  </>
                 ) : (
-                  <>Show <ChevronDown size={16} className="ml-1" /></>
+                  <>
+                    Show <ChevronDown size={16} className="ml-1" />
+                  </>
                 )}
               </span>
             </div>
-            
+
             {showQuoteSection && (
               <div className="mt-4">
                 <JobQuoteSection
@@ -591,20 +643,24 @@ const JobDetails = () => {
 
           {/* Invoice Section - Collapsible */}
           <div className="card">
-            <div 
+            <div
               className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
               onClick={() => setShowInvoiceSection(!showInvoiceSection)}
             >
               <h2 className="text-lg font-medium">Invoice</h2>
               <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
                 {showInvoiceSection ? (
-                  <>Hide <ChevronUp size={16} className="ml-1" /></>
+                  <>
+                    Hide <ChevronUp size={16} className="ml-1" />
+                  </>
                 ) : (
-                  <>Show <ChevronDown size={16} className="ml-1" /></>
+                  <>
+                    Show <ChevronDown size={16} className="ml-1" />
+                  </>
                 )}
               </span>
             </div>
-            
+
             {showInvoiceSection && (
               <div className="mt-4">
                 <JobInvoiceSection
@@ -615,16 +671,16 @@ const JobDetails = () => {
               </div>
             )}
           </div>
-          
+
           {/* Time Tracking and Comments */}
           <div className="card">
             <JobTimeTracking jobId={job.id} />
           </div>
-          
+
           <div className="card">
             <JobComments jobId={job.id} />
           </div>
-          
+
           {/* Reminders */}
           <div className="card">
             <h3 className="text-lg font-medium flex items-center mb-4">
@@ -633,7 +689,6 @@ const JobDetails = () => {
             </h3>
             <JobReminderList jobId={job.id} />
           </div>
-          
         </div>
 
         <div className="space-y-4">
