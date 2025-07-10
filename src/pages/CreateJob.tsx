@@ -1150,6 +1150,31 @@ const CreateJob = () => {
                 className="input"
               />
             </div>
+
+            <div>
+              <label
+                htmlFor="type"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Job Type *
+              </label>
+              <select
+                id="type"
+                name="type"
+                value={formData.type}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, type: e.target.value }))
+                }
+                required
+                className="select"
+              >
+                {jobTypes.map((type) => (
+                  <option key={type.id} value={type.name.toLowerCase()}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -1329,31 +1354,6 @@ const CreateJob = () => {
           <h2 className="text-lg font-medium mb-6">Additional Details</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label
-                htmlFor="type"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Job Type *
-              </label>
-              <select
-                id="type"
-                name="type"
-                value={formData.type}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, type: e.target.value }))
-                }
-                required
-                className="select"
-              >
-                {jobTypes.map((type) => (
-                  <option key={type.id} value={type.name.toLowerCase()}>
-                    {type.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="flex items-center">
               <label className="flex items-center">
                 <input
