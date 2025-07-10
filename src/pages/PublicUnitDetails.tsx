@@ -1,6 +1,17 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Building2, MapPin, Building, Calendar, Tag, ArrowLeft, Phone, Mail, Clock, AlertTriangle } from "lucide-react";
+import {
+  Building2,
+  MapPin,
+  Building,
+  Calendar,
+  Tag,
+  ArrowLeft,
+  Phone,
+  Mail,
+  Clock,
+  AlertTriangle,
+} from "lucide-react";
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
 
@@ -78,7 +89,8 @@ const PublicUnitDetails = () => {
         if (data) {
           const { data: jobsData, error: jobsError } = await supabase
             .from("jobs")
-            .select(`
+            .select(
+              `
               id,
               number,
               name,
@@ -87,7 +99,8 @@ const PublicUnitDetails = () => {
               service_line,
               schedule_start,
               updated_at
-            `)
+            `
+            )
             .eq("unit_id", id)
             .eq("status", "completed")
             .order("updated_at", { ascending: false })
@@ -108,7 +121,7 @@ const PublicUnitDetails = () => {
   }, [supabase, id]);
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString();
   };
 
@@ -125,8 +138,12 @@ const PublicUnitDetails = () => {
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
           <AlertTriangle className="h-12 w-12 text-error-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-center mb-4">Unit Not Found</h1>
-          <p className="text-gray-600 text-center mb-6">{error || "The requested unit could not be found."}</p>
+          <h1 className="text-2xl font-bold text-center mb-4">
+            Unit Not Found
+          </h1>
+          <p className="text-gray-600 text-center mb-6">
+            {error || "The requested unit could not be found."}
+          </p>
           <div className="flex justify-center">
             <a href="/" className="btn btn-primary">
               Return to Home
@@ -143,10 +160,17 @@ const PublicUnitDetails = () => {
         {/* Header with logo */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex items-center justify-between">
           <div className="flex items-center">
-            <img src="/airlast-logo.svg" alt="Airlast HVAC" className="h-8 mr-3" />
+            <img
+              src="/airlast-logo.svg"
+              alt="Airlast HVAC"
+              className="h-8 mr-3"
+            />
             <h1 className="text-xl font-bold">Unit Information</h1>
           </div>
-          <a href="/" className="text-primary-600 hover:text-primary-800 text-sm">
+          <a
+            href="/"
+            className="text-primary-600 hover:text-primary-800 text-sm"
+          >
             Airlast HVAC
           </a>
         </div>
@@ -158,11 +182,13 @@ const PublicUnitDetails = () => {
               <Building2 className="h-5 w-5 text-primary-600" />
               Unit {unit.unit_number}
             </h2>
-            <span className={`badge ${
-              unit.status.toLowerCase() === "active"
-                ? "bg-success-100 text-success-800"
-                : "bg-error-100 text-error-800"
-            }`}>
+            <span
+              className={`badge ${
+                unit.status.toLowerCase() === "active"
+                  ? "bg-success-100 text-success-800"
+                  : "bg-error-100 text-error-800"
+              }`}
+            >
               {unit.status.toLowerCase()}
             </span>
           </div>
@@ -174,16 +200,20 @@ const PublicUnitDetails = () => {
                 <div className="flex items-start gap-2">
                   <Building className="h-5 w-5 text-gray-400 mt-1" />
                   <div>
-                    <p className="font-medium">{unit.locations.companies.name}</p>
+                    <p className="font-medium">
+                      {unit.locations.companies.name}
+                    </p>
                     <p>{unit.locations.name}</p>
-                    <p className="text-gray-600">{unit.locations.building_name}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <MapPin className="h-5 w-5 text-gray-400 mt-1" />
                   <div>
                     <p>{unit.locations.address}</p>
-                    <p>{unit.locations.city}, {unit.locations.state} {unit.locations.zip}</p>
+                    <p>
+                      {unit.locations.city}, {unit.locations.state}{" "}
+                      {unit.locations.zip}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -195,13 +225,17 @@ const PublicUnitDetails = () => {
                 <div className="space-y-2">
                   {unit.primary_contact_type && (
                     <div className="text-sm">
-                      <span className="text-gray-500">Contact Type:</span> {unit.primary_contact_type}
+                      <span className="text-gray-500">Contact Type:</span>{" "}
+                      {unit.primary_contact_type}
                     </div>
                   )}
                   {unit.primary_contact_email && (
                     <div className="flex items-center gap-2">
                       <Mail size={16} className="text-gray-400" />
-                      <a href={`mailto:${unit.primary_contact_email}`} className="text-primary-600 hover:text-primary-800">
+                      <a
+                        href={`mailto:${unit.primary_contact_email}`}
+                        className="text-primary-600 hover:text-primary-800"
+                      >
                         {unit.primary_contact_email}
                       </a>
                     </div>
@@ -209,14 +243,19 @@ const PublicUnitDetails = () => {
                   {unit.primary_contact_phone && (
                     <div className="flex items-center gap-2">
                       <Phone size={16} className="text-gray-400" />
-                      <a href={`tel:${unit.primary_contact_phone}`} className="text-primary-600 hover:text-primary-800">
+                      <a
+                        href={`tel:${unit.primary_contact_phone}`}
+                        className="text-primary-600 hover:text-primary-800"
+                      >
                         {unit.primary_contact_phone}
                       </a>
                     </div>
                   )}
                 </div>
               ) : (
-                <p className="text-gray-500">No contact information available</p>
+                <p className="text-gray-500">
+                  No contact information available
+                </p>
               )}
             </div>
           </div>
@@ -271,9 +310,16 @@ const PublicUnitDetails = () => {
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-gray-500">
-          <p>This information is provided by Airlast HVAC for reference purposes only.</p>
-          <p className="mt-1">For full access or to schedule service, please contact our office.</p>
-          <p className="mt-4">© {new Date().getFullYear()} Airlast HVAC. All rights reserved.</p>
+          <p>
+            This information is provided by Airlast HVAC for reference purposes
+            only.
+          </p>
+          <p className="mt-1">
+            For full access or to schedule service, please contact our office.
+          </p>
+          <p className="mt-4">
+            © {new Date().getFullYear()} Airlast HVAC. All rights reserved.
+          </p>
         </div>
       </div>
     </div>

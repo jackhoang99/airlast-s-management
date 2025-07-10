@@ -19,7 +19,6 @@ const Locations = () => {
   const [expandedLocationId, setExpandedLocationId] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     name: '',
-    building_name: '',
     city: '',
     state: '',
     zipcode: '',
@@ -40,9 +39,6 @@ const Locations = () => {
         // Apply filters
         if (filters.name) {
           query = query.ilike('name', `%${filters.name}%`);
-        }
-        if (filters.building_name) {
-          query = query.ilike('building_name', `%${filters.building_name}%`);
         }
         if (filters.city) {
           query = query.ilike('city', `%${filters.city}%`);
@@ -76,7 +72,6 @@ const Locations = () => {
   const resetFilters = () => {
     setFilters({
       name: '',
-      building_name: '',
       city: '',
       state: '',
       zipcode: '',
@@ -90,7 +85,6 @@ const Locations = () => {
   const filteredLocations = searchQuery 
     ? locations.filter(location => 
         location.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        location.building_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         location.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
         location.state.toLowerCase().includes(searchQuery.toLowerCase()) ||
         location.zip.toLowerCase().includes(searchQuery.toLowerCase())
@@ -132,19 +126,6 @@ const Locations = () => {
               id="name"
               name="name"
               value={filters.name}
-              onChange={handleFilterChange}
-              className="input"
-            />
-          </div>
-          <div>
-            <label htmlFor="building_name" className="block text-sm font-medium text-gray-700 mb-1">
-              Building Name
-            </label>
-            <input
-              type="text"
-              id="building_name"
-              name="building_name"
-              value={filters.building_name}
               onChange={handleFilterChange}
               className="input"
             />
@@ -232,52 +213,6 @@ const Locations = () => {
                         </Link>
                       </div>
                       <div className="text-sm text-gray-600 mt-1">
-                        Building: {location.building_name}
                       </div>
                       <Link 
-                        to={`/companies/${location.company_id}`}
-                        className="text-sm text-primary-600 hover:text-primary-800"
-                      >
-                        {location.companies?.name}
-                      </Link>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {location.address}
-                        <br />
-                        {location.city}, {location.state} {location.zip}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <button
-                        onClick={() => toggleLocation(location.id)}
-                        className="text-primary-600 hover:text-primary-800 text-sm font-medium"
-                      >
-                        {expandedLocationId === location.id ? 'Hide Units' : 'Show Units'}
-                      </button>
-                      <Link
-                        to={`/locations/${location.id}/edit`}
-                        className="text-primary-600 hover:text-primary-800 text-sm"
-                      >
-                        Edit
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className={`
-                  overflow-hidden transition-all duration-200 ease-in-out
-                  ${expandedLocationId === location.id ? 'max-h-[500px]' : 'max-h-0'}
-                `}>
-                  <div className="border-t border-gray-100 p-4">
-                    <UnitsList location={location} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default Locations;
+                        to={`

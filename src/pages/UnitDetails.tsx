@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Building2,
@@ -61,6 +61,7 @@ const UUID_REGEX =
 
 const UnitDetails = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { supabase } = useSupabase();
   const [unit, setUnit] = useState<Unit | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -238,9 +239,13 @@ const UnitDetails = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/units" className="text-gray-500 hover:text-gray-700">
+          <button
+            type="button"
+            onClick={() => unit && navigate(`/locations/${unit.location_id}`)}
+            className="text-gray-500 hover:text-gray-700"
+          >
             <ArrowLeft className="h-5 w-5" />
-          </Link>
+          </button>
           <h1 className="flex items-center gap-2">
             <Building2 className="h-6 w-6" />
             {unit.unit_number}
@@ -382,9 +387,6 @@ const UnitDetails = () => {
                     >
                       {unit.locations.name}
                     </Link>
-                    <p className="text-gray-600">
-                      {unit.locations.building_name}
-                    </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">

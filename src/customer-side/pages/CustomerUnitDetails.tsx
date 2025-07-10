@@ -1,8 +1,17 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useSupabase } from '../../lib/supabase-context';
-import { ArrowLeft, Building2, MapPin, Building, FileText, Calendar, Clock, AlertTriangle } from 'lucide-react';
-import Map from '../../components/ui/Map';
+import { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { useSupabase } from "../../lib/supabase-context";
+import {
+  ArrowLeft,
+  Building2,
+  MapPin,
+  Building,
+  FileText,
+  Calendar,
+  Clock,
+  AlertTriangle,
+} from "lucide-react";
+import Map from "../../components/ui/Map";
 
 const CustomerUnitDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,23 +25,24 @@ const CustomerUnitDetails = () => {
 
   useEffect(() => {
     // Check if user is logged in
-    const companyId = sessionStorage.getItem('customerPortalCompanyId');
+    const companyId = sessionStorage.getItem("customerPortalCompanyId");
     if (!companyId) {
-      navigate('/customer/login');
+      navigate("/customer/login");
       return;
     }
     setCompanyId(companyId);
-    
+
     const fetchUnitDetails = async () => {
       if (!supabase || !id) return;
 
       try {
         setIsLoading(true);
-        
+
         // Fetch unit details with location
         const { data: unitData, error: unitError } = await supabase
-          .from('units')
-          .select(`
+          .from("units")
+          .select(
+            `
             *,
             locations (
               id,
@@ -44,78 +54,80 @@ const CustomerUnitDetails = () => {
               zip,
               company_id
             )
-          `)
-          .eq('id', id)
+          `
+          )
+          .eq("id", id)
           .single();
-          
+
         if (unitError) throw unitError;
-        
+
         if (!unitData) {
-          throw new Error('Unit not found');
+          throw new Error("Unit not found");
         }
-        
+
         // Verify this unit belongs to the logged-in company
         if (unitData.locations?.company_id !== companyId) {
-          throw new Error('You do not have access to this unit');
+          throw new Error("You do not have access to this unit");
         }
-        
+
         setUnit(unitData);
-        
+
         // Fetch jobs for this unit
         const { data: jobsData, error: jobsError } = await supabase
-          .from('jobs')
-          .select('*')
-          .eq('unit_id', id)
-          .order('updated_at', { ascending: false });
-          
+          .from("jobs")
+          .select("*")
+          .eq("unit_id", id)
+          .order("updated_at", { ascending: false });
+
         if (jobsError) throw jobsError;
         setJobs(jobsData || []);
-        
       } catch (err) {
-        console.error('Error fetching unit details:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load unit details');
+        console.error("Error fetching unit details:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to load unit details"
+        );
       } finally {
         setIsLoading(false);
       }
     };
-    
+
     fetchUnitDetails();
   }, [supabase, id, navigate]);
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'Not scheduled';
+    if (!dateString) return "Not scheduled";
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
   const formatDateTime = (dateString: string) => {
-    if (!dateString) return 'Not scheduled';
+    if (!dateString) return "Not scheduled";
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
-      case 'scheduled':
-        return 'bg-blue-100 text-blue-800';
-      case 'unscheduled':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
+      case "scheduled":
+        return "bg-blue-100 text-blue-800";
+      case "unscheduled":
+        return "bg-yellow-100 text-yellow-800";
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "cancelled":
+        return "bg-red-100 text-red-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -131,8 +143,10 @@ const CustomerUnitDetails = () => {
     return (
       <div className="bg-white rounded-lg shadow p-6 text-center">
         <AlertTriangle className="h-12 w-12 text-error-500 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Unit</h3>
-        <p className="text-gray-500 mb-4">{error || 'Unit not found'}</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          Error Loading Unit
+        </h3>
+        <p className="text-gray-500 mb-4">{error || "Unit not found"}</p>
         <Link to="/customer/units" className="btn btn-primary">
           Back to Units
         </Link>
@@ -144,14 +158,21 @@ const CustomerUnitDetails = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/customer/units" className="text-gray-500 hover:text-gray-700">
+          <Link
+            to="/customer/units"
+            className="text-gray-500 hover:text-gray-700"
+          >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <h1 className="text-2xl font-bold">Unit {unit.unit_number}</h1>
         </div>
-        <span className={`badge ${
-          unit.status === 'active' ? 'bg-success-100 text-success-800' : 'bg-error-100 text-error-800'
-        }`}>
+        <span
+          className={`badge ${
+            unit.status === "active"
+              ? "bg-success-100 text-success-800"
+              : "bg-error-100 text-error-800"
+          }`}
+        >
           {unit.status}
         </span>
       </div>
@@ -160,7 +181,7 @@ const CustomerUnitDetails = () => {
         <div className="lg:col-span-2">
           <div className="card">
             <h2 className="text-lg font-semibold mb-4">Unit Details</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-gray-500">
@@ -168,26 +189,26 @@ const CustomerUnitDetails = () => {
                 </label>
                 <p className="text-lg font-medium">{unit.unit_number}</p>
               </div>
-              
+
               <div>
                 <label className="text-sm font-medium text-gray-500">
                   Primary Contact Type
                 </label>
-                <p>{unit.primary_contact_type || 'Not specified'}</p>
+                <p>{unit.primary_contact_type || "Not specified"}</p>
               </div>
-              
+
               <div>
                 <label className="text-sm font-medium text-gray-500">
                   Primary Contact Email
                 </label>
-                <p>{unit.primary_contact_email || 'Not specified'}</p>
+                <p>{unit.primary_contact_email || "Not specified"}</p>
               </div>
-              
+
               <div>
                 <label className="text-sm font-medium text-gray-500">
                   Primary Contact Phone
                 </label>
-                <p>{unit.primary_contact_phone || 'Not specified'}</p>
+                <p>{unit.primary_contact_phone || "Not specified"}</p>
               </div>
             </div>
 
@@ -201,49 +222,49 @@ const CustomerUnitDetails = () => {
                   <label className="text-sm font-medium text-gray-500">
                     Billing Entity
                   </label>
-                  <p>{unit.billing_entity || 'Not specified'}</p>
+                  <p>{unit.billing_entity || "Not specified"}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">
                     Billing Email
                   </label>
-                  <p>{unit.billing_email || 'Not specified'}</p>
+                  <p>{unit.billing_email || "Not specified"}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">
                     Billing City
                   </label>
-                  <p>{unit.billing_city || 'Not specified'}</p>
+                  <p>{unit.billing_city || "Not specified"}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">
                     Billing State
                   </label>
-                  <p>{unit.billing_state || 'Not specified'}</p>
+                  <p>{unit.billing_state || "Not specified"}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">
                     Billing Zip
                   </label>
-                  <p>{unit.billing_zip || 'Not specified'}</p>
+                  <p>{unit.billing_zip || "Not specified"}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">
                     Office
                   </label>
-                  <p>{unit.office || 'Main Office'}</p>
+                  <p>{unit.office || "Main Office"}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">
                     Taxable
                   </label>
-                  <p>{unit.taxable ? 'Yes' : 'No'}</p>
+                  <p>{unit.taxable ? "Yes" : "No"}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">
                     Tax Group
                   </label>
-                  <p>{unit.tax_group_name || 'Not specified'}</p>
+                  <p>{unit.tax_group_name || "Not specified"}</p>
                 </div>
               </div>
             </div>
@@ -262,9 +283,6 @@ const CustomerUnitDetails = () => {
                     >
                       {unit.locations?.name}
                     </Link>
-                    <p className="text-gray-600">
-                      {unit.locations?.building_name}
-                    </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
@@ -287,7 +305,7 @@ const CustomerUnitDetails = () => {
                 state={unit.locations?.state}
                 zip={unit.locations?.zip}
               />
-              
+
               <div className="mt-4 space-y-2">
                 <Link
                   to={`/customer/jobs?unitId=${unit.id}`}
@@ -319,7 +337,7 @@ const CustomerUnitDetails = () => {
         <div>
           <div className="card">
             <h2 className="text-lg font-semibold mb-4">Service History</h2>
-            
+
             {jobs.length === 0 ? (
               <div className="text-center py-8 bg-gray-50 rounded-lg">
                 <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -327,9 +345,9 @@ const CustomerUnitDetails = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {jobs.map(job => (
-                  <Link 
-                    key={job.id} 
+                {jobs.map((job) => (
+                  <Link
+                    key={job.id}
                     to={`/customer/jobs/${job.id}`}
                     className="block p-4 bg-gray-50 rounded-lg hover:bg-gray-100"
                   >
@@ -340,11 +358,15 @@ const CustomerUnitDetails = () => {
                           Job #{job.number}
                         </p>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadgeClass(job.status)}`}>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadgeClass(
+                          job.status
+                        )}`}
+                      >
                         {job.status}
                       </span>
                     </div>
-                    
+
                     <div className="mt-2 text-sm text-gray-600">
                       {job.schedule_start ? (
                         <div className="flex items-center">
@@ -355,7 +377,7 @@ const CustomerUnitDetails = () => {
                         <div className="text-yellow-600">Not scheduled</div>
                       )}
                     </div>
-                    
+
                     {job.description && (
                       <div className="mt-2 text-sm text-gray-500 line-clamp-2">
                         {job.description}
@@ -363,8 +385,8 @@ const CustomerUnitDetails = () => {
                     )}
                   </Link>
                 ))}
-                
-                <Link 
+
+                <Link
                   to={`/customer/jobs?unitId=${unit.id}`}
                   className="block text-center text-primary-600 hover:text-primary-800 text-sm font-medium mt-4"
                 >

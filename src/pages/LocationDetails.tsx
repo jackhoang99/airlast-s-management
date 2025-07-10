@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Building, MapPin, Plus, Building2 } from 'lucide-react';
-import { useSupabase } from '../lib/supabase-context';
-import { Database } from '../types/supabase';
-import Map from '../components/ui/Map';
-import UnitsList from '../components/locations/UnitsList';
+import { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, Building, MapPin, Plus, Building2 } from "lucide-react";
+import { useSupabase } from "../lib/supabase-context";
+import { Database } from "../types/supabase";
+import Map from "../components/ui/Map";
+import UnitsList from "../components/locations/UnitsList";
 
-type Location = Database['public']['Tables']['locations']['Row'] & {
+type Location = Database["public"]["Tables"]["locations"]["Row"] & {
   companies: {
     name: string;
     address: string;
@@ -19,6 +19,7 @@ type Location = Database['public']['Tables']['locations']['Row'] & {
 
 const LocationDetails = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { supabase } = useSupabase();
   const [location, setLocation] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,8 +31,9 @@ const LocationDetails = () => {
 
       try {
         const { data, error: fetchError } = await supabase
-          .from('locations')
-          .select(`
+          .from("locations")
+          .select(
+            `
             *,
             companies (
               name,
@@ -41,15 +43,16 @@ const LocationDetails = () => {
               zip,
               phone
             )
-          `)
-          .eq('id', id)
+          `
+          )
+          .eq("id", id)
           .single();
 
         if (fetchError) throw fetchError;
         setLocation(data);
       } catch (err) {
-        console.error('Error fetching location:', err);
-        setError('Failed to fetch location details');
+        console.error("Error fetching location:", err);
+        setError("Failed to fetch location details");
       } finally {
         setIsLoading(false);
       }
@@ -69,8 +72,11 @@ const LocationDetails = () => {
   if (error || !location) {
     return (
       <div className="text-center py-12">
-        <p className="text-error-600 mb-4">{error || 'Location not found'}</p>
-        <Link to="/locations" className="text-primary-600 hover:text-primary-800">
+        <p className="text-error-600 mb-4">{error || "Location not found"}</p>
+        <Link
+          to="/locations"
+          className="text-primary-600 hover:text-primary-800"
+        >
           Back to Locations
         </Link>
       </div>
@@ -81,9 +87,15 @@ const LocationDetails = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/locations" className="text-gray-500 hover:text-gray-700">
+          <button
+            type="button"
+            onClick={() =>
+              location && navigate(`/companies/${location.company_id}`)
+            }
+            className="text-gray-500 hover:text-gray-700"
+          >
             <ArrowLeft className="h-5 w-5" />
-          </Link>
+          </button>
           <h1 className="flex items-center gap-2">
             <Building className="h-6 w-6" />
             {location.name}
@@ -116,15 +128,15 @@ const LocationDetails = () => {
                 <div className="space-y-4">
                   <div className="flex items-start gap-2">
                     <Building className="h-5 w-5 text-gray-400 mt-1" />
-                    <div>
-                      <p className="font-medium">{location.building_name}</p>
-                    </div>
+                    <div></div>
                   </div>
                   <div className="flex items-start gap-2">
                     <MapPin className="h-5 w-5 text-gray-400 mt-1" />
                     <div>
                       <p>{location.address}</p>
-                      <p>{location.city}, {location.state} {location.zip}</p>
+                      <p>
+                        {location.city}, {location.state} {location.zip}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -137,7 +149,7 @@ const LocationDetails = () => {
               <h3 className="text-lg font-medium mb-4">Company Information</h3>
               <div className="space-y-4">
                 <div>
-                  <Link 
+                  <Link
                     to={`/companies/${location.company_id}`}
                     className="text-lg font-medium text-primary-600 hover:text-primary-800"
                   >
@@ -148,9 +160,14 @@ const LocationDetails = () => {
                   <MapPin className="h-5 w-5 text-gray-400 mt-1" />
                   <div>
                     <p>{location.companies.address}</p>
-                    <p>{location.companies.city}, {location.companies.state} {location.companies.zip}</p>
+                    <p>
+                      {location.companies.city}, {location.companies.state}{" "}
+                      {location.companies.zip}
+                    </p>
                     {location.companies.phone && (
-                      <p className="text-gray-600">{location.companies.phone}</p>
+                      <p className="text-gray-600">
+                        {location.companies.phone}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -158,7 +175,7 @@ const LocationDetails = () => {
             </div>
 
             <div className="mt-6">
-              <Map 
+              <Map
                 address={location.address}
                 city={location.city}
                 state={location.state}
