@@ -165,7 +165,6 @@ const CustomerLocationDetails = () => {
 
             <div className="space-y-4">
               <div className="flex items-start gap-2">
-                <Building className="h-5 w-5 text-gray-400 mt-1" />
                 <div></div>
               </div>
               <div className="flex items-start gap-2">

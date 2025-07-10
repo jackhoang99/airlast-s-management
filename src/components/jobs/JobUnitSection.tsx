@@ -154,7 +154,6 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
         {job.locations && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <div className="flex items-start gap-2 mb-2">
-              <Building className="h-5 w-5 text-gray-400 mt-1" />
               <div>
                 <Link
                   to={`/locations/${job.location_id}`}

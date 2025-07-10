@@ -127,10 +127,6 @@ const LocationDetails = () => {
                 <h2 className="text-xl font-semibold mb-4">Location Details</h2>
                 <div className="space-y-4">
                   <div className="flex items-start gap-2">
-                    <Building className="h-5 w-5 text-gray-400 mt-1" />
-                    <div></div>
-                  </div>
-                  <div className="flex items-start gap-2">
                     <MapPin className="h-5 w-5 text-gray-400 mt-1" />
                     <div>
                       <p>{location.address}</p>

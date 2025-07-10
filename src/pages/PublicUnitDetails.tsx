@@ -198,7 +198,6 @@ const PublicUnitDetails = () => {
               <h3 className="text-md font-medium mb-3">Location</h3>
               <div className="space-y-2">
                 <div className="flex items-start gap-2">
-                  <Building className="h-5 w-5 text-gray-400 mt-1" />
                   <div>
                     <p className="font-medium">
                       {unit.locations.companies.name}

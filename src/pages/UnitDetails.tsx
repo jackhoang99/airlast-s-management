@@ -379,7 +379,6 @@ const UnitDetails = () => {
               <h3 className="text-lg font-medium mb-4">Location Information</h3>
               <div className="space-y-4">
                 <div className="flex items-start gap-2">
-                  <Building className="h-5 w-5 text-gray-400 mt-1" />
                   <div>
                     <Link
                       to={`/locations/${unit.location_id}`}
