@@ -471,7 +471,7 @@ const CreateJob = () => {
       const { data: jobData, error: insertError } = await supabase
         .from("jobs")
         .insert({
-          name: `${formData.type}-${formData.service_line}-${formData.service_zip}`.trim(),
+          name: `inspection-${formData.service_zip}-${formData.service_line}`.trim(),
           type: formData.type,
           location_id: formData.location_id,
           unit_id: formData.unit_id || null,
