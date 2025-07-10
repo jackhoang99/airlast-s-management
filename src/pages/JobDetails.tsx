@@ -86,10 +86,7 @@ const JobDetails = () => {
               billing_city,
               billing_state,
               billing_zip,
-              office,
-              taxable,
-              tax_group_name,
-              tax_group_code
+              office
             ),
             job_technicians (
               id,
@@ -260,19 +257,7 @@ const JobDetails = () => {
           ),
           units (
             unit_number,
-            status,
-            primary_contact_type,
-            primary_contact_email,
-            primary_contact_phone,
-            billing_entity,
-            billing_email,
-            billing_city,
-            billing_state,
-            billing_zip,
-            office,
-            taxable,
-            tax_group_name,
-            tax_group_code
+            status
           ),
           job_technicians (
             id,
@@ -337,19 +322,7 @@ const JobDetails = () => {
           ),
           units (
             unit_number,
-            status,
-            primary_contact_type,
-            primary_contact_email,
-            primary_contact_phone,
-            billing_entity,
-            billing_email,
-            billing_city,
-            billing_state,
-            billing_zip,
-            office,
-            taxable,
-            tax_group_name,
-            tax_group_code
+            status
           ),
           job_technicians (
             id,

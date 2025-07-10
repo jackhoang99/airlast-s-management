@@ -204,16 +204,6 @@ const PublicUnitDetails = () => {
                     <p>{unit.locations.name}</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-2">
-                  <MapPin className="h-5 w-5 text-gray-400 mt-1" />
-                  <div>
-                    <p>{unit.locations.address}</p>
-                    <p>
-                      {unit.locations.city}, {unit.locations.state}{" "}
-                      {unit.locations.zip}
-                    </p>
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -311,12 +301,6 @@ const PublicUnitDetails = () => {
           <p>
             This information is provided by Airlast HVAC for reference purposes
             only.
-          </p>
-          <p className="mt-1">
-            For full access or to schedule service, please contact our office.
-          </p>
-          <p className="mt-4">
-            © {new Date().getFullYear()} Airlast HVAC. All rights reserved.
           </p>
         </div>
       </div>

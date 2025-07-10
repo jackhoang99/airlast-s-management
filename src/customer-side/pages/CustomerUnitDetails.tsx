@@ -253,18 +253,6 @@ const CustomerUnitDetails = () => {
                   </label>
                   <p>{unit.office || "Main Office"}</p>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">
-                    Taxable
-                  </label>
-                  <p>{unit.taxable ? "Yes" : "No"}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">
-                    Tax Group
-                  </label>
-                  <p>{unit.tax_group_name || "Not specified"}</p>
-                </div>
               </div>
             </div>
 

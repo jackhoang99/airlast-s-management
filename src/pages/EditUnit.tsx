@@ -36,11 +36,6 @@ const EditUnit = () => {
     billing_city: '',
     billing_state: '',
     billing_zip: '',
-    // Additional fields
-    office: '',
-    taxable: false,
-    tax_group_name: '',
-    tax_group_code: ''
   });
 
   useEffect(() => {
@@ -68,12 +63,7 @@ const EditUnit = () => {
           billing_email: unitData.billing_email || '',
           billing_city: unitData.billing_city || '',
           billing_state: unitData.billing_state || '',
-          billing_zip: unitData.billing_zip || '',
-          // Additional fields
-          office: unitData.office || 'Main Office',
-          taxable: unitData.taxable || false,
-          tax_group_name: unitData.tax_group_name || '',
-          tax_group_code: unitData.tax_group_code || ''
+          billing_zip: unitData.billing_zip || ''
         });
 
         // Fetch location
@@ -120,12 +110,7 @@ const EditUnit = () => {
           billing_email: formData.billing_email || null,
           billing_city: formData.billing_city || null,
           billing_state: formData.billing_state || null,
-          billing_zip: formData.billing_zip || null,
-          // Additional fields
-          office: formData.office || 'Main Office',
-          taxable: formData.taxable,
-          tax_group_name: formData.tax_group_name || null,
-          tax_group_code: formData.tax_group_code || null
+          billing_zip: formData.billing_zip || null
         })
         .eq('id', unit.id);
 
@@ -379,45 +364,6 @@ const EditUnit = () => {
                 id="office"
                 value={formData.office}
                 onChange={(e) => setFormData(prev => ({ ...prev, office: e.target.value }))}
-                className="input"
-              />
-            </div>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="taxable"
-                checked={formData.taxable}
-                onChange={(e) => setFormData(prev => ({ ...prev, taxable: e.target.checked }))}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
-              />
-              <label htmlFor="taxable" className="ml-2 text-sm text-gray-700">
-                Taxable
-              </label>
-            </div>
-
-            <div>
-              <label htmlFor="tax_group_name" className="block text-sm font-medium text-gray-700 mb-1">
-                Tax Group Name
-              </label>
-              <input
-                type="text"
-                id="tax_group_name"
-                value={formData.tax_group_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, tax_group_name: e.target.value }))}
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="tax_group_code" className="block text-sm font-medium text-gray-700 mb-1">
-                Tax Group Code
-              </label>
-              <input
-                type="text"
-                id="tax_group_code"
-                value={formData.tax_group_code}
-                onChange={(e) => setFormData(prev => ({ ...prev, tax_group_code: e.target.value }))}
                 className="input"
               />
             </div>
