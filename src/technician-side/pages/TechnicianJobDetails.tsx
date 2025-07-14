@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useSupabase } from "../../lib/supabase-context";
 import { Briefcase, MapPin, Calendar, Clock, CheckSquare, AlertTriangle, ArrowLeft, Phone, Mail, MessageSquare, Clipboard, Home, Package, FileText, Wrench, Plus, Edit, Trash2, Send, ChevronDown, ChevronUp, Navigation, DollarSign, FileInput, Users } from 'lucide-react';
+import InspectionSection from "../../components/jobs/InspectionSection";
 import ServiceSection from "../../components/jobs/ServiceSection";
 import JobQuoteSection from "../../components/jobs/JobQuoteSection";
 import JobInvoiceSection from "../../components/jobs/JobInvoiceSection";
@@ -36,6 +37,7 @@ const TechnicianJobDetails = () => {
   const [showServiceSection, setShowServiceSection] = useState(false);
   const [showQuoteSection, setShowQuoteSection] = useState(false);
   const [showInvoiceSection, setShowInvoiceSection] = useState(false);
+  const [showInspectionSection, setShowInspectionSection] = useState(true);
 
   // Get technician ID directly from auth
   useEffect(() => {
@@ -604,50 +606,6 @@ const TechnicianJobDetails = () => {
         </div>
       </div>
 
-      {/* Inspection Results Section */}
-      {jobAssets.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-4 mt-4">
-          <h2 className="text-lg font-semibold mb-4 flex items-center">
-            <Clipboard className="h-5 w-5 mr-2 text-primary-600" />
-            Inspection Results
-          </h2>
-          
-          <div className="space-y-4">
-            {jobAssets.map((asset) => (
-              <div key={asset.id} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="font-medium mb-2">Inspection from {formatDateTime(asset.inspection_date)}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Model Number</p>
-                    <p>{asset.model?.model_number || "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Serial Number</p>
-                    <p>{asset.model?.serial_number || "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Age (Years)</p>
-                    <p>{asset.model?.age || "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Tonnage</p>
-                    <p>{asset.model?.tonnage || "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Unit Type</p>
-                    <p>{asset.model?.unit_type || "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">System Type</p>
-                    <p>{asset.model?.system_type || "N/A"}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Clock In/Out Section */}
       {technicianId && (
         <ClockInOut 
@@ -662,11 +620,54 @@ const TechnicianJobDetails = () => {
       {/* Service Details - Mobile-Optimized Collapsible Sections */}
       <div className="bg-white rounded-lg shadow p-4">
         <h2 className="text-lg font-semibold mb-4 flex items-center">
-          <Wrench className="h-5 w-5 mr-2 text-primary-600" />
-          Service Details
+          <Clipboard className="h-5 w-5 mr-2 text-primary-600" />
+          Job Details
         </h2>
+
+        {/* Inspection Section - Collapsible */}
+        <div className="mb-4 border rounded-lg overflow-hidden">
+          <button 
+            onClick={() => setShowInspectionSection(!showInspectionSection)}
+            className="w-full flex justify-between items-center p-3 bg-blue-50 hover:bg-blue-100 transition-colors"
+          >
+            <h3 className="text-md font-medium flex items-center">
+              <Clipboard size={16} className="mr-2 text-blue-500" />
+              Inspection Details
+            </h3>
+            {showInspectionSection ? (
+              <ChevronUp className="h-5 w-5 text-blue-500" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-blue-500" />
+            )}
+          </button>
+          
+          {showInspectionSection && (
+            <div className="p-3 max-h-[60vh] overflow-y-auto">
+              <div className="text-sm text-gray-500 mb-2">
+                <p>Manage inspection details</p>
+              </div>
+              <InspectionSection
+                jobId={id || ''}
+                inspectionData={inspectionData}
+                onInspectionUpdated={() => {
+                  // Refresh inspection data
+                  if (supabase && id) {
+                    supabase
+                      .from('job_inspections')
+                      .select('*')
+                      .eq('job_id', id)
+                      .order('created_at', { ascending: false })
+                      .then(({ data }) => {
+                        if (data) setInspectionData(data);
+                      });
+                  }
+                }}
+              />
+            </div>
+          )}
+        </div>
         
-        {/* Service Section - Collapsible */}
+        {/* Inspection Section - Collapsible */}
         <div className="mb-4 border rounded-lg overflow-hidden">
           <button 
             onClick={() => setShowServiceSection(!showServiceSection)}

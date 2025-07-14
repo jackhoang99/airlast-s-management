@@ -497,6 +497,84 @@ const Jobs = () => {
     return job.service_contract !== 'Non-Contract';
   };
 
+  // Function to update all job names to the new format
+  const updateAllJobNames = async () => {
+    if (!supabase) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Fetch all jobs
+      const { data: allJobs, error: fetchError } = await supabase
+        .from('jobs')
+        .select('*');
+        
+      if (fetchError) throw fetchError;
+      
+      // Update each job with the new name format
+      for (const job of allJobs || []) {
+        // Extract zip code from location
+        const { data: locationData } = await supabase
+          .from('locations')
+          .select('zip')
+          .eq('id', job.location_id)
+          .single();
+          
+        const zipCode = locationData?.zip || '';
+        
+        // Create new job name
+        const newName = `inspection-${zipCode}-${job.service_line || ''}`.trim();
+        
+        // Update job name
+        await supabase
+          .from('jobs')
+          .update({ name: newName })
+          .eq('id', job.id);
+      }
+      
+      // Refresh jobs list
+      const { data: updatedJobs, error: refreshError } = await supabase
+        .from('jobs')
+        .select(`
+          *,
+          locations (
+            name,
+            address,
+            city,
+            state,
+            companies (
+              name
+            )
+          ),
+          job_technicians (
+            technician_id,
+            is_primary,
+            users:technician_id (
+              first_name,
+              last_name
+            )
+          ),
+          job_items!job_items_job_id_fkey (
+            id,
+            total_cost
+          ),
+          units (
+            unit_number
+          )
+        `);
+        
+      if (refreshError) throw refreshError;
+      setJobs(updatedJobs || []);
+      
+      alert('All job names have been updated to the new format.');
+    } catch (err) {
+      console.error('Error updating job names:', err);
+      setError('Failed to update job names. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -531,6 +609,13 @@ const Jobs = () => {
           </div>
           <button className="btn btn-secondary">
             Export to Spreadsheet
+          </button>
+          <button 
+            className="btn btn-secondary"
+            onClick={updateAllJobNames}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Updating...' : 'Update Job Names'}
           </button>
           <Link to="/jobs/create" className="btn btn-primary">
             <Plus size={16} className="mr-2" />

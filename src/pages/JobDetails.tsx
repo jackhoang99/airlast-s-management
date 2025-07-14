@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
-import { AlertTriangle, Bell, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, Bell, ChevronDown, ChevronUp, Clipboard, FileText } from "lucide-react";
 import { Job, JobItem } from "../types/job";
 import JobHeader from "../components/jobs/JobHeader";
 import JobDetailsCard from "../components/jobs/JobDetailsCard";
 import JobLocationContact from "../components/jobs/JobLocationContact";
 import JobTechnicians from "../components/jobs/JobTechnicians";
+import InspectionSection from "../components/jobs/InspectionSection";
 import ServiceSection from "../components/jobs/ServiceSection";
 import JobQuoteSection from "../components/jobs/JobQuoteSection";
 import JobInvoiceSection from "../components/jobs/JobInvoiceSection";
@@ -44,6 +45,8 @@ const JobDetails = () => {
   const [showServiceSection, setShowServiceSection] = useState(true);
   const [showQuoteSection, setShowQuoteSection] = useState(true);
   const [showInvoiceSection, setShowInvoiceSection] = useState(true);
+  const [showInspectionSection, setShowInspectionSection] = useState(true);
+  const [inspectionData, setInspectionData] = useState<any[]>([]); 
   const [showLocationSection, setShowLocationSection] = useState(true);
   const [showUnitSection, setShowUnitSection] = useState(true);
 
@@ -503,7 +506,7 @@ const JobDetails = () => {
           <div className="card">
             <div 
               className="flex justify-between items-center cursor-pointer"
-              onClick={() => setShowUnitSection(!showUnitSection)}
+              onClick={() => setShowInspectionSection(!showInspectionSection)}
             >
               <h2 className="text-lg font-medium">Unit Information</h2>
               <span className="text-gray-500">
@@ -577,6 +580,48 @@ const JobDetails = () => {
               )}
             </div>
           )}
+
+          {/* Inspection Section - Completely Separate */}
+          <div className="card mt-6">
+            <div 
+              className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
+              onClick={() => setShowInspectionSection(!showInspectionSection)}
+            >
+              <h2 className="text-lg font-medium flex items-center">
+                <FileText className="h-5 w-5 mr-2 text-primary-600" />
+                Inspection Details
+              </h2>
+              <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
+                {showInspectionSection ? (
+                  <>Hide <ChevronUp size={16} className="ml-1" /></>
+                ) : (
+                  <>Show <ChevronDown size={16} className="ml-1" /></>
+                )}
+              </span>
+            </div>
+            
+            {showInspectionSection && (
+              <div className="mt-4">
+                <InspectionSection 
+                  jobId={job.id}
+                  inspectionData={inspectionData}
+                  onInspectionUpdated={() => {
+                    // Refresh inspection data
+                    if (supabase && id) {
+                      supabase
+                        .from('job_inspections')
+                        .select('*')
+                        .eq('job_id', id)
+                        .order('created_at', { ascending: false })
+                        .then(({ data }) => {
+                          if (data) setInspectionData(data);
+                        });
+                    }
+                  }}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Service Section - Collapsible */}
           <div className="card">

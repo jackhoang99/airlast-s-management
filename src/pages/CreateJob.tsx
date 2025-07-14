@@ -1,27 +1,11 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import {
-  ArrowLeft,
-  Plus,
-  Filter,
-  Calendar,
-  List,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  Star,
-  Phone,
-  Mail,
-  Clock,
-  AlertTriangle,
-  ToggleLeft,
-  ToggleRight,
-} from "lucide-react";
-import { useSupabase } from "../lib/supabase-context";
-import { Database } from "../types/supabase";
-import AppointmentModal from "../components/jobs/AppointmentModal";
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { ArrowLeft, Plus, Filter, Calendar, List, ChevronLeft, ChevronRight, X, Star, Phone, Mail, Clock, AlertTriangle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useSupabase } from '../lib/supabase-context';
+import { Database } from '../types/supabase';
+import AppointmentModal from '../components/jobs/AppointmentModal';
 
-type Location = Database["public"]["Tables"]["locations"]["Row"] & {
+type Location = Database['public']['Tables']['locations']['Row'] & {
   companies: {
     name: string;
     id: string;
@@ -36,78 +20,74 @@ type Location = Database["public"]["Tables"]["locations"]["Row"] & {
   }[];
 };
 
-type User = Database["public"]["Tables"]["users"]["Row"];
+type User = Database['public']['Tables']['users']['Row'];
 
 const CreateJob = () => {
   const { supabase } = useSupabase();
   const navigate = useNavigate();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
-  const unitIdFromUrl = searchParams.get("unitId");
-
+  const unitIdFromUrl = searchParams.get('unitId');
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [serviceLines, setServiceLines] = useState<any[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<Location | null>(
-    null
-  );
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
-  const [presetName, setPresetName] = useState("");
+  const [presetName, setPresetName] = useState('');
   const [presets, setPresets] = useState<any[]>([]);
   const [selectedTechnicians, setSelectedTechnicians] = useState<User[]>([]);
   const [jobTypes, setJobTypes] = useState<any[]>([]);
-  const [validationErrors, setValidationErrors] = useState<{
-    [key: string]: string;
-  }>({});
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [isLoadingUnitDetails, setIsLoadingUnitDetails] = useState(false);
   const [isContractJob, setIsContractJob] = useState(true);
   const [availableTechnicians, setAvailableTechnicians] = useState<User[]>([]);
   const [isSavingPreset, setIsSavingPreset] = useState(false);
   const [presetError, setPresetError] = useState<string | null>(null);
-
+  
   const [formData, setFormData] = useState({
     // Service Location
-    company_id: "",
-    company_name: "",
-    location_id: "",
-    location_name: "",
-    unit_id: "",
-    unit_number: "",
-    service_address: "",
-    service_city: "",
-    service_state: "",
-    service_zip: "",
-    office: "Main Office",
-    customer_po: "",
-    service_contract: "Standard",
+    company_id: '',
+    company_name: '',
+    location_id: '',
+    location_name: '',
+    unit_id: '',
+    unit_number: '',
+    service_address: '',
+    service_city: '',
+    service_state: '',
+    service_zip: '',
+    office: 'Main Office',
+    customer_po: '',
+    service_contract: 'Standard',
 
     // Primary Contact
-    contact_first_name: "",
-    contact_last_name: "",
-    contact_type: "",
-    contact_phone: "",
-    contact_email: "",
+    contact_first_name: '',
+    contact_last_name: '',
+    contact_type: '',
+    contact_phone: '',
+    contact_email: '',
 
     // Service Details
-    service_line: "",
-    description: "",
-    problem_description: "",
-
+    service_line: '',
+    description: '',
+    problem_description: '',
+    
     // Schedule
-    time_period_start: new Date().toISOString().split("T")[0],
-    time_period_due: new Date().toISOString().split("T")[0],
-    schedule_date: "",
-    schedule_time: "",
-    schedule_duration: "1:00",
-    schedule_start: "",
+    time_period_start: new Date().toISOString().split('T')[0],
+    time_period_due: new Date().toISOString().split('T')[0],
+    schedule_date: '',
+    schedule_time: '',
+    schedule_duration: '1:00',
+    schedule_start: '',
     technician_ids: [] as string[],
-
+    
     // Additional Details
-    type: "preventative maintenance",
+    type: 'preventative maintenance',
     is_training: false,
-    status: "unscheduled",
+    status: 'unscheduled'
   });
 
   useEffect(() => {
@@ -117,9 +97,8 @@ const CreateJob = () => {
       try {
         // Fetch locations
         const { data: locationsData, error: locationsError } = await supabase
-          .from("locations")
-          .select(
-            `
+          .from('locations')
+          .select(`
             *,
             companies (
               id,
@@ -133,55 +112,53 @@ const CreateJob = () => {
               primary_contact_email,
               primary_contact_phone
             )
-          `
-          )
-          .order("name");
+          `)
+          .order('name');
 
         if (locationsError) throw locationsError;
         setLocations(locationsData || []);
 
         // Fetch service lines
-        const { data: serviceLinesData, error: serviceLinesError } =
-          await supabase
-            .from("service_lines")
-            .select("*")
-            .eq("is_active", true)
-            .order("name");
+        const { data: serviceLinesData, error: serviceLinesError } = await supabase
+          .from('service_lines')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
 
         if (serviceLinesError) throw serviceLinesError;
         setServiceLines(serviceLinesData || []);
 
         // Fetch job types
         const { data: jobTypesData, error: jobTypesError } = await supabase
-          .from("job_types")
-          .select("*")
-          .eq("is_active", true)
-          .order("name");
+          .from('job_types')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
 
         if (jobTypesError) throw jobTypesError;
         setJobTypes(jobTypesData || []);
 
         // Fetch presets
         const { data: presetsData, error: presetsError } = await supabase
-          .from("job_presets")
-          .select("*")
-          .order("name");
+          .from('job_presets')
+          .select('*')
+          .order('name');
 
         if (presetsError) throw presetsError;
         setPresets(presetsData || []);
-
+        
         // Fetch technicians
         const { data: techData, error: techError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("role", "technician")
-          .eq("status", "active")
-          .order("first_name");
-
+          .from('users')
+          .select('*')
+          .eq('role', 'technician')
+          .eq('status', 'active')
+          .order('first_name');
+          
         if (techError) throw techError;
         setAvailableTechnicians(techData || []);
       } catch (err) {
-        console.error("Error fetching data:", err);
+        console.error('Error fetching data:', err);
       }
     };
 
@@ -192,15 +169,14 @@ const CreateJob = () => {
   useEffect(() => {
     const loadUnitDetails = async () => {
       if (!supabase || !unitIdFromUrl) return;
-
+      
       setIsLoadingUnitDetails(true);
-
+      
       try {
         // Fetch unit details
         const { data: unitData, error: unitError } = await supabase
-          .from("units")
-          .select(
-            `
+          .from('units')
+          .select(`
             *,
             locations (
               id,
@@ -215,31 +191,28 @@ const CreateJob = () => {
                 name
               )
             )
-          `
-          )
-          .eq("id", unitIdFromUrl)
+          `)
+          .eq('id', unitIdFromUrl)
           .single();
-
+          
         if (unitError) throw unitError;
-
+        
         if (unitData && unitData.locations) {
           // Set location data
           const locationData = unitData.locations;
-
+          
           // Find the full location object with units
-          const fullLocation = locations.find(
-            (loc) => loc.id === locationData.id
-          );
-
+          const fullLocation = locations.find(loc => loc.id === locationData.id);
+          
           if (fullLocation) {
             setSelectedLocation(fullLocation);
           }
-
+          
           // Update form data with unit and location details
-          setFormData((prev) => ({
+          setFormData(prev => ({
             ...prev,
             company_id: locationData.company_id,
-            company_name: locationData.companies?.name || "",
+            company_name: locationData.companies?.name || '',
             location_id: locationData.id,
             location_name: locationData.name,
             unit_id: unitData.id,
@@ -249,32 +222,32 @@ const CreateJob = () => {
             service_state: locationData.state,
             service_zip: locationData.zip,
             // Populate contact information from unit's primary contact
-            contact_type: unitData.primary_contact_type || "",
-            contact_email: unitData.primary_contact_email || "",
-            contact_phone: unitData.primary_contact_phone || "",
+            contact_type: unitData.primary_contact_type || '',
+            contact_email: unitData.primary_contact_email || '',
+            contact_phone: unitData.primary_contact_phone || ''
           }));
-
+          
           // Scroll to top of page
           window.scrollTo(0, 0);
         }
       } catch (err) {
-        console.error("Error loading unit details:", err);
-        setError("Failed to load unit details");
+        console.error('Error loading unit details:', err);
+        setError('Failed to load unit details');
       } finally {
         setIsLoadingUnitDetails(false);
       }
     };
-
+    
     if (unitIdFromUrl && locations.length > 0) {
       loadUnitDetails();
     }
   }, [supabase, unitIdFromUrl, locations]);
 
   const handleLocationChange = async (locationId: string) => {
-    const location = locations.find((l) => l.id === locationId);
+    const location = locations.find(l => l.id === locationId);
     if (location) {
       setSelectedLocation(location);
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
         company_id: location.companies.id,
         company_name: location.companies.name,
@@ -284,25 +257,25 @@ const CreateJob = () => {
         service_city: location.city,
         service_state: location.state,
         service_zip: location.zip,
-        unit_id: "",
-        unit_number: "",
+        unit_id: '',
+        unit_number: ''
       }));
     }
   };
 
   const handleUnitChange = (unitId: string) => {
     if (!selectedLocation) return;
-
-    const unit = selectedLocation.units?.find((u) => u.id === unitId);
+    
+    const unit = selectedLocation.units?.find(u => u.id === unitId);
     if (unit) {
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
         unit_id: unitId,
         unit_number: unit.unit_number,
         // Populate contact information from unit's primary contact
         contact_type: unit.primary_contact_type || prev.contact_type,
         contact_email: unit.primary_contact_email || prev.contact_email,
-        contact_phone: unit.primary_contact_phone || prev.contact_phone,
+        contact_phone: unit.primary_contact_phone || prev.contact_phone
       }));
     }
   };
@@ -311,11 +284,11 @@ const CreateJob = () => {
     setFormData({
       ...preset.data,
       time_period_start: formData.time_period_start,
-      time_period_due: formData.time_period_due,
+      time_period_due: formData.time_period_due
     });
 
     if (preset.data.location_id) {
-      const location = locations.find((l) => l.id === preset.data.location_id);
+      const location = locations.find(l => l.id === preset.data.location_id);
       if (location) {
         setSelectedLocation(location);
       }
@@ -323,9 +296,9 @@ const CreateJob = () => {
 
     if (preset.data.technicians) {
       setSelectedTechnicians(preset.data.technicians);
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
-        technician_ids: preset.data.technicians.map((tech: User) => tech.id),
+        technician_ids: preset.data.technicians.map((tech: User) => tech.id)
       }));
     }
   };
@@ -335,28 +308,28 @@ const CreateJob = () => {
 
     try {
       const { error } = await supabase
-        .from("job_presets")
+        .from('job_presets')
         .delete()
-        .eq("id", presetId);
+        .eq('id', presetId);
 
       if (error) throw error;
-
+      
       // Refresh presets
       const { data } = await supabase
-        .from("job_presets")
-        .select("*")
-        .order("name");
-
+        .from('job_presets')
+        .select('*')
+        .order('name');
+      
       setPresets(data || []);
     } catch (err) {
-      console.error("Error deleting preset:", err);
-      setError("Failed to delete preset. Please try again.");
+      console.error('Error deleting preset:', err);
+      setError('Failed to delete preset. Please try again.');
     }
   };
 
   const handleSavePreset = async () => {
     if (!supabase || !presetName) {
-      setPresetError("Please enter a preset name");
+      setPresetError('Please enter a preset name');
       return;
     }
 
@@ -366,31 +339,33 @@ const CreateJob = () => {
     try {
       const presetData = {
         ...formData,
-        technicians: selectedTechnicians,
+        technicians: selectedTechnicians
       };
 
       // Insert the preset without user_id since it's been removed from the table
-      const { error } = await supabase.from("job_presets").insert({
-        name: presetName,
-        data: presetData,
-      });
+      const { error } = await supabase
+        .from('job_presets')
+        .insert({
+          name: presetName,
+          data: presetData
+        });
 
       if (error) throw error;
-
+      
       // Reset form and close modal
       setShowPresetModal(false);
-      setPresetName("");
-
+      setPresetName('');
+      
       // Refresh presets
       const { data } = await supabase
-        .from("job_presets")
-        .select("*")
-        .order("name");
-
+        .from('job_presets')
+        .select('*')
+        .order('name');
+      
       setPresets(data || []);
     } catch (err) {
-      console.error("Error saving preset:", err);
-      setPresetError("Failed to save preset. Please try again.");
+      console.error('Error saving preset:', err);
+      setPresetError('Failed to save preset. Please try again.');
     } finally {
       setIsSavingPreset(false);
     }
@@ -404,43 +379,37 @@ const CreateJob = () => {
     try {
       // Get technician details
       const { data: techData, error: techError } = await supabase
-        .from("users")
-        .select("*")
-        .in("id", appointment.technicianIds);
+        .from('users')
+        .select('*')
+        .in('id', appointment.technicianIds);
 
       if (techError) throw techError;
       setSelectedTechnicians(techData || []);
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
-        technician_ids: appointment.technicianIds,
+        technician_ids: appointment.technicianIds
       }));
 
       setShowAppointmentModal(false);
     } catch (err) {
-      console.error("Error fetching technician details:", err);
-      setError("Failed to fetch technician details. Please try again.");
+      console.error('Error fetching technician details:', err);
+      setError('Failed to fetch technician details. Please try again.');
     }
   };
 
   const validateForm = () => {
-    const errors: { [key: string]: string } = {};
-
+    const errors: {[key: string]: string} = {};
+    
     // Required fields
-    if (!formData.location_id)
-      errors.location_id = "Service location is required";
-    if (!formData.service_address)
-      errors.service_address = "Service address is required";
-    if (!formData.service_city)
-      errors.service_city = "Service city is required";
-    if (!formData.service_state)
-      errors.service_state = "Service state is required";
+    if (!formData.location_id) errors.location_id = "Service location is required";
+    if (!formData.service_address) errors.service_address = "Service address is required";
+    if (!formData.service_city) errors.service_city = "Service city is required";
+    if (!formData.service_state) errors.service_state = "Service state is required";
     if (!formData.service_zip) errors.service_zip = "Service zip is required";
-    if (!formData.service_line)
-      errors.service_line = "Service line is required";
+    if (!formData.service_line) errors.service_line = "Service line is required";
     if (!formData.description) errors.description = "Description is required";
-    if (!formData.contact_type)
-      errors.contact_type = "Contact type is required";
-
+    if (!formData.contact_type) errors.contact_type = "Contact type is required";
+    
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -451,7 +420,7 @@ const CreateJob = () => {
 
     // Validate form
     if (!validateForm()) {
-      setError("Please fill in all required fields.");
+      setError('Please fill in all required fields.');
       return;
     }
 
@@ -462,21 +431,18 @@ const CreateJob = () => {
       // Convert schedule date and time to ISO string if both are provided
       let scheduleStart = null;
       if (formData.schedule_date && formData.schedule_time) {
-        scheduleStart = new Date(
-          `${formData.schedule_date}T${formData.schedule_time}`
-        ).toISOString();
+        scheduleStart = new Date(`${formData.schedule_date}T${formData.schedule_time}`).toISOString();
       }
 
       // Create the job
       const { data: jobData, error: insertError } = await supabase
-        .from("jobs")
+        .from('jobs')
         .insert({
           name: `inspection-${formData.service_zip}-${formData.service_line}`.trim(),
           type: formData.type,
           location_id: formData.location_id,
           unit_id: formData.unit_id || null,
-          contact_name:
-            `${formData.contact_first_name} ${formData.contact_last_name}`.trim(),
+          contact_name: `${formData.contact_first_name} ${formData.contact_last_name}`.trim(),
           contact_phone: formData.contact_phone,
           contact_email: formData.contact_email,
           contact_type: formData.contact_type,
@@ -488,41 +454,35 @@ const CreateJob = () => {
           time_period_start: formData.time_period_start,
           time_period_due: formData.time_period_due,
           schedule_start: scheduleStart,
-          schedule_duration: formData.schedule_duration
-            ? `${formData.schedule_duration} hours`
-            : null,
-          status: scheduleStart ? "scheduled" : "unscheduled",
+          schedule_duration: formData.schedule_duration ? `${formData.schedule_duration} hours` : null,
+          status: scheduleStart ? 'scheduled' : 'unscheduled',
           office: formData.office,
-          service_contract: isContractJob
-            ? formData.service_contract
-            : "Non-Contract",
+          service_contract: isContractJob ? formData.service_contract : 'Non-Contract'
         })
         .select()
         .single();
 
       if (insertError) throw insertError;
-
+      
       // If there are technicians, add them to the job_technicians table
       if (formData.technician_ids.length > 0 && jobData) {
-        const technicianEntries = formData.technician_ids.map(
-          (techId, index) => ({
-            job_id: jobData.id,
-            technician_id: techId,
-            is_primary: index === 0, // First technician is primary
-          })
-        );
-
+        const technicianEntries = formData.technician_ids.map((techId, index) => ({
+          job_id: jobData.id,
+          technician_id: techId,
+          is_primary: index === 0 // First technician is primary
+        }));
+        
         const { error: techError } = await supabase
-          .from("job_technicians")
+          .from('job_technicians')
           .insert(technicianEntries);
-
+          
         if (techError) throw techError;
       }
-
-      navigate("/jobs");
+      
+      navigate('/jobs');
     } catch (err) {
-      console.error("Error creating job:", err);
-      setError("Failed to create job. Please try again.");
+      console.error('Error creating job:', err);
+      setError('Failed to create job. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -552,13 +512,11 @@ const CreateJob = () => {
           <h2 className="text-lg font-medium">Suggested Paths</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {presets.map((preset) => (
+          {presets.map(preset => (
             <div
               key={preset.id}
               className={`p-4 border rounded-lg hover:bg-gray-50 text-left relative ${
-                formData.unit_id === preset.data.unit_id
-                  ? "border-primary-500 ring-1 ring-primary-500"
-                  : ""
+                formData.unit_id === preset.data.unit_id ? 'border-primary-500 ring-1 ring-primary-500' : ''
               }`}
             >
               <button
@@ -574,24 +532,16 @@ const CreateJob = () => {
                 <h3 className="font-medium">{preset.name}</h3>
                 <div className="text-sm text-gray-500 mt-1">
                   <div>
-                    {preset.data.type === "preventative maintenance"
-                      ? "PM"
-                      : "Service Call"}
-                    {preset.data.service_line
-                      ? ` • ${preset.data.service_line}`
-                      : ""}
+                    {preset.data.type === 'preventative maintenance' ? 'PM' : 'Service Call'}
+                    {preset.data.service_line ? ` • ${preset.data.service_line}` : ''}
                   </div>
-                  {preset.data.technicians &&
-                    preset.data.technicians.length > 0 && (
-                      <div className="mt-1 text-gray-600">
-                        {preset.data.technicians
-                          .map(
-                            (tech: User) =>
-                              `${tech.first_name} ${tech.last_name}`
-                          )
-                          .join(", ")}
-                      </div>
-                    )}
+                  {preset.data.technicians && preset.data.technicians.length > 0 && (
+                    <div className="mt-1 text-gray-600">
+                      {preset.data.technicians.map((tech: User) => 
+                        `${tech.first_name} ${tech.last_name}`
+                      ).join(', ')}
+                    </div>
+                  )}
                   {preset.data.location_name && (
                     <div className="mt-1 text-gray-400">
                       {preset.data.location_name}
@@ -619,7 +569,7 @@ const CreateJob = () => {
         {/* Customer Details */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-medium mb-6">Customer Details</h2>
-
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Company Selection */}
             <div className="md:col-span-2">
@@ -637,10 +587,7 @@ const CreateJob = () => {
 
             {/* Location Selection */}
             <div className="md:col-span-2">
-              <label
-                htmlFor="location_id"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="location_id" className="block text-sm font-medium text-gray-700 mb-1">
                 Service Location *
               </label>
               <select
@@ -648,33 +595,24 @@ const CreateJob = () => {
                 value={formData.location_id}
                 onChange={(e) => handleLocationChange(e.target.value)}
                 required
-                className={`select ${
-                  validationErrors.location_id
-                    ? "border-error-500 ring-1 ring-error-500"
-                    : ""
-                }`}
+                className={`select ${validationErrors.location_id ? 'border-error-500 ring-1 ring-error-500' : ''}`}
                 disabled={isLoadingUnitDetails}
               >
                 <option value="">Select Location</option>
-                {locations.map((location) => (
+                {locations.map(location => (
                   <option key={location.id} value={location.id}>
                     {location.name} ({location.companies?.name})
                   </option>
                 ))}
               </select>
               {validationErrors.location_id && (
-                <p className="mt-1 text-sm text-error-600">
-                  {validationErrors.location_id}
-                </p>
+                <p className="mt-1 text-sm text-error-600">{validationErrors.location_id}</p>
               )}
             </div>
 
             {/* Unit Selection */}
             <div className="md:col-span-2">
-              <label
-                htmlFor="unit_id"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="unit_id" className="block text-sm font-medium text-gray-700 mb-1">
                 Service Unit
               </label>
               <select
@@ -686,7 +624,7 @@ const CreateJob = () => {
                 disabled={isLoadingUnitDetails || !selectedLocation}
               >
                 <option value="">Select Unit</option>
-                {selectedLocation?.units?.map((unit) => (
+                {selectedLocation?.units?.map(unit => (
                   <option key={unit.id} value={unit.id}>
                     {unit.unit_number}
                   </option>
@@ -695,10 +633,7 @@ const CreateJob = () => {
             </div>
 
             <div className="md:col-span-2">
-              <label
-                htmlFor="service_address"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="service_address" className="block text-sm font-medium text-gray-700 mb-1">
                 Service Address *
               </label>
               <input
@@ -706,31 +641,17 @@ const CreateJob = () => {
                 id="service_address"
                 name="service_address"
                 value={formData.service_address}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    service_address: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, service_address: e.target.value }))}
                 required
-                className={`input ${
-                  validationErrors.service_address
-                    ? "border-error-500 ring-1 ring-error-500"
-                    : ""
-                }`}
+                className={`input ${validationErrors.service_address ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               />
               {validationErrors.service_address && (
-                <p className="mt-1 text-sm text-error-600">
-                  {validationErrors.service_address}
-                </p>
+                <p className="mt-1 text-sm text-error-600">{validationErrors.service_address}</p>
               )}
             </div>
 
             <div>
-              <label
-                htmlFor="service_city"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="service_city" className="block text-sm font-medium text-gray-700 mb-1">
                 Service City *
               </label>
               <input
@@ -738,31 +659,17 @@ const CreateJob = () => {
                 id="service_city"
                 name="service_city"
                 value={formData.service_city}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    service_city: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, service_city: e.target.value }))}
                 required
-                className={`input ${
-                  validationErrors.service_city
-                    ? "border-error-500 ring-1 ring-error-500"
-                    : ""
-                }`}
+                className={`input ${validationErrors.service_city ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               />
               {validationErrors.service_city && (
-                <p className="mt-1 text-sm text-error-600">
-                  {validationErrors.service_city}
-                </p>
+                <p className="mt-1 text-sm text-error-600">{validationErrors.service_city}</p>
               )}
             </div>
 
             <div>
-              <label
-                htmlFor="service_state"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="service_state" className="block text-sm font-medium text-gray-700 mb-1">
                 Service State *
               </label>
               <input
@@ -770,32 +677,18 @@ const CreateJob = () => {
                 id="service_state"
                 name="service_state"
                 value={formData.service_state}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    service_state: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, service_state: e.target.value }))}
                 required
                 maxLength={2}
-                className={`input ${
-                  validationErrors.service_state
-                    ? "border-error-500 ring-1 ring-error-500"
-                    : ""
-                }`}
+                className={`input ${validationErrors.service_state ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               />
               {validationErrors.service_state && (
-                <p className="mt-1 text-sm text-error-600">
-                  {validationErrors.service_state}
-                </p>
+                <p className="mt-1 text-sm text-error-600">{validationErrors.service_state}</p>
               )}
             </div>
 
             <div>
-              <label
-                htmlFor="service_zip"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="service_zip" className="block text-sm font-medium text-gray-700 mb-1">
                 Service Zip *
               </label>
               <input
@@ -803,40 +696,24 @@ const CreateJob = () => {
                 id="service_zip"
                 name="service_zip"
                 value={formData.service_zip}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    service_zip: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, service_zip: e.target.value }))}
                 required
-                className={`input ${
-                  validationErrors.service_zip
-                    ? "border-error-500 ring-1 ring-error-500"
-                    : ""
-                }`}
+                className={`input ${validationErrors.service_zip ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               />
               {validationErrors.service_zip && (
-                <p className="mt-1 text-sm text-error-600">
-                  {validationErrors.service_zip}
-                </p>
+                <p className="mt-1 text-sm text-error-600">{validationErrors.service_zip}</p>
               )}
             </div>
 
             <div>
-              <label
-                htmlFor="office"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="office" className="block text-sm font-medium text-gray-700 mb-1">
                 Office Location *
               </label>
               <select
                 id="office"
                 name="office"
                 value={formData.office}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, office: e.target.value }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, office: e.target.value }))}
                 required
                 className="select"
               >
@@ -845,10 +722,7 @@ const CreateJob = () => {
             </div>
 
             <div>
-              <label
-                htmlFor="customer_po"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="customer_po" className="block text-sm font-medium text-gray-700 mb-1">
                 Customer PO
               </label>
               <input
@@ -856,22 +730,14 @@ const CreateJob = () => {
                 id="customer_po"
                 name="customer_po"
                 value={formData.customer_po}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    customer_po: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, customer_po: e.target.value }))}
                 className="input"
               />
             </div>
 
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label
-                  htmlFor="service_contract"
-                  className="block text-sm font-medium text-gray-700"
-                >
+                <label htmlFor="service_contract" className="block text-sm font-medium text-gray-700">
                   Service Contract
                 </label>
                 <button
@@ -897,12 +763,7 @@ const CreateJob = () => {
                   id="service_contract"
                   name="service_contract"
                   value={formData.service_contract}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      service_contract: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setFormData(prev => ({ ...prev, service_contract: e.target.value }))}
                   className="select"
                 >
                   <option value="Standard">Standard</option>
@@ -927,13 +788,10 @@ const CreateJob = () => {
         {/* Primary Contact */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-medium mb-6">Job Primary Contact</h2>
-
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label
-                htmlFor="contact_first_name"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="contact_first_name" className="block text-sm font-medium text-gray-700 mb-1">
                 First Name
               </label>
               <input
@@ -941,21 +799,13 @@ const CreateJob = () => {
                 id="contact_first_name"
                 name="contact_first_name"
                 value={formData.contact_first_name}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    contact_first_name: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, contact_first_name: e.target.value }))}
                 className="input"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="contact_last_name"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="contact_last_name" className="block text-sm font-medium text-gray-700 mb-1">
                 Last Name
               </label>
               <input
@@ -963,38 +813,21 @@ const CreateJob = () => {
                 id="contact_last_name"
                 name="contact_last_name"
                 value={formData.contact_last_name}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    contact_last_name: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, contact_last_name: e.target.value }))}
                 className="input"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="contact_type"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="contact_type" className="block text-sm font-medium text-gray-700 mb-1">
                 Contact Type *
               </label>
               <select
                 id="contact_type"
                 name="contact_type"
                 value={formData.contact_type}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    contact_type: e.target.value,
-                  }))
-                }
-                className={`select ${
-                  validationErrors.contact_type
-                    ? "border-error-500 ring-1 ring-error-500"
-                    : ""
-                }`}
+                onChange={(e) => setFormData(prev => ({ ...prev, contact_type: e.target.value }))}
+                className={`select ${validationErrors.contact_type ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               >
                 <option value="">Select Type</option>
                 <option value="primary">Primary</option>
@@ -1002,17 +835,12 @@ const CreateJob = () => {
                 <option value="emergency">Emergency</option>
               </select>
               {validationErrors.contact_type && (
-                <p className="mt-1 text-sm text-error-600">
-                  {validationErrors.contact_type}
-                </p>
+                <p className="mt-1 text-sm text-error-600">{validationErrors.contact_type}</p>
               )}
             </div>
 
             <div>
-              <label
-                htmlFor="contact_phone"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="contact_phone" className="block text-sm font-medium text-gray-700 mb-1">
                 Phone Number
               </label>
               <input
@@ -1020,21 +848,13 @@ const CreateJob = () => {
                 id="contact_phone"
                 name="contact_phone"
                 value={formData.contact_phone}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    contact_phone: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, contact_phone: e.target.value }))}
                 className="input"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label
-                htmlFor="contact_email"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="contact_email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
               </label>
               <input
@@ -1042,12 +862,7 @@ const CreateJob = () => {
                 id="contact_email"
                 name="contact_email"
                 value={formData.contact_email}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    contact_email: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, contact_email: e.target.value }))}
                 className="input"
               />
             </div>
@@ -1057,123 +872,62 @@ const CreateJob = () => {
         {/* Service Details */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-medium mb-6">Service</h2>
-
+          
           <div className="grid grid-cols-1 gap-6">
             <div>
-              <label
-                htmlFor="service_line"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="service_line" className="block text-sm font-medium text-gray-700 mb-1">
                 Service Line *
               </label>
               <select
                 id="service_line"
                 name="service_line"
                 value={formData.service_line}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    service_line: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, service_line: e.target.value }))}
                 required
-                className={`select ${
-                  validationErrors.service_line
-                    ? "border-error-500 ring-1 ring-error-500"
-                    : ""
-                }`}
+                className={`select ${validationErrors.service_line ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               >
                 <option value="">Select Service Line</option>
-                {serviceLines.map((line) => (
+                {serviceLines.map(line => (
                   <option key={line.id} value={line.code}>
                     {line.name}
                   </option>
                 ))}
               </select>
               {validationErrors.service_line && (
-                <p className="mt-1 text-sm text-error-600">
-                  {validationErrors.service_line}
-                </p>
+                <p className="mt-1 text-sm text-error-600">{validationErrors.service_line}</p>
               )}
             </div>
 
             <div>
-              <label
-                htmlFor="description"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
                 Description of Service *
               </label>
               <textarea
                 id="description"
                 name="description"
                 value={formData.description}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 required
                 rows={4}
-                className={`input ${
-                  validationErrors.description
-                    ? "border-error-500 ring-1 ring-error-500"
-                    : ""
-                }`}
+                className={`input ${validationErrors.description ? 'border-error-500 ring-1 ring-error-500' : ''}`}
               />
               {validationErrors.description && (
-                <p className="mt-1 text-sm text-error-600">
-                  {validationErrors.description}
-                </p>
+                <p className="mt-1 text-sm text-error-600">{validationErrors.description}</p>
               )}
             </div>
 
             <div>
-              <label
-                htmlFor="problem_description"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="problem_description" className="block text-sm font-medium text-gray-700 mb-1">
                 Description of Problem
               </label>
               <textarea
                 id="problem_description"
                 name="problem_description"
                 value={formData.problem_description}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    problem_description: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, problem_description: e.target.value }))}
                 rows={4}
                 className="input"
               />
-            </div>
-
-            <div>
-              <label
-                htmlFor="type"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Job Type *
-              </label>
-              <select
-                id="type"
-                name="type"
-                value={formData.type}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, type: e.target.value }))
-                }
-                required
-                className="select"
-              >
-                {jobTypes.map((type) => (
-                  <option key={type.id} value={type.name.toLowerCase()}>
-                    {type.name}
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
         </div>
@@ -1191,13 +945,10 @@ const CreateJob = () => {
               Select Technicians
             </button>
           </div>
-
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label
-                htmlFor="time_period_start"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="time_period_start" className="block text-sm font-medium text-gray-700 mb-1">
                 Start Date *
               </label>
               <input
@@ -1205,22 +956,14 @@ const CreateJob = () => {
                 id="time_period_start"
                 name="time_period_start"
                 value={formData.time_period_start}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    time_period_start: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, time_period_start: e.target.value }))}
                 required
                 className="input"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="time_period_due"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="time_period_due" className="block text-sm font-medium text-gray-700 mb-1">
                 Due Date *
               </label>
               <input
@@ -1228,22 +971,14 @@ const CreateJob = () => {
                 id="time_period_due"
                 name="time_period_due"
                 value={formData.time_period_due}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    time_period_due: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, time_period_due: e.target.value }))}
                 required
                 className="input"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="schedule_date"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="schedule_date" className="block text-sm font-medium text-gray-700 mb-1">
                 Schedule Date
               </label>
               <input
@@ -1251,21 +986,13 @@ const CreateJob = () => {
                 id="schedule_date"
                 name="schedule_date"
                 value={formData.schedule_date}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    schedule_date: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, schedule_date: e.target.value }))}
                 className="input"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="schedule_time"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="schedule_time" className="block text-sm font-medium text-gray-700 mb-1">
                 Schedule Time
               </label>
               <input
@@ -1273,33 +1000,20 @@ const CreateJob = () => {
                 id="schedule_time"
                 name="schedule_time"
                 value={formData.schedule_time}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    schedule_time: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, schedule_time: e.target.value }))}
                 className="input"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="schedule_duration"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="schedule_duration" className="block text-sm font-medium text-gray-700 mb-1">
                 Duration
               </label>
               <select
                 id="schedule_duration"
                 name="schedule_duration"
                 value={formData.schedule_duration}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    schedule_duration: e.target.value,
-                  }))
-                }
+                onChange={(e) => setFormData(prev => ({ ...prev, schedule_duration: e.target.value }))}
                 className="select"
               >
                 <option value="1:00">1:00 hr</option>
@@ -1315,26 +1029,21 @@ const CreateJob = () => {
 
           {selectedTechnicians.length > 0 && (
             <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">
-                Assigned Technicians
-              </h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Assigned Technicians</h3>
               <div className="space-y-3">
-                {selectedTechnicians.map((tech) => (
+                {selectedTechnicians.map(tech => (
                   <div key={tech.id} className="flex items-start gap-4">
                     <div className="w-10 h-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
                       <span className="text-sm font-medium">
-                        {tech.first_name?.[0] || "?"}
-                        {tech.last_name?.[0] || "?"}
+                        {tech.first_name?.[0] || '?'}{tech.last_name?.[0] || '?'}
                       </span>
                     </div>
                     <div>
-                      <div className="font-medium">
-                        {tech.first_name} {tech.last_name}
-                      </div>
+                      <div className="font-medium">{tech.first_name} {tech.last_name}</div>
                       <div className="text-sm text-gray-500 space-y-1 mt-1">
                         <div className="flex items-center gap-2">
                           <Phone size={14} />
-                          {tech.phone || "No phone"}
+                          {tech.phone || 'No phone'}
                         </div>
                         <div className="flex items-center gap-2">
                           <Mail size={14} />
@@ -1352,19 +1061,34 @@ const CreateJob = () => {
         {/* Additional Details */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-medium mb-6">Additional Details</h2>
-
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
+                Job Type *
+              </label>
+              <select
+                id="type"
+                name="type"
+                value={formData.type}
+                onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                required
+                className="select"
+              >
+                {jobTypes.map(type => (
+                  <option key={type.id} value={type.name.toLowerCase()}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex items-center">
               <label className="flex items-center">
                 <input
                   type="checkbox"
                   checked={formData.is_training}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      is_training: e.target.checked,
-                    }))
-                  }
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_training: e.target.checked }))}
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
                 />
                 <span className="ml-2 text-sm text-gray-700">Training Job</span>
@@ -1374,7 +1098,10 @@ const CreateJob = () => {
         </div>
 
         <div className="flex justify-end space-x-3">
-          <Link to="/jobs" className="btn btn-secondary">
+          <Link
+            to="/jobs"
+            className="btn btn-secondary"
+          >
             Cancel
           </Link>
           <button
@@ -1387,9 +1114,9 @@ const CreateJob = () => {
                 <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
                 Creating...
               </>
-            ) : (
-              "Create Job"
-            )}
+            )
+              : 'Create Job'
+            }
           </button>
         </div>
       </form>
@@ -1422,7 +1149,7 @@ const CreateJob = () => {
                   type="button"
                   onClick={() => {
                     setShowPresetModal(false);
-                    setPresetName("");
+                    setPresetName('');
                     setPresetError(null);
                   }}
                   className="btn btn-secondary"
@@ -1441,7 +1168,7 @@ const CreateJob = () => {
                       Saving...
                     </>
                   ) : (
-                    "Save Preset"
+                    'Save Preset'
                   )}
                 </button>
               </div>

@@ -1,6 +1,16 @@
-import { useState, useEffect } from 'react';
-import { Edit, Save, Plus, Trash2, Calculator, X, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
-import { useSupabase } from '../../../lib/supabase-context';
+import { useState, useEffect } from "react";
+import {
+  Edit,
+  Save,
+  Plus,
+  Trash2,
+  Calculator,
+  X,
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import { useSupabase } from "../../../lib/supabase-context";
 
 type PhaseOption = {
   description: string;
@@ -14,9 +24,7 @@ type AccessoryItem = {
 
 type ReplacementData = {
   needsCrane: boolean;
-  phase1: PhaseOption;
-  phase2: PhaseOption;
-  phase3: PhaseOption;
+  replacementOption: PhaseOption;
   labor: string | number;
   refrigerationRecovery: string | number;
   startUpCosts: string | number;
@@ -26,7 +34,6 @@ type ReplacementData = {
   warranty: string;
   additionalItems: AccessoryItem[];
   permitCost: string | number;
-  selectedPhase?: string;
   totalCost?: number;
 };
 
@@ -37,8 +44,8 @@ type InspectionData = {
   serial_number: string | null;
   age: number | null;
   tonnage: string | null;
-  unit_type: 'Gas' | 'Electric' | null;
-  system_type: 'RTU' | 'Split System' | null;
+  unit_type: "Gas" | "Electric" | null;
+  system_type: "RTU" | "Split System" | null;
   created_at: string;
   updated_at: string;
   completed: boolean;
@@ -46,93 +53,90 @@ type InspectionData = {
 
 type RepairFormProps = {
   jobId: string;
-  inspectionId: string;
   initialData?: ReplacementData;
-  onSave?: (data: ReplacementData, inspectionId: string) => void;
-  selectedInspection?: InspectionData;
+  onSave?: (data: ReplacementData) => void;
   onClose?: () => void;
 };
 
 const RepairsForm = ({
   jobId,
-  inspectionId,
   initialData,
   onSave,
-  selectedInspection,
-  onClose
+  onClose,
 }: RepairFormProps) => {
   const { supabase } = useSupabase();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [inspectionData, setInspectionData] = useState<InspectionData | null>(null);
-  const [allInspections, setAllInspections] = useState<InspectionData[]>([]);
   const [replacementData, setReplacementData] = useState<ReplacementData>(
     initialData || {
       needsCrane: false,
-      phase1: { description: 'Economy Option', cost: '' },
-      phase2: { description: 'Standard Option', cost: '' },
-      phase3: { description: 'Premium Option', cost: '' },
-      labor: '',
-      refrigerationRecovery: '',
-      startUpCosts: '',
-      accessories: [{ name: '', cost: '' }],
-      thermostatStartup: '',
-      removalCost: '',
-      warranty: '',
-      additionalItems: [{ name: '', cost: '' }],
-      permitCost: '',
+      replacementOption: { description: "Replacement Option", cost: "" },
+      labor: "",
+      refrigerationRecovery: "",
+      startUpCosts: "",
+      accessories: [{ name: "", cost: "" }],
+      thermostatStartup: "",
+      removalCost: "",
+      warranty: "",
+      additionalItems: [{ name: "", cost: "" }],
+      permitCost: "",
     }
   );
   const [totalCost, setTotalCost] = useState(0);
-  const [selectedPhase, setSelectedPhase] = useState<'phase1' | 'phase2' | 'phase3'>(
-    (initialData?.selectedPhase as 'phase1' | 'phase2' | 'phase3') || 'phase2'
-  );
   const [jobDetails, setJobDetails] = useState<any>(null);
   const [isFormVisible, setIsFormVisible] = useState(true);
-  const [activeTab, setActiveTab] = useState<'options' | 'accessories' | 'additional'>('options');
-  const [expandedSection, setExpandedSection] = useState<'options' | 'accessories' | 'additional' | null>('options');
+  const [activeTab, setActiveTab] = useState<
+    "options" | "accessories" | "additional"
+  >("options");
+  const [expandedSection, setExpandedSection] = useState<
+    "options" | "accessories" | "additional" | null
+  >("options");
 
   // Fetch existing replacement + inspection + job details
   useEffect(() => {
-    const fetchData = async () => {
-      if (!supabase || !jobId || !inspectionId) return;
+    const fetchReplacementData = async () => {
+      if (!supabase || !jobId) return;
       try {
         // 1) Load existing replacement data (if any)
-        const { data: existingReplacement, error: replacementError } = await supabase
-          .from('job_replacements')
-          .select('*')
-          .eq('job_id', jobId)
-          .eq('inspection_id', inspectionId)
-          .maybeSingle();
+        const { data: existingReplacement, error: replacementError } =
+          await supabase
+            .from("job_replacements")
+            .select("*")
+            .eq("job_id", jobId)
+            .maybeSingle();
 
-        if (replacementError && !replacementError.message.includes('The result contains 0 rows')) {
+        if (
+          replacementError &&
+          !replacementError.message.includes("The result contains 0 rows")
+        ) {
           throw replacementError;
         }
 
         if (existingReplacement) {
           setReplacementData({
             needsCrane: existingReplacement.needs_crane || false,
-            phase1: existingReplacement.phase1 || { description: 'Economy Option', cost: '' },
-            phase2: existingReplacement.phase2 || { description: 'Standard Option', cost: '' },
-            phase3: existingReplacement.phase3 || { description: 'Premium Option', cost: '' },
-            labor: existingReplacement.labor || '',
-            refrigerationRecovery: existingReplacement.refrigeration_recovery || '',
-            startUpCosts: existingReplacement.start_up_costs || '',
-            accessories: existingReplacement.accessories || [{ name: '', cost: '' }],
-            thermostatStartup: existingReplacement.thermostat_startup || '',
-            removalCost: existingReplacement.removal_cost || '',
-            warranty: existingReplacement.warranty || '',
-            additionalItems: existingReplacement.additional_items || [{ name: '', cost: '' }],
-            permitCost: existingReplacement.permit_cost || '',
-            selectedPhase: existingReplacement.selected_phase,
-            totalCost: existingReplacement.total_cost
+            replacementOption: existingReplacement.replacementOption || {
+              description: "Replacement Option",
+              cost: "",
+            },
+            labor: existingReplacement.labor || "",
+            refrigerationRecovery:
+              existingReplacement.refrigeration_recovery || "",
+            startUpCosts: existingReplacement.start_up_costs || "",
+            accessories: existingReplacement.accessories || [
+              { name: "", cost: "" },
+            ],
+            thermostatStartup: existingReplacement.thermostat_startup || "",
+            removalCost: existingReplacement.removal_cost || "",
+            warranty: existingReplacement.warranty || "",
+            additionalItems: existingReplacement.additional_items || [
+              { name: "", cost: "" },
+            ],
+            permitCost: existingReplacement.permit_cost || "",
+            totalCost: existingReplacement.total_cost,
           });
 
-          if (existingReplacement.selected_phase) {
-            setSelectedPhase(existingReplacement.selected_phase as 'phase1' | 'phase2' | 'phase3');
-          }
-          
           if (existingReplacement.total_cost) {
             setTotalCost(existingReplacement.total_cost);
           }
@@ -141,31 +145,11 @@ const RepairsForm = ({
           setIsFormVisible(initialData !== undefined);
         }
 
-        // 2) Fetch all completed inspections for this job
-        const { data: inspectionsData, error: inspectionsError } = await supabase
-          .from('job_inspections')
-          .select('*')
-          .eq('job_id', jobId)
-          .eq('completed', true)
-          .order('created_at', { ascending: false });
-
-        if (inspectionsError) throw inspectionsError;
-        setAllInspections(inspectionsData || []);
-
-        // 3) Use selectedInspection if provided, else find by ID
-        if (selectedInspection) {
-          setInspectionData(selectedInspection);
-        } else {
-          const inspect = inspectionsData?.find(insp => insp.id === inspectionId);
-          if (inspect) {
-            setInspectionData(inspect);
-          }
-        }
-
-        // 4) Fetch job details (with location + unit)
+        // Fetch job details (with location + unit)
         const { data: jobData, error: jobError } = await supabase
-          .from('jobs')
-          .select(`
+          .from("jobs")
+          .select(
+            `
             *,
             locations (
               name,
@@ -177,32 +161,29 @@ const RepairsForm = ({
             units (
               unit_number
             )
-          `)
-          .eq('id', jobId)
+          `
+          )
+          .eq("id", jobId)
           .single();
 
         if (jobError) throw jobError;
         setJobDetails(jobData);
       } catch (err) {
-        console.error('Error fetching data:', err);
-        setError('Failed to load data');
+        console.error("Error fetching data:", err);
+        setError("Failed to load data");
       }
     };
 
-    fetchData();
-  }, [supabase, jobId, inspectionId, selectedInspection, initialData]);
+    fetchReplacementData();
+  }, [supabase, jobId, initialData]);
 
   // Calculate total cost whenever replacement fields or selectedPhase change
   useEffect(() => {
     const calculateTotalCost = () => {
-      const phaseCost =
-        (selectedPhase === 'phase1'
-          ? Number(replacementData.phase1.cost)
-          : selectedPhase === 'phase2'
-          ? Number(replacementData.phase2.cost)
-          : Number(replacementData.phase3.cost)) || 0;
+      const phaseCost = Number(replacementData.replacementOption.cost) || 0;
       const laborCost = Number(replacementData.labor) || 0;
-      const refrigerationCost = Number(replacementData.refrigerationRecovery) || 0;
+      const refrigerationCost =
+        Number(replacementData.refrigerationRecovery) || 0;
       const startUpCost = Number(replacementData.startUpCosts) || 0;
       const thermostatCost = Number(replacementData.thermostatStartup) || 0;
       const removalCost = Number(replacementData.removalCost) || 0;
@@ -227,140 +208,135 @@ const RepairsForm = ({
         0
       );
 
-      const totalDirectCosts = baseCosts + accessoriesCost + additionalItemsCost;
-      const totalWithMargin = totalDirectCosts > 0 ? Math.round(totalDirectCosts / 0.6) : 0;
+      const totalDirectCosts =
+        baseCosts + accessoriesCost + additionalItemsCost;
+      const totalWithMargin =
+        totalDirectCosts > 0 ? Math.round(totalDirectCosts / 0.6) : 0;
       return totalWithMargin;
     };
 
     setTotalCost(calculateTotalCost());
-  }, [replacementData, selectedPhase]);
-
-  // If selectedInspection prop changes, update local state
-  useEffect(() => {
-    if (selectedInspection) {
-      setInspectionData(selectedInspection);
-    }
-  }, [selectedInspection]);
+  }, [replacementData]);
 
   const handleAddAccessory = () => {
-    setReplacementData(prev => ({
+    setReplacementData((prev) => ({
       ...prev,
-      accessories: [...prev.accessories, { name: '', cost: '' }]
+      accessories: [...prev.accessories, { name: "", cost: "" }],
     }));
   };
 
   const handleRemoveAccessory = (index: number) => {
-    setReplacementData(prev => ({
+    setReplacementData((prev) => ({
       ...prev,
-      accessories: prev.accessories.filter((_, i) => i !== index)
+      accessories: prev.accessories.filter((_, i) => i !== index),
     }));
   };
 
   const handleAddAdditionalItem = () => {
-    setReplacementData(prev => ({
+    setReplacementData((prev) => ({
       ...prev,
-      additionalItems: [...prev.additionalItems, { name: '', cost: '' }]
+      additionalItems: [...prev.additionalItems, { name: "", cost: "" }],
     }));
   };
 
   const handleRemoveAdditionalItem = (index: number) => {
-    setReplacementData(prev => ({
+    setReplacementData((prev) => ({
       ...prev,
-      additionalItems: prev.additionalItems.filter((_, i) => i !== index)
+      additionalItems: prev.additionalItems.filter((_, i) => i !== index),
     }));
   };
 
-  const toggleSection = (section: 'options' | 'accessories' | 'additional') => {
+  const toggleSection = (section: "options" | "accessories" | "additional") => {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase || !jobId || !inspectionId) return;
+    if (!supabase || !jobId) return;
 
     setIsLoading(true);
     setError(null);
     setSuccess(null);
 
+    console.log("Submitting replacement data", replacementData);
+
     try {
       // Check if replacement data already exists
       const { data: existingData, error: checkError } = await supabase
-        .from('job_replacements')
-        .select('id')
-        .eq('job_id', jobId)
-        .eq('inspection_id', inspectionId)
+        .from("job_replacements")
+        .select("id")
+        .eq("job_id", jobId)
         .maybeSingle();
 
       if (checkError) throw checkError;
 
+      // Create a structure that matches the database schema
       const dataToSave = {
         job_id: jobId,
-        inspection_id: inspectionId,
         needs_crane: replacementData.needsCrane,
-        phase1: {
-          description: replacementData.phase1.description,
-          cost: Number(replacementData.phase1.cost) || 0,
-        },
+        // Map the single replacementOption to phase2 (standard) for database compatibility
         phase2: {
-          description: replacementData.phase2.description,
-          cost: Number(replacementData.phase2.cost) || 0,
+          description:
+            replacementData.replacementOption.description ||
+            "Replacement Option",
+          cost: Number(replacementData.replacementOption.cost) || 0,
         },
-        phase3: {
-          description: replacementData.phase3.description,
-          cost: Number(replacementData.phase3.cost) || 0,
-        },
+        selected_phase: "phase2", // Always use phase2 since we only have one option now
         labor: Number(replacementData.labor) || 0,
-        refrigeration_recovery: Number(replacementData.refrigerationRecovery) || 0,
+        refrigeration_recovery:
+          Number(replacementData.refrigerationRecovery) || 0,
         start_up_costs: Number(replacementData.startUpCosts) || 0,
-        accessories: replacementData.accessories.map(item => ({
+        accessories: replacementData.accessories.map((item) => ({
           name: item.name,
           cost: Number(item.cost) || 0,
         })),
         thermostat_startup: Number(replacementData.thermostatStartup) || 0,
         removal_cost: Number(replacementData.removalCost) || 0,
         warranty: replacementData.warranty,
-        additional_items: replacementData.additionalItems.map(item => ({
+        additional_items: replacementData.additionalItems.map((item) => ({
           name: item.name,
           cost: Number(item.cost) || 0,
         })),
         permit_cost: Number(replacementData.permitCost) || 0,
         updated_at: new Date().toISOString(),
-        selected_phase: selectedPhase,
         total_cost: totalCost,
       };
 
       let savedData;
-      
+
       if (existingData) {
+        console.log("Updating existing replacement data", existingData.id);
         // Update
         const { data, error: updateError } = await supabase
-          .from('job_replacements')
+          .from("job_replacements")
           .update(dataToSave)
-          .eq('id', existingData.id)
-          .select();
-          
+          .eq("id", existingData.id)
+          .select()
+          .single();
+
         if (updateError) throw updateError;
-        savedData = data?.[0];
+        savedData = data;
       } else {
+        console.log("Creating new replacement data for job:", jobId);
         // Insert
         const { data, error: insertError } = await supabase
-          .from('job_replacements')
+          .from("job_replacements")
           .insert(dataToSave)
-          .select();
-          
+          .select()
+          .single();
+
         if (insertError) throw insertError;
-        savedData = data?.[0];
+        savedData = data;
       }
 
-      setSuccess('Replacement data saved successfully');
+      console.log("Saved data:", savedData);
+      setSuccess("Replacement data saved successfully");
       setIsFormVisible(false);
-      
+
       // Create a properly formatted data object to pass to the parent component
-      const formattedData = {
+      const formattedData: ReplacementData = {
         needsCrane: replacementData.needsCrane,
-        phase1: replacementData.phase1,
-        phase2: replacementData.phase2,
-        phase3: replacementData.phase3,
+        replacementOption: replacementData.replacementOption,
         labor: replacementData.labor,
         refrigerationRecovery: replacementData.refrigerationRecovery,
         startUpCosts: replacementData.startUpCosts,
@@ -370,81 +346,39 @@ const RepairsForm = ({
         warranty: replacementData.warranty,
         additionalItems: replacementData.additionalItems,
         permitCost: replacementData.permitCost,
-        selectedPhase: selectedPhase,
-        totalCost: totalCost
+        totalCost: totalCost,
       };
-      
+
       if (onSave) {
-        onSave(formattedData, inspectionId);
+        console.log("Calling onSave callback");
+        onSave(formattedData);
       }
-      
+
       if (onClose) {
+        console.log("Calling onClose callback");
         onClose();
       }
     } catch (err) {
-      console.error('Error saving replacement data:', err);
-      setError('Failed to save replacement data');
+      console.error("Error saving replacement data:", err);
+      setError("Failed to save replacement data");
     } finally {
       setIsLoading(false);
     }
   };
-
-  const inspectionDateLabel = inspectionData
-    ? new Date(inspectionData.created_at).toLocaleDateString('en-US')
-    : '';
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-auto">
       {/* Modal Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center">
         <h3 className="font-medium text-lg">
-          {initialData ? 'Edit Replacement Details' : 'Add Replacement Details'}
+          {initialData ? "Edit Replacement Details" : "Add Replacement Details"}
         </h3>
-        <button 
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600"
-        >
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
           <X size={24} />
         </button>
       </div>
 
       <div className="flex-1 overflow-auto p-4">
-        {inspectionData && (
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="font-medium text-blue-800">
-                Replacement Details for Inspection from {inspectionDateLabel}
-              </h4>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs font-medium text-blue-700">Model Number</p>
-                <p className="text-sm text-blue-900">{inspectionData.model_number || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-blue-700">Serial Number</p>
-                <p className="text-sm text-blue-900">{inspectionData.serial_number || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-blue-700">Age (Years)</p>
-                <p className="text-sm text-blue-900">{inspectionData.age || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-blue-700">Tonnage</p>
-                <p className="text-sm text-blue-900">{inspectionData.tonnage || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-blue-700">Unit Type</p>
-                <p className="text-sm text-blue-900">{inspectionData.unit_type || 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-blue-700">System Type</p>
-                <p className="text-sm text-blue-900">{inspectionData.system_type || 'N/A'}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {error && (
           <div className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
             {error}
@@ -461,190 +395,82 @@ const RepairsForm = ({
           <div className="space-y-4">
             {/* Replacement Options Section - Collapsible */}
             <div className="border rounded-lg overflow-hidden">
-              <div 
+              <div
                 className="flex justify-between items-center p-3 bg-blue-50 cursor-pointer"
-                onClick={() => toggleSection('options')}
+                onClick={() => toggleSection("options")}
               >
-                <h3 className="font-medium">Replacement Options</h3>
-                {expandedSection === 'options' ? (
+                <h3 className="font-medium">Replacement Option</h3>
+                {expandedSection === "options" ? (
                   <ChevronUp size={20} className="text-gray-500" />
                 ) : (
                   <ChevronDown size={20} className="text-gray-500" />
                 )}
               </div>
-              
-              {expandedSection === 'options' && (
+
+              {expandedSection === "options" && (
                 <div className="p-3">
                   <div className="flex items-center mb-3">
                     <input
                       type="checkbox"
                       id="needsCrane"
                       checked={replacementData.needsCrane}
-                      onChange={e =>
-                        setReplacementData(prev => ({ ...prev, needsCrane: e.target.checked }))
+                      onChange={(e) =>
+                        setReplacementData((prev) => ({
+                          ...prev,
+                          needsCrane: e.target.checked,
+                        }))
                       }
                       className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
                     />
-                    <label htmlFor="needsCrane" className="ml-2 text-sm text-gray-700">
+                    <label
+                      htmlFor="needsCrane"
+                      className="ml-2 text-sm text-gray-700"
+                    >
                       Requires Crane
                     </label>
                   </div>
 
                   {/* Phase Selection */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Select Replacement Option
-                    </label>
-                    <div className="space-y-3">
-                      {/* Economy Option Card */}
-                      <div
-                        className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                          selectedPhase === 'phase1'
-                            ? 'border-primary-500 bg-primary-50'
-                            : 'border-gray-200 hover:bg-gray-50'
-                        }`}
-                        onClick={() => setSelectedPhase('phase1')}
-                      >
-                        <div className="flex justify-between items-center mb-2">
-                          <h4 className="font-medium text-sm">Economy Option</h4>
-                          <div className="h-5 w-5 rounded-full border border-primary-500 flex items-center justify-center">
-                            {selectedPhase === 'phase1' && (
-                              <div className="h-3 w-3 bg-primary-500 rounded-full" />
-                            )}
-                          </div>
-                        </div>
-                        <input
-                          type="text"
-                          value={replacementData.phase1.description}
-                          onChange={e =>
-                            setReplacementData(prev => ({
-                              ...prev,
-                              phase1: { ...prev.phase1, description: e.target.value }
-                            }))
-                          }
-                          className="input w-full mb-2 text-sm"
-                          placeholder="Description"
-                        />
-                        <div className="relative">
-                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                            $
-                          </span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={replacementData.phase1.cost}
-                            onChange={e => {
-                              const value = e.target.value.replace(/^0+/, '');
-                              setReplacementData(prev => ({
-                                ...prev,
-                                phase1: { ...prev.phase1, cost: value }
-                              }));
-                            }}
-                            className="input pl-7 w-full text-sm"
-                            placeholder="Cost"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Standard Option Card */}
-                      <div
-                        className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                          selectedPhase === 'phase2'
-                            ? 'border-primary-500 bg-primary-50'
-                            : 'border-gray-200 hover:bg-gray-50'
-                        }`}
-                        onClick={() => setSelectedPhase('phase2')}
-                      >
-                        <div className="flex justify-between items-center mb-2">
-                          <h4 className="font-medium text-sm">Standard Option</h4>
-                          <div className="h-5 w-5 rounded-full border border-primary-500 flex items-center justify-center">
-                            {selectedPhase === 'phase2' && (
-                              <div className="h-3 w-3 bg-primary-500 rounded-full" />
-                            )}
-                          </div>
-                        </div>
-                        <input
-                          type="text"
-                          value={replacementData.phase2.description}
-                          onChange={e =>
-                            setReplacementData(prev => ({
-                              ...prev,
-                              phase2: { ...prev.phase2, description: e.target.value }
-                            }))
-                          }
-                          className="input w-full mb-2 text-sm"
-                          placeholder="Description"
-                        />
-                        <div className="relative">
-                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                            $
-                          </span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={replacementData.phase2.cost}
-                            onChange={e => {
-                              const value = e.target.value.replace(/^0+/, '');
-                              setReplacementData(prev => ({
-                                ...prev,
-                                phase2: { ...prev.phase2, cost: value }
-                              }));
-                            }}
-                            className="input pl-7 w-full text-sm"
-                            placeholder="Cost"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Premium Option Card */}
-                      <div
-                        className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                          selectedPhase === 'phase3'
-                            ? 'border-primary-500 bg-primary-50'
-                            : 'border-gray-200 hover:bg-gray-50'
-                        }`}
-                        onClick={() => setSelectedPhase('phase3')}
-                      >
-                        <div className="flex justify-between items-center mb-2">
-                          <h4 className="font-medium text-sm">Premium Option</h4>
-                          <div className="h-5 w-5 rounded-full border border-primary-500 flex items-center justify-center">
-                            {selectedPhase === 'phase3' && (
-                              <div className="h-3 w-3 bg-primary-500 rounded-full" />
-                            )}
-                          </div>
-                        </div>
-                        <input
-                          type="text"
-                          value={replacementData.phase3.description}
-                          onChange={e =>
-                            setReplacementData(prev => ({
-                              ...prev,
-                              phase3: { ...prev.phase3, description: e.target.value }
-                            }))
-                          }
-                          className="input w-full mb-2 text-sm"
-                          placeholder="Description"
-                        />
-                        <div className="relative">
-                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                            $
-                          </span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={replacementData.phase3.cost}
-                            onChange={e => {
-                              const value = e.target.value.replace(/^0+/, '');
-                              setReplacementData(prev => ({
-                                ...prev,
-                                phase3: { ...prev.phase3, cost: value }
-                              }));
-                            }}
-                            className="input pl-7 w-full text-sm"
-                            placeholder="Cost"
-                          />
-                        </div>
-                      </div>
+                  <div className="mb-4 p-3 border rounded-lg">
+                    <h4 className="font-medium text-sm mb-2">
+                      Replacement Option
+                    </h4>
+                    <input
+                      type="text"
+                      value={replacementData.replacementOption.description}
+                      onChange={(e) =>
+                        setReplacementData((prev) => ({
+                          ...prev,
+                          replacementOption: {
+                            ...prev.replacementOption,
+                            description: e.target.value,
+                          },
+                        }))
+                      }
+                      className="input w-full mb-2 text-sm"
+                      placeholder="Description"
+                    />
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                        $
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={replacementData.replacementOption.cost}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/^0+/, "");
+                          setReplacementData((prev) => ({
+                            ...prev,
+                            replacementOption: {
+                              ...prev.replacementOption,
+                              cost: value,
+                            },
+                          }));
+                        }}
+                        className="input pl-7 w-full text-sm"
+                        placeholder="Cost"
+                      />
                     </div>
                   </div>
 
@@ -661,9 +487,12 @@ const RepairsForm = ({
                           type="text"
                           inputMode="numeric"
                           value={replacementData.labor}
-                          onChange={e => {
-                            const value = e.target.value.replace(/^0+/, '');
-                            setReplacementData(prev => ({ ...prev, labor: value }));
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/^0+/, "");
+                            setReplacementData((prev) => ({
+                              ...prev,
+                              labor: value,
+                            }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -681,9 +510,12 @@ const RepairsForm = ({
                           type="text"
                           inputMode="numeric"
                           value={replacementData.refrigerationRecovery}
-                          onChange={e => {
-                            const value = e.target.value.replace(/^0+/, '');
-                            setReplacementData(prev => ({ ...prev, refrigerationRecovery: value }));
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/^0+/, "");
+                            setReplacementData((prev) => ({
+                              ...prev,
+                              refrigerationRecovery: value,
+                            }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -701,9 +533,12 @@ const RepairsForm = ({
                           type="text"
                           inputMode="numeric"
                           value={replacementData.startUpCosts}
-                          onChange={e => {
-                            const value = e.target.value.replace(/^0+/, '');
-                            setReplacementData(prev => ({ ...prev, startUpCosts: value }));
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/^0+/, "");
+                            setReplacementData((prev) => ({
+                              ...prev,
+                              startUpCosts: value,
+                            }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -721,9 +556,12 @@ const RepairsForm = ({
                           type="text"
                           inputMode="numeric"
                           value={replacementData.thermostatStartup}
-                          onChange={e => {
-                            const value = e.target.value.replace(/^0+/, '');
-                            setReplacementData(prev => ({ ...prev, thermostatStartup: value }));
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/^0+/, "");
+                            setReplacementData((prev) => ({
+                              ...prev,
+                              thermostatStartup: value,
+                            }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -741,9 +579,12 @@ const RepairsForm = ({
                           type="text"
                           inputMode="numeric"
                           value={replacementData.removalCost}
-                          onChange={e => {
-                            const value = e.target.value.replace(/^0+/, '');
-                            setReplacementData(prev => ({ ...prev, removalCost: value }));
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/^0+/, "");
+                            setReplacementData((prev) => ({
+                              ...prev,
+                              removalCost: value,
+                            }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -761,9 +602,12 @@ const RepairsForm = ({
                           type="text"
                           inputMode="numeric"
                           value={replacementData.permitCost}
-                          onChange={e => {
-                            const value = e.target.value.replace(/^0+/, '');
-                            setReplacementData(prev => ({ ...prev, permitCost: value }));
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/^0+/, "");
+                            setReplacementData((prev) => ({
+                              ...prev,
+                              permitCost: value,
+                            }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -777,7 +621,12 @@ const RepairsForm = ({
                     </label>
                     <textarea
                       value={replacementData.warranty}
-                      onChange={e => setReplacementData(prev => ({ ...prev, warranty: e.target.value }))}
+                      onChange={(e) =>
+                        setReplacementData((prev) => ({
+                          ...prev,
+                          warranty: e.target.value,
+                        }))
+                      }
                       className="input w-full text-sm"
                       rows={2}
                     />
@@ -788,19 +637,19 @@ const RepairsForm = ({
 
             {/* Accessories Section - Collapsible */}
             <div className="border rounded-lg overflow-hidden">
-              <div 
+              <div
                 className="flex justify-between items-center p-3 bg-green-50 cursor-pointer"
-                onClick={() => toggleSection('accessories')}
+                onClick={() => toggleSection("accessories")}
               >
                 <h3 className="font-medium">Accessories</h3>
-                {expandedSection === 'accessories' ? (
+                {expandedSection === "accessories" ? (
                   <ChevronUp size={20} className="text-gray-500" />
                 ) : (
                   <ChevronDown size={20} className="text-gray-500" />
                 )}
               </div>
-              
-              {expandedSection === 'accessories' && (
+
+              {expandedSection === "accessories" && (
                 <div className="p-3">
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-sm font-medium text-gray-700">
@@ -821,10 +670,15 @@ const RepairsForm = ({
                         type="text"
                         placeholder="Accessory name"
                         value={accessory.name}
-                        onChange={e => {
-                          const newAccessories = [...replacementData.accessories];
+                        onChange={(e) => {
+                          const newAccessories = [
+                            ...replacementData.accessories,
+                          ];
                           newAccessories[index].name = e.target.value;
-                          setReplacementData(prev => ({ ...prev, accessories: newAccessories }));
+                          setReplacementData((prev) => ({
+                            ...prev,
+                            accessories: newAccessories,
+                          }));
                         }}
                         className="input flex-grow text-sm"
                       />
@@ -837,11 +691,16 @@ const RepairsForm = ({
                           inputMode="numeric"
                           placeholder="Cost"
                           value={accessory.cost}
-                          onChange={e => {
-                            const value = e.target.value.replace(/^0+/, '');
-                            const newAccessories = [...replacementData.accessories];
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/^0+/, "");
+                            const newAccessories = [
+                              ...replacementData.accessories,
+                            ];
                             newAccessories[index].cost = value;
-                            setReplacementData(prev => ({ ...prev, accessories: newAccessories }));
+                            setReplacementData((prev) => ({
+                              ...prev,
+                              accessories: newAccessories,
+                            }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -863,19 +722,19 @@ const RepairsForm = ({
 
             {/* Additional Items Section - Collapsible */}
             <div className="border rounded-lg overflow-hidden">
-              <div 
+              <div
                 className="flex justify-between items-center p-3 bg-purple-50 cursor-pointer"
-                onClick={() => toggleSection('additional')}
+                onClick={() => toggleSection("additional")}
               >
                 <h3 className="font-medium">Additional Items</h3>
-                {expandedSection === 'additional' ? (
+                {expandedSection === "additional" ? (
                   <ChevronUp size={20} className="text-gray-500" />
                 ) : (
                   <ChevronDown size={20} className="text-gray-500" />
                 )}
               </div>
-              
-              {expandedSection === 'additional' && (
+
+              {expandedSection === "additional" && (
                 <div className="p-3">
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-sm font-medium text-gray-700">
@@ -896,10 +755,13 @@ const RepairsForm = ({
                         type="text"
                         placeholder="Item name"
                         value={item.name}
-                        onChange={e => {
+                        onChange={(e) => {
                           const newItems = [...replacementData.additionalItems];
                           newItems[index].name = e.target.value;
-                          setReplacementData(prev => ({ ...prev, additionalItems: newItems }));
+                          setReplacementData((prev) => ({
+                            ...prev,
+                            additionalItems: newItems,
+                          }));
                         }}
                         className="input flex-grow text-sm"
                       />
@@ -912,11 +774,16 @@ const RepairsForm = ({
                           inputMode="numeric"
                           placeholder="Cost"
                           value={item.cost}
-                          onChange={e => {
-                            const value = e.target.value.replace(/^0+/, '');
-                            const newItems = [...replacementData.additionalItems];
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/^0+/, "");
+                            const newItems = [
+                              ...replacementData.additionalItems,
+                            ];
                             newItems[index].cost = value;
-                            setReplacementData(prev => ({ ...prev, additionalItems: newItems }));
+                            setReplacementData((prev) => ({
+                              ...prev,
+                              additionalItems: newItems,
+                            }));
                           }}
                           className="input pl-7 w-full text-sm"
                         />
@@ -946,14 +813,10 @@ const RepairsForm = ({
                 <div className="flex justify-between items-center">
                   <div>
                     <div className="text-sm font-medium text-gray-700">
-                      {selectedPhase === 'phase1'
-                        ? 'Economy Option'
-                        : selectedPhase === 'phase2'
-                        ? 'Standard Option'
-                        : 'Premium Option'}
+                      Replacement Option
                     </div>
                     <div className="text-xs text-gray-500">
-                      {replacementData[selectedPhase].description}
+                      {replacementData.replacementOption.description}
                     </div>
                   </div>
                   <div className="text-lg font-bold text-primary-700">
@@ -973,14 +836,14 @@ const RepairsForm = ({
       <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex justify-end gap-2">
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => onClose && onClose()}
           className="btn btn-secondary"
         >
           Cancel
         </button>
         <button
           type="button"
-          onClick={handleSubmit}
+          onClick={(e) => handleSubmit(e)}
           className="btn btn-primary"
           disabled={isLoading}
         >
