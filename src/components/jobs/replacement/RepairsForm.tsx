@@ -371,7 +371,7 @@ const RepairsForm = ({
         )}
 
         <form onSubmit={handleSubmit}>
-          <div className="space-y-4">
+          <div className="space-y-4 flex flex-col gap-4">
             {/* Replacement Options Section - Collapsible */}
             <div className="border rounded-lg overflow-hidden">
               <div
@@ -387,7 +387,7 @@ const RepairsForm = ({
               </div>
 
               {expandedSection === "options" && (
-                <div className="p-3">
+                <div className="p-3 flex flex-col gap-4">
                   <div className="flex items-center mb-3">
                     <input
                       type="checkbox"
@@ -622,7 +622,7 @@ const RepairsForm = ({
               </div>
 
               {expandedSection === "accessories" && (
-                <div className="p-3">
+                <div className="p-3 flex flex-col gap-4">
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-sm font-medium text-gray-700">
                       Additional Accessories
@@ -707,7 +707,7 @@ const RepairsForm = ({
               </div>
 
               {expandedSection === "additional" && (
-                <div className="p-3">
+                <div className="p-3 flex flex-col gap-4">
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-sm font-medium text-gray-700">
                       Additional Items
@@ -776,7 +776,7 @@ const RepairsForm = ({
             </div>
 
             {/* Cost Summary - Always visible */}
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200 flex flex-col gap-2">
               <h4 className="font-medium mb-2 flex items-center text-sm">
                 <Calculator size={16} className="mr-2 text-gray-700" />
                 Cost Summary
@@ -806,18 +806,18 @@ const RepairsForm = ({
       </div>
 
       {/* Footer with action buttons */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex justify-end gap-2">
+      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex flex-col sm:flex-row gap-2">
         <button
           type="button"
           onClick={() => onClose && onClose()}
-          className="btn btn-secondary"
+          className="btn btn-secondary w-full sm:w-auto"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={(e) => handleSubmit(e)}
-          className="btn btn-primary"
+          className="btn btn-primary w-full sm:w-auto"
           disabled={isLoading}
         >
           {isLoading ? (

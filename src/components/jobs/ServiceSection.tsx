@@ -132,7 +132,7 @@ const ServiceSection = ({
 
         if (replacementData && replacementData.length > 0) {
           // Process all replacement data
-          const processedReplacements = [];
+          const processedReplacements: any[] = [];
           // Calculate the total cost from all replacements
           const totalReplacementCostSum = replacementData.reduce(
             (sum, item) => {
@@ -141,7 +141,7 @@ const ServiceSection = ({
             0
           );
 
-          replacementData.forEach((item, index) => {
+          replacementData.forEach((item: any, index: number) => {
             processedReplacements.push({
               id: item.id,
               needsCrane: item.needs_crane,
@@ -239,12 +239,12 @@ const ServiceSection = ({
       )}
 
       {/* Replacement/Repair Tabs */}
-      <div className="mb-6 flex border-b border-gray-200 overflow-x-auto">
+      <div className="mb-6 flex flex-col sm:flex-row border-b border-gray-200 gap-2 sm:gap-0 overflow-x-auto">
         <button
           onClick={() => {
             setActiveTab("replacement");
           }}
-          className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+          className={`w-full sm:w-auto px-4 py-2 font-medium text-sm whitespace-nowrap ${
             activeTab === "replacement"
               ? "text-gray-900 border-b-2 border-gray-900"
               : "text-gray-500 hover:text-gray-700"
@@ -257,7 +257,7 @@ const ServiceSection = ({
         </button>
         <button
           onClick={() => setActiveTab("repair")}
-          className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+          className={`w-full sm:w-auto px-4 py-2 font-medium text-sm whitespace-nowrap ${
             activeTab === "repair"
               ? "text-gray-900 border-b-2 border-gray-900"
               : "text-gray-500 hover:text-gray-700"
@@ -301,7 +301,7 @@ const ServiceSection = ({
             return (
               <div
                 key={data.id || index}
-                className="border rounded-lg overflow-hidden mb-4"
+                className="border rounded-lg overflow-hidden mb-4 p-2 sm:p-4 flex flex-col gap-2"
               >
                 <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 border-b border-green-200">
                   <div className="flex justify-between items-center">
@@ -427,21 +427,32 @@ const ServiceSection = ({
                     )}
                 </div>
 
-                <div className="flex justify-end p-3 bg-gray-50">
-                  <button
-                    onClick={() => {
-                      // Use the database ID to edit the correct replacement
-                      const replacementToEdit = allReplacementData.find(
-                        (r) => r.id === data.id
-                      );
-                      setCurrentReplacementData(replacementToEdit);
-                      setShowRepairsForm(true);
-                    }}
-                    className="btn btn-primary btn-sm"
-                  >
-                    <Edit size={14} className="mr-1" />
-                    Edit
-                  </button>
+                <div className="flex flex-col sm:flex-row justify-end gap-2 p-3 bg-gray-50">
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        // Use the database ID to edit the correct replacement
+                        const replacementToEdit = allReplacementData.find(
+                          (r) => r.id === data.id
+                        );
+                        setCurrentReplacementData(replacementToEdit);
+                        setShowRepairsForm(true);
+                      }}
+                      className="p-1 text-primary-600 hover:text-primary-800"
+                      aria-label="Edit replacement"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        /* TODO: implement delete logic for replacement */
+                      }}
+                      className="p-1 text-error-600 hover:text-error-800"
+                      aria-label="Delete replacement"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -520,7 +531,7 @@ const ServiceSection = ({
                   </h4>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {groupedItems["part"].map((item) => (
+                  {groupedItems["part"].map((item: any) => (
                     <div
                       key={item.id}
                       className="p-3 flex justify-between items-center"
@@ -569,7 +580,7 @@ const ServiceSection = ({
                   </h4>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {groupedItems["labor"].map((item) => (
+                  {groupedItems["labor"].map((item: any) => (
                     <div
                       key={item.id}
                       className="p-3 flex justify-between items-center"
@@ -618,7 +629,7 @@ const ServiceSection = ({
                   </h4>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {groupedItems["item"].map((item) => (
+                  {groupedItems["item"].map((item: any) => (
                     <div
                       key={item.id}
                       className="p-3 flex justify-between items-center"
@@ -768,7 +779,6 @@ const ServiceSection = ({
           onEmailSent={() => {
             window.location.reload();
           }}
-          replacementDataByInspection={{}}
         />
       )}
     </div>

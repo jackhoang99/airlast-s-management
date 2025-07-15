@@ -131,124 +131,113 @@ const InspectionForm = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Model Number
-                </label>
-                <input
-                  type="text"
-                  value={inspectionData.model_number}
-                  onChange={(e) =>
-                    setInspectionData((prev) => ({
-                      ...prev,
-                      model_number: e.target.value,
-                    }))
-                  }
-                  className="input w-full"
-                  placeholder="Enter model number"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Serial Number
-                </label>
-                <input
-                  type="text"
-                  value={inspectionData.serial_number}
-                  onChange={(e) =>
-                    setInspectionData((prev) => ({
-                      ...prev,
-                      serial_number: e.target.value,
-                    }))
-                  }
-                  className="input w-full"
-                  placeholder="Enter serial number"
-                />
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Model Number
+              </label>
+              <input
+                type="text"
+                value={inspectionData.model_number}
+                onChange={(e) =>
+                  setInspectionData((prev) => ({
+                    ...prev,
+                    model_number: e.target.value,
+                  }))
+                }
+                className="input w-full"
+                placeholder="Enter model number"
+              />
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Age (Years)
-                </label>
-                <input
-                  type="number"
-                  value={inspectionData.age}
-                  onChange={(e) =>
-                    setInspectionData((prev) => ({
-                      ...prev,
-                      age: e.target.value,
-                    }))
-                  }
-                  className="input w-full"
-                  placeholder="Enter age in years"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tonnage
-                </label>
-                <input
-                  type="text"
-                  value={inspectionData.tonnage}
-                  onChange={(e) =>
-                    setInspectionData((prev) => ({
-                      ...prev,
-                      tonnage: e.target.value,
-                    }))
-                  }
-                  className="input w-full"
-                  placeholder="Enter tonnage"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Serial Number
+              </label>
+              <input
+                type="text"
+                value={inspectionData.serial_number}
+                onChange={(e) =>
+                  setInspectionData((prev) => ({
+                    ...prev,
+                    serial_number: e.target.value,
+                  }))
+                }
+                className="input w-full"
+                placeholder="Enter serial number"
+              />
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Unit Type
-                </label>
-                <select
-                  value={inspectionData.unit_type}
-                  onChange={(e) =>
-                    setInspectionData((prev) => ({
-                      ...prev,
-                      unit_type: e.target.value as "Gas" | "Electric",
-                    }))
-                  }
-                  className="select w-full"
-                >
-                  <option value="Gas">Gas</option>
-                  <option value="Electric">Electric</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  System Type
-                </label>
-                <select
-                  value={inspectionData.system_type}
-                  onChange={(e) =>
-                    setInspectionData((prev) => ({
-                      ...prev,
-                      system_type: e.target.value as "RTU" | "Split System",
-                    }))
-                  }
-                  className="select w-full"
-                >
-                  <option value="RTU">RTU</option>
-                  <option value="Split System">Split System</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Age (Years)
+              </label>
+              <input
+                type="number"
+                value={inspectionData.age}
+                onChange={(e) =>
+                  setInspectionData((prev) => ({
+                    ...prev,
+                    age: e.target.value,
+                  }))
+                }
+                className="input w-full"
+                placeholder="Enter age in years"
+              />
             </div>
-            <div className="mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tonnage
+              </label>
+              <input
+                type="text"
+                value={inspectionData.tonnage}
+                onChange={(e) =>
+                  setInspectionData((prev) => ({
+                    ...prev,
+                    tonnage: e.target.value,
+                  }))
+                }
+                className="input w-full"
+                placeholder="Enter tonnage"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Unit Type
+              </label>
+              <select
+                value={inspectionData.unit_type}
+                onChange={(e) =>
+                  setInspectionData((prev) => ({
+                    ...prev,
+                    unit_type: e.target.value as "Gas" | "Electric",
+                  }))
+                }
+                className="select w-full"
+              >
+                <option value="Gas">Gas</option>
+                <option value="Electric">Electric</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                System Type
+              </label>
+              <select
+                value={inspectionData.system_type}
+                onChange={(e) =>
+                  setInspectionData((prev) => ({
+                    ...prev,
+                    system_type: e.target.value as "RTU" | "Split System",
+                  }))
+                }
+                className="select w-full"
+              >
+                <option value="RTU">RTU</option>
+                <option value="Split System">Split System</option>
+              </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Comment
               </label>
@@ -266,32 +255,34 @@ const InspectionForm = ({
               />
             </div>
           </div>
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex flex-col sm:flex-row gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="btn btn-secondary w-full sm:w-auto"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              className="btn btn-primary w-full sm:w-auto"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Plus size={16} className="mr-2" />
+                  {isEditMode ? "Update Inspection" : "Add Inspection"}
+                </>
+              )}
+            </button>
+          </div>
         </form>
-      </div>
-
-      {/* Footer with action buttons */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex justify-end gap-2">
-        <button type="button" onClick={onCancel} className="btn btn-secondary">
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          className="btn btn-primary"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <>
-              <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-              Saving...
-            </>
-          ) : (
-            <>
-              <Plus size={16} className="mr-2" />
-              {isEditMode ? "Update Inspection" : "Add Inspection"}
-            </>
-          )}
-        </button>
       </div>
     </div>
   );
