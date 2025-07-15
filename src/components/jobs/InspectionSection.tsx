@@ -137,7 +137,7 @@ const InspectionSection = ({
             </div>
           )}
           {localInspectionData.length > 0 ? (
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2 sm:gap-0">
+            <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-4 gap-2 sm:gap-0">
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <button
                   onClick={handleAddInspection}

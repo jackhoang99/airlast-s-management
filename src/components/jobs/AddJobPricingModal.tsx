@@ -363,51 +363,47 @@ const AddJobPricingModal = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 ${
-        isOpen ? "" : "hidden"
-      }`}
-      style={{ overscrollBehavior: "contain" }}
-    >
-      <div
-        className="bg-white rounded-lg shadow-lg w-full max-w-md mx-2 sm:mx-0 sm:w-[400px] max-h-[90vh] flex flex-col"
-        style={{ minHeight: "60vh" }}
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 sticky top-0 bg-white z-10">
-          <h2 className="text-lg sm:text-xl font-semibold">Add Pricing</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg w-full max-w-3xl p-6 max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-lg font-semibold">
+            {editItem ? "Edit Item" : "Add Pricing"}
+          </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-2 rounded focus:outline-none"
-            aria-label="Close"
+            className="text-gray-400 hover:text-gray-600"
           >
-            <X size={22} />
+            <X size={20} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-3 py-2 sm:px-6 sm:py-4 space-y-4">
-          {/* Selected Item Code Display */}
-          <div className="bg-gray-50 p-3 mb-6 rounded-md">
-            <p className="text-gray-700 font-medium">{selectedItemCode}</p>
+
+        {/* Selected Item Code Display */}
+        <div className="bg-gray-50 p-3 mb-6 rounded-md">
+          <p className="text-gray-700 font-medium">{selectedItemCode}</p>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
+            {error}
           </div>
+        )}
 
-          {/* Error */}
-          {error && (
-            <div className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
-              {error}
-            </div>
-          )}
-
-          {/* Tabs - Only show if not editing */}
-          {!editItem && (
-            <div className="mb-6 flex border-b border-gray-200 overflow-x-auto">
-              <div className="px-4 py-2 font-medium text-sm whitespace-nowrap text-gray-900 border-b-2 border-gray-900">
-                <div className="flex items-center">
-                  <Gauge size={16} className="mr-2" />
-                  Parts
-                </div>
+        {/* Tabs - Only show if not editing */}
+        {!editItem && (
+          <div className="mb-6 flex border-b border-gray-200 overflow-x-auto">
+            <div className="px-4 py-2 font-medium text-sm whitespace-nowrap text-gray-900 border-b-2 border-gray-900">
+              <div className="flex items-center">
+                <Gauge size={16} className="mr-2" />
+                Parts
               </div>
             </div>
-          )}
+          </div>
+        )}
 
+        {/* Content - Scrollable */}
+        <div className="space-y-6 overflow-y-auto flex-1">
           {/* Search and Item Selection - Only show if not editing */}
           {!editItem && (
             <div className="mb-4">
@@ -421,7 +417,7 @@ const AddJobPricingModal = ({
                   placeholder="Search parts..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 input w-full"
+                  className="pl-9 input w-full text-base sm:text-sm"
                 />
               </div>
 
@@ -484,7 +480,7 @@ const AddJobPricingModal = ({
                   onChange={(e) =>
                     setNewItem((prev) => ({ ...prev, code: e.target.value }))
                   }
-                  className="input"
+                  className="input w-full text-base sm:text-sm"
                   placeholder={
                     selectedTab === "part"
                       ? "PART-CODE"
@@ -507,7 +503,7 @@ const AddJobPricingModal = ({
                       service_line: e.target.value,
                     }))
                   }
-                  className="select"
+                  className="select w-full text-base sm:text-sm"
                   required
                 >
                   {serviceLines.map((line) => (
@@ -536,7 +532,7 @@ const AddJobPricingModal = ({
                     quantity: parseInt(e.target.value) || 1,
                   }))
                 }
-                className="input"
+                className="input w-full text-base sm:text-sm"
                 required
               />
             </div>
@@ -562,7 +558,7 @@ const AddJobPricingModal = ({
                         unit_cost: parseFloat(e.target.value) || 0,
                       }))
                     }
-                    className="input pl-7"
+                    className="input pl-7 w-full text-base sm:text-sm"
                     required
                   />
                 </div>
@@ -582,7 +578,7 @@ const AddJobPricingModal = ({
                   <input
                     type="text"
                     value={(newItem.quantity * newItem.unit_cost).toFixed(2)}
-                    className="input pl-7 bg-gray-50"
+                    className="input pl-7 bg-gray-50 w-full text-base sm:text-sm"
                     readOnly
                   />
                 </div>
@@ -602,7 +598,7 @@ const AddJobPricingModal = ({
                   onChange={(e) =>
                     setNewItem((prev) => ({ ...prev, name: e.target.value }))
                   }
-                  className="input"
+                  className="input w-full text-base sm:text-sm"
                   placeholder={
                     selectedTab === "labor"
                       ? "Tech Labor Rate (Regular)"
@@ -624,7 +620,7 @@ const AddJobPricingModal = ({
                       description: e.target.value,
                     }))
                   }
-                  className="input"
+                  className="input w-full text-base sm:text-sm"
                   placeholder="Description (optional)"
                 />
               </div>
@@ -654,7 +650,7 @@ const AddJobPricingModal = ({
                           parts_cost: parseFloat(e.target.value) || 0,
                         }))
                       }
-                      className="input pl-7"
+                      className="input pl-7 w-full text-base sm:text-sm"
                     />
                   </div>
                 </div>
@@ -673,7 +669,7 @@ const AddJobPricingModal = ({
                         estimated_hours: parseFloat(e.target.value) || 0,
                       }))
                     }
-                    className="input"
+                    className="input w-full text-base sm:text-sm"
                   />
                 </div>
                 <div>
@@ -691,7 +687,7 @@ const AddJobPricingModal = ({
                         complexity_multiplier: parseFloat(e.target.value) || 1,
                       }))
                     }
-                    className="input"
+                    className="input w-full text-base sm:text-sm"
                   />
                 </div>
               </div>
@@ -742,7 +738,7 @@ const AddJobPricingModal = ({
                             : parseFloat(e.target.value) || 0,
                         }))
                       }
-                      className="input pl-7"
+                      className="input pl-7 w-full text-base sm:text-sm"
                     />
                   </div>
                   {multipleTechs && (
@@ -771,7 +767,7 @@ const AddJobPricingModal = ({
                           truck_fee: parseFloat(e.target.value) || 0,
                         }))
                       }
-                      className="input pl-7"
+                      className="input pl-7 w-full text-base sm:text-sm"
                     />
                   </div>
                 </div>
@@ -820,7 +816,7 @@ const AddJobPricingModal = ({
                           roof_access_fee: parseFloat(e.target.value) || 0,
                         }))
                       }
-                      className={`input pl-7 ${
+                      className={`input pl-7 w-full text-base sm:text-sm ${
                         !includeRoofAccessFee ? "bg-gray-100 text-gray-500" : ""
                       }`}
                       disabled={!includeRoofAccessFee}
@@ -884,16 +880,13 @@ const AddJobPricingModal = ({
         </div>
 
         {/* Footer buttons */}
-        <div className="flex justify-between gap-2 px-3 py-3 sm:px-6 border-t border-gray-100 bg-white sticky bottom-0 z-10">
-          <button
-            onClick={onClose}
-            className="btn btn-secondary w-1/2 sm:w-auto text-sm py-2"
-          >
+        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+          <button onClick={onClose} className="btn btn-secondary">
             Cancel
           </button>
           <button
             onClick={handleSubmit}
-            className="btn btn-primary w-1/2 sm:w-auto text-sm py-2"
+            className="btn btn-primary"
             disabled={isLoading || (editItem ? false : !newItem.code)}
           >
             {isLoading ? (

@@ -344,7 +344,6 @@ const JobQuoteSection = ({
   return (
     <div className="card">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-        <h2 className="text-lg font-medium">Quotes</h2>
         <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
           <button
             onClick={() =>

@@ -146,7 +146,7 @@ const InspectionForm = ({
                     model_number: e.target.value,
                   }))
                 }
-                className="input w-full"
+                className="input w-full text-base sm:text-sm"
                 placeholder="Enter model number"
               />
             </div>
@@ -163,7 +163,7 @@ const InspectionForm = ({
                     serial_number: e.target.value,
                   }))
                 }
-                className="input w-full"
+                className="input w-full text-base sm:text-sm"
                 placeholder="Enter serial number"
               />
             </div>
@@ -180,7 +180,7 @@ const InspectionForm = ({
                     age: e.target.value,
                   }))
                 }
-                className="input w-full"
+                className="input w-full text-base sm:text-sm"
                 placeholder="Enter age in years"
               />
             </div>
@@ -197,7 +197,7 @@ const InspectionForm = ({
                     tonnage: e.target.value,
                   }))
                 }
-                className="input w-full"
+                className="input w-full text-base sm:text-sm"
                 placeholder="Enter tonnage"
               />
             </div>
@@ -213,7 +213,7 @@ const InspectionForm = ({
                     unit_type: e.target.value as "Gas" | "Electric",
                   }))
                 }
-                className="select w-full"
+                className="select w-full text-base sm:text-sm"
               >
                 <option value="Gas">Gas</option>
                 <option value="Electric">Electric</option>
@@ -231,7 +231,7 @@ const InspectionForm = ({
                     system_type: e.target.value as "RTU" | "Split System",
                   }))
                 }
-                className="select w-full"
+                className="select w-full text-base sm:text-sm"
               >
                 <option value="RTU">RTU</option>
                 <option value="Split System">Split System</option>
@@ -249,7 +249,7 @@ const InspectionForm = ({
                     comment: e.target.value,
                   }))
                 }
-                className="input w-full"
+                className="input w-full text-base sm:text-sm"
                 placeholder="Enter any comments or notes"
                 rows={2}
               />

@@ -439,7 +439,7 @@ const RepairsForm = ({
                             },
                           }));
                         }}
-                        className="input pl-7 w-full text-sm"
+                        className="input pl-7 w-full text-base sm:text-sm"
                         placeholder="Cost"
                         disabled={!replacementData.needsCrane}
                       />
@@ -466,7 +466,7 @@ const RepairsForm = ({
                               labor: value,
                             }));
                           }}
-                          className="input pl-7 w-full text-sm"
+                          className="input pl-7 w-full text-base sm:text-sm"
                         />
                       </div>
                     </div>
@@ -489,7 +489,7 @@ const RepairsForm = ({
                               refrigerationRecovery: value,
                             }));
                           }}
-                          className="input pl-7 w-full text-sm"
+                          className="input pl-7 w-full text-base sm:text-sm"
                         />
                       </div>
                     </div>
@@ -512,7 +512,7 @@ const RepairsForm = ({
                               startUpCosts: value,
                             }));
                           }}
-                          className="input pl-7 w-full text-sm"
+                          className="input pl-7 w-full text-base sm:text-sm"
                         />
                       </div>
                     </div>
@@ -535,7 +535,7 @@ const RepairsForm = ({
                               thermostatStartup: value,
                             }));
                           }}
-                          className="input pl-7 w-full text-sm"
+                          className="input pl-7 w-full text-base sm:text-sm"
                         />
                       </div>
                     </div>
@@ -558,7 +558,7 @@ const RepairsForm = ({
                               removalCost: value,
                             }));
                           }}
-                          className="input pl-7 w-full text-sm"
+                          className="input pl-7 w-full text-base sm:text-sm"
                         />
                       </div>
                     </div>
@@ -581,7 +581,7 @@ const RepairsForm = ({
                               permitCost: value,
                             }));
                           }}
-                          className="input pl-7 w-full text-sm"
+                          className="input pl-7 w-full text-base sm:text-sm"
                         />
                       </div>
                     </div>
@@ -599,7 +599,7 @@ const RepairsForm = ({
                           warranty: e.target.value,
                         }))
                       }
-                      className="input w-full text-sm"
+                      className="input w-full text-base sm:text-sm"
                       rows={2}
                     />
                   </div>
@@ -652,7 +652,7 @@ const RepairsForm = ({
                             accessories: newAccessories,
                           }));
                         }}
-                        className="input flex-grow text-sm"
+                        className="input flex-grow text-base sm:text-sm"
                       />
                       <div className="relative w-24">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
@@ -674,7 +674,7 @@ const RepairsForm = ({
                               accessories: newAccessories,
                             }));
                           }}
-                          className="input pl-7 w-full text-sm"
+                          className="input pl-7 w-full text-base sm:text-sm"
                         />
                       </div>
                       {index > 0 && (
@@ -735,7 +735,7 @@ const RepairsForm = ({
                             additionalItems: newItems,
                           }));
                         }}
-                        className="input flex-grow text-sm"
+                        className="input flex-grow text-base sm:text-sm"
                       />
                       <div className="relative w-24">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
@@ -757,7 +757,7 @@ const RepairsForm = ({
                               additionalItems: newItems,
                             }));
                           }}
-                          className="input pl-7 w-full text-sm"
+                          className="input pl-7 w-full text-base sm:text-sm"
                         />
                       </div>
                       {index > 0 && (

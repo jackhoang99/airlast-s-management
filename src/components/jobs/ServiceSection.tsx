@@ -274,7 +274,7 @@ const ServiceSection = ({
       {activeTab === "replacement" && (
         <>
           {replacementData.length > 0 ? (
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-0">
               <button
                 onClick={() => {
                   setCurrentReplacementData(null);
@@ -505,11 +505,7 @@ const ServiceSection = ({
       {activeTab === "repair" &&
         (jobItems.length > 0 ? (
           <>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-md font-medium flex items-center">
-                <Package size={16} className="mr-2 text-blue-500" />
-                Repair Items
-              </h3>
+            <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-0">
               <button
                 onClick={() => setShowAddPricingModal(true)}
                 className="btn btn-primary btn-sm"
