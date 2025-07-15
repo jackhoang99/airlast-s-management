@@ -58,6 +58,7 @@ const JobDetails = () => {
   const [showInvoiceSection, setShowInvoiceSection] = useState(true);
   const [showInspectionSection, setShowInspectionSection] = useState(true);
   const [inspectionData, setInspectionData] = useState<any[]>([]);
+  const [isLoadingInspectionData, setIsLoadingInspectionData] = useState(false);
   const [showLocationSection, setShowLocationSection] = useState(true);
   const [showUnitSection, setShowUnitSection] = useState(true);
 
@@ -174,6 +175,20 @@ const JobDetails = () => {
 
         if (repairData) {
           setRepairData(repairData);
+        }
+
+        // Fetch inspection data
+        const { data: inspectionData, error: inspectionError } = await supabase
+          .from("job_inspections")
+          .select("*")
+          .eq("job_id", id)
+          .order("created_at", { ascending: false });
+
+        if (inspectionError) {
+          console.error("Error fetching inspection data:", inspectionError);
+          // Don't throw here, just log the error
+        } else {
+          setInspectionData(inspectionData || []);
         }
 
         // Fetch assets related to this job
@@ -576,16 +591,26 @@ const JobDetails = () => {
                 <InspectionSection
                   jobId={job.id}
                   inspectionData={inspectionData}
+                  isLoading={isLoadingInspectionData}
                   onInspectionUpdated={() => {
                     // Refresh inspection data
                     if (supabase && id) {
+                      setIsLoadingInspectionData(true);
                       supabase
                         .from("job_inspections")
                         .select("*")
                         .eq("job_id", id)
                         .order("created_at", { ascending: false })
-                        .then(({ data }) => {
-                          if (data) setInspectionData(data);
+                        .then(({ data, error }) => {
+                          if (error) {
+                            console.error(
+                              "Error refreshing inspection data:",
+                              error
+                            );
+                          } else if (data) {
+                            setInspectionData(data);
+                          }
+                          setIsLoadingInspectionData(false);
                         });
                     }
                   }}

@@ -190,12 +190,7 @@ const InspectionSection = ({
                       </button>
                       <button
                         onClick={() => handleDeleteInspection(inspection.id)}
-                        className={`text-error-600 hover:text-error-800 p-1 ${
-                          inspection.completed
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
-                        disabled={inspection.completed}
+                        className="text-error-600 hover:text-error-800 p-1"
                         aria-label="Delete inspection"
                       >
                         <Trash2 size={16} />
