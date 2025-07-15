@@ -146,6 +146,12 @@ const InspectionForm = ({
                     model_number: e.target.value,
                   }))
                 }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
                 className="input w-full text-base sm:text-sm"
                 placeholder="Enter model number"
               />
@@ -163,6 +169,12 @@ const InspectionForm = ({
                     serial_number: e.target.value,
                   }))
                 }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
                 className="input w-full text-base sm:text-sm"
                 placeholder="Enter serial number"
               />
@@ -180,6 +192,12 @@ const InspectionForm = ({
                     age: e.target.value,
                   }))
                 }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
                 className="input w-full text-base sm:text-sm"
                 placeholder="Enter age in years"
               />
@@ -197,6 +215,12 @@ const InspectionForm = ({
                     tonnage: e.target.value,
                   }))
                 }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
                 className="input w-full text-base sm:text-sm"
                 placeholder="Enter tonnage"
               />
@@ -213,6 +237,12 @@ const InspectionForm = ({
                     unit_type: e.target.value as "Gas" | "Electric",
                   }))
                 }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
                 className="select w-full text-base sm:text-sm"
               >
                 <option value="Gas">Gas</option>
@@ -231,6 +261,12 @@ const InspectionForm = ({
                     system_type: e.target.value as "RTU" | "Split System",
                   }))
                 }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
                 className="select w-full text-base sm:text-sm"
               >
                 <option value="RTU">RTU</option>
@@ -249,6 +285,12 @@ const InspectionForm = ({
                     comment: e.target.value,
                   }))
                 }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
                 className="input w-full text-base sm:text-sm"
                 placeholder="Enter any comments or notes"
                 rows={2}

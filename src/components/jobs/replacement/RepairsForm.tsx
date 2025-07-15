@@ -407,6 +407,12 @@ const RepairsForm = ({
                         }))
                       }
                       className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
                     />
                     <label
                       htmlFor="needsCrane"
@@ -442,6 +448,12 @@ const RepairsForm = ({
                         className="input pl-7 w-full text-base sm:text-sm"
                         placeholder="Cost"
                         disabled={!replacementData.needsCrane}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
                       />
                     </div>
                   </div>
@@ -467,6 +479,12 @@ const RepairsForm = ({
                             }));
                           }}
                           className="input pl-7 w-full text-base sm:text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
                         />
                       </div>
                     </div>
@@ -490,6 +508,12 @@ const RepairsForm = ({
                             }));
                           }}
                           className="input pl-7 w-full text-base sm:text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
                         />
                       </div>
                     </div>
@@ -513,6 +537,12 @@ const RepairsForm = ({
                             }));
                           }}
                           className="input pl-7 w-full text-base sm:text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
                         />
                       </div>
                     </div>
@@ -536,6 +566,12 @@ const RepairsForm = ({
                             }));
                           }}
                           className="input pl-7 w-full text-base sm:text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
                         />
                       </div>
                     </div>
@@ -559,6 +595,12 @@ const RepairsForm = ({
                             }));
                           }}
                           className="input pl-7 w-full text-base sm:text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
                         />
                       </div>
                     </div>
@@ -582,6 +624,12 @@ const RepairsForm = ({
                             }));
                           }}
                           className="input pl-7 w-full text-base sm:text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
                         />
                       </div>
                     </div>
@@ -601,6 +649,12 @@ const RepairsForm = ({
                       }
                       className="input w-full text-base sm:text-sm"
                       rows={2}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
                     />
                   </div>
                 </div>
@@ -653,6 +707,12 @@ const RepairsForm = ({
                           }));
                         }}
                         className="input flex-grow text-base sm:text-sm"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
                       />
                       <div className="relative w-24">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
@@ -675,6 +735,12 @@ const RepairsForm = ({
                             }));
                           }}
                           className="input pl-7 w-full text-base sm:text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
                         />
                       </div>
                       {index > 0 && (
@@ -736,6 +802,12 @@ const RepairsForm = ({
                           }));
                         }}
                         className="input flex-grow text-base sm:text-sm"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
                       />
                       <div className="relative w-24">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
@@ -758,6 +830,12 @@ const RepairsForm = ({
                             }));
                           }}
                           className="input pl-7 w-full text-base sm:text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
                         />
                       </div>
                       {index > 0 && (

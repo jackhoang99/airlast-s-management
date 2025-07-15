@@ -418,6 +418,12 @@ const AddJobPricingModal = ({
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9 input w-full text-base sm:text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
                 />
               </div>
 
@@ -489,6 +495,12 @@ const AddJobPricingModal = ({
                       : "ITEM-CODE"
                   }
                   required
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
                 />
               </div>
               <div>
@@ -505,6 +517,12 @@ const AddJobPricingModal = ({
                   }
                   className="select w-full text-base sm:text-sm"
                   required
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
                 >
                   {serviceLines.map((line) => (
                     <option key={line.id} value={line.code}>
@@ -534,6 +552,12 @@ const AddJobPricingModal = ({
                 }
                 className="input w-full text-base sm:text-sm"
                 required
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
               />
             </div>
 
@@ -560,6 +584,12 @@ const AddJobPricingModal = ({
                     }
                     className="input pl-7 w-full text-base sm:text-sm"
                     required
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -605,6 +635,12 @@ const AddJobPricingModal = ({
                       : "Item Name"
                   }
                   required
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
                 />
               </div>
               <div>
@@ -622,6 +658,12 @@ const AddJobPricingModal = ({
                   }
                   className="input w-full text-base sm:text-sm"
                   placeholder="Description (optional)"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -651,6 +693,12 @@ const AddJobPricingModal = ({
                         }))
                       }
                       className="input pl-7 w-full text-base sm:text-sm"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
                     />
                   </div>
                 </div>
@@ -670,6 +718,12 @@ const AddJobPricingModal = ({
                       }))
                     }
                     className="input w-full text-base sm:text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                    }}
                   />
                 </div>
                 <div>
@@ -688,6 +742,12 @@ const AddJobPricingModal = ({
                       }))
                     }
                     className="input w-full text-base sm:text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -739,6 +799,12 @@ const AddJobPricingModal = ({
                         }))
                       }
                       className="input pl-7 w-full text-base sm:text-sm"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
                     />
                   </div>
                   {multipleTechs && (
@@ -768,6 +834,12 @@ const AddJobPricingModal = ({
                         }))
                       }
                       className="input pl-7 w-full text-base sm:text-sm"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
                     />
                   </div>
                 </div>
@@ -820,6 +892,12 @@ const AddJobPricingModal = ({
                         !includeRoofAccessFee ? "bg-gray-100 text-gray-500" : ""
                       }`}
                       disabled={!includeRoofAccessFee}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
                     />
                   </div>
                 </div>
