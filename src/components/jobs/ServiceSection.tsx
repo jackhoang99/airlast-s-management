@@ -273,22 +273,20 @@ const ServiceSection = ({
       {/* Replacement Section */}
       {activeTab === "replacement" && (
         <>
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-md font-medium flex items-center">
-              <Home size={16} className="mr-2 text-blue-600" />
-              Replacement Options
-            </h3>
-            <button
-              onClick={() => {
-                setCurrentReplacementData(null);
-                setShowRepairsForm(true);
-              }}
-              className="btn btn-primary btn-sm"
-            >
-              <Plus size={14} className="mr-1" />
-              Add Replacement
-            </button>
-          </div>
+          {replacementData.length > 0 ? (
+            <div className="flex justify-between items-center mb-6">
+              <button
+                onClick={() => {
+                  setCurrentReplacementData(null);
+                  setShowRepairsForm(true);
+                }}
+                className="btn btn-primary btn-sm"
+              >
+                <Plus size={14} className="mr-1" />
+                Add Replacement
+              </button>
+            </div>
+          ) : null}
 
           {replacementData.map((data, index) => {
             const selectedPhase = data.selectedPhase || "phase2";
@@ -465,7 +463,7 @@ const ServiceSection = ({
                   <Home size={16} className="text-blue-600" />
                   Total Replacement Cost
                 </h3>
-                <span className="font-bold text-lg">
+                <span className="font-bold text-base">
                   ${totalReplacementCost.toLocaleString()}
                 </span>
               </div>

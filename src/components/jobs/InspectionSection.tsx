@@ -136,28 +136,27 @@ const InspectionSection = ({
               {error}
             </div>
           )}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2 sm:gap-0">
-            <h3 className="text-md font-medium">Inspection Records</h3>
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <button
-                onClick={handleAddInspection}
-                className="btn btn-primary btn-sm w-full sm:w-auto"
-              >
-                {" "}
-                <Plus size={14} className="mr-1" /> Add Inspection{" "}
-              </button>
-              {localInspectionData.length > 0 &&
-                !localInspectionData.every((insp) => insp.completed) && (
-                  <button
-                    onClick={handleCompleteInspections}
-                    className="btn btn-success btn-sm w-full sm:w-auto"
-                  >
-                    {" "}
-                    <Clipboard size={14} className="mr-1" /> Complete All{" "}
-                  </button>
-                )}
+          {localInspectionData.length > 0 ? (
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2 sm:gap-0">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <button
+                  onClick={handleAddInspection}
+                  className="btn btn-primary btn-sm w-full sm:w-auto"
+                >
+                  <Plus size={14} className="mr-1" /> Add Inspection
+                </button>
+                {localInspectionData.length > 0 &&
+                  !localInspectionData.every((insp) => insp.completed) && (
+                    <button
+                      onClick={handleCompleteInspections}
+                      className="btn btn-success btn-sm w-full sm:w-auto"
+                    >
+                      <Clipboard size={14} className="mr-1" /> Complete All
+                    </button>
+                  )}
+              </div>
             </div>
-          </div>
+          ) : null}
           {localInspectionData.length > 0 ? (
             <div className="space-y-4">
               {localInspectionData.map((inspection) => (
@@ -170,30 +169,20 @@ const InspectionSection = ({
                   }`}
                 >
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2 sm:gap-0">
-                    <h4 className="font-medium">
-                      Inspection from {formatDate(inspection.created_at)}{" "}
-                      {inspection.completed && (
-                        <span className="ml-2 text-xs bg-success-100 text-success-800 px-2 py-0.5 rounded-full">
-                          Completed
-                        </span>
-                      )}{" "}
-                    </h4>
                     <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                       <button
                         onClick={() => handleEditInspection(inspection)}
                         className="text-primary-600 hover:text-primary-800 p-1 w-full sm:w-auto"
                         aria-label="Edit inspection"
                       >
-                        {" "}
-                        <Edit size={16} />{" "}
+                        <Edit size={16} />
                       </button>
                       <button
                         onClick={() => handleDeleteInspection(inspection.id)}
                         className="text-error-600 hover:text-error-800 p-1 w-full sm:w-auto"
                         aria-label="Delete inspection"
                       >
-                        {" "}
-                        <Trash2 size={16} />{" "}
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </div>
@@ -258,8 +247,7 @@ const InspectionSection = ({
                 onClick={handleAddInspection}
                 className="btn btn-primary mt-4 w-full sm:w-auto"
               >
-                {" "}
-                <Plus size={16} className="mr-2" /> Add Inspection{" "}
+                <Plus size={16} className="mr-2" /> Add Inspection
               </button>
             </div>
           )}
