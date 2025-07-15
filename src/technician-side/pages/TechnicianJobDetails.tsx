@@ -445,450 +445,441 @@ const TechnicianJobDetails = () => {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col">
-      <div
-        className="flex-1 overflow-y-auto space-y-6 touch-action-manipulation overscroll-y-contain pb-16"
-        style={{ WebkitOverflowScrolling: "touch" }}
-      >
-        {/* Job Header */}
-        <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
-          <div className="flex items-center mb-4">
-            <Link
-              to="/tech/jobs"
-              className="text-gray-500 hover:text-gray-700 mr-3"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <h1 className="text-xl font-bold">Job #{job.number}</h1>
-          </div>
-          <div className="flex flex-wrap gap-2 mb-4">
-            <span className={`badge ${getStatusBadgeClass(job.status)}`}>
-              {job.status}
+    <div className="space-y-6 pb-8">
+      {/* Job Header */}
+      <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
+        <div className="flex items-center mb-4">
+          <Link
+            to="/tech/jobs"
+            className="text-gray-500 hover:text-gray-700 mr-3"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-xl font-bold">Job #{job.number}</h1>
+        </div>
+        <div className="flex flex-wrap gap-2 mb-4">
+          <span className={`badge ${getStatusBadgeClass(job.status)}`}>
+            {job.status}
+          </span>
+          <span className={`badge ${getTypeBadgeClass(job.type)}`}>
+            {job.type}
+          </span>
+          {job.service_line && (
+            <span className="badge bg-blue-100 text-blue-800">
+              {job.service_line}
             </span>
-            <span className={`badge ${getTypeBadgeClass(job.type)}`}>
-              {job.type}
+          )}
+          {job.is_training && (
+            <span className="badge bg-purple-100 text-purple-800">
+              training
             </span>
-            {job.service_line && (
-              <span className="badge bg-blue-100 text-blue-800">
-                {job.service_line}
-              </span>
-            )}
-            {job.is_training && (
-              <span className="badge bg-purple-100 text-purple-800">
-                training
-              </span>
-            )}
-            {job.quote_confirmed && job.repair_approved && (
-              <span className="badge bg-success-100 text-success-800">
-                Repair Approved
-              </span>
-            )}
-            {job.quote_confirmed && job.repair_approved === false && (
-              <span className="badge bg-error-100 text-error-800">
-                Repair Declined
-              </span>
+          )}
+          {job.quote_confirmed && job.repair_approved && (
+            <span className="badge bg-success-100 text-success-800">
+              Repair Approved
+            </span>
+          )}
+          {job.quote_confirmed && job.repair_approved === false && (
+            <span className="badge bg-error-100 text-error-800">
+              Repair Declined
+            </span>
+          )}
+        </div>
+        <h2 className="text-lg font-semibold">{job.name}</h2>
+        {job.description && (
+          <p className="text-gray-600 mt-2">{job.description}</p>
+        )}
+        {job.problem_description && (
+          <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+            <h3 className="text-sm font-medium text-yellow-800">
+              Problem Description
+            </h3>
+            <p className="text-yellow-700">{job.problem_description}</p>
+          </div>
+        )}
+        <div className="mt-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+          <div className="text-sm text-gray-500">
+            <div className="flex items-center gap-1 mb-1">
+              <Calendar size={14} />
+              <span>Start: {job.time_period_start}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Calendar size={14} />
+              <span>Due: {job.time_period_due}</span>
+            </div>
+            {job.schedule_start && (
+              <div className="flex items-center gap-1 mt-1">
+                <Clock size={14} />
+                <span>Scheduled: {formatDateTime(job.schedule_start)}</span>
+              </div>
             )}
           </div>
-          <h2 className="text-lg font-semibold">{job.name}</h2>
-          {job.description && (
-            <p className="text-gray-600 mt-2">{job.description}</p>
-          )}
-          {job.problem_description && (
-            <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-              <h3 className="text-sm font-medium text-yellow-800">
-                Problem Description
-              </h3>
-              <p className="text-yellow-700">{job.problem_description}</p>
-            </div>
-          )}
-          <div className="mt-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-            <div className="text-sm text-gray-500">
-              <div className="flex items-center gap-1 mb-1">
-                <Calendar size={14} />
-                <span>Start: {job.time_period_start}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Calendar size={14} />
-                <span>Due: {job.time_period_due}</span>
-              </div>
-              {job.schedule_start && (
-                <div className="flex items-center gap-1 mt-1">
-                  <Clock size={14} />
-                  <span>Scheduled: {formatDateTime(job.schedule_start)}</span>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col gap-2 w-full sm:flex-row sm:w-auto mt-4 sm:mt-0">
-              {jobStatus !== "completed" && jobStatus !== "cancelled" && (
-                <button
-                  onClick={() => setShowCompleteJobModal(true)}
-                  className="btn btn-success w-full sm:w-auto h-12 text-base"
-                >
-                  <CheckSquare size={16} className="mr-2" />
-                  Complete Job
-                </button>
-              )}
+          <div className="flex flex-col gap-2 w-full sm:flex-row sm:w-auto mt-4 sm:mt-0">
+            {jobStatus !== "completed" && jobStatus !== "cancelled" && (
               <button
-                onClick={() => setShowNavigationModal(true)}
-                className="btn btn-primary w-full sm:w-auto h-12 text-base"
+                onClick={() => setShowCompleteJobModal(true)}
+                className="btn btn-success w-full sm:w-auto"
               >
-                <Navigation size={16} className="mr-2" />
-                Navigate
+                <CheckSquare size={16} className="mr-2" />
+                Complete Job
+              </button>
+            )}
+            <button
+              onClick={() => setShowNavigationModal(true)}
+              className="btn btn-primary w-full sm:w-auto"
+            >
+              <Navigation size={16} className="mr-2" />
+              Navigate
+            </button>
+          </div>
+        </div>
+      </div>
+      <hr className="my-2 border-gray-200" />
+      {/* Location and Contact */}
+      <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
+        <h2 className="text-lg font-semibold mb-4 flex items-center">
+          <MapPin className="h-5 w-5 mr-2 text-primary-600" />
+          Location & Contact
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+          <div>
+            <h3 className="text-md font-medium mb-2">Location</h3>
+            {job.locations ? (
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <Home className="h-5 w-5 text-gray-400 mt-1" />
+                  <div>
+                    <p className="font-medium">
+                      {job.locations?.companies?.name}
+                    </p>
+                    <p>{job.locations.name}</p>
+                    {job.units && <p>Unit: {job.units.unit_number}</p>}
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-5 w-5 text-gray-400 mt-1" />
+                  <div>
+                    <p>{job.locations.address}</p>
+                    <p>
+                      {job.locations.city}, {job.locations.state}{" "}
+                      {job.locations.zip}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-500">No location assigned</p>
+            )}
+          </div>
+          <div>
+            <h3 className="text-md font-medium mb-2">Contact</h3>
+            {job.contact_name ? (
+              <div className="space-y-2">
+                <p className="font-medium">{job.contact_name}</p>
+                {job.contact_type && (
+                  <p className="text-sm text-gray-500 capitalize">
+                    {job.contact_type} Contact
+                  </p>
+                )}
+                {job.contact_phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone size={16} className="text-gray-400" />
+                    <a
+                      href={`tel:${job.contact_phone}`}
+                      className="text-primary-600"
+                    >
+                      {job.contact_phone}
+                    </a>
+                  </div>
+                )}
+                {job.contact_email && (
+                  <div className="flex items-center gap-2">
+                    <Mail size={16} className="text-gray-400" />
+                    <a
+                      href={`mailto:${job.contact_email}`}
+                      className="text-primary-600"
+                    >
+                      {job.contact_email}
+                    </a>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-500">No contact information</p>
+            )}
+          </div>
+        </div>
+        {/* Assigned Technicians */}
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <h3 className="text-md font-medium mb-3 flex items-center">
+            <Users size={16} className="mr-2 text-primary-600" />
+            Assigned Technicians
+          </h3>
+          {job.job_technicians && job.job_technicians.length > 0 ? (
+            <div className="space-y-4">
+              {job.job_technicians.map((tech) => (
+                <div
+                  key={tech.id}
+                  className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg"
+                >
+                  <div className="w-10 h-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium">
+                      {tech.users.first_name?.[0] || "?"}
+                      {tech.users.last_name?.[0] || "?"}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="font-medium flex items-center">
+                      {tech.users.first_name} {tech.users.last_name}
+                      {tech.is_primary && (
+                        <span className="ml-2 text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
+                          Primary
+                        </span>
+                      )}
+                      {tech.technician_id === technicianId && (
+                        <span className="ml-2 text-xs bg-success-100 text-success-700 px-2 py-0.5 rounded-full">
+                          You
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-500 space-y-1 mt-1">
+                      <div className="flex items-center gap-2">
+                        <Phone size={14} />
+                        {tech.users.phone || "No phone"}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Mail size={14} />
+                        {tech.users.email}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500">No technicians assigned</p>
+          )}
+        </div>
+      </div>
+      <hr className="my-2 border-gray-200" />
+      {/* Clock In/Out Section */}
+      {technicianId && (
+        <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
+          <ClockInOut
+            jobId={id || ""}
+            technicianId={technicianId}
+            currentClockStatus={currentClockStatus}
+            jobStatus={jobStatus}
+            onStatusChange={setCurrentClockStatus}
+          />
+        </div>
+      )}
+      <hr className="my-2 border-gray-200" />
+      {/* Inspection Details Section */}
+      <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
+        <div className="border rounded-lg overflow-hidden">
+          <button
+            onClick={() => setShowInspectionSection(!showInspectionSection)}
+            className="w-full flex justify-between items-center p-3 bg-blue-50 hover:bg-blue-100 transition-colors"
+          >
+            <h3 className="text-md font-medium flex items-center">
+              <Clipboard size={16} className="mr-2 text-blue-500" />
+              Inspection Records
+            </h3>
+            {showInspectionSection ? (
+              <ChevronUp className="h-5 w-5 text-blue-500" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-blue-500" />
+            )}
+          </button>
+          {showInspectionSection && (
+            <div className="p-3 max-h-[60vh] overflow-y-auto">
+              <div className="text-sm text-gray-500 mb-2">
+                <p>Manage inspection details</p>
+              </div>
+              <InspectionSection
+                jobId={id || ""}
+                inspectionData={inspectionData}
+                onInspectionUpdated={() => {
+                  // Refresh inspection data
+                  if (supabase && id) {
+                    supabase
+                      .from("job_inspections")
+                      .select("*")
+                      .eq("job_id", id)
+                      .order("created_at", { ascending: false })
+                      .then(({ data }) => {
+                        if (data) setInspectionData(data);
+                      });
+                  }
+                }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+      {/* Service Section */}
+      <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
+        <div className="border rounded-lg overflow-hidden">
+          <button
+            onClick={() => setShowServiceSection(!showServiceSection)}
+            className="w-full flex justify-between items-center p-3 bg-blue-50 hover:bg-blue-100 transition-colors"
+          >
+            <h3 className="text-md font-medium flex items-center">
+              <Wrench size={16} className="mr-2 text-blue-500" />
+              Service Details
+            </h3>
+            {showServiceSection ? (
+              <ChevronUp className="h-5 w-5 text-blue-500" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-blue-500" />
+            )}
+          </button>
+          {showServiceSection && (
+            <div className="p-3 max-h-[60vh] overflow-y-auto">
+              <div className="text-sm text-gray-500 mb-2">
+                <p>Tap on sections below to expand service details</p>
+              </div>
+              <ServiceSection
+                jobId={id || ""}
+                jobItems={jobItems}
+                onItemsUpdated={handleItemsUpdated}
+                onQuoteStatusChange={() =>
+                  job?.quote_sent && setQuoteNeedsUpdate(true)
+                }
+              />
+            </div>
+          )}
+        </div>
+      </div>
+      {/* Quote Section */}
+      <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
+        <div className="border rounded-lg overflow-hidden">
+          <button
+            onClick={() => setShowQuoteSection(!showQuoteSection)}
+            className="w-full flex justify-between items-center p-3 bg-green-50 hover:bg-green-100 transition-colors"
+          >
+            <h3 className="text-md font-medium flex items-center">
+              <FileText size={16} className="mr-2 text-green-500" />
+              Quote Details
+            </h3>
+            {showQuoteSection ? (
+              <ChevronUp className="h-5 w-5 text-green-500" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-green-500" />
+            )}
+          </button>
+          {showQuoteSection && (
+            <div className="p-3 max-h-[60vh] overflow-y-auto">
+              <div className="text-sm text-gray-500 mb-2">
+                <p>Manage and send quotes to customers</p>
+              </div>
+              <JobQuoteSection
+                job={job}
+                jobItems={jobItems}
+                onQuoteSent={handleQuoteSent}
+                onPreviewQuote={() => {}}
+                quoteNeedsUpdate={quoteNeedsUpdate}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+      {/* Invoice Section */}
+      <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
+        <div className="border rounded-lg overflow-hidden">
+          <button
+            onClick={() => setShowInvoiceSection(!showInvoiceSection)}
+            className="w-full flex justify-between items-center p-3 bg-purple-50 hover:bg-purple-100 transition-colors"
+          >
+            <h3 className="text-md font-medium flex items-center">
+              <FileInput size={16} className="mr-2 text-purple-500" />
+              Invoice Details
+            </h3>
+            {showInvoiceSection ? (
+              <ChevronUp className="h-5 w-5 text-purple-500" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-purple-500" />
+            )}
+          </button>
+          {showInvoiceSection && (
+            <div className="p-3 max-h-[60vh] overflow-y-auto">
+              <div className="text-sm text-gray-500 mb-2">
+                <p>Create and manage invoices</p>
+              </div>
+              <JobInvoiceSection
+                job={job}
+                jobItems={jobItems}
+                onInvoiceCreated={handleInvoiceCreated}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+      <hr className="my-2 border-gray-200" />
+      {/* Time Tracking */}
+      <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
+        <JobTimeTracking jobId={id || ""} />
+      </div>
+      {/* Comments */}
+      <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
+        <JobComments jobId={id || ""} />
+      </div>
+      {/* Complete Job Modal */}
+      {showCompleteJobModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center justify-center text-success-600 mb-4">
+              <CheckSquare size={40} />
+            </div>
+            <h3 className="text-lg font-semibold text-center mb-4">
+              Complete Job
+            </h3>
+            <p className="text-center text-gray-600 mb-6">
+              Are you sure you want to mark Job #{job.number} as completed? This
+              will update the job status and notify the office.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowCompleteJobModal(false)}
+                disabled={isCompletingJob}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-success"
+                onClick={handleCompleteJob}
+                disabled={isCompletingJob}
+              >
+                {isCompletingJob ? (
+                  <>
+                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+                    Completing...
+                  </>
+                ) : (
+                  "Complete Job"
+                )}
               </button>
             </div>
           </div>
         </div>
-        <hr className="my-2 border-gray-200" />
-        {/* Location and Contact */}
-        <div className="bg-white rounded-none shadow-none p-2 sm:rounded-lg sm:shadow sm:p-4 mb-4">
-          <h2 className="text-lg font-semibold mb-4 flex items-center">
-            <MapPin className="h-5 w-5 mr-2 text-primary-600" />
-            Location & Contact
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            <div>
-              <h3 className="text-md font-medium mb-2">Location</h3>
-              {job.locations ? (
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2">
-                    <Home className="h-5 w-5 text-gray-400 mt-1" />
-                    <div>
-                      <p className="font-medium">
-                        {job.locations?.companies?.name}
-                      </p>
-                      <p>{job.locations.name}</p>
-                      {job.units && <p>Unit: {job.units.unit_number}</p>}
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <MapPin className="h-5 w-5 text-gray-400 mt-1" />
-                    <div>
-                      <p>{job.locations.address}</p>
-                      <p>
-                        {job.locations.city}, {job.locations.state}{" "}
-                        {job.locations.zip}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-gray-500">No location assigned</p>
-              )}
-            </div>
-            <div>
-              <h3 className="text-md font-medium mb-2">Contact</h3>
-              {job.contact_name ? (
-                <div className="space-y-2">
-                  <p className="font-medium">{job.contact_name}</p>
-                  {job.contact_type && (
-                    <p className="text-sm text-gray-500 capitalize">
-                      {job.contact_type} Contact
-                    </p>
-                  )}
-                  {job.contact_phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone size={16} className="text-gray-400" />
-                      <a
-                        href={`tel:${job.contact_phone}`}
-                        className="text-primary-600"
-                      >
-                        {job.contact_phone}
-                      </a>
-                    </div>
-                  )}
-                  {job.contact_email && (
-                    <div className="flex items-center gap-2">
-                      <Mail size={16} className="text-gray-400" />
-                      <a
-                        href={`mailto:${job.contact_email}`}
-                        className="text-primary-600"
-                      >
-                        {job.contact_email}
-                      </a>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-gray-500">No contact information</p>
-              )}
-            </div>
-          </div>
-          {/* Assigned Technicians */}
-          <div className="mt-6 pt-4 border-t border-gray-200">
-            <h3 className="text-md font-medium mb-3 flex items-center">
-              <Users size={16} className="mr-2 text-primary-600" />
-              Assigned Technicians
-            </h3>
-            {job.job_technicians && job.job_technicians.length > 0 ? (
-              <div className="space-y-4">
-                {job.job_technicians.map((tech) => (
-                  <div
-                    key={tech.id}
-                    className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div className="w-10 h-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium">
-                        {tech.users.first_name?.[0] || "?"}
-                        {tech.users.last_name?.[0] || "?"}
-                      </span>
-                    </div>
-                    <div>
-                      <div className="font-medium flex items-center">
-                        {tech.users.first_name} {tech.users.last_name}
-                        {tech.is_primary && (
-                          <span className="ml-2 text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
-                            Primary
-                          </span>
-                        )}
-                        {tech.technician_id === technicianId && (
-                          <span className="ml-2 text-xs bg-success-100 text-success-700 px-2 py-0.5 rounded-full">
-                            You
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-500 space-y-1 mt-1">
-                        <div className="flex items-center gap-2">
-                          <Phone size={14} />
-                          {tech.users.phone || "No phone"}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Mail size={14} />
-                          {tech.users.email}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500">No technicians assigned</p>
-            )}
-          </div>
-        </div>
-        <hr className="my-2 border-gray-200" />
-        {/* Clock In/Out Section */}
-        {technicianId && (
-          <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
-            <ClockInOut
-              jobId={id || ""}
-              technicianId={technicianId}
-              currentClockStatus={currentClockStatus}
-              jobStatus={jobStatus}
-              onStatusChange={setCurrentClockStatus}
-            />
-          </div>
-        )}
-        <hr className="my-2 border-gray-200" />
-        {/* Inspection Details Section */}
-        <div className="bg-white rounded-none shadow-none p-2 sm:rounded-lg sm:shadow sm:p-4 mb-4">
-          <div className="border rounded-lg overflow-hidden">
-            <button
-              onClick={() => setShowInspectionSection(!showInspectionSection)}
-              className="w-full flex justify-between items-center p-3 bg-blue-50 hover:bg-blue-100 transition-colors sticky top-0 z-10 bg-white"
-              style={{ minHeight: "3rem" }}
-            >
-              <h3 className="text-md font-medium flex items-center">
-                <Clipboard size={16} className="mr-2 text-blue-500" />
-                Inspection Records
-              </h3>
-              {showInspectionSection ? (
-                <ChevronUp className="h-5 w-5 text-blue-500" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-blue-500" />
-              )}
-            </button>
-            {showInspectionSection && (
-              <div className="p-3 max-h-[60vh] overflow-y-auto">
-                <div className="text-sm text-gray-500 mb-2">
-                  <p>Manage inspection details</p>
-                </div>
-                <InspectionSection
-                  jobId={id || ""}
-                  inspectionData={inspectionData}
-                  onInspectionUpdated={() => {
-                    // Refresh inspection data
-                    if (supabase && id) {
-                      supabase
-                        .from("job_inspections")
-                        .select("*")
-                        .eq("job_id", id)
-                        .order("created_at", { ascending: false })
-                        .then(({ data }) => {
-                          if (data) setInspectionData(data);
-                        });
-                    }
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-        {/* Service Section */}
-        <div className="bg-white rounded-none shadow-none p-2 sm:rounded-lg sm:shadow sm:p-4 mb-4">
-          <div className="border rounded-lg overflow-hidden">
-            <button
-              onClick={() => setShowServiceSection(!showServiceSection)}
-              className="w-full flex justify-between items-center p-3 bg-blue-50 hover:bg-blue-100 transition-colors sticky top-0 z-10 bg-white"
-              style={{ minHeight: "3rem" }}
-            >
-              <h3 className="text-md font-medium flex items-center">
-                <Wrench size={16} className="mr-2 text-blue-500" />
-                Service Details
-              </h3>
-              {showServiceSection ? (
-                <ChevronUp className="h-5 w-5 text-blue-500" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-blue-500" />
-              )}
-            </button>
-            {showServiceSection && (
-              <div className="p-3 max-h-[60vh] overflow-y-auto">
-                <div className="text-sm text-gray-500 mb-2">
-                  <p>Tap on sections below to expand service details</p>
-                </div>
-                <ServiceSection
-                  jobId={id || ""}
-                  jobItems={jobItems}
-                  onItemsUpdated={handleItemsUpdated}
-                  onQuoteStatusChange={() =>
-                    job?.quote_sent && setQuoteNeedsUpdate(true)
-                  }
-                />
-              </div>
-            )}
-          </div>
-        </div>
-        {/* Quote Section */}
-        <div className="bg-white rounded-none shadow-none p-2 sm:rounded-lg sm:shadow sm:p-4 mb-4">
-          <div className="border rounded-lg overflow-hidden">
-            <button
-              onClick={() => setShowQuoteSection(!showQuoteSection)}
-              className="w-full flex justify-between items-center p-3 bg-green-50 hover:bg-green-100 transition-colors sticky top-0 z-10 bg-white"
-              style={{ minHeight: "3rem" }}
-            >
-              <h3 className="text-md font-medium flex items-center">
-                <FileText size={16} className="mr-2 text-green-500" />
-                Quote Details
-              </h3>
-              {showQuoteSection ? (
-                <ChevronUp className="h-5 w-5 text-green-500" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-green-500" />
-              )}
-            </button>
-            {showQuoteSection && (
-              <div className="p-3 max-h-[60vh] overflow-y-auto">
-                <div className="text-sm text-gray-500 mb-2">
-                  <p>Manage and send quotes to customers</p>
-                </div>
-                <JobQuoteSection
-                  job={job}
-                  jobItems={jobItems}
-                  onQuoteSent={handleQuoteSent}
-                  onPreviewQuote={() => {}}
-                  quoteNeedsUpdate={quoteNeedsUpdate}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-        {/* Invoice Section */}
-        <div className="bg-white rounded-none shadow-none p-2 sm:rounded-lg sm:shadow sm:p-4 mb-4">
-          <div className="border rounded-lg overflow-hidden">
-            <button
-              onClick={() => setShowInvoiceSection(!showInvoiceSection)}
-              className="w-full flex justify-between items-center p-3 bg-purple-50 hover:bg-purple-100 transition-colors sticky top-0 z-10 bg-white"
-              style={{ minHeight: "3rem" }}
-            >
-              <h3 className="text-md font-medium flex items-center">
-                <FileInput size={16} className="mr-2 text-purple-500" />
-                Invoice Details
-              </h3>
-              {showInvoiceSection ? (
-                <ChevronUp className="h-5 w-5 text-purple-500" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-purple-500" />
-              )}
-            </button>
-            {showInvoiceSection && (
-              <div className="p-3 max-h-[60vh] overflow-y-auto">
-                <div className="text-sm text-gray-500 mb-2">
-                  <p>Create and manage invoices</p>
-                </div>
-                <JobInvoiceSection
-                  job={job}
-                  jobItems={jobItems}
-                  onInvoiceCreated={handleInvoiceCreated}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-        <hr className="my-2 border-gray-200" />
-        {/* Time Tracking */}
-        <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
-          <JobTimeTracking jobId={id || ""} />
-        </div>
-        {/* Comments */}
-        <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
-          <JobComments jobId={id || ""} />
-        </div>
-        {/* Complete Job Modal */}
-        {showCompleteJobModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-              <div className="flex items-center justify-center text-success-600 mb-4">
-                <CheckSquare size={40} />
-              </div>
-              <h3 className="text-lg font-semibold text-center mb-4">
-                Complete Job
-              </h3>
-              <p className="text-center text-gray-600 mb-6">
-                Are you sure you want to mark Job #{job.number} as completed?
-                This will update the job status and notify the office.
-              </p>
-              <div className="flex justify-end space-x-3">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setShowCompleteJobModal(false)}
-                  disabled={isCompletingJob}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn btn-success"
-                  onClick={handleCompleteJob}
-                  disabled={isCompletingJob}
-                >
-                  {isCompletingJob ? (
-                    <>
-                      <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                      Completing...
-                    </>
-                  ) : (
-                    "Complete Job"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {/* Navigation Modal */}
-        {showNavigationModal && job.locations && (
-          <TechnicianNavigation
-            isOpen={showNavigationModal}
-            onClose={() => setShowNavigationModal(false)}
-            location={{
-              address: job.locations.address,
-              city: job.locations.city,
-              state: job.locations.state,
-              zip: job.locations.zip,
-              name: job.locations.name,
-            }}
-            job={job}
-          />
-        )}
-      </div>
+      )}
+      {/* Navigation Modal */}
+      {showNavigationModal && job.locations && (
+        <TechnicianNavigation
+          isOpen={showNavigationModal}
+          onClose={() => setShowNavigationModal(false)}
+          location={{
+            address: job.locations.address,
+            city: job.locations.city,
+            state: job.locations.state,
+            zip: job.locations.zip,
+            name: job.locations.name,
+          }}
+          job={job}
+        />
+      )}
     </div>
   );
 };
