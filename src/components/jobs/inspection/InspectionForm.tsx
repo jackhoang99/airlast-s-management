@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Clipboard, Plus, X, ArrowLeft } from 'lucide-react';
-import { useSupabase } from '../../../lib/supabase-context';
+import { useState, useEffect } from "react";
+import { Clipboard, Plus, X, ArrowLeft } from "lucide-react";
+import { useSupabase } from "../../../lib/supabase-context";
 
 type InspectionData = {
   id?: string;
@@ -9,8 +9,9 @@ type InspectionData = {
   serial_number: string;
   age: string;
   tonnage: string;
-  unit_type: 'Gas' | 'Electric';
-  system_type: 'RTU' | 'Split System';
+  unit_type: "Gas" | "Electric";
+  system_type: "RTU" | "Split System";
+  comment?: string;
 };
 
 type InspectionFormProps = {
@@ -20,19 +21,25 @@ type InspectionFormProps = {
   onCancel?: () => void;
 };
 
-const InspectionForm = ({ jobId, initialData, onSave, onCancel }: InspectionFormProps) => {
+const InspectionForm = ({
+  jobId,
+  initialData,
+  onSave,
+  onCancel,
+}: InspectionFormProps) => {
   const { supabase } = useSupabase();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [inspectionData, setInspectionData] = useState<InspectionData>(
     initialData || {
-      model_number: '',
-      serial_number: '',
-      age: '',
-      tonnage: '',
-      unit_type: 'Gas',
-      system_type: 'RTU',
+      model_number: "",
+      serial_number: "",
+      age: "",
+      tonnage: "",
+      unit_type: "Gas",
+      system_type: "RTU",
+      comment: "",
     }
   );
 
@@ -50,7 +57,7 @@ const InspectionForm = ({ jobId, initialData, onSave, onCancel }: InspectionForm
       if (isEditMode && initialData?.id) {
         // Update existing record
         const { error: updateError } = await supabase
-          .from('job_inspections')
+          .from("job_inspections")
           .update({
             model_number: inspectionData.model_number,
             serial_number: inspectionData.serial_number,
@@ -58,15 +65,16 @@ const InspectionForm = ({ jobId, initialData, onSave, onCancel }: InspectionForm
             tonnage: inspectionData.tonnage || null,
             unit_type: inspectionData.unit_type,
             system_type: inspectionData.system_type,
-            updated_at: new Date().toISOString()
+            comment: inspectionData.comment || null,
+            updated_at: new Date().toISOString(),
           })
-          .eq('id', initialData.id);
+          .eq("id", initialData.id);
 
         if (updateError) throw updateError;
       } else {
         // Insert new record
         const { error: insertError } = await supabase
-          .from('job_inspections')
+          .from("job_inspections")
           .insert({
             job_id: jobId,
             model_number: inspectionData.model_number,
@@ -75,20 +83,21 @@ const InspectionForm = ({ jobId, initialData, onSave, onCancel }: InspectionForm
             tonnage: inspectionData.tonnage || null,
             unit_type: inspectionData.unit_type,
             system_type: inspectionData.system_type,
-            completed: false
+            comment: inspectionData.comment || null,
+            completed: false,
           });
 
         if (insertError) throw insertError;
       }
 
-      setSuccess('Inspection data saved successfully');
-      
+      setSuccess("Inspection data saved successfully");
+
       if (onSave) {
         onSave(inspectionData);
       }
     } catch (err) {
-      console.error('Error saving inspection data:', err);
-      setError('Failed to save inspection data');
+      console.error("Error saving inspection data:", err);
+      setError("Failed to save inspection data");
     } finally {
       setIsLoading(false);
     }
@@ -99,16 +108,16 @@ const InspectionForm = ({ jobId, initialData, onSave, onCancel }: InspectionForm
       {/* Modal Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center">
         <h3 className="font-medium text-lg">
-          {isEditMode ? 'Edit Inspection' : 'Add Inspection'}
+          {isEditMode ? "Edit Inspection" : "Add Inspection"}
         </h3>
-        <button 
+        <button
           onClick={onCancel}
           className="text-gray-400 hover:text-gray-600"
         >
           <X size={24} />
         </button>
       </div>
-      
+
       <div className="flex-1 overflow-auto p-4">
         {error && (
           <div className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
@@ -121,75 +130,117 @@ const InspectionForm = ({ jobId, initialData, onSave, onCancel }: InspectionForm
             {success}
           </div>
         )}
-        
+
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Model Number</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Model Number
+                </label>
                 <input
                   type="text"
                   value={inspectionData.model_number}
-                  onChange={(e) => setInspectionData(prev => ({ ...prev, model_number: e.target.value }))}
+                  onChange={(e) =>
+                    setInspectionData((prev) => ({
+                      ...prev,
+                      model_number: e.target.value,
+                    }))
+                  }
                   className="input w-full"
                   placeholder="Enter model number"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Serial Number
+                </label>
                 <input
                   type="text"
                   value={inspectionData.serial_number}
-                  onChange={(e) => setInspectionData(prev => ({ ...prev, serial_number: e.target.value }))}
+                  onChange={(e) =>
+                    setInspectionData((prev) => ({
+                      ...prev,
+                      serial_number: e.target.value,
+                    }))
+                  }
                   className="input w-full"
                   placeholder="Enter serial number"
                 />
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Age (Years)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Age (Years)
+                </label>
                 <input
                   type="number"
                   value={inspectionData.age}
-                  onChange={(e) => setInspectionData(prev => ({ ...prev, age: e.target.value }))}
+                  onChange={(e) =>
+                    setInspectionData((prev) => ({
+                      ...prev,
+                      age: e.target.value,
+                    }))
+                  }
                   className="input w-full"
                   placeholder="Enter age in years"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tonnage</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tonnage
+                </label>
                 <input
                   type="text"
                   value={inspectionData.tonnage}
-                  onChange={(e) => setInspectionData(prev => ({ ...prev, tonnage: e.target.value }))}
+                  onChange={(e) =>
+                    setInspectionData((prev) => ({
+                      ...prev,
+                      tonnage: e.target.value,
+                    }))
+                  }
                   className="input w-full"
                   placeholder="Enter tonnage"
                 />
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unit Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Unit Type
+                </label>
                 <select
                   value={inspectionData.unit_type}
-                  onChange={(e) => setInspectionData(prev => ({ ...prev, unit_type: e.target.value as 'Gas' | 'Electric' }))}
+                  onChange={(e) =>
+                    setInspectionData((prev) => ({
+                      ...prev,
+                      unit_type: e.target.value as "Gas" | "Electric",
+                    }))
+                  }
                   className="select w-full"
                 >
                   <option value="Gas">Gas</option>
                   <option value="Electric">Electric</option>
                 </select>
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">System Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  System Type
+                </label>
                 <select
                   value={inspectionData.system_type}
-                  onChange={(e) => setInspectionData(prev => ({ ...prev, system_type: e.target.value as 'RTU' | 'Split System' }))}
+                  onChange={(e) =>
+                    setInspectionData((prev) => ({
+                      ...prev,
+                      system_type: e.target.value as "RTU" | "Split System",
+                    }))
+                  }
                   className="select w-full"
                 >
                   <option value="RTU">RTU</option>
@@ -197,17 +248,30 @@ const InspectionForm = ({ jobId, initialData, onSave, onCancel }: InspectionForm
                 </select>
               </div>
             </div>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Comment
+              </label>
+              <textarea
+                value={inspectionData.comment || ""}
+                onChange={(e) =>
+                  setInspectionData((prev) => ({
+                    ...prev,
+                    comment: e.target.value,
+                  }))
+                }
+                className="input w-full"
+                placeholder="Enter any comments or notes"
+                rows={2}
+              />
+            </div>
           </div>
         </form>
       </div>
-      
+
       {/* Footer with action buttons */}
       <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="btn btn-secondary"
-        >
+        <button type="button" onClick={onCancel} className="btn btn-secondary">
           Cancel
         </button>
         <button
@@ -224,7 +288,7 @@ const InspectionForm = ({ jobId, initialData, onSave, onCancel }: InspectionForm
           ) : (
             <>
               <Plus size={16} className="mr-2" />
-              {isEditMode ? 'Update Inspection' : 'Add Inspection'}
+              {isEditMode ? "Update Inspection" : "Add Inspection"}
             </>
           )}
         </button>

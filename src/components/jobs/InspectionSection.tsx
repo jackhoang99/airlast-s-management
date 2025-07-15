@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useSupabase } from '../../lib/supabase-context';
-import { Plus, Edit, Trash2, Clipboard, AlertTriangle } from 'lucide-react';
-import InspectionForm from './inspection/InspectionForm';
+import { useState, useEffect } from "react";
+import { useSupabase } from "../../lib/supabase-context";
+import { Plus, Edit, Trash2, Clipboard, AlertTriangle } from "lucide-react";
+import InspectionForm from "./inspection/InspectionForm";
 
 type InspectionSectionProps = {
   jobId: string;
@@ -9,13 +9,18 @@ type InspectionSectionProps = {
   onInspectionUpdated?: () => void;
 };
 
-const InspectionSection = ({ jobId, inspectionData = [], onInspectionUpdated }: InspectionSectionProps) => {
+const InspectionSection = ({
+  jobId,
+  inspectionData = [],
+  onInspectionUpdated,
+}: InspectionSectionProps) => {
   const { supabase } = useSupabase();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showInspectionForm, setShowInspectionForm] = useState(false);
   const [inspectionToEdit, setInspectionToEdit] = useState<any>(null);
-  const [localInspectionData, setLocalInspectionData] = useState<any[]>(inspectionData);
+  const [localInspectionData, setLocalInspectionData] =
+    useState<any[]>(inspectionData);
 
   useEffect(() => {
     setLocalInspectionData(inspectionData);
@@ -41,35 +46,37 @@ const InspectionSection = ({ jobId, inspectionData = [], onInspectionUpdated }: 
 
   const handleDeleteInspection = async (inspectionId: string) => {
     if (!supabase) return;
-    
+
     try {
       setIsLoading(true);
-      
+
       // First delete any associated replacement data
       const { error: replacementDeleteError } = await supabase
-        .from('job_replacements')
+        .from("job_replacements")
         .delete()
-        .eq('inspection_id', inspectionId);
-        
+        .eq("inspection_id", inspectionId);
+
       if (replacementDeleteError) throw replacementDeleteError;
-      
+
       // Then delete the inspection
       const { error } = await supabase
-        .from('job_inspections')
+        .from("job_inspections")
         .delete()
-        .eq('id', inspectionId);
-        
+        .eq("id", inspectionId);
+
       if (error) throw error;
-      
+
       // Update local state
-      setLocalInspectionData(prev => prev.filter(item => item.id !== inspectionId));
-      
+      setLocalInspectionData((prev) =>
+        prev.filter((item) => item.id !== inspectionId)
+      );
+
       if (onInspectionUpdated) {
         onInspectionUpdated();
       }
     } catch (err) {
-      console.error('Error deleting inspection:', err);
-      setError('Failed to delete inspection');
+      console.error("Error deleting inspection:", err);
+      setError("Failed to delete inspection");
     } finally {
       setIsLoading(false);
     }
@@ -80,24 +87,26 @@ const InspectionSection = ({ jobId, inspectionData = [], onInspectionUpdated }: 
 
     try {
       setIsLoading(true);
-      
+
       // Update all inspections to mark them as completed
       const { error: updateError } = await supabase
-        .from('job_inspections')
+        .from("job_inspections")
         .update({ completed: true })
-        .eq('job_id', jobId);
-        
+        .eq("job_id", jobId);
+
       if (updateError) throw updateError;
-      
+
       // Update local state
-      setLocalInspectionData(prev => prev.map(item => ({ ...item, completed: true })));
-      
+      setLocalInspectionData((prev) =>
+        prev.map((item) => ({ ...item, completed: true }))
+      );
+
       if (onInspectionUpdated) {
         onInspectionUpdated();
       }
     } catch (err) {
-      console.error('Error completing inspections:', err);
-      setError('Failed to complete inspections');
+      console.error("Error completing inspections:", err);
+      setError("Failed to complete inspections");
     } finally {
       setIsLoading(false);
     }
@@ -105,13 +114,13 @@ const InspectionSection = ({ jobId, inspectionData = [], onInspectionUpdated }: 
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US');
+    return date.toLocaleDateString("en-US");
   };
 
   return (
     <div className="space-y-4">
       {showInspectionForm ? (
-        <InspectionForm 
+        <InspectionForm
           jobId={jobId}
           initialData={inspectionToEdit}
           onSave={handleSaveInspection}
@@ -127,7 +136,7 @@ const InspectionSection = ({ jobId, inspectionData = [], onInspectionUpdated }: 
               {error}
             </div>
           )}
-          
+
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-md font-medium">Inspection Records</h3>
             <div className="flex gap-2">
@@ -138,25 +147,28 @@ const InspectionSection = ({ jobId, inspectionData = [], onInspectionUpdated }: 
                 <Plus size={14} className="mr-1" />
                 Add Inspection
               </button>
-              {localInspectionData.length > 0 && !localInspectionData.every(insp => insp.completed) && (
-                <button
-                  onClick={handleCompleteInspections}
-                  className="btn btn-success btn-sm"
-                >
-                  <Clipboard size={14} className="mr-1" />
-                  Complete All
-                </button>
-              )}
+              {localInspectionData.length > 0 &&
+                !localInspectionData.every((insp) => insp.completed) && (
+                  <button
+                    onClick={handleCompleteInspections}
+                    className="btn btn-success btn-sm"
+                  >
+                    <Clipboard size={14} className="mr-1" />
+                    Complete All
+                  </button>
+                )}
             </div>
           </div>
-          
+
           {localInspectionData.length > 0 ? (
             <div className="space-y-3">
               {localInspectionData.map((inspection) => (
                 <div
                   key={inspection.id}
                   className={`p-3 rounded-lg border ${
-                    inspection.completed ? 'border-success-200 bg-success-50' : 'border-gray-200'
+                    inspection.completed
+                      ? "border-success-200 bg-success-50"
+                      : "border-gray-200"
                   }`}
                 >
                   <div className="flex justify-between items-center mb-2">
@@ -179,7 +191,9 @@ const InspectionSection = ({ jobId, inspectionData = [], onInspectionUpdated }: 
                       <button
                         onClick={() => handleDeleteInspection(inspection.id)}
                         className={`text-error-600 hover:text-error-800 p-1 ${
-                          inspection.completed ? 'opacity-50 cursor-not-allowed' : ''
+                          inspection.completed
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
                         }`}
                         disabled={inspection.completed}
                         aria-label="Delete inspection"
@@ -190,28 +204,52 @@ const InspectionSection = ({ jobId, inspectionData = [], onInspectionUpdated }: 
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-xs font-medium text-gray-500">Model Number</p>
-                      <p className="text-sm">{inspection.model_number || 'N/A'}</p>
+                      <p className="text-xs font-medium text-gray-500">
+                        Model Number
+                      </p>
+                      <p className="text-sm">
+                        {inspection.model_number || "N/A"}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-500">Serial Number</p>
-                      <p className="text-sm">{inspection.serial_number || 'N/A'}</p>
+                      <p className="text-xs font-medium text-gray-500">
+                        Serial Number
+                      </p>
+                      <p className="text-sm">
+                        {inspection.serial_number || "N/A"}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-500">Age (Years)</p>
-                      <p className="text-sm">{inspection.age || 'N/A'}</p>
+                      <p className="text-xs font-medium text-gray-500">
+                        Age (Years)
+                      </p>
+                      <p className="text-sm">{inspection.age || "N/A"}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-500">Tonnage</p>
-                      <p className="text-sm">{inspection.tonnage || 'N/A'}</p>
+                      <p className="text-xs font-medium text-gray-500">
+                        Tonnage
+                      </p>
+                      <p className="text-sm">{inspection.tonnage || "N/A"}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-500">Unit Type</p>
-                      <p className="text-sm">{inspection.unit_type || 'N/A'}</p>
+                      <p className="text-xs font-medium text-gray-500">
+                        Unit Type
+                      </p>
+                      <p className="text-sm">{inspection.unit_type || "N/A"}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-500">System Type</p>
-                      <p className="text-sm">{inspection.system_type || 'N/A'}</p>
+                      <p className="text-xs font-medium text-gray-500">
+                        System Type
+                      </p>
+                      <p className="text-sm">
+                        {inspection.system_type || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">
+                        Comment
+                      </p>
+                      <p className="text-sm">{inspection.comment || "N/A"}</p>
                     </div>
                   </div>
                 </div>

@@ -1,12 +1,33 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useSupabase } from '../../lib/supabase-context';
-import { Database } from '../../types/supabase';
-import { X, FileInput as FileInvoice, Plus, AlertTriangle, DollarSign, Send, Printer, Eye, Mail, Check, Package, Wrench, ShoppingCart, Home, ChevronDown, ChevronUp, Edit, Trash2 } from 'lucide-react'; 
-import AddJobPricingModal from './AddJobPricingModal';
-import EditJobItemModal from './EditJobItemModal';
-import RepairsForm from './replacement/RepairsForm';
-import SendEmailModal from './SendEmailModal';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useSupabase } from "../../lib/supabase-context";
+import {
+  X,
+  FileInput as FileInvoice,
+  Plus,
+  AlertTriangle,
+  DollarSign,
+  Send,
+  Printer,
+  Eye,
+  Mail,
+  Check,
+  Package,
+  Wrench,
+  ShoppingCart,
+  Home,
+  ChevronDown,
+  ChevronUp,
+  Edit,
+  Trash2,
+  CheckCircle,
+  PenTool as Tool,
+  Clock,
+} from "lucide-react";
+import AddJobPricingModal from "./AddJobPricingModal";
+import EditJobItemModal from "./EditJobItemModal";
+import RepairsForm from "./replacement/RepairsForm";
+import SendEmailModal from "./SendEmailModal";
 
 type JobServiceSectionProps = {
   jobId: string;
@@ -25,29 +46,37 @@ const ServiceSection = ({
   const [showAddPricingModal, setShowAddPricingModal] = useState(false);
   const [showEditItemModal, setShowEditItemModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
-  const [showRepairsForm, setShowRepairsForm] = useState(false); // This controls the RepairsForm visibility
-  const [activeTab, setActiveTab] = useState<'replacement' | 'repair'>('replacement');
+  const [showRepairsForm, setShowRepairsForm] = useState(false);
+  const [currentReplacementData, setCurrentReplacementData] = useState<
+    any | null
+  >(null);
+  const [activeTab, setActiveTab] = useState<"replacement" | "repair">(
+    "replacement"
+  );
   const [jobDetails, setJobDetails] = useState<any>(null);
 
-  // Hold all replacement data for every inspection
-  const [replacementDataByInspection, setReplacementDataByInspection] = useState<{ [key: string]: any }>({});
+  // Hold all replacement data
+  const [replacementData, setReplacementData] = useState<any[]>([]);
   const [allReplacementData, setAllReplacementData] = useState<any[]>([]);
 
   const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
-  const [quoteReady, setQuoteReady] = useState(false);
+
+  // Add a state to track if replacement data exists
+  const [hasReplacementData, setHasReplacementData] = useState(false);
 
   // Add a refresh trigger
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Fetch job details
-  useEffect(() => {    
+  useEffect(() => {
     const fetchJobDetails = async () => {
       if (!supabase || !jobId) return;
 
       try {
         const { data, error } = await supabase
-          .from('jobs')
-          .select(`
+          .from("jobs")
+          .select(
+            `
             *,
             locations (
               name,
@@ -59,14 +88,15 @@ const ServiceSection = ({
             units (
               unit_number
             )
-          `)
-          .eq('id', jobId)
+          `
+          )
+          .eq("id", jobId)
           .single();
 
         if (error) throw error;
         setJobDetails(data);
       } catch (err) {
-        console.error('Error fetching job details:', err);
+        console.error("Error fetching job details:", err);
       }
     };
 
@@ -74,8 +104,7 @@ const ServiceSection = ({
   }, [supabase, jobId, refreshTrigger]);
 
   // Combined total across all inspections
-  const [totalReplacementCost, setTotalReplacementCost] = useState(0);
-  
+  const [totalReplacementCost, setTotalReplacementCost] = useState<number>(0);
 
   const groupedItems = jobItems.reduce((groups, item) => {
     const type = item.type;
@@ -83,104 +112,82 @@ const ServiceSection = ({
     groups[type].push(item);
     return groups;
   }, {} as Record<string, any[]>);
-  
-  // Fetch replacement data for all inspections
+
+  // Fetch replacement data
   useEffect(() => {
     const fetchReplacementData = async () => {
       if (!supabase || !jobId) return;
-      
+
       try {
-        const { data: replacementData, error: replacementError } = await supabase
-          .from('job_replacements')
-          .select('*')
-          .eq('job_id', jobId);
+        const { data: replacementData, error: replacementError } =
+          await supabase
+            .from("job_replacements")
+            .select("*")
+            .eq("job_id", jobId);
 
         if (replacementError) {
-          console.error('Error fetching replacement data:', replacementError);
+          console.error("Error fetching replacement data:", replacementError);
           throw replacementError;
         }
-        
+
         if (replacementData && replacementData.length > 0) {
-          // Organize by inspection_id
-          const replacementDataMap: {[key: string]: any} = {};
-          let totalReplacementCostSum = 0;
-          
-          replacementData.forEach(item => {
-            if (item.inspection_id) {
-              replacementDataMap[item.inspection_id] = {
-                needsCrane: item.needs_crane,
-                phase1: item.phase1,
-                phase2: item.phase2,
-                phase3: item.phase3,
-                labor: item.labor,
-                refrigerationRecovery: item.refrigeration_recovery,
-                startUpCosts: item.start_up_costs,
-                accessories: item.accessories,
-                thermostatStartup: item.thermostat_startup,
-                removalCost: item.removal_cost,
-                warranty: item.warranty,
-                additionalItems: item.additional_items,
-                permitCost: item.permit_cost,
-                selectedPhase: item.selected_phase,
-                totalCost: item.total_cost,
-                created_at: item.created_at
-              };
-              
-              totalReplacementCostSum += Number(item.total_cost || 0);
-            }
+          // Process all replacement data
+          const processedReplacements = [];
+          // Calculate the total cost from all replacements
+          const totalReplacementCostSum = replacementData.reduce(
+            (sum, item) => {
+              return sum + Number(item.total_cost || 0);
+            },
+            0
+          );
+
+          replacementData.forEach((item, index) => {
+            processedReplacements.push({
+              id: item.id,
+              needsCrane: item.needs_crane,
+              phase2: item.phase2,
+              labor: item.labor,
+              refrigerationRecovery: item.refrigeration_recovery,
+              startUpCosts: item.start_up_costs,
+              accessories: item.accessories,
+              thermostatStartup: item.thermostat_startup,
+              removalCost: item.removal_cost,
+              warranty: item.warranty,
+              additionalItems: item.additional_items,
+              permitCost: item.permit_cost,
+              selectedPhase: item.selected_phase,
+              totalCost: item.total_cost,
+              created_at: item.created_at,
+            });
           });
-          
-          setReplacementDataByInspection(replacementDataMap);
-        
-        console.log("Found job assignments:", jobTechData);
-        setAllReplacementData(replacementData);
-        setTotalReplacementCost(totalReplacementCostSum);
-      }
-    } catch (err) {
-      console.error('Error fetching replacement data:', err);
-    }
-  };
-  
-  fetchReplacementData();
-}, [supabase, jobId, refreshTrigger]);
 
-  // Fetch inspections and job details
-  useEffect(() => {    
-    const fetchJobDetails = async () => {
-      if (!supabase || !jobId) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('jobs')
-          .select(`
-            *,
-            locations (
-              name,
-              address,
-              city,
-              state,
-              zip
-            ),
-            units (
-              unit_number
-            )
-          `)
-          .eq('id', jobId)
-          .single();
-
-        if (error) throw error;
-        setJobDetails(data);
+          setReplacementData(processedReplacements);
+          setAllReplacementData(replacementData);
+          setTotalReplacementCost(totalReplacementCostSum);
+          setHasReplacementData(true);
+        } else {
+          setHasReplacementData(false);
+        }
       } catch (err) {
-        console.error('Error fetching job details:', err);
+        console.error("Error fetching replacement data:", err);
       }
     };
 
-    fetchJobDetails();
+    fetchReplacementData();
   }, [supabase, jobId, refreshTrigger]);
 
   // Calculate total cost from job items
   const getJobTotalCost = () => {
     return jobItems.reduce((total, item) => total + Number(item.total_cost), 0);
+  };
+
+  // Calculate total replacement cost from all replacement options
+  const calculateTotalReplacementCost = () => {
+    if (!replacementData || replacementData.length === 0) return 0;
+
+    return replacementData.reduce((sum, data) => {
+      return sum + Number(data.totalCost || 0);
+    }, 0);
   };
 
   // When a new pricing row is added
@@ -193,13 +200,16 @@ const ServiceSection = ({
   const handleDeleteItem = async (itemId: string) => {
     if (!supabase) return;
     try {
-      const { error } = await supabase.from('job_items').delete().eq('id', itemId);
+      const { error } = await supabase
+        .from("job_items")
+        .delete()
+        .eq("id", itemId);
       if (error) throw error;
 
       onItemsUpdated();
       if (onQuoteStatusChange) onQuoteStatusChange();
     } catch (err) {
-      console.error('Error deleting job item:', err);
+      console.error("Error deleting job item:", err);
     }
   };
 
@@ -217,39 +227,8 @@ const ServiceSection = ({
     }
   };
 
-  // "Finish Replacement Details" button: mark all inspections complete, fetch everything, compute totals, then open modal
-  const handleFinishReplacementDetails = async () => {
-    if (!supabase) return;
-
-    try {
-      // Fetch the job record (with location + unit nested)
-      const { data: jobData, error: jobError } = await supabase
-        .from('jobs')
-        .select(`
-          *,
-          locations (
-            name,
-            address,
-            city,
-            state,
-            zip
-          ),
-          units (
-            unit_number
-          )
-        `)
-        .eq('id', jobId)
-        .single();
-
-      if (jobError) throw jobError;
-      setJobDetails(jobData);
-    } catch (err) {
-      console.error('Error fetching data:', err);
-    }
-  };
-
   return (
-    <div>      
+    <div>
       {showEditItemModal && selectedItem && (
         <EditJobItemModal
           isOpen={showEditItemModal}
@@ -263,12 +242,12 @@ const ServiceSection = ({
       <div className="mb-6 flex border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => {
-            setActiveTab('replacement');
+            setActiveTab("replacement");
           }}
           className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-            activeTab === 'replacement'
-              ? 'text-gray-900 border-b-2 border-gray-900'
-              : 'text-gray-500 hover:text-gray-700'
+            activeTab === "replacement"
+              ? "text-gray-900 border-b-2 border-gray-900"
+              : "text-gray-500 hover:text-gray-700"
           }`}
         >
           <div className="flex items-center">
@@ -277,11 +256,11 @@ const ServiceSection = ({
           </div>
         </button>
         <button
-          onClick={() => setActiveTab('repair')}
+          onClick={() => setActiveTab("repair")}
           className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-            activeTab === 'repair'
-              ? 'text-gray-900 border-b-2 border-gray-900'
-              : 'text-gray-500 hover:text-gray-700'
+            activeTab === "repair"
+              ? "text-gray-900 border-b-2 border-gray-900"
+              : "text-gray-500 hover:text-gray-700"
           }`}
         >
           <div className="flex items-center">
@@ -292,69 +271,232 @@ const ServiceSection = ({
       </div>
 
       {/* Replacement Section */}
-      {activeTab === 'replacement' && (
-        <div className="mb-6">
+      {activeTab === "replacement" && (
+        <>
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-md font-medium">Replacement Options</h3>
+            <h3 className="text-md font-medium flex items-center">
+              <Home size={16} className="mr-2 text-blue-600" />
+              Replacement Options
+            </h3>
             <button
-              onClick={() => setShowRepairsForm(true)}
+              onClick={() => {
+                setCurrentReplacementData(null);
+                setShowRepairsForm(true);
+              }}
               className="btn btn-primary btn-sm"
             >
               <Plus size={14} className="mr-1" />
               Add Replacement
             </button>
           </div>
-          
-          {Object.keys(replacementDataByInspection).length > 0 && (
-            <div className="mt-6 p-4 bg-success-50 rounded-lg border border-success-200">
-              <div className="flex justify-between items-center">
-                <h3 className="font-medium text-success-800">Replacement Summary</h3>
-                <div className="text-xl font-bold text-success-700">
-                  ${totalReplacementCost.toLocaleString()}
+
+          {replacementData.map((data, index) => {
+            const selectedPhase = data.selectedPhase || "phase2";
+            const optionType =
+              selectedPhase === "phase1"
+                ? "Economy"
+                : selectedPhase === "phase2"
+                ? "Standard"
+                : "Premium";
+            return (
+              <div
+                key={data.id || index}
+                className="border rounded-lg overflow-hidden mb-4"
+              >
+                <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 border-b border-green-200">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="text-sm font-medium flex items-center">
+                        <Home size={14} className="mr-1 text-blue-500" />
+                        Replacement Option {index + 1}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {optionType} Option
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-lg">
+                        ${Number(data.totalCost || 0).toLocaleString()}
+                      </div>
+
+                      {data.needsCrane && (
+                        <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full mt-1 inline-block">
+                          Crane Required
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  {data.labor > 0 && (
+                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                      <span>Labor:</span>
+                      <span className="font-semibold">
+                        ${Number(data.labor).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {data.refrigerationRecovery > 0 && (
+                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                      <span>Refrigeration Recovery:</span>
+                      <span className="font-semibold">
+                        ${Number(data.refrigerationRecovery).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {data.startUpCosts > 0 && (
+                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                      <span>Start Up Costs:</span>
+                      <span className="font-semibold">
+                        ${Number(data.startUpCosts).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {data.thermostatStartup > 0 && (
+                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                      <span>Thermostat Startup:</span>
+                      <span className="font-semibold">
+                        ${Number(data.thermostatStartup).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {data.removalCost > 0 && (
+                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                      <span>Removal Cost:</span>
+                      <span className="font-semibold">
+                        ${Number(data.removalCost).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {data.permitCost > 0 && (
+                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                      <span>Permit Cost:</span>
+                      <span className="font-semibold">
+                        ${Number(data.permitCost).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Accessories */}
+                  {data.accessories &&
+                    data.accessories.length > 0 &&
+                    data.accessories.some(
+                      (acc: any) => acc.name && acc.cost > 0
+                    ) && (
+                      <div className="p-3 border-b border-gray-100">
+                        <h4 className="font-medium mb-2">Accessories:</h4>
+                        {data.accessories.map((acc: any, i: number) =>
+                          acc.name && acc.cost > 0 ? (
+                            <div
+                              key={i}
+                              className="flex justify-between items-center"
+                            >
+                              <span>{acc.name}</span>
+                              <span className="font-semibold">
+                                ${Number(acc.cost).toLocaleString()}
+                              </span>
+                            </div>
+                          ) : null
+                        )}
+                      </div>
+                    )}
+
+                  {/* Additional Items */}
+                  {data.additionalItems &&
+                    data.additionalItems.length > 0 &&
+                    data.additionalItems.some(
+                      (item: any) => item.name && item.cost > 0
+                    ) && (
+                      <div className="p-3 border-b border-gray-100">
+                        <h4 className="font-medium mb-2">Additional Items:</h4>
+                        {data.additionalItems.map((item: any, i: number) =>
+                          item.name && item.cost > 0 ? (
+                            <div
+                              key={i}
+                              className="flex justify-between items-center"
+                            >
+                              <span>{item.name}</span>
+                              <span className="font-semibold">
+                                ${Number(item.cost).toLocaleString()}
+                              </span>
+                            </div>
+                          ) : null
+                        )}
+                      </div>
+                    )}
+                </div>
+
+                <div className="flex justify-end p-3 bg-gray-50">
+                  <button
+                    onClick={() => {
+                      // Use the database ID to edit the correct replacement
+                      const replacementToEdit = allReplacementData.find(
+                        (r) => r.id === data.id
+                      );
+                      setCurrentReplacementData(replacementToEdit);
+                      setShowRepairsForm(true);
+                    }}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <Edit size={14} className="mr-1" />
+                    Edit
+                  </button>
                 </div>
               </div>
-              <p className="text-sm text-success-600 mt-1">
-                {Object.keys(replacementDataByInspection).length} replacement option(s) added
-              </p>
-              <div className="mt-4 flex justify-between">
-                <button
-                  onClick={handleFinishReplacementDetails}
-                  className="btn btn-secondary"
-                >
-                  <CheckCircle size={16} className="mr-2" />
-                  Update Replacement Details
-                </button>
-                <button
-                  onClick={() => setShowSendQuoteModal(true)}
-                  className="btn btn-success"
-                >
-                  <Send size={16} className="mr-2" />
-                  Send Replacement Quote
-                </button>
+            );
+          })}
+
+          {replacementData.length > 0 && (
+            <div className="border rounded-lg overflow-hidden mt-4 shadow-sm">
+              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100">
+                <h3 className="font-medium text-blue-800 text-lg flex items-center gap-2">
+                  <Home size={16} className="text-blue-600" />
+                  Total Replacement Cost
+                </h3>
+                <span className="font-bold text-lg">
+                  ${totalReplacementCost.toLocaleString()}
+                </span>
               </div>
             </div>
           )}
-          {Object.keys(replacementDataByInspection).length === 0 && (
-            <div className="text-center py-8 bg-gray-50 rounded-lg">
-              <Home className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No replacement options added yet</p>
-              <button 
-                onClick={() => setShowRepairsForm(true)} 
-                className="btn btn-primary mt-4"
+
+          {replacementData.length > 0 && (
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowSendQuoteModal(true)}
+                className="btn btn-primary"
+                disabled={calculateTotalReplacementCost() === 0}
               >
-                <Plus size={16} className="mr-2" />
-                Add Replacement
+                <Send size={16} className="mr-2" />
+                Send Replacement Quote
               </button>
             </div>
           )}
-        </div>
+
+          {!hasReplacementData && (
+            <div className="text-center py-6 bg-gray-50 rounded-lg">
+              <p className="text-gray-500 mb-3">No items added yet</p>
+              <button
+                onClick={() => {
+                  setCurrentReplacementData(null);
+                  setShowRepairsForm(true);
+                }}
+                className="btn btn-primary btn-sm"
+              >
+                <Plus size={14} className="mr-1" />
+                Add First Replacement
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Repair Items Tab */}
-      {activeTab === 'repair' && 
+      {activeTab === "repair" &&
         (jobItems.length > 0 ? (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
+          <>
+            <div className="flex justify-between items-center mb-6">
               <h3 className="text-md font-medium flex items-center">
                 <Package size={16} className="mr-2 text-blue-500" />
                 Repair Items
@@ -364,13 +506,13 @@ const ServiceSection = ({
                 className="btn btn-primary btn-sm"
               >
                 <Plus size={14} className="mr-1" />
-                Add Item
+                Add Repair
               </button>
             </div>
-            
+
             {/* Parts Section */}
-            {groupedItems['part'] && groupedItems['part'].length > 0 && (
-              <div className="border rounded-lg overflow-hidden">
+            {groupedItems["part"] && groupedItems["part"].length > 0 && (
+              <div className="border rounded-lg overflow-hidden mb-4">
                 <div className="bg-blue-50 p-2 border-b border-blue-100">
                   <h4 className="text-sm font-medium flex items-center">
                     <Package size={14} className="mr-1 text-blue-500" />
@@ -378,16 +520,23 @@ const ServiceSection = ({
                   </h4>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {groupedItems['part'].map(item => (
-                    <div key={item.id} className="p-3 flex justify-between items-center">
+                  {groupedItems["part"].map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-3 flex justify-between items-center"
+                    >
                       <div>
                         <div className="font-medium text-sm">{item.name}</div>
                         <div className="text-xs text-gray-500">{item.code}</div>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
-                          <div className="text-xs text-gray-500">Qty: {item.quantity}</div>
-                          <div className="font-medium">${Number(item.total_cost).toFixed(2)}</div>
+                          <div className="text-xs text-gray-500">
+                            Qty: {item.quantity}
+                          </div>
+                          <div className="font-medium">
+                            ${Number(item.total_cost).toFixed(2)}
+                          </div>
                         </div>
                         <div className="flex gap-1">
                           <button
@@ -411,8 +560,8 @@ const ServiceSection = ({
             )}
 
             {/* Labor Section */}
-            {groupedItems['labor'] && groupedItems['labor'].length > 0 && (
-              <div className="border rounded-lg overflow-hidden">
+            {groupedItems["labor"] && groupedItems["labor"].length > 0 && (
+              <div className="border rounded-lg overflow-hidden mb-4">
                 <div className="bg-green-50 p-2 border-b border-green-100">
                   <h4 className="text-sm font-medium flex items-center">
                     <Wrench size={14} className="mr-1 text-green-500" />
@@ -420,16 +569,23 @@ const ServiceSection = ({
                   </h4>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {groupedItems['labor'].map(item => (
-                    <div key={item.id} className="p-3 flex justify-between items-center">
+                  {groupedItems["labor"].map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-3 flex justify-between items-center"
+                    >
                       <div>
                         <div className="font-medium text-sm">{item.name}</div>
                         <div className="text-xs text-gray-500">{item.code}</div>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
-                          <div className="text-xs text-gray-500">Qty: {item.quantity}</div>
-                          <div className="font-medium">${Number(item.total_cost).toFixed(2)}</div>
+                          <div className="text-xs text-gray-500">
+                            Qty: {item.quantity}
+                          </div>
+                          <div className="font-medium">
+                            ${Number(item.total_cost).toFixed(2)}
+                          </div>
                         </div>
                         <div className="flex gap-1">
                           <button
@@ -453,8 +609,8 @@ const ServiceSection = ({
             )}
 
             {/* Other Items Section */}
-            {groupedItems['item'] && groupedItems['item'].length > 0 && (
-              <div className="border rounded-lg overflow-hidden">
+            {groupedItems["item"] && groupedItems["item"].length > 0 && (
+              <div className="border rounded-lg overflow-hidden mb-4">
                 <div className="bg-purple-50 p-2 border-b border-purple-100">
                   <h4 className="text-sm font-medium flex items-center">
                     <ShoppingCart size={14} className="mr-1 text-purple-500" />
@@ -462,16 +618,23 @@ const ServiceSection = ({
                   </h4>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {groupedItems['item'].map(item => (
-                    <div key={item.id} className="p-3 flex justify-between items-center">
+                  {groupedItems["item"].map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-3 flex justify-between items-center"
+                    >
                       <div>
                         <div className="font-medium text-sm">{item.name}</div>
                         <div className="text-xs text-gray-500">{item.code}</div>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
-                          <div className="text-xs text-gray-500">Qty: {item.quantity}</div>
-                          <div className="font-medium">${Number(item.total_cost).toFixed(2)}</div>
+                          <div className="text-xs text-gray-500">
+                            Qty: {item.quantity}
+                          </div>
+                          <div className="font-medium">
+                            ${Number(item.total_cost).toFixed(2)}
+                          </div>
                         </div>
                         <div className="flex gap-1">
                           <button
@@ -497,14 +660,19 @@ const ServiceSection = ({
             {/* Total */}
             <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
               <div className="flex justify-between items-center">
-                <span className="font-medium">Total:</span>
-                <span className="font-bold text-lg">${getJobTotalCost().toFixed(2)}</span>
+                <h3 className="font-medium text-blue-800 text-lg flex items-center">
+                  <Package size={16} className="mr-2 text-blue-600" />
+                  Total Repair Cost
+                </h3>
+                <span className="font-bold text-lg">
+                  ${getJobTotalCost().toFixed(2)}
+                </span>
               </div>
             </div>
-            
+
             {/* Send Quote Button */}
-            {groupedItems['part'] && groupedItems['part'].length > 0 && (
-              <div className="flex justify-end">
+            {groupedItems["part"] && groupedItems["part"].length > 0 && (
+              <div className="flex justify-end mt-6">
                 <button
                   onClick={() => setShowSendQuoteModal(true)}
                   className="btn btn-primary"
@@ -514,7 +682,7 @@ const ServiceSection = ({
                 </button>
               </div>
             )}
-          </div>
+          </>
         ) : (
           <div className="text-center py-6 bg-gray-50 rounded-lg">
             <p className="text-gray-500 mb-3">No items added yet</p>
@@ -523,7 +691,7 @@ const ServiceSection = ({
               className="btn btn-primary btn-sm"
             >
               <Plus size={14} className="mr-1" />
-              Add First Item
+              Add First Repair
             </button>
           </div>
         ))}
@@ -543,18 +711,21 @@ const ServiceSection = ({
         onSave={handleItemUpdated}
         item={selectedItem}
       />
-      
+
       {/* Repairs/Replacement Form Modal */}
-      {showRepairsForm && ( 
+      {showRepairsForm && (
         <RepairsForm
           jobId={jobId}
+          initialData={currentReplacementData}
           onSave={() => {
             setShowRepairsForm(false);
-            setRefreshTrigger(prev => prev + 1); // Trigger a refresh
+            setCurrentReplacementData(null);
+            setRefreshTrigger((prev) => prev + 1); // Trigger a refresh
           }}
           onClose={() => {
             console.log("Closing RepairsForm");
             setShowRepairsForm(false);
+            setCurrentReplacementData(null);
           }}
         />
       )}
@@ -568,9 +739,13 @@ const ServiceSection = ({
           jobNumber={jobDetails.number}
           jobName={jobDetails.name}
           customerName={jobDetails.contact_name}
-          initialEmail={jobDetails.contact_email || ''}
+          initialEmail={jobDetails.contact_email || ""}
           allReplacementData={allReplacementData}
-          totalCost={activeTab === 'replacement' ? totalReplacementCost : getJobTotalCost()}
+          totalCost={
+            activeTab === "replacement"
+              ? totalReplacementCost
+              : getJobTotalCost()
+          }
           location={
             jobDetails.locations
               ? {
@@ -593,7 +768,7 @@ const ServiceSection = ({
           onEmailSent={() => {
             window.location.reload();
           }}
-          replacementDataByInspection={activeTab === 'replacement' ? replacementDataByInspection : {}}
+          replacementDataByInspection={{}}
         />
       )}
     </div>

@@ -32,7 +32,7 @@ type SendEmailModalProps = {
     closingText: string;
     signature: string;
   };
-  replacementDataByInspection?: {[key: string]: any};
+  replacementDataById?: {[key: string]: any};
   repairItems?: any[];
   inspectionData?: any[];
 };
@@ -54,7 +54,7 @@ const SendEmailModal = ({
   quoteType = 'replacement',
   onEmailSent,
   emailTemplate,
-  replacementDataByInspection = {},
+  replacementDataById = {},
   repairItems = [],
   inspectionData = []
 }: SendEmailModalProps) => {
@@ -118,8 +118,8 @@ const SendEmailModal = ({
   // Calculate the actual total cost from all replacement data
   const calculateActualTotalCost = () => {
     // For replacement quotes, use the total from replacement data by inspection
-    if (quoteType === 'replacement' && replacementDataByInspection && Object.keys(replacementDataByInspection).length > 0) {
-      return Object.values(replacementDataByInspection).reduce(
+    if (quoteType === 'replacement' && replacementDataById && Object.keys(replacementDataById).length > 0) {
+      return Object.values(replacementDataById).reduce(
         (sum, data: any) => sum + Number(data.totalCost || 0),
         0
       );
@@ -138,7 +138,7 @@ const SendEmailModal = ({
   };
 
   const actualTotalCost = calculateActualTotalCost();
-  const replacementOptionsCount = quoteType === 'replacement' ? Object.keys(replacementDataByInspection || {}).length : 0;
+  const replacementOptionsCount = quoteType === 'replacement' ? Object.keys(replacementDataById || {}).length : 0;
   const repairOptionsCount = quoteType === 'repair' ? jobItems.filter(item => item.type === 'part').length : 0;
 
   // Helper function to sanitize replacement data
@@ -203,7 +203,7 @@ const SendEmailModal = ({
   };
 
   // Helper function to sanitize replacement data by inspection
-  const sanitizeReplacementDataByInspection = (data: { [key: string]: any }) => {
+  const sanitizeReplacementDataById = (data: { [key: string]: any }) => {
     if (!data || typeof data !== 'object') return {};
     
     const result: { [key: string]: any } = {};
@@ -316,7 +316,7 @@ const SendEmailModal = ({
           inspectionData: inspData,
           replacementData: sanitizedReplacementData,
           jobItems: jobItems.filter(item => quoteType === 'repair' ? item.type === 'part' : true),
-          replacementDataByInspection: sanitizeReplacementDataByInspection(replacementDataByInspection)
+          replacementDataById: sanitizeReplacementDataById(replacementDataById)
         })
       });
       
@@ -390,8 +390,8 @@ const SendEmailModal = ({
           quoteType,
           emailTemplate,
           pdfUrl: generateResult.pdfUrl,
-          replacementDataByInspection: quoteType === 'replacement' ? 
-            sanitizeReplacementDataByInspection(replacementDataByInspection) : {},
+          replacementDataById: quoteType === 'replacement' ? 
+            sanitizeReplacementDataById(replacementDataById) : {},
           repairItems: quoteType === 'repair' ? repairItems : [],
           inspectionData: inspData
         };

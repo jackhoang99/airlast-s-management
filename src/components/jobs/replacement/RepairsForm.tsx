@@ -53,7 +53,7 @@ type InspectionData = {
 
 type RepairFormProps = {
   jobId: string;
-  initialData?: ReplacementData;
+  initialData?: any; // Database row from job_replacements table
   onSave?: (data: ReplacementData) => void;
   onClose?: () => void;
 };
@@ -68,20 +68,54 @@ const RepairsForm = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [replacementData, setReplacementData] = useState<ReplacementData>(
-    initialData || {
-      needsCrane: false,
-      replacementOption: { description: "Replacement Option", cost: "" },
-      labor: "",
-      refrigerationRecovery: "",
-      startUpCosts: "",
-      accessories: [{ name: "", cost: "" }],
-      thermostatStartup: "",
-      removalCost: "",
-      warranty: "",
-      additionalItems: [{ name: "", cost: "" }],
-      permitCost: "",
+
+  // Initialize replacement data with proper handling of database structure
+  const initializeReplacementData = (dbData?: any): ReplacementData => {
+    // Always initialize with empty values for new replacements
+    if (!dbData || !initialData) {
+      return {
+        needsCrane: false,
+        replacementOption: { description: "", cost: "" },
+        labor: "",
+        refrigerationRecovery: "",
+        startUpCosts: "",
+        accessories: [{ name: "", cost: "" }],
+        thermostatStartup: "",
+        removalCost: "",
+        warranty: "",
+        additionalItems: [{ name: "", cost: "" }],
+        permitCost: "",
+      };
     }
+
+    // Extract the selected phase data
+    const selectedPhase = dbData.selected_phase || "phase2";
+    const phaseData = dbData[selectedPhase] || {
+      description: "Replacement Option",
+      cost: 0,
+    };
+
+    return {
+      needsCrane: dbData.needs_crane || false,
+      replacementOption: {
+        description: phaseData.description || "Replacement Option",
+        cost: phaseData.cost || "",
+      },
+      labor: dbData.labor || "",
+      refrigerationRecovery: dbData.refrigeration_recovery || "",
+      startUpCosts: dbData.start_up_costs || "",
+      accessories: dbData.accessories || [{ name: "", cost: "" }],
+      thermostatStartup: dbData.thermostat_startup || "",
+      removalCost: dbData.removal_cost || "",
+      warranty: dbData.warranty || "",
+      additionalItems: dbData.additional_items || [{ name: "", cost: "" }],
+      permitCost: dbData.permit_cost || "",
+      totalCost: dbData.total_cost,
+    };
+  };
+
+  const [replacementData, setReplacementData] = useState<ReplacementData>(
+    initializeReplacementData(initialData)
   );
   const [totalCost, setTotalCost] = useState(0);
   const [jobDetails, setJobDetails] = useState<any>(null);
@@ -98,53 +132,6 @@ const RepairsForm = ({
     const fetchReplacementData = async () => {
       if (!supabase || !jobId) return;
       try {
-        // 1) Load existing replacement data (if any)
-        const { data: existingReplacement, error: replacementError } =
-          await supabase
-            .from("job_replacements")
-            .select("*")
-            .eq("job_id", jobId)
-            .maybeSingle();
-
-        if (
-          replacementError &&
-          !replacementError.message.includes("The result contains 0 rows")
-        ) {
-          throw replacementError;
-        }
-
-        if (existingReplacement) {
-          setReplacementData({
-            needsCrane: existingReplacement.needs_crane || false,
-            replacementOption: existingReplacement.replacementOption || {
-              description: "Replacement Option",
-              cost: "",
-            },
-            labor: existingReplacement.labor || "",
-            refrigerationRecovery:
-              existingReplacement.refrigeration_recovery || "",
-            startUpCosts: existingReplacement.start_up_costs || "",
-            accessories: existingReplacement.accessories || [
-              { name: "", cost: "" },
-            ],
-            thermostatStartup: existingReplacement.thermostat_startup || "",
-            removalCost: existingReplacement.removal_cost || "",
-            warranty: existingReplacement.warranty || "",
-            additionalItems: existingReplacement.additional_items || [
-              { name: "", cost: "" },
-            ],
-            permitCost: existingReplacement.permit_cost || "",
-            totalCost: existingReplacement.total_cost,
-          });
-
-          if (existingReplacement.total_cost) {
-            setTotalCost(existingReplacement.total_cost);
-          }
-
-          // Always show the form when initialData is provided or when edit button is clicked
-          setIsFormVisible(initialData !== undefined);
-        }
-
         // Fetch job details (with location + unit)
         const { data: jobData, error: jobError } = await supabase
           .from("jobs")
@@ -180,6 +167,7 @@ const RepairsForm = ({
   // Calculate total cost whenever replacement fields or selectedPhase change
   useEffect(() => {
     const calculateTotalCost = () => {
+      // Calculate direct costs
       const phaseCost = Number(replacementData.replacementOption.cost) || 0;
       const laborCost = Number(replacementData.labor) || 0;
       const refrigerationCost =
@@ -211,7 +199,7 @@ const RepairsForm = ({
       const totalDirectCosts =
         baseCosts + accessoriesCost + additionalItemsCost;
       const totalWithMargin =
-        totalDirectCosts > 0 ? Math.round(totalDirectCosts / 0.6) : 0;
+        totalDirectCosts > 0 ? Math.round(totalDirectCosts / 0.6) : 0; // Apply 40% gross margin
       return totalWithMargin;
     };
 
@@ -261,15 +249,6 @@ const RepairsForm = ({
     console.log("Submitting replacement data", replacementData);
 
     try {
-      // Check if replacement data already exists
-      const { data: existingData, error: checkError } = await supabase
-        .from("job_replacements")
-        .select("id")
-        .eq("job_id", jobId)
-        .maybeSingle();
-
-      if (checkError) throw checkError;
-
       // Create a structure that matches the database schema
       const dataToSave = {
         job_id: jobId,
@@ -298,19 +277,19 @@ const RepairsForm = ({
           cost: Number(item.cost) || 0,
         })),
         permit_cost: Number(replacementData.permitCost) || 0,
+        total_cost: totalCost, // Save the total cost with 40% margin
         updated_at: new Date().toISOString(),
-        total_cost: totalCost,
       };
 
       let savedData;
 
-      if (existingData) {
-        console.log("Updating existing replacement data", existingData.id);
+      if (initialData && initialData.id) {
+        console.log("Updating existing replacement data", initialData.id);
         // Update
         const { data, error: updateError } = await supabase
           .from("job_replacements")
           .update(dataToSave)
-          .eq("id", existingData.id)
+          .eq("id", initialData.id)
           .select()
           .single();
 
@@ -418,6 +397,13 @@ const RepairsForm = ({
                         setReplacementData((prev) => ({
                           ...prev,
                           needsCrane: e.target.checked,
+                          // Optionally clear the cost if unchecked
+                          replacementOption: {
+                            ...prev.replacementOption,
+                            cost: e.target.checked
+                              ? prev.replacementOption.cost
+                              : "",
+                          },
                         }))
                       }
                       className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
@@ -430,26 +416,11 @@ const RepairsForm = ({
                     </label>
                   </div>
 
-                  {/* Phase Selection */}
+                  {/* Standard Option (only if crane required) */}
                   <div className="mb-4 p-3 border rounded-lg">
                     <h4 className="font-medium text-sm mb-2">
-                      Replacement Option
+                      Standard Option
                     </h4>
-                    <input
-                      type="text"
-                      value={replacementData.replacementOption.description}
-                      onChange={(e) =>
-                        setReplacementData((prev) => ({
-                          ...prev,
-                          replacementOption: {
-                            ...prev.replacementOption,
-                            description: e.target.value,
-                          },
-                        }))
-                      }
-                      className="input w-full mb-2 text-sm"
-                      placeholder="Description"
-                    />
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
                         $
@@ -470,6 +441,7 @@ const RepairsForm = ({
                         }}
                         className="input pl-7 w-full text-sm"
                         placeholder="Cost"
+                        disabled={!replacementData.needsCrane}
                       />
                     </div>
                   </div>
@@ -824,7 +796,8 @@ const RepairsForm = ({
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 mt-1 text-right">
-                  Includes 40% gross margin
+                  Includes 40% gross margin ($
+                  {Math.round(totalCost * 0.4).toLocaleString()} profit)
                 </div>
               </div>
             </div>

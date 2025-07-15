@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSupabase } from '../../lib/supabase-context';
-import { Database } from '../../types/supabase';
-import { Eye, Send, FileCheck2, AlertTriangle, Package, Home, Check, X, Clipboard, Edit, List } from 'lucide-react';
+import { Eye, Send, FileCheck2, AlertTriangle, Package, Home, Check, X, Clipboard, Edit, List, Calculator } from 'lucide-react';
 import SendEmailModal from './SendEmailModal';
 
 type JobQuoteSectionProps = {
@@ -51,12 +50,21 @@ const JobQuoteSection = ({
     replacement: null,
     repair: null
   });
-  const [replacementDataByInspection, setReplacementDataByInspection] = useState<{[key: string]: any}>({});
-  const [totalReplacementCost, setTotalReplacementCost] = useState(0);
+  const [replacementDataById, setReplacementDataById] = useState<{[key: string]: any}>({});
+  const [totalReplacementCost, setTotalReplacementCost] = useState<number>(0);
   const [inspectionData, setInspectionData] = useState<any[]>([]);
   
+  // Calculate total replacement cost from all replacement data
+  const calculateTotalReplacementCost = () => {
+    if (Object.keys(replacementDataById).length === 0) return 0;
+    
+    return Object.values(replacementDataById).reduce((sum, data: any) => {
+      return sum + Number(data.totalCost || 0);
+    }, 0);
+  };
+  
   // New state for repair data
-  const [repairDataByInspection, setRepairDataByInspection] = useState<{[key: string]: any}>({});
+  const [repairDataById, setRepairDataById] = useState<{[key: string]: any}>({});
   const [totalRepairCost, setTotalRepairCost] = useState(0);
   const [hasPartItems, setHasPartItems] = useState(false);
   
@@ -101,37 +109,36 @@ const JobQuoteSection = ({
             setTotalCost(replacementData[0].total_cost || 0);
           }
           
-          // Organize replacement data by inspection_id
+          // Organize replacement data by id
           const replacementDataMap: {[key: string]: any} = {};
-          let totalReplacementCostSum = 0;
+          
+          // Calculate the total cost from all replacements
+          const totalReplacementCostSum = replacementData.reduce((sum, item) => {
+            // Use the totalCost field which includes the 40% gross margin
+            return sum + Number(item.total_cost || item.totalCost || 0);
+          }, 0);
           
           replacementData.forEach(item => {
-            if (item.inspection_id) {
-              // For replacement data
-              replacementDataMap[item.inspection_id] = {
-                needsCrane: item.needs_crane,
-                phase1: item.phase1,
-                phase2: item.phase2,
-                phase3: item.phase3,
-                labor: item.labor,
-                refrigerationRecovery: item.refrigeration_recovery,
-                startUpCosts: item.start_up_costs,
-                accessories: item.accessories,
-                thermostatStartup: item.thermostat_startup,
-                removalCost: item.removal_cost,
-                warranty: item.warranty,
-                additionalItems: item.additional_items,
-                permitCost: item.permit_cost,
-                selectedPhase: item.selected_phase,
-                totalCost: item.total_cost,
-                created_at: item.created_at
-              };
-              
-              totalReplacementCostSum += Number(item.total_cost || 0);
-            }
+            // For replacement data
+            replacementDataMap[item.id] = {
+              needsCrane: item.needs_crane,
+              phase2: item.phase2,
+              labor: item.labor,
+              refrigerationRecovery: item.refrigeration_recovery,
+              startUpCosts: item.start_up_costs,
+              accessories: item.accessories,
+              thermostatStartup: item.thermostat_startup,
+              removalCost: item.removal_cost,
+              warranty: item.warranty,
+              additionalItems: item.additional_items,
+              permitCost: item.permit_cost,
+              selectedPhase: item.selected_phase,
+              totalCost: item.total_cost,
+              created_at: item.created_at
+            };
           });
           
-          setReplacementDataByInspection(replacementDataMap);
+          setReplacementDataById(replacementDataMap);
           setTotalReplacementCost(totalReplacementCostSum);
           
           // Check if we have part items to determine if repair is available
@@ -139,7 +146,7 @@ const JobQuoteSection = ({
           setHasPartItems(hasPartItems);
           
           // Set availability flags
-          setHasReplacementData(Object.keys(replacementDataMap).length > 0);
+          setHasReplacementData(replacementData.length > 0);
           setHasRepairData(hasPartItems);
         } else {
           console.log("No replacement/repair data found");
@@ -372,6 +379,11 @@ const JobQuoteSection = ({
                       <p>
                         Replacement data is available for this job. You can send a replacement quote to the customer.
                       </p>
+                      <p className="mt-2 flex items-center font-medium">
+                        <Calculator className="h-4 w-4 mr-1" />
+                        <span>Total Replacement Cost: ${calculateTotalReplacementCost().toLocaleString()}</span>
+                        <span className="text-xs ml-2">(Includes 40% gross margin)</span>
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -432,6 +444,10 @@ const JobQuoteSection = ({
                         {hasPartItems ? 
                           "Repair parts have been added to this job. You can send a repair quote to the customer." :
                           "Repair data is available for this job. You can send a repair quote to the customer."}
+                      </p>
+                      <p className="mt-2 flex items-center">
+                        <Calculator className="h-4 w-4 mr-1" />
+                        <span className="font-medium">Total Repair Cost: ${totalRepairCost.toLocaleString()}</span>
                       </p>
                     </div>
                   </div>
@@ -614,7 +630,7 @@ const JobQuoteSection = ({
           }
         }}
         emailTemplate={emailTemplate}
-        replacementDataByInspection={activeTab === 'replacement' ? replacementDataByInspection : {}}
+        replacementDataById={activeTab === 'replacement' ? replacementDataById : {}}
         inspectionData={inspectionData}
       />
     </div>
