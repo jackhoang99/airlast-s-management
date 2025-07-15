@@ -83,9 +83,9 @@ const TechnicianLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-8 px-2 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md mx-auto sm:mx-auto">
+        <div className="flex justify-center pt-6 pb-2">
           {logoUrl ? (
             <img src={logoUrl} alt="Airlast" className="h-12" />
           ) : (
@@ -102,8 +102,8 @@ const TechnicianLogin = () => {
         </h2>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <div className="mt-6 w-full max-w-md mx-auto sm:mx-auto">
+        <div className="bg-white py-6 px-2 shadow-none rounded-none sm:rounded-lg sm:shadow sm:px-10">
           {isLoading && !error ? (
             <div className="flex justify-center items-center py-6">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
@@ -141,7 +141,8 @@ const TechnicianLogin = () => {
                       }))
                     }
                     required
-                    className="input"
+                    className="input text-base h-12 px-4 w-full"
+                    autoComplete="username"
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500"></p>
@@ -166,7 +167,8 @@ const TechnicianLogin = () => {
                       }))
                     }
                     required
-                    className="input"
+                    className="input text-base h-12 px-4 w-full"
+                    autoComplete="current-password"
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500"></p>
@@ -176,7 +178,7 @@ const TechnicianLogin = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full btn btn-primary"
+                  className="w-full btn btn-primary h-12 text-base"
                 >
                   {isLoading ? (
                     <>
@@ -201,6 +203,7 @@ const TechnicianLogin = () => {
           )}
         </div>
       </div>
+      <div className="h-16 sm:h-0" />
     </div>
   );
 };
