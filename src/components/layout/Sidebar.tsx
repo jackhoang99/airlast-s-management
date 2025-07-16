@@ -1,5 +1,38 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Briefcase, FileText, Users, MapPin, Settings, HelpCircle, LogOut, X, User, Wind, Building, Phone, Contact as FileContract, Upload, ChevronDown, Calendar, Wrench, ClipboardList, Building2, Home, FileInput as FileInvoice, DollarSign, FileEdit, FileCheck, Clipboard, PenTool as Tool, FileSpreadsheet, AlertTriangle, Tag, BarChart, Gauge, Package } from "lucide-react";
+import {
+  Briefcase,
+  FileText,
+  Users,
+  MapPin,
+  Settings,
+  HelpCircle,
+  LogOut,
+  X,
+  User,
+  Wind,
+  Building,
+  Phone,
+  Contact as FileContract,
+  Upload,
+  ChevronDown,
+  Calendar,
+  Wrench,
+  ClipboardList,
+  Building2,
+  Home,
+  FileInput as FileInvoice,
+  DollarSign,
+  FileEdit,
+  FileCheck,
+  Clipboard,
+  PenTool as Tool,
+  FileSpreadsheet,
+  AlertTriangle,
+  Tag,
+  BarChart,
+  Gauge,
+  Package,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSupabase } from "../../lib/supabase-context";
 
@@ -347,6 +380,19 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                 <ul className="space-y-1 pl-7">
                   <li>
                     <Link
+                      to="/all-quotes"
+                      className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                        location.pathname === "/all-quotes"
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <FileSpreadsheet size={16} className="mr-3" />
+                      All Quotes
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
                       to="/quotes/templates"
                       className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
                         location.pathname.includes("/quotes/templates")
@@ -354,7 +400,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                           : "text-gray-700 hover:bg-gray-100"
                       }`}
                     >
-                      <FileSpreadsheet size={16} className="mr-3" />
+                      <FileEdit size={16} className="mr-3" />
                       Quote Templates
                     </Link>
                   </li>
