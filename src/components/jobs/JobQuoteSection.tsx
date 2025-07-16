@@ -481,44 +481,65 @@ const JobQuoteSection = ({
               </div>
             )}
 
-            {job.quote_confirmed && (
-              <div className="mt-4 bg-success-50 border-l-4 border-success-500 p-4 rounded-md">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <Check className="h-5 w-5 text-success-500" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-success-800">
-                      Quote Confirmed
-                    </h3>
-                    <div className="mt-2 text-sm text-success-700">
-                      <p>
-                        <span className="font-medium">Quote was confirmed</span>{" "}
-                        on{" "}
-                        {job.quote_confirmed_at
-                          ? new Date(job.quote_confirmed_at).toLocaleString()
-                          : "N/A"}
-                        .
-                      </p>
-                      <p className="mt-1">
-                        <span className="font-medium">
-                          Customer{" "}
-                          {job.replacement_approved ? (
-                            <span className="text-success-700">
-                              approved replacements
-                            </span>
-                          ) : (
-                            <span className="text-error-700">
-                              declined replacements
-                            </span>
-                          )}
-                        </span>
-                      </p>
+            {allQuotes.some(
+              (q) => q.quote_type === "replacement" && q.confirmed
+            ) &&
+              activeTab === "replacement" && (
+                <div className="mt-4 bg-success-50 border-l-4 border-success-500 p-4 rounded-md">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <Check className="h-5 w-5 text-success-500" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-success-800">
+                        Quote Confirmed
+                      </h3>
+                      <div className="mt-2 text-sm text-success-700">
+                        <p>
+                          <span className="font-medium">
+                            Quote was confirmed
+                          </span>{" "}
+                          on{" "}
+                          {(() => {
+                            const replacementQuote = allQuotes.find(
+                              (q) =>
+                                q.quote_type === "replacement" && q.confirmed
+                            );
+                            return replacementQuote &&
+                              replacementQuote.confirmed_at
+                              ? new Date(
+                                  replacementQuote.confirmed_at
+                                ).toLocaleString()
+                              : "N/A";
+                          })()}
+                          .
+                        </p>
+                        <p className="mt-1">
+                          <span className="font-medium">
+                            Customer{" "}
+                            {(() => {
+                              const replacementQuote = allQuotes.find(
+                                (q) =>
+                                  q.quote_type === "replacement" && q.confirmed
+                              );
+                              return replacementQuote &&
+                                replacementQuote.approved ? (
+                                <span className="text-success-700">
+                                  approved replacements
+                                </span>
+                              ) : (
+                                <span className="text-error-700">
+                                  declined replacements
+                                </span>
+                              );
+                            })()}
+                          </span>
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         )}
 
@@ -560,60 +581,59 @@ const JobQuoteSection = ({
             )}
 
             {/* Only show repair approval status if a repair quote was confirmed */}
-            {allQuotes.some(
-              (q) => q.quote_type === "repair" && q.confirmed
-            ) && (
-              <div className="mt-4 bg-success-50 border-l-4 border-success-500 p-4 rounded-md">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <Check className="h-5 w-5 text-success-500" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-success-800">
-                      Repair Quote Confirmed
-                    </h3>
-                    <div className="mt-2 text-sm text-success-700">
-                      <p>
-                        <span className="font-medium">
-                          Repair quote was confirmed
-                        </span>{" "}
-                        on{" "}
-                        {(() => {
-                          const repairQuote = allQuotes.find(
-                            (q) => q.quote_type === "repair" && q.confirmed
-                          );
-                          return repairQuote && repairQuote.confirmed_at
-                            ? new Date(
-                                repairQuote.confirmed_at
-                              ).toLocaleString()
-                            : "N/A";
-                        })()}
-                        .
-                      </p>
-                      <p className="mt-1">
-                        <span className="font-medium">
-                          Customer{" "}
+            {allQuotes.some((q) => q.quote_type === "repair" && q.confirmed) &&
+              activeTab === "repair" && (
+                <div className="mt-4 bg-success-50 border-l-4 border-success-500 p-4 rounded-md">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <Check className="h-5 w-5 text-success-500" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-success-800">
+                        Repair Quote Confirmed
+                      </h3>
+                      <div className="mt-2 text-sm text-success-700">
+                        <p>
+                          <span className="font-medium">
+                            Repair quote was confirmed
+                          </span>{" "}
+                          on{" "}
                           {(() => {
                             const repairQuote = allQuotes.find(
                               (q) => q.quote_type === "repair" && q.confirmed
                             );
-                            return repairQuote && repairQuote.approved ? (
-                              <span className="text-success-700">
-                                approved repairs
-                              </span>
-                            ) : (
-                              <span className="text-error-700">
-                                declined repairs
-                              </span>
-                            );
+                            return repairQuote && repairQuote.confirmed_at
+                              ? new Date(
+                                  repairQuote.confirmed_at
+                                ).toLocaleString()
+                              : "N/A";
                           })()}
-                        </span>
-                      </p>
+                          .
+                        </p>
+                        <p className="mt-1">
+                          <span className="font-medium">
+                            Customer{" "}
+                            {(() => {
+                              const repairQuote = allQuotes.find(
+                                (q) => q.quote_type === "repair" && q.confirmed
+                              );
+                              return repairQuote && repairQuote.approved ? (
+                                <span className="text-success-700">
+                                  approved repairs
+                                </span>
+                              ) : (
+                                <span className="text-error-700">
+                                  declined repairs
+                                </span>
+                              );
+                            })()}
+                          </span>
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         )}
 

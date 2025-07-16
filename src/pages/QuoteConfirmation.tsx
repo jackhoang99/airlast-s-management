@@ -28,6 +28,9 @@ const QuoteConfirmation = () => {
   const [quoteType, setQuoteType] = useState<"replacement" | "repair">(
     "replacement"
   );
+  const [intendedQuoteType, setIntendedQuoteType] = useState<
+    "replacement" | "repair"
+  >("replacement");
 
   // Get the approval status from URL query parameters
   useEffect(() => {
@@ -224,6 +227,7 @@ const QuoteConfirmation = () => {
               body: JSON.stringify({
                 token,
                 approved,
+                quoteType: quoteDetails ? quoteType : intendedQuoteType, // Use intendedQuoteType if no quote record
               }),
             });
 
@@ -365,7 +369,15 @@ const QuoteConfirmation = () => {
     };
 
     confirmQuote();
-  }, [supabase, token, approved, jobDetails]);
+  }, [
+    supabase,
+    token,
+    approved,
+    jobDetails,
+    quoteDetails,
+    quoteType,
+    intendedQuoteType,
+  ]);
 
   if (isLoading) {
     return (
@@ -606,14 +618,20 @@ const QuoteConfirmation = () => {
 
           <div className="flex flex-col sm:flex-row justify-center gap-4 mb-6">
             <button
-              onClick={() => setApproved(true)}
+              onClick={() => {
+                setIntendedQuoteType(quoteType);
+                setApproved(true);
+              }}
               className="btn btn-success flex-1 flex justify-center items-center"
             >
               <Check className="mr-2 h-5 w-5" />
               Approve {quoteType === "replacement" ? "Replacements" : "Repairs"}
             </button>
             <button
-              onClick={() => setApproved(false)}
+              onClick={() => {
+                setIntendedQuoteType(quoteType);
+                setApproved(false);
+              }}
               className="btn btn-error flex-1 flex justify-center items-center"
             >
               <X className="mr-2 h-5 w-5" />

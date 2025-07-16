@@ -19,7 +19,7 @@ serve(async (req) => {
       throw new Error("Supabase environment variables are not set");
     }
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { token, approved } = await req.json();
+    const { token, approved, quoteType: requestQuoteType } = await req.json();
     if (!token) {
       throw new Error("Token is required");
     }
@@ -93,8 +93,8 @@ serve(async (req) => {
       throw new Error("Quote not found");
     }
     // Update the job record
-    // Default to replacement if no quote type is specified
-    const quoteType = "replacement";
+    // Use quoteType from request if provided, otherwise default to 'replacement'
+    const quoteType = requestQuoteType || "replacement";
     let updateObj = {
       quote_confirmed: true,
       quote_confirmed_at: new Date().toISOString(),
@@ -116,7 +116,6 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         message: `Quote ${approved ? "approved" : "declined"} successfully`,
-        // Default to replacement if no quote type is specified
         quoteType: quoteType,
       }),
       {
