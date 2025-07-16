@@ -50,14 +50,6 @@ const InspectionSection = ({
     try {
       setIsLoading(true);
 
-      // First delete any associated replacement data
-      const { error: replacementDeleteError } = await supabase
-        .from("job_replacements")
-        .delete()
-        .eq("inspection_id", inspectionId);
-
-      if (replacementDeleteError) throw replacementDeleteError;
-
       // Then delete the inspection
       const { error } = await supabase
         .from("job_inspections")

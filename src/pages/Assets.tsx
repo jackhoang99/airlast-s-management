@@ -8,7 +8,11 @@ import {
   ArrowLeft,
   Calendar,
   AlertTriangle,
+  Plus,
+  Edit,
+  Trash2,
 } from "lucide-react";
+import InspectionForm from "../components/jobs/inspection/InspectionForm";
 
 const Assets = () => {
   const { supabase } = useSupabase();
@@ -29,6 +33,8 @@ const Assets = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [locations, setLocations] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
+  const [showInspectionForm, setShowInspectionForm] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<any | null>(null);
 
   useEffect(() => {
     const fetchAssets = async () => {
@@ -178,6 +184,15 @@ const Assets = () => {
           </Link>
           <h1 className="text-2xl font-bold">Inspection Assets</h1>
         </div>
+        <button
+          className="btn btn-primary flex items-center gap-2"
+          onClick={() => {
+            setEditingAsset(null);
+            setShowInspectionForm(true);
+          }}
+        >
+          <Plus size={16} /> Add Asset
+        </button>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
@@ -341,6 +356,42 @@ const Assets = () => {
                       >
                         View Details
                       </Link>
+                      <button
+                        className="ml-2 text-primary-600 hover:text-primary-800"
+                        onClick={() => {
+                          setEditingAsset(asset);
+                          setShowInspectionForm(true);
+                        }}
+                        title="Edit Asset"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        className="ml-2 text-error-600 hover:text-error-800"
+                        onClick={async () => {
+                          if (
+                            window.confirm(
+                              "Are you sure you want to delete this asset?"
+                            )
+                          ) {
+                            if (!supabase) return;
+                            setIsLoading(true);
+                            await supabase
+                              .from("assets")
+                              .delete()
+                              .eq("id", asset.id);
+                            // Refresh asset list
+                            const { data, error } = await supabase
+                              .from("assets")
+                              .select("*");
+                            if (!error) setAssets(data || []);
+                            setIsLoading(false);
+                          }
+                        }}
+                        title="Delete Asset"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -349,6 +400,27 @@ const Assets = () => {
           </div>
         )}
       </div>
+      {showInspectionForm && (
+        <InspectionForm
+          jobId={editingAsset?.job_id || ""}
+          initialData={editingAsset}
+          onSave={() => {
+            setShowInspectionForm(false);
+            setEditingAsset(null);
+            // Refresh asset list
+            if (supabase) {
+              supabase
+                .from("assets")
+                .select("*")
+                .then(({ data }) => setAssets(data || []));
+            }
+          }}
+          onCancel={() => {
+            setShowInspectionForm(false);
+            setEditingAsset(null);
+          }}
+        />
+      )}
     </div>
   );
 };

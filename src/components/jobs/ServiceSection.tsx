@@ -229,6 +229,8 @@ const ServiceSection = ({
     }
   };
 
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   return (
     <div>
       {showEditItemModal && selectedItem && (
@@ -444,8 +446,34 @@ const ServiceSection = ({
                       <Edit size={16} />
                     </button>
                     <button
-                      onClick={() => {
-                        /* TODO: implement delete logic for replacement */
+                      onClick={async () => {
+                        if (!supabase) return;
+                        if (
+                          window.confirm(
+                            "Are you sure you want to delete this replacement?"
+                          )
+                        ) {
+                          setDeleteError(null);
+                          try {
+                            const { error } = await supabase
+                              .from("job_replacements")
+                              .delete()
+                              .eq("id", data.id);
+                            if (error) throw error;
+                            // Refresh replacement data
+                            const {
+                              data: replacementData,
+                              error: replacementError,
+                            } = await supabase
+                              .from("job_replacements")
+                              .select("*")
+                              .eq("job_id", jobId);
+                            if (!replacementError)
+                              setReplacementData(replacementData || []);
+                          } catch (err) {
+                            setDeleteError("Failed to delete replacement");
+                          }
+                        }
                       }}
                       className="p-1 text-error-600 hover:text-error-800"
                       aria-label="Delete replacement"
@@ -454,6 +482,11 @@ const ServiceSection = ({
                     </button>
                   </div>
                 </div>
+                {deleteError && (
+                  <div className="bg-error-50 text-error-700 p-2 rounded mb-2">
+                    {deleteError}
+                  </div>
+                )}
               </div>
             );
           })}
