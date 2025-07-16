@@ -156,259 +156,6 @@ serve(async (req) => {
       }
       inspectionHtml += `</div>`;
     }
-    // Build replacement details HTML and text
-    let replacementHtml = "";
-    let replacementText = "";
-    // First try to use replacementDataByInspection if available
-    if (
-      replacementDataByInspection &&
-      Object.keys(replacementDataByInspection).length > 0
-    ) {
-      replacementHtml = `
-        <div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
-          <h3 style="margin-top:0;">${
-            quoteType === "replacement" ? "Replacement" : "Repair"
-          } Recommendations</h3>`;
-      replacementText = `${
-        quoteType === "replacement" ? "Replacement" : "Repair"
-      } Recommendations:\n\n`;
-      // Limit to first 2 repair options for email readability
-      const replacementEntries = Object.entries(
-        replacementDataByInspection
-      ).slice(0, 2);
-      replacementEntries.forEach(([inspectionId, data], index) => {
-        // Safe access with fallbacks
-        const selectedPhase = data?.selectedPhase || "phase2";
-        const phaseData = data?.[selectedPhase] || {};
-        const phaseName =
-          selectedPhase === "phase1"
-            ? "Economy Option"
-            : selectedPhase === "phase2"
-            ? "Standard Option"
-            : "Premium Option";
-        const description = phaseData?.description || phaseName;
-        const needsCrane = data?.needsCrane || false;
-        const totalCost = data?.totalCost || 0;
-        replacementHtml += `
-          <div style="margin-bottom: ${
-            index < replacementEntries.length - 1 ? "20px" : "0"
-          }; ${
-          index > 0 ? "border-top: 1px solid #ddd; padding-top: 15px;" : ""
-        }">
-            <h4 style="margin-top:0;">${
-              quoteType === "replacement" ? "Replacement" : "Repair"
-            } Option ${index + 1}</h4>
-            <table style="width:100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Selected Option:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${phaseName}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Description:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${description}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Requires Crane:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${
-                  needsCrane ? "Yes" : "No"
-                }</td>
-              </tr>
-              <tr style="background-color:#f0f0f0;">
-                <td style="padding:8px; border:1px solid #ddd;"><strong>${
-                  quoteType === "replacement" ? "Replacement" : "Repair"
-                } Cost:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${Number(
-                  totalCost
-                ).toLocaleString()}</td>
-              </tr>
-            </table>
-          </div>`;
-        replacementText += `${
-          quoteType === "replacement" ? "Replacement" : "Repair"
-        } Option ${index + 1}:\n`;
-        replacementText += `- Selected Option: ${phaseName}\n`;
-        replacementText += `- Description: ${description}\n`;
-        replacementText += `- Requires Crane: ${needsCrane ? "Yes" : "No"}\n`;
-        replacementText += `- ${
-          quoteType === "replacement" ? "Replacement" : "Repair"
-        } Cost: $${Number(totalCost).toLocaleString()}\n\n`;
-      });
-      if (Object.keys(replacementDataByInspection).length > 2) {
-        replacementHtml += `
-          <div style="margin-top: 10px; font-style: italic; color: #666;">
-            And ${
-              Object.keys(replacementDataByInspection).length - 2
-            } more replacement option(s)...
-          </div>`;
-        replacementText += `And ${
-          Object.keys(replacementDataByInspection).length - 2
-        } more replacement option(s)...\n\n`;
-      }
-      // Add total cost for all repairs
-      replacementHtml += `
-          <div style="margin-top: 20px; padding: 10px; background-color: #e6f7ef; border-radius: 5px;">
-            <table style="width:100%; border-collapse: collapse;">
-              <tr style="background-color:#e6f7ef; font-weight:bold;">
-                <td style="padding:8px; border:1px solid #ddd;"><strong>TOTAL COST FOR ALL ${
-                  quoteType === "replacement" ? "REPLACEMENTS" : "REPAIRS"
-                }:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${Number(
-                  totalCost || 0
-                ).toLocaleString()}</td>
-              </tr>
-            </table>
-          </div>
-        </div>`;
-      replacementText += `TOTAL COST FOR ALL ${
-        quoteType === "replacement" ? "REPLACEMENTS" : "REPAIRS"
-      }: $${Number(totalCost || 0).toLocaleString()}\n\n`;
-    } else if (
-      Array.isArray(allReplacementData) &&
-      allReplacementData.length > 0
-    ) {
-      replacementHtml = `
-        <div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
-          <h3 style="margin-top:0;">${
-            quoteType === "replacement" ? "Replacement" : "Repair"
-          } Recommendations</h3>`;
-      replacementText = `${
-        quoteType === "replacement" ? "Replacement" : "Repair"
-      } Recommendations:\n\n`;
-      // Limit to first 2 repair options for email readability
-      const displayReplacements = allReplacementData.slice(0, 2);
-      displayReplacements.forEach((replacement, index) => {
-        // Safe access with fallbacks
-        const replacementPhase = replacement?.selected_phase || "phase2";
-        const phaseData = replacement?.[replacementPhase] || {};
-        const phaseName =
-          replacementPhase === "phase1"
-            ? "Economy Option"
-            : replacementPhase === "phase2"
-            ? "Standard Option"
-            : "Premium Option";
-        const description = phaseData?.description || phaseName;
-        const needsCrane = replacement?.needs_crane || false;
-        const replacementCost = replacement?.total_cost || 0;
-        replacementHtml += `
-          <div style="margin-bottom: ${
-            index < displayReplacements.length - 1 ? "20px" : "0"
-          }; ${
-          index > 0 ? "border-top: 1px solid #ddd; padding-top: 15px;" : ""
-        }">
-            <h4 style="margin-top:0;">${
-              quoteType === "replacement" ? "Replacement" : "Repair"
-            } Option ${index + 1}</h4>
-            <table style="width:100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Selected Option:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${phaseName}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Description:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${description}</td>
-              </tr>
-              <tr>
-                <td style="padding:8px; border:1px solid #ddd;"><strong>Requires Crane:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">${
-                  needsCrane ? "Yes" : "No"
-                }</td>
-              </tr>
-              <tr style="background-color:#f0f0f0;">
-                <td style="padding:8px; border:1px solid #ddd;"><strong>${
-                  quoteType === "replacement" ? "Replacement" : "Repair"
-                } Cost:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${Number(
-                  replacementCost
-                ).toLocaleString()}</td>
-              </tr>
-            </table>
-          </div>`;
-        replacementText += `${
-          quoteType === "replacement" ? "Replacement" : "Repair"
-        } Option ${index + 1}:\n`;
-        replacementText += `- Selected Option: ${phaseName}\n`;
-        replacementText += `- Description: ${description}\n`;
-        replacementText += `- Requires Crane: ${needsCrane ? "Yes" : "No"}\n`;
-        replacementText += `- ${
-          quoteType === "replacement" ? "Replacement" : "Repair"
-        } Cost: $${Number(replacementCost).toLocaleString()}\n\n`;
-      });
-      if (allReplacementData.length > 2) {
-        replacementHtml += `
-          <div style="margin-top: 10px; font-style: italic; color: #666;">
-            And ${allReplacementData.length - 2} more replacement option(s)...
-          </div>`;
-        replacementText += `And ${
-          allReplacementData.length - 2
-        } more replacement option(s)...\n\n`;
-      }
-      // Add total cost for all repairs
-      replacementHtml += `
-          <div style="margin-top: 20px; padding: 10px; background-color: #e6f7ef; border-radius: 5px;">
-            <table style="width:100%; border-collapse: collapse;">
-              <tr style="background-color:#e6f7ef; font-weight:bold;">
-                <td style="padding:8px; border:1px solid #ddd;"><strong>TOTAL COST FOR ALL ${
-                  quoteType === "replacement" ? "REPLACEMENTS" : "REPAIRS"
-                }:</strong></td>
-                <td style="padding:8px; border:1px solid #ddd;">$${Number(
-                  totalCost || 0
-                ).toLocaleString()}</td>
-              </tr>
-            </table>
-          </div>
-        </div>`;
-      replacementText += `TOTAL COST FOR ALL ${
-        quoteType === "replacement" ? "REPLACEMENTS" : "REPAIRS"
-      }: $${Number(totalCost || 0).toLocaleString()}\n\n`;
-    } else if (replacementData) {
-      // Safe access with fallbacks
-      const replacementPhase =
-        selectedPhase || replacementData?.selected_phase || "phase2";
-      const phaseData = replacementData?.[replacementPhase] || {};
-      const phaseName =
-        replacementPhase === "phase1"
-          ? "Economy Option"
-          : replacementPhase === "phase2"
-          ? "Standard Option"
-          : "Premium Option";
-      const description = phaseData?.description || phaseName;
-      const needsCrane = replacementData?.needsCrane || false;
-      replacementHtml = `
-        <div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
-          <h3 style="margin-top:0;">${
-            quoteType === "replacement" ? "Replacement" : "Repair"
-          } Recommendation</h3>
-          <table style="width:100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd;"><strong>Selected Option:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">${phaseName}</td>
-            </tr>
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd;"><strong>Description:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">${description}</td>
-            </tr>
-            <tr>
-              <td style="padding:8px; border:1px solid #ddd;"><strong>Requires Crane:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">${
-                needsCrane ? "Yes" : "No"
-              }</td>
-            </tr>
-            <tr style="background-color:#f0f0f0; font-weight:bold;">
-              <td style="padding:8px; border:1px solid #ddd;"><strong>TOTAL COST:</strong></td>
-              <td style="padding:8px; border:1px solid #ddd;">$${Number(
-                totalCost || 0
-              ).toLocaleString()}</td>
-            </tr>
-          </table>
-        </div>`;
-      replacementText = `
-${quoteType === "replacement" ? "Replacement" : "Repair"} Recommendation:
-- Selected Option: ${phaseName}
-- Description: ${description}
-- Requires Crane: ${needsCrane ? "Yes" : "No"}
-- TOTAL COST: $${Number(totalCost || 0).toLocaleString()}
-`;
-    }
     // Location and unit information
     let locationHtml = "";
     let locationText = "";
@@ -446,17 +193,13 @@ ${unitNumber ? `Unit: ${unitNumber}` : ""}
       emailTemplate?.greeting || `Dear ${customerName || "Customer"},`;
     const introText =
       emailTemplate?.introText ||
-      `Thank you for choosing Airlast HVAC services. Based on our inspection, we have prepared a ${
-        quoteType === "replacement" ? "replacement" : "repair"
-      } quote for your review.`;
+      `Thank you for choosing Airlast HVAC services. Based on our inspection, we have prepared a quote for your review.`;
     const approvalText =
       quoteType === "repair"
         ? "Please click one of the buttons below to approve or deny the recommended repairs:"
         : "Please click one of the buttons below to approve or deny the recommended replacements:";
-    const approveButtonText =
-      quoteType === "repair" ? "Approve Repairs" : "Approve Replacements";
-    const denyButtonText =
-      quoteType === "repair" ? "Deny Repairs" : "Deny Replacements";
+    const approveButtonText = quoteType === "repair" ? "Approve" : "Approve";
+    const denyButtonText = quoteType === "repair" ? "Deny" : "Deny";
     const approvalNote =
       quoteType === "repair"
         ? "If you approve, we will schedule the repair work at your earliest convenience."
@@ -547,8 +290,6 @@ ${locationText}
 
 ${inspectionText}
 
-${replacementText}
-
 Please click the link below to approve or deny the recommended ${
         quoteType === "replacement" ? "replacement" : "repairs"
       }:
@@ -583,7 +324,6 @@ ${signature}`,
 
             ${locationHtml}
             ${inspectionHtml}
-            ${replacementHtml}
             ${viewPdfButtonHtml}
 
             <p>${approvalText}</p>

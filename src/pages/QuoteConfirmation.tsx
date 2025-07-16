@@ -461,58 +461,7 @@ const QuoteConfirmation = () => {
                 )}
               </div>
 
-              {replacementData.length > 0 && (
-                <div>
-                  <h3 className="font-medium">
-                    {quoteType === "replacement" ? "Replacement" : "Repair"}{" "}
-                    Details
-                  </h3>
-                  <div className="mt-2 space-y-4">
-                    {replacementData.map((replacement, index) => {
-                      const selectedPhase =
-                        replacement.selected_phase || "phase2";
-                      const phaseData = replacement[selectedPhase] || {};
-
-                      return (
-                        <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-sm font-medium text-gray-500">
-                                Selected Option
-                              </p>
-                              <p>
-                                {phaseData.description ||
-                                  (selectedPhase === "phase1"
-                                    ? "Economy Option"
-                                    : selectedPhase === "phase2"
-                                    ? "Standard Option"
-                                    : "Premium Option")}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-500">
-                                Total Cost
-                              </p>
-                              <p className="font-medium">
-                                $
-                                {Number(
-                                  replacement.total_cost || 0
-                                ).toLocaleString()}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-500">
-                                Requires Crane
-                              </p>
-                              <p>{replacement.needs_crane ? "Yes" : "No"}</p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              {/* Removed replacementData display here */}
 
               {!approved && (
                 <div className="mt-4 p-4 bg-error-50 rounded-lg border border-error-200">
@@ -541,9 +490,12 @@ const QuoteConfirmation = () => {
           </div>
 
           <div className="flex justify-center">
-            <Link to="/" className="btn btn-primary">
+            <a
+              href="https://airlast-management.com/customer/login"
+              className="btn btn-primary"
+            >
               Return to Home
-            </Link>
+            </a>
           </div>
         </div>
       </div>

@@ -472,18 +472,7 @@ const ServiceSection = ({
             </div>
           )}
 
-          {replacementData.length > 0 && (
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => setShowSendQuoteModal(true)}
-                className="btn btn-primary"
-                disabled={calculateTotalReplacementCost() === 0}
-              >
-                <Send size={16} className="mr-2" />
-                Send Replacement Quote
-              </button>
-            </div>
-          )}
+          {/* Removed Send Replacement Quote button */}
 
           {!hasReplacementData && (
             <div className="text-center py-6 bg-gray-50 rounded-lg">
@@ -677,18 +666,7 @@ const ServiceSection = ({
               </div>
             </div>
 
-            {/* Send Quote Button */}
-            {groupedItems["part"] && groupedItems["part"].length > 0 && (
-              <div className="flex justify-end mt-6">
-                <button
-                  onClick={() => setShowSendQuoteModal(true)}
-                  className="btn btn-primary"
-                >
-                  <Send size={16} className="mr-2" />
-                  Send Repair Quote
-                </button>
-              </div>
-            )}
+            {/* Removed Send Repair Quote button */}
           </>
         ) : (
           <div className="text-center py-6 bg-gray-50 rounded-lg">
