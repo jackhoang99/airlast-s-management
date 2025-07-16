@@ -5,6 +5,8 @@ import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
 import Map from "../components/ui/Map";
 import UnitsList from "../components/locations/UnitsList";
+import AssetSummary from "../components/locations/AssetSummary";
+import { Dialog } from "@headlessui/react";
 
 type Location = Database["public"]["Tables"]["locations"]["Row"] & {
   companies: {
@@ -24,6 +26,10 @@ const LocationDetails = () => {
   const [location, setLocation] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unitSearch, setUnitSearch] = useState("");
+  const [locationAssets, setLocationAssets] = useState<any[]>([]);
+  const [showAddAssetModal, setShowAddAssetModal] = useState(false);
+  const [units, setUnits] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchLocation = async () => {
@@ -60,6 +66,32 @@ const LocationDetails = () => {
 
     fetchLocation();
   }, [supabase, id]);
+
+  useEffect(() => {
+    const fetchLocationAssets = async () => {
+      if (!supabase || !location) return;
+      // Fetch all units for this location
+      const { data: unitsData, error: unitsError } = await supabase
+        .from("units")
+        .select("id, unit_number")
+        .eq("location_id", location.id);
+      if (unitsError) return;
+      setUnits(unitsData || []);
+      const unitIds = (unitsData || []).map((u: any) => u.id);
+      if (unitIds.length === 0) {
+        setLocationAssets([]);
+        return;
+      }
+      // Fetch all assets for these units
+      const { data: assets, error: assetsError } = await supabase
+        .from("assets")
+        .select("*")
+        .in("unit_id", unitIds);
+      if (assetsError) return;
+      setLocationAssets(assets || []);
+    };
+    fetchLocationAssets();
+  }, [supabase, location]);
 
   if (isLoading) {
     return (
@@ -196,8 +228,101 @@ const LocationDetails = () => {
                 Add Unit
               </Link>
             </div>
-            <UnitsList location={location} />
+            <div className="mb-4">
+              <input
+                type="text"
+                className="input w-full sm:w-96"
+                placeholder="Search units..."
+                value={unitSearch}
+                onChange={(e) => setUnitSearch(e.target.value)}
+              />
+            </div>
+            <UnitsList location={location} search={unitSearch} />
           </div>
+
+          {/* Asset Summary Section */}
+          <div className="card mt-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                Asset Summary
+              </h2>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => setShowAddAssetModal(true)}
+              >
+                <Plus size={16} className="mr-1" /> Add Asset
+              </button>
+            </div>
+            <AssetSummary
+              assets={locationAssets}
+              title="Location Asset Summary"
+              viewAllLink={`/assets?location=${location.id}`}
+            />
+          </div>
+          {/* Add Asset Modal (stub) */}
+          <Dialog
+            open={showAddAssetModal}
+            onClose={() => setShowAddAssetModal(false)}
+            className="fixed z-50 inset-0 overflow-y-auto"
+          >
+            <div className="flex items-center justify-center min-h-screen px-4">
+              <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
+              <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative z-10">
+                <Dialog.Title className="text-lg font-semibold mb-4">
+                  Add Asset
+                </Dialog.Title>
+                <form className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Company
+                    </label>
+                    <input
+                      type="text"
+                      className="input w-full"
+                      value={location.companies.name}
+                      readOnly
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      className="input w-full"
+                      value={location.name}
+                      readOnly
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Unit
+                    </label>
+                    <select className="input w-full">
+                      {units.map((unit: any) => (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.unit_number}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Add more asset fields as needed */}
+                  <div className="flex justify-end gap-2 mt-4">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setShowAddAssetModal(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn btn-primary">
+                      Save
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </Dialog>
         </div>
 
         <div>

@@ -1,10 +1,22 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
-import { Database } from '../types/supabase';
-import { ArrowLeft, Filter, Plus, Calendar, List, ChevronLeft, ChevronRight, X, CheckCircle, Trash2, AlertTriangle } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useSupabase } from "../lib/supabase-context";
+import { Database } from "../types/supabase";
+import {
+  ArrowLeft,
+  Filter,
+  Plus,
+  Calendar,
+  List,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  CheckCircle,
+  Trash2,
+  AlertTriangle,
+} from "lucide-react";
 
-type Job = Database['public']['Tables']['jobs']['Row'] & {
+type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
   locations?: {
     name: string;
     address: string;
@@ -31,33 +43,33 @@ type Job = Database['public']['Tables']['jobs']['Row'] & {
   };
 };
 
-type Company = Database['public']['Tables']['companies']['Row'];
-type Location = Database['public']['Tables']['locations']['Row'];
-type Unit = Database['public']['Tables']['units']['Row'];
-type JobType = Database['public']['Tables']['job_types']['Row'];
+type Company = Database["public"]["Tables"]["companies"]["Row"];
+type Location = Database["public"]["Tables"]["locations"]["Row"];
+type Unit = Database["public"]["Tables"]["units"]["Row"];
+type JobType = Database["public"]["Tables"]["job_types"]["Row"];
 
 const Jobs = () => {
   const { supabase } = useSupabase();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [view, setView] = useState<'list' | 'calendar'>('list');
+  const [view, setView] = useState<"list" | "calendar">("list");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [jobTypes, setJobTypes] = useState<JobType[]>([]);
   const [filters, setFilters] = useState({
-    jobNumber: '',
-    jobName: '',
-    company: '',
-    location: '',
-    unit: '',
-    technician: 'All',
-    status: 'All',
-    type: 'All',
-    dueFrom: '',
-    dueTo: '',
-    scheduleFrom: '',
-    scheduleTo: '',
+    jobNumber: "",
+    jobName: "",
+    company: "",
+    location: "",
+    unit: "",
+    technician: "All",
+    status: "All",
+    type: "All",
+    dueFrom: "",
+    dueTo: "",
+    scheduleFrom: "",
+    scheduleTo: "",
     showCompleted: true,
   });
   const [showCompleteModal, setShowCompleteModal] = useState(false);
@@ -72,9 +84,18 @@ const Jobs = () => {
       if (!supabase) return;
 
       try {
-        let query = supabase
-          .from('jobs')
-          .select(`
+        let locationIds: string[] = [];
+        if (filters.company) {
+          // Fetch all locations for the selected company
+          const { data: locs, error: locError } = await supabase
+            .from("locations")
+            .select("id")
+            .eq("company_id", filters.company);
+          if (locError) throw locError;
+          locationIds = (locs || []).map((l: any) => l.id);
+        }
+
+        let query = supabase.from("jobs").select(`
             *,
             locations (
               name,
@@ -104,50 +125,56 @@ const Jobs = () => {
 
         // Apply filters
         if (filters.jobNumber) {
-          query = query.ilike('number', `%${filters.jobNumber}%`);
+          query = query.ilike("number", `%${filters.jobNumber}%`);
         }
         if (filters.jobName) {
-          query = query.ilike('name', `%${filters.jobName}%`);
+          query = query.ilike("name", `%${filters.jobName}%`);
         }
         if (filters.company) {
-          query = query.eq('locations.company_id', filters.company);
+          // Only filter if there are locations for the company
+          if (locationIds.length > 0) {
+            query = query.in("location_id", locationIds);
+          } else {
+            // No locations for this company, so no jobs
+            setJobs([]);
+            setIsLoading(false);
+            return;
+          }
         }
         if (filters.location) {
-          query = query.eq('location_id', filters.location);
+          query = query.eq("location_id", filters.location);
         }
         if (filters.unit) {
-          query = query.eq('unit_id', filters.unit);
+          query = query.eq("unit_id", filters.unit);
         }
-        if (filters.status !== 'All') {
-          query = query.eq('status', filters.status.toLowerCase());
+        if (filters.status !== "All") {
+          query = query.eq("status", filters.status.toLowerCase());
         }
-        if (filters.type !== 'All') {
-          query = query.eq('type', filters.type.toLowerCase());
+        if (filters.type !== "All") {
+          query = query.eq("type", filters.type.toLowerCase());
         }
         if (filters.dueFrom) {
-          query = query.gte('time_period_due', filters.dueFrom);
+          query = query.gte("time_period_due", filters.dueFrom);
         }
         if (filters.dueTo) {
-          query = query.lte('time_period_due', filters.dueTo);
+          query = query.lte("time_period_due", filters.dueTo);
         }
         if (filters.scheduleFrom) {
-          query = query.gte('schedule_start', filters.scheduleFrom);
+          query = query.gte("schedule_start", filters.scheduleFrom);
         }
         if (filters.scheduleTo) {
-          query = query.lte('schedule_start', filters.scheduleTo);
+          query = query.lte("schedule_start", filters.scheduleTo);
         }
-        
         // Filter out completed jobs if showCompleted is false
         if (!filters.showCompleted) {
-          query = query.neq('status', 'completed');
+          query = query.neq("status", "completed");
         }
 
         const { data, error } = await query;
-
         if (error) throw error;
         setJobs(data || []);
       } catch (err) {
-        console.error('Error fetching jobs:', err);
+        console.error("Error fetching jobs:", err);
       } finally {
         setIsLoading(false);
       }
@@ -155,78 +182,72 @@ const Jobs = () => {
 
     const fetchCompanies = async () => {
       if (!supabase) return;
-      
+
       try {
         const { data, error } = await supabase
-          .from('companies')
-          .select('*')
-          .order('name');
-          
+          .from("companies")
+          .select("*")
+          .order("name");
+
         if (error) throw error;
         setCompanies(data || []);
       } catch (err) {
-        console.error('Error fetching companies:', err);
+        console.error("Error fetching companies:", err);
       }
     };
 
     const fetchLocations = async () => {
       if (!supabase) return;
-      
+
       try {
-        let query = supabase
-          .from('locations')
-          .select('*')
-          .order('name');
-          
+        let query = supabase.from("locations").select("*").order("name");
+
         // Filter locations by company if a company is selected
         if (filters.company) {
-          query = query.eq('company_id', filters.company);
+          query = query.eq("company_id", filters.company);
         }
-          
+
         const { data, error } = await query;
         if (error) throw error;
         setLocations(data || []);
       } catch (err) {
-        console.error('Error fetching locations:', err);
+        console.error("Error fetching locations:", err);
       }
     };
 
     const fetchUnits = async () => {
       if (!supabase) return;
-      
+
       try {
-        let query = supabase
-          .from('units')
-          .select('*')
-          .order('unit_number');
-          
+        let query = supabase.from("units").select("*").order("unit_number");
+
         // Filter units by location if a location is selected
         if (filters.location) {
-          query = query.eq('location_id', filters.location);
+          query = query.eq("location_id", filters.location);
         }
-          
+
         const { data, error } = await query;
         if (error) throw error;
         setUnits(data || []);
       } catch (err) {
-        console.error('Error fetching units:', err);
+        console.error("Error fetching units:", err);
       }
     };
 
     const fetchJobTypes = async () => {
       if (!supabase) return;
-      
+
       try {
         const { data, error } = await supabase
-          .from('job_types')
-          .select('*')
-          .eq('is_active', true)
-          .order('name');
-          
+          .from("job_types")
+          .select("*")
+          .eq("is_active", true)
+          .order("name");
+
         if (error) throw error;
         setJobTypes(data || []);
       } catch (err) {
-        console.error('Error fetching job types:', err);
+        console.error("Error fetching job types:", err);
       }
     };
 
@@ -242,47 +263,47 @@ const Jobs = () => {
     if (filters.company) {
       const fetchLocationsByCompany = async () => {
         if (!supabase) return;
-        
+
         try {
           const { data, error } = await supabase
-            .from('locations')
-            .select('*')
-            .eq('company_id', filters.company)
-            .order('name');
-            
+            .from("locations")
+            .select("*")
+            .eq("company_id", filters.company)
+            .order("name");
+
           if (error) throw error;
           setLocations(data || []);
-          
+
           // Reset location and unit selection
-          setFilters(prev => ({
+          setFilters((prev) => ({
             ...prev,
-            location: '',
-            unit: ''
+            location: "",
+            unit: "",
           }));
         } catch (err) {
-          console.error('Error fetching locations by company:', err);
+          console.error("Error fetching locations by company:", err);
         }
       };
-      
+
       fetchLocationsByCompany();
     } else {
       // If no company is selected, fetch all locations
       const fetchAllLocations = async () => {
         if (!supabase) return;
-        
+
         try {
           const { data, error } = await supabase
-            .from('locations')
-            .select('*')
-            .order('name');
-            
+            .from("locations")
+            .select("*")
+            .order("name");
+
           if (error) throw error;
           setLocations(data || []);
         } catch (err) {
-          console.error('Error fetching all locations:', err);
+          console.error("Error fetching all locations:", err);
         }
       };
-      
+
       fetchAllLocations();
     }
   }, [supabase, filters.company]);
@@ -292,160 +313,167 @@ const Jobs = () => {
     if (filters.location) {
       const fetchUnitsByLocation = async () => {
         if (!supabase) return;
-        
+
         try {
           const { data, error } = await supabase
-            .from('units')
-            .select('*')
-            .eq('location_id', filters.location)
-            .order('unit_number');
-            
+            .from("units")
+            .select("*")
+            .eq("location_id", filters.location)
+            .order("unit_number");
+
           if (error) throw error;
           setUnits(data || []);
-          
+
           // Reset unit selection
-          setFilters(prev => ({
+          setFilters((prev) => ({
             ...prev,
-            unit: ''
+            unit: "",
           }));
         } catch (err) {
-          console.error('Error fetching units by location:', err);
+          console.error("Error fetching units by location:", err);
         }
       };
-      
+
       fetchUnitsByLocation();
     } else {
       // If no location is selected, fetch all units
       const fetchAllUnits = async () => {
         if (!supabase) return;
-        
+
         try {
           const { data, error } = await supabase
-            .from('units')
-            .select('*')
-            .order('unit_number');
-            
+            .from("units")
+            .select("*")
+            .order("unit_number");
+
           if (error) throw error;
           setUnits(data || []);
         } catch (err) {
-          console.error('Error fetching all units:', err);
+          console.error("Error fetching all units:", err);
         }
       };
-      
+
       fetchAllUnits();
     }
   }, [supabase, filters.location]);
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value, type } = e.target;
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      [name]:
+        type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
     }));
   };
 
   const resetFilters = () => {
     setFilters({
-      jobNumber: '',
-      jobName: '',
-      company: '',
-      location: '',
-      unit: '',
-      technician: 'All',
-      status: 'All',
-      type: 'All',
-      dueFrom: '',
-      dueTo: '',
-      scheduleFrom: '',
-      scheduleTo: '',
+      jobNumber: "",
+      jobName: "",
+      company: "",
+      location: "",
+      unit: "",
+      technician: "All",
+      status: "All",
+      type: "All",
+      dueFrom: "",
+      dueTo: "",
+      scheduleFrom: "",
+      scheduleTo: "",
       showCompleted: true,
     });
   };
 
   const formatDateTime = (date: string) => {
-    return new Date(date).toLocaleString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Date(date).toLocaleString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
       hour12: true,
-      timeZoneName: 'short'
+      timeZoneName: "short",
     });
   };
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
-      case 'scheduled':
-        return 'bg-blue-100 text-blue-800';
-      case 'unscheduled':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
+      case "scheduled":
+        return "bg-blue-100 text-blue-800";
+      case "unscheduled":
+        return "bg-yellow-100 text-yellow-800";
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "cancelled":
+        return "bg-red-100 text-red-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const getTypeBadgeClass = (type: string) => {
     switch (type) {
-      case 'preventative maintenance':
-        return 'bg-purple-100 text-purple-800';
-      case 'service call':
-        return 'bg-cyan-100 text-cyan-800';
+      case "preventative maintenance":
+        return "bg-purple-100 text-purple-800";
+      case "service call":
+        return "bg-cyan-100 text-cyan-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const getContractBadgeClass = (isContract: boolean) => {
-    return isContract 
-      ? 'bg-green-100 text-green-800' 
-      : 'bg-orange-100 text-orange-800';
+    return isContract
+      ? "bg-green-100 text-green-800"
+      : "bg-orange-100 text-orange-800";
   };
 
   const getQuoteBadgeClass = (isConfirmed: boolean) => {
-    return isConfirmed 
-      ? 'bg-green-100 text-green-800' 
-      : 'bg-blue-100 text-blue-800';
+    return isConfirmed
+      ? "bg-green-100 text-green-800"
+      : "bg-blue-100 text-blue-800";
   };
 
   // Calculate total cost from job items
   const getJobTotalCost = (job: Job) => {
     if (!job.job_items || job.job_items.length === 0) return 0;
-    return job.job_items.reduce((sum, item) => sum + Number(item.total_cost), 0);
+    return job.job_items.reduce(
+      (sum, item) => sum + Number(item.total_cost),
+      0
+    );
   };
 
   const handleCompleteJob = async () => {
     if (!supabase || !selectedJob) return;
-    
+
     setIsCompletingJob(true);
     setError(null);
-    
+
     try {
       // Update job status to completed
       const { error: updateError } = await supabase
-        .from('jobs')
-        .update({ 
-          status: 'completed',
-          updated_at: new Date().toISOString()
+        .from("jobs")
+        .update({
+          status: "completed",
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', selectedJob.id);
-      
+        .eq("id", selectedJob.id);
+
       if (updateError) throw updateError;
-      
+
       // Update local state
-      setJobs(prev => prev.map(job => 
-        job.id === selectedJob.id ? { ...job, status: 'completed' } : job
-      ));
-      
+      setJobs((prev) =>
+        prev.map((job) =>
+          job.id === selectedJob.id ? { ...job, status: "completed" } : job
+        )
+      );
+
       setShowCompleteModal(false);
-      
     } catch (err) {
-      console.error('Error completing job:', err);
-      setError('Failed to complete job. Please try again.');
+      console.error("Error completing job:", err);
+      setError("Failed to complete job. Please try again.");
     } finally {
       setIsCompletingJob(false);
       setSelectedJob(null);
@@ -454,27 +482,26 @@ const Jobs = () => {
 
   const handleDeleteJob = async () => {
     if (!supabase || !selectedJob) return;
-    
+
     setIsDeletingJob(true);
     setError(null);
-    
+
     try {
       // Delete job
       const { error: deleteError } = await supabase
-        .from('jobs')
+        .from("jobs")
         .delete()
-        .eq('id', selectedJob.id);
-      
+        .eq("id", selectedJob.id);
+
       if (deleteError) throw deleteError;
-      
+
       // Update local state
-      setJobs(prev => prev.filter(job => job.id !== selectedJob.id));
-      
+      setJobs((prev) => prev.filter((job) => job.id !== selectedJob.id));
+
       setShowDeleteModal(false);
-      
     } catch (err) {
-      console.error('Error deleting job:', err);
-      setError('Failed to delete job. Please try again.');
+      console.error("Error deleting job:", err);
+      setError("Failed to delete job. Please try again.");
     } finally {
       setIsDeletingJob(false);
       setSelectedJob(null);
@@ -484,59 +511,58 @@ const Jobs = () => {
   // Get technician names for a job
   const getTechnicianNames = (job: Job) => {
     if (!job.job_technicians || job.job_technicians.length === 0) {
-      return 'No technicians assigned';
+      return "No technicians assigned";
     }
-    
-    return job.job_technicians.map(jt => 
-      `${jt.users.first_name} ${jt.users.last_name}`
-    ).join(', ');
+
+    return job.job_technicians
+      .map((jt) => `${jt.users.first_name} ${jt.users.last_name}`)
+      .join(", ");
   };
 
   // Check if job is contract or non-contract
   const isContractJob = (job: Job) => {
-    return job.service_contract !== 'Non-Contract';
+    return job.service_contract !== "Non-Contract";
   };
 
   // Function to update all job names to the new format
   const updateAllJobNames = async () => {
     if (!supabase) return;
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // Fetch all jobs
       const { data: allJobs, error: fetchError } = await supabase
-        .from('jobs')
-        .select('*');
-        
+        .from("jobs")
+        .select("*");
+
       if (fetchError) throw fetchError;
-      
+
       // Update each job with the new name format
       for (const job of allJobs || []) {
         // Extract zip code from location
         const { data: locationData } = await supabase
-          .from('locations')
-          .select('zip')
-          .eq('id', job.location_id)
+          .from("locations")
+          .select("zip")
+          .eq("id", job.location_id)
           .single();
-          
-        const zipCode = locationData?.zip || '';
-        
+
+        const zipCode = locationData?.zip || "";
+
         // Create new job name
-        const newName = `inspection-${zipCode}-${job.service_line || ''}`.trim();
-        
+        const newName = `inspection-${zipCode}-${
+          job.service_line || ""
+        }`.trim();
+
         // Update job name
-        await supabase
-          .from('jobs')
-          .update({ name: newName })
-          .eq('id', job.id);
+        await supabase.from("jobs").update({ name: newName }).eq("id", job.id);
       }
-      
+
       // Refresh jobs list
-      const { data: updatedJobs, error: refreshError } = await supabase
-        .from('jobs')
-        .select(`
+      const { data: updatedJobs, error: refreshError } = await supabase.from(
+        "jobs"
+      ).select(`
           *,
           locations (
             name,
@@ -563,14 +589,14 @@ const Jobs = () => {
             unit_number
           )
         `);
-        
+
       if (refreshError) throw refreshError;
       setJobs(updatedJobs || []);
-      
-      alert('All job names have been updated to the new format.');
+
+      alert("All job names have been updated to the new format.");
     } catch (err) {
-      console.error('Error updating job names:', err);
-      setError('Failed to update job names. Please try again.');
+      console.error("Error updating job names:", err);
+      setError("Failed to update job names. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -587,35 +613,33 @@ const Jobs = () => {
         <div className="flex gap-2">
           <div className="flex rounded-md shadow-sm" role="group">
             <button
-              onClick={() => setView('list')}
+              onClick={() => setView("list")}
               className={`px-4 py-2 text-sm font-medium rounded-l-lg border ${
-                view === 'list'
-                  ? 'bg-primary-50 text-primary-700 border-primary-200'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                view === "list"
+                  ? "bg-primary-50 text-primary-700 border-primary-200"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
               }`}
             >
               <List size={16} />
             </button>
             <button
-              onClick={() => setView('calendar')}
+              onClick={() => setView("calendar")}
               className={`px-4 py-2 text-sm font-medium rounded-r-lg border-t border-r border-b ${
-                view === 'calendar'
-                  ? 'bg-primary-50 text-primary-700 border-primary-200'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                view === "calendar"
+                  ? "bg-primary-50 text-primary-700 border-primary-200"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
               }`}
             >
               <Calendar size={16} />
             </button>
           </div>
-          <button className="btn btn-secondary">
-            Export to Spreadsheet
-          </button>
-          <button 
+          <button className="btn btn-secondary">Export to Spreadsheet</button>
+          <button
             className="btn btn-secondary"
             onClick={updateAllJobNames}
             disabled={isLoading}
           >
-            {isLoading ? 'Updating...' : 'Update Job Names'}
+            {isLoading ? "Updating..." : "Update Job Names"}
           </button>
           <Link to="/jobs/create" className="btn btn-primary">
             <Plus size={16} className="mr-2" />
@@ -627,7 +651,10 @@ const Jobs = () => {
       <div className="bg-white rounded-lg shadow p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
           <div>
-            <label htmlFor="jobNumber" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="jobNumber"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Job Number
             </label>
             <input
@@ -641,7 +668,10 @@ const Jobs = () => {
           </div>
 
           <div>
-            <label htmlFor="jobName" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="jobName"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Job Name
             </label>
             <input
@@ -655,7 +685,10 @@ const Jobs = () => {
           </div>
 
           <div>
-            <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="company"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Company
             </label>
             <select
@@ -666,7 +699,7 @@ const Jobs = () => {
               className="select"
             >
               <option value="">All Companies</option>
-              {companies.map(company => (
+              {companies.map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.name}
                 </option>
@@ -675,7 +708,10 @@ const Jobs = () => {
           </div>
 
           <div>
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="location"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Location
             </label>
             <select
@@ -686,7 +722,7 @@ const Jobs = () => {
               className="select"
             >
               <option value="">All Locations</option>
-              {locations.map(location => (
+              {locations.map((location) => (
                 <option key={location.id} value={location.id}>
                   {location.name}
                 </option>
@@ -695,7 +731,10 @@ const Jobs = () => {
           </div>
 
           <div>
-            <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="unit"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Unit
             </label>
             <select
@@ -706,7 +745,7 @@ const Jobs = () => {
               className="select"
             >
               <option value="">All Units</option>
-              {units.map(unit => (
+              {units.map((unit) => (
                 <option key={unit.id} value={unit.id}>
                   {unit.unit_number}
                 </option>
@@ -715,7 +754,10 @@ const Jobs = () => {
           </div>
 
           <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="status"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Status
             </label>
             <select
@@ -734,7 +776,10 @@ const Jobs = () => {
           </div>
 
           <div>
-            <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="type"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Type
             </label>
             <select
@@ -745,7 +790,7 @@ const Jobs = () => {
               className="select"
             >
               <option value="All">All</option>
-              {jobTypes.map(jobType => (
+              {jobTypes.map((jobType) => (
                 <option key={jobType.id} value={jobType.name.toLowerCase()}>
                   {jobType.name}
                 </option>
@@ -754,7 +799,10 @@ const Jobs = () => {
           </div>
 
           <div>
-            <label htmlFor="dueFrom" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="dueFrom"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Due By: From
             </label>
             <input
@@ -768,7 +816,10 @@ const Jobs = () => {
           </div>
 
           <div>
-            <label htmlFor="dueTo" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="dueTo"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Due By: To
             </label>
             <input
@@ -782,7 +833,10 @@ const Jobs = () => {
           </div>
 
           <div>
-            <label htmlFor="scheduleFrom" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="scheduleFrom"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Schedule: From
             </label>
             <input
@@ -796,7 +850,10 @@ const Jobs = () => {
           </div>
 
           <div>
-            <label htmlFor="scheduleTo" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="scheduleTo"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Schedule: To
             </label>
             <input
@@ -833,7 +890,7 @@ const Jobs = () => {
           </div>
         </div>
 
-        {view === 'list' ? (
+        {view === "list" ? (
           <div className="space-y-4">
             {isLoading ? (
               <div className="flex justify-center py-8">
@@ -845,8 +902,11 @@ const Jobs = () => {
               </div>
             ) : (
               jobs.map((job) => (
-                <div key={job.id} className="bg-white border rounded-lg shadow-sm relative">
-                  <button 
+                <div
+                  key={job.id}
+                  className="bg-white border rounded-lg shadow-sm relative"
+                >
+                  <button
                     onClick={() => {
                       setSelectedJob(job);
                       setShowDeleteModal(true);
@@ -860,19 +920,39 @@ const Jobs = () => {
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="text-sm font-medium text-gray-500">Job #{job.number}</span>
-                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(job.status)}`}>
+                          <span className="text-sm font-medium text-gray-500">
+                            Job #{job.number}
+                          </span>
+                          <span
+                            className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(
+                              job.status
+                            )}`}
+                          >
                             {job.status}
                           </span>
-                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getTypeBadgeClass(job.type)}`}>
+                          <span
+                            className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getTypeBadgeClass(
+                              job.type
+                            )}`}
+                          >
                             {job.type}
                           </span>
-                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getContractBadgeClass(isContractJob(job))}`}>
-                            {isContractJob(job) ? 'Contract' : 'Non-Contract'}
+                          <span
+                            className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getContractBadgeClass(
+                              isContractJob(job)
+                            )}`}
+                          >
+                            {isContractJob(job) ? "Contract" : "Non-Contract"}
                           </span>
                           {job.quote_sent && (
-                            <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getQuoteBadgeClass(job.quote_confirmed || false)}`}>
-                              {job.quote_confirmed ? 'Quote Confirmed' : 'Quote Sent'}
+                            <span
+                              className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getQuoteBadgeClass(
+                                job.quote_confirmed || false
+                              )}`}
+                            >
+                              {job.quote_confirmed
+                                ? "Quote Confirmed"
+                                : "Quote Sent"}
                             </span>
                           )}
                           {job.is_training && (
@@ -891,7 +971,7 @@ const Jobs = () => {
                             </span>
                           )}
                         </div>
-                        <Link 
+                        <Link
                           to={`/jobs/${job.id}`}
                           className="text-lg font-medium text-primary-600 hover:text-primary-800"
                         >
@@ -900,19 +980,22 @@ const Jobs = () => {
                         {job.locations && (
                           <div className="text-sm text-gray-500">
                             <div className="font-medium text-gray-700">
-                              {job.locations.companies?.name} • {job.locations.name}
+                              {job.locations.companies?.name} •{" "}
+                              {job.locations.name}
                               {job.units && ` • Unit ${job.units.unit_number}`}
                             </div>
                             <div>
-                              {job.locations.address} • {job.locations.city}, {job.locations.state}
+                              {job.locations.address} • {job.locations.city},{" "}
+                              {job.locations.state}
                             </div>
                           </div>
                         )}
-                        {job.job_technicians && job.job_technicians.length > 0 && (
-                          <div className="text-sm text-gray-500 mt-1">
-                            Technicians: {getTechnicianNames(job)}
-                          </div>
-                        )}
+                        {job.job_technicians &&
+                          job.job_technicians.length > 0 && (
+                            <div className="text-sm text-gray-500 mt-1">
+                              Technicians: {getTechnicianNames(job)}
+                            </div>
+                          )}
                       </div>
                       <div className="flex flex-col items-end">
                         <div className="text-right mr-6">
@@ -925,25 +1008,27 @@ const Jobs = () => {
                           {job.schedule_start && (
                             <div className="text-sm text-gray-500">
                               Schedule: {formatDateTime(job.schedule_start)}
-                              {job.schedule_duration && ` (${job.schedule_duration})`}
+                              {job.schedule_duration &&
+                                ` (${job.schedule_duration})`}
                             </div>
                           )}
                         </div>
-                        
+
                         {/* Quick action buttons */}
                         <div className="mt-3 flex gap-2">
-                          {job.status !== 'completed' && job.status !== 'cancelled' && (
-                            <button 
-                              className="btn btn-sm btn-success"
-                              onClick={() => {
-                                setSelectedJob(job);
-                                setShowCompleteModal(true);
-                              }}
-                            >
-                              <CheckCircle size={14} className="mr-1" />
-                              Complete
-                            </button>
-                          )}
+                          {job.status !== "completed" &&
+                            job.status !== "cancelled" && (
+                              <button
+                                className="btn btn-sm btn-success"
+                                onClick={() => {
+                                  setSelectedJob(job);
+                                  setShowCompleteModal(true);
+                                }}
+                              >
+                                <CheckCircle size={14} className="mr-1" />
+                                Complete
+                              </button>
+                            )}
                         </div>
                       </div>
                     </div>
@@ -955,9 +1040,12 @@ const Jobs = () => {
         ) : (
           <div className="bg-gray-50 p-8 rounded-lg text-center">
             <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-2xl font-medium text-gray-900">Calendar View Coming Soon</h3>
+            <h3 className="text-2xl font-medium text-gray-900">
+              Calendar View Coming Soon
+            </h3>
             <p className="text-gray-500 mt-2">
-              The calendar view is currently under development. Please check back later!
+              The calendar view is currently under development. Please check
+              back later!
             </p>
           </div>
         )}
@@ -974,16 +1062,16 @@ const Jobs = () => {
               Complete Job
             </h3>
             {error ? (
-              <div className="text-center text-red-600 mb-4">
-                {error}
-              </div>
+              <div className="text-center text-red-600 mb-4">{error}</div>
             ) : (
               <p className="text-center text-gray-600 mb-6">
-                Are you sure you want to mark Job #{selectedJob.number} as completed? This will update the job status and notify relevant parties.
+                Are you sure you want to mark Job #{selectedJob.number} as
+                completed? This will update the job status and notify relevant
+                parties.
               </p>
             )}
             <div className="flex justify-end space-x-3">
-              <button 
+              <button
                 className="btn btn-secondary"
                 onClick={() => {
                   setShowCompleteModal(false);
@@ -994,7 +1082,7 @@ const Jobs = () => {
               >
                 Cancel
               </button>
-              <button 
+              <button
                 className="btn btn-success"
                 onClick={handleCompleteJob}
                 disabled={isCompletingJob}
@@ -1005,7 +1093,7 @@ const Jobs = () => {
                     Completing...
                   </>
                 ) : (
-                  'Complete Job'
+                  "Complete Job"
                 )}
               </button>
             </div>
@@ -1024,16 +1112,15 @@ const Jobs = () => {
               Delete Job
             </h3>
             {error ? (
-              <div className="text-center text-red-600 mb-4">
-                {error}
-              </div>
+              <div className="text-center text-red-600 mb-4">{error}</div>
             ) : (
               <p className="text-center text-gray-600 mb-6">
-                Are you sure you want to delete Job #{selectedJob.number}? This action cannot be undone.
+                Are you sure you want to delete Job #{selectedJob.number}? This
+                action cannot be undone.
               </p>
             )}
             <div className="flex justify-end space-x-3">
-              <button 
+              <button
                 className="btn btn-secondary"
                 onClick={() => {
                   setShowDeleteModal(false);
@@ -1044,7 +1131,7 @@ const Jobs = () => {
               >
                 Cancel
               </button>
-              <button 
+              <button
                 className="btn btn-error"
                 onClick={handleDeleteJob}
                 disabled={isDeletingJob}
@@ -1055,7 +1142,7 @@ const Jobs = () => {
                     Deleting...
                   </>
                 ) : (
-                  'Delete Job'
+                  "Delete Job"
                 )}
               </button>
             </div>

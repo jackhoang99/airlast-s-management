@@ -1,16 +1,31 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
-import { Database } from '../types/supabase';
-import { ArrowLeft, Plus, Edit, FileText, Tag, Building as Buildings, Phone, MapPin, Trash2, AlertTriangle } from 'lucide-react';
-import UnitsList from '../components/locations/UnitsList';
-import Map from '../components/ui/Map';
+import { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { useSupabase } from "../lib/supabase-context";
+import { Database } from "../types/supabase";
+import {
+  ArrowLeft,
+  Plus,
+  Edit,
+  FileText,
+  Tag,
+  Building as Buildings,
+  Phone,
+  MapPin,
+  Trash2,
+  AlertTriangle,
+} from "lucide-react";
+import UnitsList from "../components/locations/UnitsList";
+import Map from "../components/ui/Map";
+import QuickAssetViewModal from "../components/locations/QuickAssetViewModal";
+import AssetSummary from "../components/locations/AssetSummary";
+import { Dialog } from "@headlessui/react";
 
-type Company = Database['public']['Tables']['companies']['Row'];
-type Location = Database['public']['Tables']['locations']['Row'];
+type Company = Database["public"]["Tables"]["companies"]["Row"];
+type Location = Database["public"]["Tables"]["locations"]["Row"];
 
 // UUID validation regex
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const CompanyDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,45 +37,56 @@ const CompanyDetails = () => {
   const [error, setError] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [expandedLocationId, setExpandedLocationId] = useState<string | null>(null);
+  const [expandedLocationId, setExpandedLocationId] = useState<string | null>(
+    null
+  );
+  const [locationSearch, setLocationSearch] = useState("");
+  const [assetModalLocation, setAssetModalLocation] = useState<Location | null>(
+    null
+  );
+  const [companyAssets, setCompanyAssets] = useState<any[]>([]);
+  const [showAddAssetModal, setShowAddAssetModal] = useState(false);
 
   useEffect(() => {
     const fetchCompanyDetails = async () => {
       if (!supabase || !id) {
-        setError(supabaseError || 'Supabase client not initialized');
+        setError(supabaseError || "Supabase client not initialized");
         setIsLoading(false);
         return;
       }
 
       // Validate UUID format
       if (!UUID_REGEX.test(id)) {
-        setError('Invalid company ID format');
+        setError("Invalid company ID format");
         setIsLoading(false);
         return;
       }
 
       try {
         const { data: companyData, error: companyError } = await supabase
-          .from('companies')
-          .select('*')
-          .eq('id', id)
+          .from("companies")
+          .select("*")
+          .eq("id", id)
           .single();
 
         if (companyError) throw companyError;
         setCompany(companyData);
 
         const { data: locationsData, error: locationsError } = await supabase
-          .from('locations')
-          .select('*')
-          .eq('company_id', id)
-          .order('name');
+          .from("locations")
+          .select("*")
+          .eq("company_id", id)
+          .order("name");
 
         if (locationsError) throw locationsError;
         setLocations(locationsData || []);
         setError(null);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch company details';
-        console.error('Error fetching company details:', errorMessage);
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch company details";
+        console.error("Error fetching company details:", errorMessage);
         setError(errorMessage);
       } finally {
         setIsLoading(false);
@@ -69,6 +95,34 @@ const CompanyDetails = () => {
 
     fetchCompanyDetails();
   }, [supabase, id, supabaseError]);
+
+  useEffect(() => {
+    const fetchCompanyAssets = async () => {
+      if (!supabase || !id) return;
+      // Fetch all units for this company
+      const { data: units, error: unitsError } = await supabase
+        .from("units")
+        .select("id")
+        .in(
+          "location_id",
+          locations.map((l) => l.id)
+        );
+      if (unitsError) return;
+      const unitIds = (units || []).map((u: any) => u.id);
+      if (unitIds.length === 0) {
+        setCompanyAssets([]);
+        return;
+      }
+      // Fetch all assets for these units
+      const { data: assets, error: assetsError } = await supabase
+        .from("assets")
+        .select("*")
+        .in("unit_id", unitIds);
+      if (assetsError) return;
+      setCompanyAssets(assets || []);
+    };
+    if (locations.length > 0) fetchCompanyAssets();
+  }, [supabase, id, locations]);
 
   const handleDeleteCompany = async () => {
     if (!supabase || !company) return;
@@ -80,24 +134,25 @@ const CompanyDetails = () => {
       // First, delete all locations associated with the company
       // The cascade delete will handle the units automatically due to the ON DELETE CASCADE
       const { error: locationsDeleteError } = await supabase
-        .from('locations')
+        .from("locations")
         .delete()
-        .eq('company_id', company.id);
+        .eq("company_id", company.id);
 
       if (locationsDeleteError) throw locationsDeleteError;
 
       // Then delete the company
       const { error: companyDeleteError } = await supabase
-        .from('companies')
+        .from("companies")
         .delete()
-        .eq('id', company.id);
+        .eq("id", company.id);
 
       if (companyDeleteError) throw companyDeleteError;
 
-      navigate('/companies');
+      navigate("/companies");
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete company';
-      console.error('Error deleting company:', errorMessage);
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to delete company";
+      console.error("Error deleting company:", errorMessage);
       setError(errorMessage);
       setIsDeleteModalOpen(false);
     } finally {
@@ -106,8 +161,29 @@ const CompanyDetails = () => {
   };
 
   const toggleLocation = (locationId: string) => {
-    setExpandedLocationId(expandedLocationId === locationId ? null : locationId);
+    setExpandedLocationId(
+      expandedLocationId === locationId ? null : locationId
+    );
   };
+
+  // Filtered locations based on search
+  const filteredLocations = locationSearch
+    ? locations.filter(
+        (loc) =>
+          (loc.name?.toLowerCase() || "").includes(
+            locationSearch.toLowerCase()
+          ) ||
+          (loc.address?.toLowerCase() || "").includes(
+            locationSearch.toLowerCase()
+          ) ||
+          (loc.city?.toLowerCase() || "").includes(
+            locationSearch.toLowerCase()
+          ) ||
+          (loc.state?.toLowerCase() || "").includes(
+            locationSearch.toLowerCase()
+          )
+      )
+    : locations;
 
   if (isLoading) {
     return (
@@ -121,7 +197,10 @@ const CompanyDetails = () => {
     return (
       <div className="text-center py-12">
         <p className="text-error-600 mb-4">{error}</p>
-        <Link to="/companies" className="text-primary-600 hover:text-primary-800">
+        <Link
+          to="/companies"
+          className="text-primary-600 hover:text-primary-800"
+        >
           Back to Companies
         </Link>
       </div>
@@ -132,7 +211,10 @@ const CompanyDetails = () => {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500">Company not found.</p>
-        <Link to="/companies" className="text-primary-600 hover:text-primary-800 mt-2 inline-block">
+        <Link
+          to="/companies"
+          className="text-primary-600 hover:text-primary-800 mt-2 inline-block"
+        >
           Back to Companies
         </Link>
       </div>
@@ -143,22 +225,22 @@ const CompanyDetails = () => {
     <div className="space-y-6 animate-fade">
       {/* Back link and actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <Link 
-          to="/companies" 
+        <Link
+          to="/companies"
           className="flex items-center text-gray-600 hover:text-gray-900"
         >
           <ArrowLeft size={16} className="mr-1" />
           Back to Companies
         </Link>
         <div className="flex space-x-2">
-          <Link 
-            to={`/companies/${company.id}/edit`} 
+          <Link
+            to={`/companies/${company.id}/edit`}
             className="btn btn-secondary"
           >
             <Edit size={16} className="mr-2" />
             Edit
           </Link>
-          <button 
+          <button
             onClick={() => setIsDeleteModalOpen(true)}
             className="btn btn-error"
           >
@@ -173,16 +255,18 @@ const CompanyDetails = () => {
         <div className="lg:col-span-2">
           <div className="card">
             <h1 className="text-2xl font-bold">{company.name}</h1>
-            
+
             <div className="mt-4 space-y-3">
               <div className="flex items-start">
                 <MapPin size={18} className="text-gray-500 mt-0.5 mr-2" />
                 <div>
                   <p>{company.address}</p>
-                  <p>{company.city}, {company.state} {company.zip}</p>
+                  <p>
+                    {company.city}, {company.state} {company.zip}
+                  </p>
                 </div>
               </div>
-              
+
               {company.phone && (
                 <div className="flex items-center">
                   <Phone size={18} className="text-gray-500 mr-2" />
@@ -192,7 +276,7 @@ const CompanyDetails = () => {
             </div>
 
             <div className="mt-6">
-              <Map 
+              <Map
                 address={company.address}
                 city={company.city}
                 state={company.state}
@@ -202,19 +286,19 @@ const CompanyDetails = () => {
             </div>
           </div>
         </div>
-        
+
         <div>
           <div className="card">
             <h2 className="text-lg font-semibold mb-4">Actions</h2>
             <div className="space-y-3">
-              <Link 
+              <Link
                 to={`/companies/${company.id}/location/new`}
                 className="btn btn-primary w-full justify-start"
               >
                 <Plus size={16} className="mr-2" />
                 Add Location
               </Link>
-              <Link 
+              <Link
                 to={`/companies/${company.id}/report`}
                 className="btn btn-secondary w-full justify-start"
               >
@@ -230,29 +314,29 @@ const CompanyDetails = () => {
         </div>
       </div>
 
-      {/* Locations */}
-      <div>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold flex items-center">
-            <Buildings size={20} className="mr-2" /> 
-            Locations ({locations.length})
-          </h2>
-          <Link 
-            to={`/companies/${company.id}/location/new`}
-            className="btn btn-primary"
-          >
-            <Plus size={16} className="mr-2" />
-            Add Location
-          </Link>
+      {/* Locations List Section */}
+      <div className="card mt-6">
+        <div className="mb-4">
+          <input
+            type="text"
+            className="input w-full sm:w-96"
+            placeholder="Search locations..."
+            value={locationSearch}
+            onChange={(e) => setLocationSearch(e.target.value)}
+          />
         </div>
-
-        <div className="space-y-4">
-          {locations.map((location) => (
+        <h2 className="text-lg font-semibold mb-2">
+          Locations ({filteredLocations.length})
+        </h2>
+        {filteredLocations.length === 0 ? (
+          <div className="text-gray-500">No locations found.</div>
+        ) : (
+          filteredLocations.map((location) => (
             <div key={location.id} className="bg-white rounded-lg shadow">
               <div className="p-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <Link 
+                    <Link
                       to={`/locations/${location.id}`}
                       className="text-lg font-medium text-primary-600 hover:text-primary-800"
                     >
@@ -269,7 +353,15 @@ const CompanyDetails = () => {
                       onClick={() => toggleLocation(location.id)}
                       className="text-primary-600 hover:text-primary-800 text-sm font-medium"
                     >
-                      {expandedLocationId === location.id ? 'Hide Units' : 'Show Units'}
+                      {expandedLocationId === location.id
+                        ? "Hide Units"
+                        : "Show Units"}
+                    </button>
+                    <button
+                      onClick={() => setAssetModalLocation(location)}
+                      className="text-primary-600 hover:text-primary-800 text-sm font-medium"
+                    >
+                      Show Assets
                     </button>
                     <Link
                       to={`/companies/${company.id}/locations/${location.id}/edit`}
@@ -280,31 +372,73 @@ const CompanyDetails = () => {
                   </div>
                 </div>
               </div>
-              
-              <div className={`
+
+              <div
+                className={`
                 overflow-hidden transition-all duration-200 ease-in-out
-                ${expandedLocationId === location.id ? 'max-h-[500px]' : 'max-h-0'}
-              `}>
+                ${
+                  expandedLocationId === location.id
+                    ? "max-h-[500px]"
+                    : "max-h-0"
+                }
+              `}
+              >
                 <div className="border-t border-gray-100 p-4">
                   <UnitsList location={location} />
                 </div>
               </div>
             </div>
-          ))}
-
-          {locations.length === 0 && (
-            <div className="text-center py-8 bg-white rounded-lg shadow">
-              <p className="text-gray-500">No locations found.</p>
-              <Link 
-                to={`/companies/${company.id}/location/new`}
-                className="text-primary-600 hover:text-primary-800 mt-2 inline-block"
-              >
-                Add your first location
-              </Link>
-            </div>
-          )}
-        </div>
+          ))
+        )}
       </div>
+      {/* Asset Summary Section */}
+      <div className="card mt-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            Company Asset Summary
+          </h2>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => setShowAddAssetModal(true)}
+          >
+            <Plus size={16} className="mr-1" /> Add Asset
+          </button>
+        </div>
+        <AssetSummary
+          assets={companyAssets}
+          title="Company Asset Summary"
+          viewAllLink={`/assets?company=${company.id}`}
+        />
+      </div>
+      <Dialog
+        open={showAddAssetModal}
+        onClose={() => setShowAddAssetModal(false)}
+        className="fixed z-50 inset-0 overflow-y-auto"
+      >
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md mx-auto">
+            <h3 className="text-lg font-semibold mb-4">Add Asset (Stub)</h3>
+            <p className="text-gray-500 mb-4">Asset creation form goes here.</p>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowAddAssetModal(false)}
+              >
+                Cancel
+              </button>
+              <button type="button" className="btn btn-primary" disabled>
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      </Dialog>
+      <QuickAssetViewModal
+        open={!!assetModalLocation}
+        onClose={() => setAssetModalLocation(null)}
+        location={assetModalLocation as Location}
+      />
 
       {/* Delete Modal */}
       {isDeleteModalOpen && (
@@ -317,19 +451,20 @@ const CompanyDetails = () => {
               Delete Company
             </h3>
             <p className="text-center text-gray-600 mb-6">
-              Are you sure you want to delete <strong>{company.name}</strong>? 
-              This will also delete all {locations.length} location{locations.length !== 1 ? 's' : ''} and their units.
-              This action cannot be undone.
+              Are you sure you want to delete <strong>{company.name}</strong>?
+              This will also delete all {locations.length} location
+              {locations.length !== 1 ? "s" : ""} and their units. This action
+              cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
-              <button 
+              <button
                 className="btn btn-secondary"
                 onClick={() => setIsDeleteModalOpen(false)}
                 disabled={isDeleting}
               >
                 Cancel
               </button>
-              <button 
+              <button
                 className="btn btn-error"
                 onClick={handleDeleteCompany}
                 disabled={isDeleting}
@@ -340,7 +475,7 @@ const CompanyDetails = () => {
                     Deleting...
                   </>
                 ) : (
-                  'Delete'
+                  "Delete"
                 )}
               </button>
             </div>

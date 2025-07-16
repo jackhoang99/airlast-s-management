@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
-import { Database } from '../types/supabase';
-import { MapPin, Filter, ArrowDownToLine, ChevronDown } from 'lucide-react';
-import UnitsList from '../components/locations/UnitsList';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useSupabase } from "../lib/supabase-context";
+import { Database } from "../types/supabase";
+import { MapPin, Filter, ArrowDownToLine, ChevronDown } from "lucide-react";
+import UnitsList from "../components/locations/UnitsList";
 
-type Location = Database['public']['Tables']['locations']['Row'] & {
+type Location = Database["public"]["Tables"]["locations"]["Row"] & {
   companies: {
+    id: string;
     name: string;
   };
 };
@@ -15,13 +16,15 @@ const Locations = () => {
   const { supabase } = useSupabase();
   const [locations, setLocations] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [expandedLocationId, setExpandedLocationId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedLocationId, setExpandedLocationId] = useState<string | null>(
+    null
+  );
   const [filters, setFilters] = useState({
-    name: '',
-    city: '',
-    state: '',
-    zipcode: '',
+    name: "",
+    city: "",
+    state: "",
+    zipcode: "",
   });
 
   useEffect(() => {
@@ -29,33 +32,31 @@ const Locations = () => {
       if (!supabase) return;
 
       try {
-        let query = supabase
-          .from('locations')
-          .select(`
+        let query = supabase.from("locations").select(`
             *,
             companies:company_id(name)
           `);
 
         // Apply filters
         if (filters.name) {
-          query = query.ilike('name', `%${filters.name}%`);
+          query = query.ilike("name", `%${filters.name}%`);
         }
         if (filters.city) {
-          query = query.ilike('city', `%${filters.city}%`);
+          query = query.ilike("city", `%${filters.city}%`);
         }
         if (filters.state) {
-          query = query.ilike('state', `%${filters.state}%`);
+          query = query.ilike("state", `%${filters.state}%`);
         }
         if (filters.zipcode) {
-          query = query.ilike('zip', `%${filters.zipcode}%`);
+          query = query.ilike("zip", `%${filters.zipcode}%`);
         }
 
-        const { data, error } = await query.order('name');
+        const { data, error } = await query.order("name");
 
         if (error) throw error;
         setLocations(data || []);
       } catch (error) {
-        console.error('Error fetching locations:', error);
+        console.error("Error fetching locations:", error);
       } finally {
         setIsLoading(false);
       }
@@ -71,23 +72,26 @@ const Locations = () => {
 
   const resetFilters = () => {
     setFilters({
-      name: '',
-      city: '',
-      state: '',
-      zipcode: '',
+      name: "",
+      city: "",
+      state: "",
+      zipcode: "",
     });
   };
 
   const toggleLocation = (locationId: string) => {
-    setExpandedLocationId(expandedLocationId === locationId ? null : locationId);
+    setExpandedLocationId(
+      expandedLocationId === locationId ? null : locationId
+    );
   };
 
-  const filteredLocations = searchQuery 
-    ? locations.filter(location => 
-        location.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        location.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        location.state.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        location.zip.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredLocations = searchQuery
+    ? locations.filter(
+        (location) =>
+          location.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          location.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          location.state.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          location.zip.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : locations;
 
@@ -118,7 +122,10 @@ const Locations = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mb-6">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="name"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Name
             </label>
             <input
@@ -131,7 +138,10 @@ const Locations = () => {
             />
           </div>
           <div>
-            <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="city"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               City
             </label>
             <input
@@ -144,7 +154,10 @@ const Locations = () => {
             />
           </div>
           <div>
-            <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="state"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               State
             </label>
             <input
@@ -157,7 +170,10 @@ const Locations = () => {
             />
           </div>
           <div>
-            <label htmlFor="zipcode" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="zipcode"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Zipcode
             </label>
             <input
@@ -179,7 +195,7 @@ const Locations = () => {
             </span>
           </div>
           {Object.values(filters).some(Boolean) && (
-            <button 
+            <button
               onClick={resetFilters}
               className="text-sm text-primary-600 hover:text-primary-800"
             >
@@ -187,7 +203,7 @@ const Locations = () => {
             </button>
           )}
         </div>
-        
+
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
@@ -205,17 +221,16 @@ const Locations = () => {
                     <div>
                       <div className="flex items-center">
                         <MapPin size={16} className="text-gray-400 mr-2" />
-                        <Link 
+                        <Link
                           to={`/locations/${location.id}`}
                           className="text-primary-600 hover:text-primary-800 font-medium"
                         >
                           {location.name}
                         </Link>
                       </div>
-                      <div className="text-sm text-gray-600 mt-1">
-                      </div>
-                      <Link 
-                        to={`/companies/${location.companies?.id || ''}`}
+                      <div className="text-sm text-gray-600 mt-1"></div>
+                      <Link
+                        to={`/companies/${location.companies?.id || ""}`}
                         className="text-sm text-gray-500 hover:text-gray-700"
                       >
                         {location.companies?.name}
@@ -225,27 +240,25 @@ const Locations = () => {
                       onClick={() => toggleLocation(location.id)}
                       className="flex items-center text-gray-400 hover:text-gray-600"
                     >
-                      <ChevronDown 
-                        size={20} 
+                      <ChevronDown
+                        size={20}
                         className={`transform transition-transform ${
-                          expandedLocationId === location.id ? 'rotate-180' : ''
+                          expandedLocationId === location.id ? "rotate-180" : ""
                         }`}
                       />
                     </button>
                   </div>
                   <div className="text-sm text-gray-600 mt-2">
-                    {location.address && (
-                      <div>{location.address}</div>
-                    )}
+                    {location.address && <div>{location.address}</div>}
                     <div>
                       {location.city}, {location.state} {location.zip}
                     </div>
                   </div>
                 </div>
-                
+
                 {expandedLocationId === location.id && (
                   <div className="border-t bg-gray-50">
-                    <UnitsList locationId={location.id} />
+                    <UnitsList location={location} />
                   </div>
                 )}
               </div>
