@@ -503,7 +503,7 @@ const JobQuoteSection = ({
                       <p className="mt-1">
                         <span className="font-medium">
                           Customer{" "}
-                          {job.repair_approved ? (
+                          {job.replacement_approved ? (
                             <span className="text-success-700">
                               approved replacements
                             </span>
@@ -553,13 +553,16 @@ const JobQuoteSection = ({
             ) : (
               <div className="bg-gray-50 p-4 rounded-md">
                 <p className="text-gray-600 text-center">
-                  No repair data available. Add repair parts or complete a
-                  repair assessment first before sending a repair quote.
+                  No repair data available. Complete a repair assessment first
+                  before sending a repair quote.
                 </p>
               </div>
             )}
 
-            {job.quote_confirmed && (
+            {/* Only show repair approval status if a repair quote was confirmed */}
+            {allQuotes.some(
+              (q) => q.quote_type === "repair" && q.confirmed
+            ) && (
               <div className="mt-4 bg-success-50 border-l-4 border-success-500 p-4 rounded-md">
                 <div className="flex">
                   <div className="flex-shrink-0">
@@ -567,29 +570,43 @@ const JobQuoteSection = ({
                   </div>
                   <div className="ml-3">
                     <h3 className="text-sm font-medium text-success-800">
-                      Quote Confirmed
+                      Repair Quote Confirmed
                     </h3>
                     <div className="mt-2 text-sm text-success-700">
                       <p>
-                        <span className="font-medium">Quote was confirmed</span>{" "}
+                        <span className="font-medium">
+                          Repair quote was confirmed
+                        </span>{" "}
                         on{" "}
-                        {job.quote_confirmed_at
-                          ? new Date(job.quote_confirmed_at).toLocaleString()
-                          : "N/A"}
+                        {(() => {
+                          const repairQuote = allQuotes.find(
+                            (q) => q.quote_type === "repair" && q.confirmed
+                          );
+                          return repairQuote && repairQuote.confirmed_at
+                            ? new Date(
+                                repairQuote.confirmed_at
+                              ).toLocaleString()
+                            : "N/A";
+                        })()}
                         .
                       </p>
                       <p className="mt-1">
                         <span className="font-medium">
                           Customer{" "}
-                          {job.repair_approved ? (
-                            <span className="text-success-700">
-                              approved repair
-                            </span>
-                          ) : (
-                            <span className="text-error-700">
-                              declined repair
-                            </span>
-                          )}
+                          {(() => {
+                            const repairQuote = allQuotes.find(
+                              (q) => q.quote_type === "repair" && q.confirmed
+                            );
+                            return repairQuote && repairQuote.approved ? (
+                              <span className="text-success-700">
+                                approved repairs
+                              </span>
+                            ) : (
+                              <span className="text-error-700">
+                                declined repairs
+                              </span>
+                            );
+                          })()}
                         </span>
                       </p>
                     </div>
