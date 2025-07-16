@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
-import { Package } from "lucide-react";
+import { useState } from "react";
+import { Package, X } from "lucide-react";
 
 interface AssetSummaryProps {
   assets: any[];
@@ -10,8 +10,25 @@ interface AssetSummaryProps {
 const AssetSummary = ({
   assets,
   title = "Asset Summary",
-  viewAllLink,
 }: AssetSummaryProps) => {
+  const [expanded, setExpanded] = useState(false);
+  const [search, setSearch] = useState("");
+  const [modalAsset, setModalAsset] = useState<any | null>(null);
+
+  // Filter assets by search
+  const filteredAssets = assets.filter((asset) => {
+    const model = asset.model || {};
+    const searchStr =
+      (model.model_number || "") +
+      (model.serial_number || "") +
+      (model.unit_type || "") +
+      (model.system_type || "") +
+      (model.comment || "");
+    return searchStr.toLowerCase().includes(search.toLowerCase());
+  });
+
+  const shownAssets = expanded ? filteredAssets : filteredAssets.slice(0, 3);
+
   return (
     <div className="card">
       <div className="flex justify-between items-center mb-4">
@@ -19,20 +36,27 @@ const AssetSummary = ({
           <Package className="h-5 w-5 text-gray-400" />
           {title}
         </h2>
-        <Link
-          to={viewAllLink}
+        <button
           className="text-sm text-primary-600 hover:text-primary-800"
+          onClick={() => setExpanded((e) => !e)}
         >
-          View All
-        </Link>
+          {expanded ? "Collapse" : "View All"}
+        </button>
       </div>
-      {assets.length > 0 ? (
+      <input
+        className="input w-full mb-3"
+        placeholder="Search assets..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      {filteredAssets.length > 0 ? (
         <div className="space-y-3">
-          {assets.slice(0, 3).map((asset) => (
-            <Link
+          {shownAssets.map((asset) => (
+            <button
               key={asset.id}
-              to={viewAllLink}
-              className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+              className="block w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+              onClick={() => setModalAsset(asset)}
+              type="button"
             >
               <div className="flex justify-between items-center">
                 <div>
@@ -64,11 +88,11 @@ const AssetSummary = ({
                   </p>
                 </div>
               </div>
-            </Link>
+            </button>
           ))}
-          {assets.length > 3 && (
+          {!expanded && filteredAssets.length > 3 && (
             <p className="text-center text-sm text-gray-500">
-              +{assets.length - 3} more assets
+              +{filteredAssets.length - 3} more assets
             </p>
           )}
         </div>
@@ -79,6 +103,49 @@ const AssetSummary = ({
           <p className="text-xs text-gray-500 mt-1">
             Complete an inspection to create assets
           </p>
+        </div>
+      )}
+      {/* Asset Modal */}
+      {modalAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg relative">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+              onClick={() => setModalAsset(null)}
+            >
+              <X size={24} />
+            </button>
+            <h3 className="text-lg font-semibold mb-2">Asset Details</h3>
+            <div className="space-y-2">
+              <div>
+                <b>Model Number:</b> {modalAsset.model?.model_number || "N/A"}
+              </div>
+              <div>
+                <b>Serial Number:</b> {modalAsset.model?.serial_number || "N/A"}
+              </div>
+              <div>
+                <b>Age:</b> {modalAsset.model?.age || "N/A"}
+              </div>
+              <div>
+                <b>Tonnage:</b> {modalAsset.model?.tonnage || "N/A"}
+              </div>
+              <div>
+                <b>Unit Type:</b> {modalAsset.model?.unit_type || "N/A"}
+              </div>
+              <div>
+                <b>System Type:</b> {modalAsset.model?.system_type || "N/A"}
+              </div>
+              <div>
+                <b>Comment:</b> {modalAsset.model?.comment || ""}
+              </div>
+              <div>
+                <b>Inspection Date:</b>{" "}
+                {modalAsset.inspection_date
+                  ? new Date(modalAsset.inspection_date).toLocaleDateString()
+                  : "N/A"}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

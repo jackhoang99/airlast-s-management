@@ -19,6 +19,7 @@ import Map from "../components/ui/Map";
 import QuickAssetViewModal from "../components/locations/QuickAssetViewModal";
 import AssetSummary from "../components/locations/AssetSummary";
 import { Dialog } from "@headlessui/react";
+import AddAssetForm from "../components/locations/AddAssetForm";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
 type Location = Database["public"]["Tables"]["locations"]["Row"];
@@ -417,20 +418,15 @@ const CompanyDetails = () => {
       >
         <div className="flex items-center justify-center min-h-screen">
           <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md mx-auto">
-            <h3 className="text-lg font-semibold mb-4">Add Asset (Stub)</h3>
-            <p className="text-gray-500 mb-4">Asset creation form goes here.</p>
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setShowAddAssetModal(false)}
-              >
-                Cancel
-              </button>
-              <button type="button" className="btn btn-primary" disabled>
-                Save
-              </button>
-            </div>
+            <h3 className="text-lg font-semibold mb-4">Add Asset</h3>
+            <AddAssetForm
+              companyId={id}
+              onSuccess={() => {
+                setShowAddAssetModal(false);
+                // Optionally refresh assets here
+              }}
+              onCancel={() => setShowAddAssetModal(false)}
+            />
           </div>
         </div>
       </Dialog>

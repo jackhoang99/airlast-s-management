@@ -7,6 +7,7 @@ import Map from "../components/ui/Map";
 import UnitsList from "../components/locations/UnitsList";
 import AssetSummary from "../components/locations/AssetSummary";
 import { Dialog } from "@headlessui/react";
+import AddAssetForm from "../components/locations/AddAssetForm";
 
 type Location = Database["public"]["Tables"]["locations"]["Row"] & {
   companies: {
@@ -268,58 +269,16 @@ const LocationDetails = () => {
             <div className="flex items-center justify-center min-h-screen px-4">
               <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
               <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative z-10">
-                <Dialog.Title className="text-lg font-semibold mb-4">
-                  Add Asset
-                </Dialog.Title>
-                <form className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Company
-                    </label>
-                    <input
-                      type="text"
-                      className="input w-full"
-                      value={location.companies.name}
-                      readOnly
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Location
-                    </label>
-                    <input
-                      type="text"
-                      className="input w-full"
-                      value={location.name}
-                      readOnly
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Unit
-                    </label>
-                    <select className="input w-full">
-                      {units.map((unit: any) => (
-                        <option key={unit.id} value={unit.id}>
-                          {unit.unit_number}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* Add more asset fields as needed */}
-                  <div className="flex justify-end gap-2 mt-4">
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => setShowAddAssetModal(false)}
-                    >
-                      Cancel
-                    </button>
-                    <button type="submit" className="btn btn-primary">
-                      Save
-                    </button>
-                  </div>
-                </form>
+                <h3 className="text-lg font-semibold mb-4">Add Asset</h3>
+                <AddAssetForm
+                  locationId={id}
+                  companyId={location?.company_id}
+                  onSuccess={() => {
+                    setShowAddAssetModal(false);
+                    // Optionally refresh assets here
+                  }}
+                  onCancel={() => setShowAddAssetModal(false)}
+                />
               </div>
             </div>
           </Dialog>
