@@ -13,6 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import InspectionForm from "../components/jobs/inspection/InspectionForm";
+import AddAssetForm from "../components/locations/AddAssetForm";
 
 const Assets = () => {
   const { supabase } = useSupabase();
@@ -400,7 +401,27 @@ const Assets = () => {
           </div>
         )}
       </div>
-      {showInspectionForm && (
+      {showInspectionForm && !editingAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+          <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md mx-auto">
+            <h3 className="text-lg font-semibold mb-4">Add Asset</h3>
+            <AddAssetForm
+              onSuccess={() => {
+                setShowInspectionForm(false);
+                // Refresh asset list
+                if (supabase) {
+                  supabase
+                    .from("assets")
+                    .select("*")
+                    .then(({ data }) => setAssets(data || []));
+                }
+              }}
+              onCancel={() => setShowInspectionForm(false)}
+            />
+          </div>
+        </div>
+      )}
+      {showInspectionForm && editingAsset && (
         <InspectionForm
           jobId={editingAsset?.job_id || ""}
           initialData={editingAsset}
