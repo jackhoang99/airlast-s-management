@@ -73,29 +73,27 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({ jobId, quoteType, onBac
         if (itemsError) throw itemsError;
 
         // Organize replacement data by inspection_id
-        const replacementDataByInspection: {[key: string]: any} = {};
+        const replacementDataById: {[key: string]: any} = {};
         if (replacementData && replacementData.length > 0) {
           replacementData.forEach(item => {
-            if (item.inspection_id) {
-              replacementDataByInspection[item.inspection_id] = {
-                needsCrane: item.needs_crane || false,
-                phase1: item.phase1 || {},
-                phase2: item.phase2 || {},
-                phase3: item.phase3 || {},
-                labor: item.labor || 0,
-                refrigerationRecovery: item.refrigeration_recovery || 0,
-                startUpCosts: item.start_up_costs || 0,
-                accessories: item.accessories || [],
-                thermostatStartup: item.thermostat_startup || 0,
-                removalCost: item.removal_cost || 0,
-                warranty: item.warranty || '',
-                additionalItems: item.additional_items || [],
-                permitCost: item.permit_cost || 0,
-                selectedPhase: item.selected_phase || 'phase2',
-                totalCost: item.total_cost || 0,
-                created_at: item.created_at || ''
-              };
-            }
+            replacementDataById[item.id] = {
+              needsCrane: item.needs_crane || false,
+              phase1: item.phase1 || {},
+              phase2: item.phase2 || {},
+              phase3: item.phase3 || {},
+              labor: item.labor || 0,
+              refrigerationRecovery: item.refrigeration_recovery || 0,
+              startUpCosts: item.start_up_costs || 0,
+              accessories: item.accessories || [],
+              thermostatStartup: item.thermostat_startup || 0,
+              removalCost: item.removal_cost || 0,
+              warranty: item.warranty || '',
+              additionalItems: item.additional_items || [],
+              permitCost: item.permit_cost || 0,
+              selectedPhase: item.selected_phase || 'phase2',
+              totalCost: item.total_cost || 0,
+              created_at: item.created_at || ''
+            };
           });
         }
 
@@ -160,7 +158,7 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({ jobId, quoteType, onBac
             inspectionData,
             replacementData: replacementData && replacementData.length > 0 ? replacementData[0] : null,
             jobItems,
-            replacementDataByInspection
+            replacementDataById: replacementDataById
           })
         });
 

@@ -24,6 +24,7 @@ type JobQuoteSectionProps = {
   onQuoteSent: (updatedJob: Job) => void;
   onPreviewQuote: (quoteType: "replacement" | "repair") => void;
   quoteNeedsUpdate: boolean;
+  refreshTrigger?: number;
 };
 
 const JobQuoteSection = ({
@@ -32,6 +33,7 @@ const JobQuoteSection = ({
   onQuoteSent,
   onPreviewQuote,
   quoteNeedsUpdate,
+  refreshTrigger = 0,
 }: JobQuoteSectionProps) => {
   const { supabase } = useSupabase();
   const [activeTab, setActiveTab] = useState<"replacement" | "repair" | "all">(
@@ -299,7 +301,7 @@ const JobQuoteSection = ({
     };
 
     checkJobData();
-  }, [supabase, job, activeTab, jobItems]);
+  }, [supabase, job, activeTab, jobItems, refreshTrigger]);
 
   // Calculate repair cost from part items
   useEffect(() => {
@@ -686,58 +688,54 @@ const JobQuoteSection = ({
         )}
 
         {/* General Quote Status */}
-        {job.quote_sent && !job.quote_confirmed && activeTab !== "all" && (
-          <div
-            className={`${
-              quoteNeedsUpdate
-                ? "bg-warning-50 border-warning-500"
-                : "bg-blue-50 border-blue-500"
-            } border-l-4 p-4 rounded-md`}
-          >
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <FileCheck2
-                  className={`h-5 w-5 ${
-                    quoteNeedsUpdate ? "text-warning-500" : "text-blue-500"
-                  }`}
-                />
-              </div>
-              <div className="ml-3">
-                <h3
-                  className={`text-sm font-medium ${
-                    quoteNeedsUpdate ? "text-warning-800" : "text-blue-800"
-                  }`}
-                >
-                  {quoteNeedsUpdate ? "Quote Needs Update" : "Quote Sent"}
-                </h3>
-                <div
-                  className={`mt-2 text-sm ${
-                    quoteNeedsUpdate ? "text-warning-700" : "text-blue-700"
-                  }`}
-                >
-                  <p>
-                    Quote was sent to {job.contact_email} on{" "}
-                    {job.quote_sent_at
-                      ? new Date(job.quote_sent_at).toLocaleString()
-                      : "N/A"}
-                    .
-                  </p>
-                  {quoteNeedsUpdate && (
-                    <p className="mt-1 font-medium">
-                      Items have been modified since the quote was sent.
-                      Consider sending an updated quote.
-                    </p>
-                  )}
-                  {!quoteNeedsUpdate && (
-                    <p className="mt-1">Waiting for customer confirmation.</p>
-                  )}
+        {sentQuoteTypes[activeTab] &&
+          !job.quote_confirmed &&
+          activeTab !== "all" && (
+            <div
+              className={`${
+                quoteNeedsUpdate
+                  ? "bg-warning-50 border-warning-500"
+                  : "bg-blue-50 border-blue-500"
+              } border-l-4 p-4 rounded-md`}
+            >
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <FileCheck2
+                    className={`h-5 w-5 ${
+                      quoteNeedsUpdate ? "text-warning-500" : "text-blue-500"
+                    }`}
+                  />
+                </div>
+                <div className="ml-3">
+                  <h3
+                    className={`text-sm font-medium ${
+                      quoteNeedsUpdate ? "text-warning-800" : "text-blue-800"
+                    }`}
+                  >
+                    {quoteNeedsUpdate ? "Quote Needs Update" : "Quote Sent"}
+                  </h3>
+                  <div
+                    className={`mt-2 text-sm ${
+                      quoteNeedsUpdate ? "text-warning-700" : "text-blue-700"
+                    }`}
+                  >
+                    <p>Quote was sent to {job.contact_email}.</p>
+                    {quoteNeedsUpdate && (
+                      <p className="mt-1 font-medium">
+                        Items have been modified since the quote was sent.
+                        Consider sending an updated quote.
+                      </p>
+                    )}
+                    {!quoteNeedsUpdate && (
+                      <p className="mt-1">Waiting for customer confirmation.</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {!job.quote_sent && activeTab !== "all" && (
+        {!sentQuoteTypes[activeTab] && activeTab !== "all" && (
           <div className="bg-gray-50 p-4 rounded-md">
             <p className="text-gray-600">
               {jobItems.length === 0

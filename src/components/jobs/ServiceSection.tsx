@@ -34,6 +34,7 @@ type JobServiceSectionProps = {
   jobItems: any[];
   onItemsUpdated: () => void;
   onQuoteStatusChange?: () => void;
+  refreshTrigger?: number;
 };
 
 const ServiceSection = ({
@@ -41,6 +42,7 @@ const ServiceSection = ({
   jobItems,
   onItemsUpdated,
   onQuoteStatusChange,
+  refreshTrigger = 0,
 }: JobServiceSectionProps) => {
   const { supabase } = useSupabase();
   const [showAddPricingModal, setShowAddPricingModal] = useState(false);
@@ -65,7 +67,7 @@ const ServiceSection = ({
   const [hasReplacementData, setHasReplacementData] = useState(false);
 
   // Add a refresh trigger
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [refreshTriggerState, setRefreshTriggerState] = useState(0);
 
   // Fetch job details
   useEffect(() => {
@@ -725,7 +727,9 @@ const ServiceSection = ({
           onSave={() => {
             setShowRepairsForm(false);
             setCurrentReplacementData(null);
-            setRefreshTrigger((prev) => prev + 1); // Trigger a refresh
+            setRefreshTriggerState((prev) => prev + 1); // Trigger a refresh
+            onItemsUpdated();
+            if (onQuoteStatusChange) onQuoteStatusChange();
           }}
           onClose={() => {
             console.log("Closing RepairsForm");

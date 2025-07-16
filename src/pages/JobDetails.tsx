@@ -51,6 +51,7 @@ const JobDetails = () => {
     "repair" | "replacement"
   >("repair");
   const [repairData, setRepairData] = useState<any | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Collapsible section states - all set to true (expanded) by default
   const [showServiceSection, setShowServiceSection] = useState(true);
@@ -238,6 +239,7 @@ const JobDetails = () => {
 
         setQuoteNeedsUpdate(needsUpdate || false);
       }
+      setRefreshTrigger((prev) => prev + 1); // Trigger refresh for children
     } catch (err) {
       console.error("Error refreshing job items:", err);
     }
@@ -648,6 +650,7 @@ const JobDetails = () => {
                   onQuoteStatusChange={() =>
                     job.quote_sent && setQuoteNeedsUpdate(true)
                   }
+                  refreshTrigger={refreshTrigger}
                 />
               </div>
             )}
@@ -681,6 +684,7 @@ const JobDetails = () => {
                   onQuoteSent={handleQuoteSent}
                   onPreviewQuote={handlePreviewQuote}
                   quoteNeedsUpdate={quoteNeedsUpdate}
+                  refreshTrigger={refreshTrigger}
                 />
               </div>
             )}
