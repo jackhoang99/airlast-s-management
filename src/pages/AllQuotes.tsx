@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSupabase } from "../lib/supabase-context";
 import { Link } from "react-router-dom";
-import { FileSpreadsheet, FileText, Eye } from "lucide-react";
+import { FileSpreadsheet, FileText, Eye, Trash2 } from "lucide-react";
 import QuotePDFViewer from "../components/quotes/QuotePDFViewer";
 
 const TABS = [
@@ -37,6 +37,7 @@ export default function AllQuotes() {
     jobId: string;
     quoteType: "replacement" | "repair";
   }>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchQuotes = async () => {
@@ -282,6 +283,42 @@ export default function AllQuotes() {
                           <Eye size={14} />
                           View PDF
                         </button>
+                        <button
+                          className="btn btn-xs btn-error flex items-center gap-1"
+                          onClick={async () => {
+                            if (!supabase) return;
+                            if (
+                              window.confirm(
+                                "Are you sure you want to delete this quote?"
+                              )
+                            ) {
+                              setDeleteError(null);
+                              try {
+                                const { error } = await supabase
+                                  .from("job_quotes")
+                                  .delete()
+                                  .eq("id", q.id);
+                                if (error) throw error;
+                                // Refresh quotes
+                                const { data: quotesData, error: fetchError } =
+                                  await supabase
+                                    .from("job_quotes")
+                                    .select(
+                                      "*, jobs:job_id(number, name, contact_name, contact_email, locations(name, companies(name)))"
+                                    )
+                                    .order("created_at", { ascending: false });
+                                if (!fetchError && quotesData)
+                                  setQuotes(quotesData);
+                              } catch (err) {
+                                setDeleteError("Failed to delete quote");
+                              }
+                            }
+                          }}
+                          title="Delete Quote"
+                        >
+                          <Trash2 size={14} />
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   );
@@ -291,6 +328,11 @@ export default function AllQuotes() {
           </table>
         </div>
       </div>
+      {deleteError && (
+        <div className="bg-error-50 text-error-700 p-2 rounded mb-2">
+          {deleteError}
+        </div>
+      )}
     </div>
   );
 }
