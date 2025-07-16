@@ -419,6 +419,8 @@ const TechnicianJobDetails = () => {
     }
   };
 
+  const [timeTrackingRefreshKey, setTimeTrackingRefreshKey] = useState(0);
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -671,6 +673,7 @@ const TechnicianJobDetails = () => {
             currentClockStatus={currentClockStatus}
             jobStatus={jobStatus}
             onStatusChange={setCurrentClockStatus}
+            onTimeEvent={() => setTimeTrackingRefreshKey((k) => k + 1)}
           />
         </div>
       )}
@@ -819,7 +822,7 @@ const TechnicianJobDetails = () => {
       <hr className="my-2 border-gray-200" />
       {/* Time Tracking */}
       <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
-        <JobTimeTracking jobId={id || ""} />
+        <JobTimeTracking jobId={id || ""} key={timeTrackingRefreshKey} />
       </div>
       {/* Comments */}
       <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
