@@ -1,7 +1,7 @@
-import React from 'react';
-import { Database } from '../../types/supabase';
+import React from "react";
+import { Database } from "../../types/supabase";
 
-type Job = Database['public']['Tables']['jobs']['Row'] & {
+type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
   locations?: {
     name: string;
     address: string;
@@ -28,9 +28,9 @@ type Job = Database['public']['Tables']['jobs']['Row'] & {
   }[];
 };
 
-type JobItem = Database['public']['Tables']['job_items']['Row'];
-type JobInvoice = Database['public']['Tables']['job_invoices']['Row'];
-type ReplacementData = Database['public']['Tables']['job_replacements']['Row'];
+type JobItem = Database["public"]["Tables"]["job_items"]["Row"];
+type JobInvoice = Database["public"]["Tables"]["job_invoices"]["Row"];
+type ReplacementData = Database["public"]["Tables"]["job_replacements"]["Row"];
 
 interface InvoicePDFTemplateProps {
   job: Job;
@@ -39,57 +39,80 @@ interface InvoicePDFTemplateProps {
   replacementData?: ReplacementData;
 }
 
-const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, invoice, replacementData }) => {
+const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
+  job,
+  jobItems,
+  invoice,
+  replacementData,
+}) => {
   // Determine invoice type based on amount and items
-  const isInspectionInvoice = invoice.amount === 180.00 && jobItems.some(item => item.code === 'INSP-FEE');
-  
+  const isInspectionInvoice =
+    invoice.amount === 180.0 &&
+    jobItems.some((item) => item.code === "INSP-FEE");
+
   // Check if this is a repair invoice (only parts)
-  const isRepairInvoice = jobItems.filter(item => item.type === 'part').length > 0 && 
-                          jobItems.every(item => item.type === 'part');
-  
+  const isRepairInvoice =
+    jobItems.filter((item) => item.type === "part").length > 0 &&
+    jobItems.every((item) => item.type === "part");
+
   // Check if this is a replacement invoice
-  const isReplacementInvoice = invoice.amount > 0 && replacementData && 
-    jobItems.filter(item => (item.type === 'labor' || item.type === 'item') && item.code !== 'INSP-FEE').length === 0;
-  
+  const isReplacementInvoice =
+    invoice.amount > 0 &&
+    replacementData &&
+    jobItems.filter(
+      (item) =>
+        (item.type === "labor" || item.type === "item") &&
+        item.code !== "INSP-FEE"
+    ).length === 0;
+
   // Filter items based on invoice type
   let filteredItems = jobItems;
-  let itemLabel = 'Repair Parts';
-  
+  let itemLabel = "Repair Parts";
+
+  // Fix: For repair invoice, include all jobItems except INSP-FEE
   if (isInspectionInvoice) {
     // For inspection invoice, only include the inspection fee
-    filteredItems = jobItems.filter(item => item.code === 'INSP-FEE');
-    itemLabel = 'Inspection Fee';
-  } else if (isRepairInvoice) {
-    // For repair invoice, only include parts
-    filteredItems = jobItems.filter(item => item.type === 'part');
-    itemLabel = 'Repair Parts';
+    filteredItems = jobItems.filter((item) => item.code === "INSP-FEE");
+    itemLabel = "Inspection Fee";
+  } else if (
+    invoice.amount > 0 &&
+    (!replacementData ||
+      jobItems.some((item) => item.type === "labor" || item.type === "item"))
+  ) {
+    // For repair invoice, include all non-INSP-FEE items
+    filteredItems = jobItems.filter((item) => item.code !== "INSP-FEE");
+    itemLabel = "Repair Services & Parts";
   } else if (isReplacementInvoice) {
     // For replacement invoice, we'll show replacement details instead of items
     filteredItems = [];
-    itemLabel = 'Replacement Services';
+    itemLabel = "Replacement Total";
   } else {
     // For standard invoice, include all items
     filteredItems = jobItems;
-    
+
     // Check if this is a repair-only invoice (only parts)
-    const hasOnlyParts = filteredItems.every(item => item.type === 'part');
-    const hasOnlyLaborAndItems = filteredItems.every(item => item.type === 'labor' || (item.type === 'item' && item.code !== 'INSP-FEE'));
-    
+    const hasOnlyParts = filteredItems.every((item) => item.type === "part");
+    const hasOnlyLaborAndItems = filteredItems.every(
+      (item) =>
+        item.type === "labor" ||
+        (item.type === "item" && item.code !== "INSP-FEE")
+    );
+
     if (hasOnlyParts) {
-      itemLabel = 'Repair Parts';
+      itemLabel = "Repair Parts";
     } else if (hasOnlyLaborAndItems) {
-      itemLabel = 'Replacement Services';
+      itemLabel = "Replacement Services";
     } else {
-      itemLabel = 'Services & Parts';
+      itemLabel = "Services & Parts";
     }
   }
 
   // Format date in MM/DD/YYYY format
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
     const year = date.getFullYear();
     return `${month}/${day}/${year}`;
   };
@@ -97,66 +120,97 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, 
   // Generate replacement details content if this is a replacement invoice
   const renderReplacementDetails = () => {
     if (!isReplacementInvoice || !replacementData) return null;
-    
-    const selectedPhase = replacementData.selected_phase || 'phase2';
-    const phaseData = replacementData[selectedPhase as keyof ReplacementData] as any;
-    
+
+    const selectedPhase = replacementData.selected_phase || "phase2";
+    const phaseData = replacementData[
+      selectedPhase as keyof ReplacementData
+    ] as any;
+
     return (
       <div className="text-sm mt-2">
         <p className="font-medium">Replacement Details:</p>
         <ul className="list-disc pl-5 mt-1">
           {phaseData && phaseData.description && (
-            <li>{phaseData.description} - ${Number(phaseData.cost).toFixed(2)}</li>
+            <li>
+              {phaseData.description} - ${Number(phaseData.cost).toFixed(2)}
+            </li>
           )}
           {Number(replacementData.labor) > 0 && (
             <li>Labor - ${Number(replacementData.labor).toFixed(2)}</li>
           )}
           {Number(replacementData.refrigeration_recovery) > 0 && (
-            <li>Refrigeration Recovery - ${Number(replacementData.refrigeration_recovery).toFixed(2)}</li>
+            <li>
+              Refrigeration Recovery - $
+              {Number(replacementData.refrigeration_recovery).toFixed(2)}
+            </li>
           )}
           {Number(replacementData.start_up_costs) > 0 && (
-            <li>Start Up Costs - ${Number(replacementData.start_up_costs).toFixed(2)}</li>
+            <li>
+              Start Up Costs - $
+              {Number(replacementData.start_up_costs).toFixed(2)}
+            </li>
           )}
           {Number(replacementData.thermostat_startup) > 0 && (
-            <li>Thermostat Startup - ${Number(replacementData.thermostat_startup).toFixed(2)}</li>
+            <li>
+              Thermostat Startup - $
+              {Number(replacementData.thermostat_startup).toFixed(2)}
+            </li>
           )}
           {Number(replacementData.removal_cost) > 0 && (
-            <li>Removal of Old Equipment - ${Number(replacementData.removal_cost).toFixed(2)}</li>
+            <li>
+              Removal of Old Equipment - $
+              {Number(replacementData.removal_cost).toFixed(2)}
+            </li>
           )}
           {Number(replacementData.permit_cost) > 0 && (
-            <li>Permit Cost - ${Number(replacementData.permit_cost).toFixed(2)}</li>
+            <li>
+              Permit Cost - ${Number(replacementData.permit_cost).toFixed(2)}
+            </li>
           )}
-          
+
           {/* Accessories */}
-          {replacementData.accessories && Array.isArray(replacementData.accessories) && 
-           replacementData.accessories.length > 0 && replacementData.accessories.some((acc: any) => acc.name && acc.cost > 0) && (
-            <li>
-              Accessories:
-              <ul className="list-circle pl-5">
-                {replacementData.accessories.map((acc: any, idx: number) => 
-                  acc.name && acc.cost > 0 ? (
-                    <li key={idx}>{acc.name} - ${Number(acc.cost).toFixed(2)}</li>
-                  ) : null
-                )}
-              </ul>
-            </li>
-          )}
-          
+          {replacementData.accessories &&
+            Array.isArray(replacementData.accessories) &&
+            replacementData.accessories.length > 0 &&
+            replacementData.accessories.some(
+              (acc: any) => acc.name && acc.cost > 0
+            ) && (
+              <li>
+                Accessories:
+                <ul className="list-circle pl-5">
+                  {replacementData.accessories.map((acc: any, idx: number) =>
+                    acc.name && acc.cost > 0 ? (
+                      <li key={idx}>
+                        {acc.name} - ${Number(acc.cost).toFixed(2)}
+                      </li>
+                    ) : null
+                  )}
+                </ul>
+              </li>
+            )}
+
           {/* Additional Items */}
-          {replacementData.additional_items && Array.isArray(replacementData.additional_items) && 
-           replacementData.additional_items.length > 0 && replacementData.additional_items.some((item: any) => item.name && item.cost > 0) && (
-            <li>
-              Additional Items:
-              <ul className="list-circle pl-5">
-                {replacementData.additional_items.map((item: any, idx: number) => 
-                  item.name && item.cost > 0 ? (
-                    <li key={idx}>{item.name} - ${Number(item.cost).toFixed(2)}</li>
-                  ) : null
-                )}
-              </ul>
-            </li>
-          )}
-          
+          {replacementData.additional_items &&
+            Array.isArray(replacementData.additional_items) &&
+            replacementData.additional_items.length > 0 &&
+            replacementData.additional_items.some(
+              (item: any) => item.name && item.cost > 0
+            ) && (
+              <li>
+                Additional Items:
+                <ul className="list-circle pl-5">
+                  {replacementData.additional_items.map(
+                    (item: any, idx: number) =>
+                      item.name && item.cost > 0 ? (
+                        <li key={idx}>
+                          {item.name} - ${Number(item.cost).toFixed(2)}
+                        </li>
+                      ) : null
+                  )}
+                </ul>
+              </li>
+            )}
+
           {replacementData.warranty && (
             <li>Warranty: {replacementData.warranty}</li>
           )}
@@ -178,7 +232,11 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, 
           <p>www.airlast.com</p>
         </div>
         <div className="text-right">
-          <img src="/airlast-logo.svg" alt="Airlast Logo" className="h-16 mb-2" />
+          <img
+            src="/airlast-logo.svg"
+            alt="Airlast Logo"
+            className="h-16 mb-2"
+          />
         </div>
       </div>
 
@@ -188,7 +246,9 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, 
           <h3 className="text-gray-500 font-medium mb-2">Bill to</h3>
           <p className="font-bold">{job.locations?.companies.name}</p>
           <p>{job.locations?.address}</p>
-          <p>{job.locations?.city}, {job.locations?.state} {job.locations?.zip}</p>
+          <p>
+            {job.locations?.city}, {job.locations?.state} {job.locations?.zip}
+          </p>
           {job.contact_name && <p>Attn: {job.contact_name}</p>}
         </div>
         <div>
@@ -196,16 +256,16 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, 
           <div className="grid grid-cols-2 gap-1">
             <p className="text-gray-600">Invoice no:</p>
             <p className="font-medium">{invoice.invoice_number}</p>
-            
+
             <p className="text-gray-600">Terms:</p>
             <p className="font-medium">Net 30</p>
-            
+
             <p className="text-gray-600">Invoice date:</p>
             <p className="font-medium">{formatDate(invoice.issued_date)}</p>
-            
+
             <p className="text-gray-600">Due date:</p>
             <p className="font-medium">{formatDate(invoice.due_date)}</p>
-            
+
             <p className="text-gray-600">Job #:</p>
             <p className="font-medium">{job.number}</p>
           </div>
@@ -217,7 +277,9 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, 
         <h3 className="text-gray-500 font-medium mb-2">Service Location</h3>
         <p>{job.locations?.name}</p>
         <p>{job.locations?.address}</p>
-        <p>{job.locations?.city}, {job.locations?.state} {job.locations?.zip}</p>
+        <p>
+          {job.locations?.city}, {job.locations?.state} {job.locations?.zip}
+        </p>
         {job.units && <p>Unit: {job.units.unit_number}</p>}
       </div>
 
@@ -234,74 +296,92 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({ job, jobItems, 
         <tbody>
           <tr>
             <td className="py-4 px-4 border-b">1.</td>
-            <td className="py-4 px-4 border-b">{formatDate(invoice.issued_date)}</td>
+            <td className="py-4 px-4 border-b">
+              {formatDate(invoice.issued_date)}
+            </td>
             <td className="py-4 px-4 border-b">
               {job.name}
               {job.units && <span> - Unit {job.units.unit_number}</span>}
-              
-              {isReplacementInvoice ? (
+
+              {invoice.type === "replacement" ? (
                 renderReplacementDetails()
-              ) : isRepairInvoice ? (
+              ) : invoice.type === "inspection" ? (
                 <div className="text-sm text-gray-500 mt-2">
-                  <p>Repair Parts:</p>
+                  <p>Inspection Fee</p>
                   <ul className="list-disc pl-5 mt-1">
                     {filteredItems.map((item, index) => (
                       <li key={index}>
-                        {item.name} ({item.quantity} x ${Number(item.unit_cost).toFixed(2)})
+                        {item.name} ({item.quantity} x $
+                        {Number(item.unit_cost).toFixed(2)})
                       </li>
                     ))}
                   </ul>
                 </div>
-              ) : (
+              ) : invoice.type === "repair" ? (
                 <div className="text-sm text-gray-500 mt-2">
-                  <p>{itemLabel}:</p>
+                  <p>Repair Services & Parts:</p>
                   <ul className="list-disc pl-5 mt-1">
                     {filteredItems.map((item, index) => (
                       <li key={index}>
-                        {item.name} ({item.quantity} x ${Number(item.unit_cost).toFixed(2)})
+                        {item.name} ({item.quantity} x $
+                        {Number(item.unit_cost).toFixed(2)})
                       </li>
                     ))}
                   </ul>
                 </div>
-              )}
+              ) : invoice.type === "all" ? (
+                <div className="text-sm text-gray-500 mt-2">
+                  <p>All Services & Parts:</p>
+                  <ul className="list-disc pl-5 mt-1">
+                    {filteredItems.map((item, index) => (
+                      <li key={index}>
+                        {item.name} ({item.quantity} x $
+                        {Number(item.unit_cost).toFixed(2)})
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </td>
-            <td className="py-4 px-4 border-b text-right font-medium">${Number(invoice.amount).toFixed(2)}</td>
+            <td className="py-4 px-4 border-b text-right font-medium">
+              ${Number(invoice.amount).toFixed(2)}
+            </td>
           </tr>
         </tbody>
         <tfoot>
           <tr className="bg-gray-50 font-bold">
-            <td className="py-4 px-4" colSpan={3} align="right">Total</td>
-            <td className="py-4 px-4 text-right">${Number(invoice.amount).toFixed(2)}</td>
+            <td className="py-4 px-4" colSpan={3} align="right">
+              Total
+            </td>
+            <td className="py-4 px-4 text-right">
+              ${Number(invoice.amount).toFixed(2)}
+            </td>
           </tr>
         </tfoot>
       </table>
 
       {/* Payment Information */}
+      {/* Ways to pay */}
       <div className="mb-8">
         <h3 className="text-lg font-bold mb-2">Ways to pay</h3>
-        <div className="grid grid-cols-2 gap-8">
-          <div>
-            <h4 className="font-medium mb-1">Bank Transfer</h4>
-            <p>Airlast HVAC</p>
-            <p>Account #: 123456789</p>
-            <p>Routing #: 987654321</p>
-            <p>Bank: First National Bank</p>
-          </div>
-          <div>
-            <h4 className="font-medium mb-1">Check</h4>
-            <p>Make checks payable to:</p>
-            <p>Airlast HVAC</p>
-            <p>1650 Marietta Boulevard Northwest</p>
-            <p>Atlanta, GA 30318</p>
-          </div>
+        <div>
+          <p>Send checks to:</p>
+          <p>332 Chinquapin Drive SW</p>
+          <p>Marietta, Ga 30064</p>
         </div>
       </div>
 
       {/* Notes */}
       <div className="border-t pt-6">
         <h3 className="font-medium mb-2">Notes</h3>
-        <p className="text-gray-600">Thank you for your business! Please include the invoice number on your payment.</p>
-        <p className="text-gray-600">For questions regarding this invoice, please contact our office at (404) 632-9074.</p>
+        <p className="text-gray-600">
+          Thank you for your business! Please include the invoice number on your
+          payment.
+        </p>
+        <p className="text-gray-600">
+          For questions regarding this invoice, please contact our office at
+          (404) 632-9074.
+        </p>
       </div>
     </div>
   );

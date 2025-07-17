@@ -78,9 +78,17 @@ const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
             )}
           </div>
           <h2 className="text-xl font-semibold">{job.name}</h2>
-          {job.units && job.units.length > 0 && (
-            <div className="mt-2 text-sm text-gray-500">
-              Units: {job.units.map((u: any) => u.unit_number).join(", ")}
+          {job.locations && (
+            <div className="mt-1 text-sm text-gray-700">
+              {job.locations.companies?.name}{" "}
+              {job.locations.name && `• ${job.locations.name}`}
+              {job.units && job.units.length > 0 && (
+                <span>
+                  {" "}
+                  • Unit{job.units.length > 1 ? "s" : ""}:{" "}
+                  {job.units.map((u: any) => u.unit_number).join(", ")}
+                </span>
+              )}
             </div>
           )}
           {job.description && (

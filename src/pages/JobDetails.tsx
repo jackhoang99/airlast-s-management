@@ -801,6 +801,7 @@ const JobDetails = () => {
                   job={job}
                   jobItems={jobItems}
                   onInvoiceCreated={handleInvoiceCreated}
+                  refreshTrigger={refreshTrigger}
                 />
               </div>
             )}

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Building2, MapPin, FileText, Mail, Phone } from "lucide-react";
 import { Job } from "../../types/job";
+import { useEffect, useState } from "react";
 
 type JobUnitSectionProps = {
   job: Job;
@@ -200,6 +201,7 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
                 >
                   {unit.unit_number}
                 </Link>
+                <UnitAssetLink unitId={unit.id} />
                 <span
                   className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
                     unit.status === "active"
@@ -320,3 +322,27 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
 };
 
 export default JobUnitSection;
+
+function UnitAssetLink({ unitId }: { unitId: string }) {
+  const [asset, setAsset] = useState<any | null>(undefined);
+  useEffect(() => {
+    (async () => {
+      const res = await fetch(`/api/unit-assets-latest?unitId=${unitId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAsset(data.asset || null);
+      } else {
+        setAsset(null);
+      }
+    })();
+  }, [unitId]);
+  if (asset === undefined || asset === null) return null;
+  return (
+    <Link
+      to={`/assets/${asset.id}`}
+      className="ml-1 text-xs text-primary-600 hover:text-primary-800"
+    >
+      (View Asset)
+    </Link>
+  );
+}

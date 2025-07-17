@@ -1,5 +1,7 @@
 import { Building, MapPin, User, Phone, Mail } from "lucide-react";
 import { Job } from "../../types/job";
+import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 type JobLocationContactProps = {
   job: Job;
@@ -15,9 +17,44 @@ const JobLocationContact = ({ job }: JobLocationContactProps) => {
             <div className="flex items-start gap-2">
               <Building className="h-5 w-5 text-gray-400 mt-1" />
               <div>
-                <p className="font-medium">{job.locations.companies.name}</p>
-                <p>{job.locations.name}</p>
-                {job.units && <p>Unit: {job.units.unit_number}</p>}
+                <p className="font-medium">
+                  <Link
+                    to={`/companies/${
+                      job.locations.company_id || job.locations.companies?.id
+                    }`}
+                    className="text-primary-600 hover:text-primary-800"
+                  >
+                    {job.locations.companies.name}
+                  </Link>
+                </p>
+                <p>
+                  <Link
+                    to={`/locations/${job.locations.id}`}
+                    className="text-primary-600 hover:text-primary-800"
+                  >
+                    {job.locations.name}
+                  </Link>
+                </p>
+                {job.units && job.units.length > 0 ? (
+                  <div>
+                    Unit{job.units.length > 1 ? "s" : ""}:{" "}
+                    {job.units.map((u: any, idx: number) => (
+                      <span key={u.id}>
+                        <Link
+                          to={`/units/${u.id}`}
+                          className="text-primary-600 hover:text-primary-800"
+                        >
+                          {u.unit_number}
+                        </Link>
+                        {/* Asset info will be injected here */}
+                        <UnitAssetLink unitId={u.id} />
+                        {idx < job.units.length - 1 && ", "}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No unit assigned</p>
+                )}
               </div>
             </div>
             <div className="flex items-start gap-2">
@@ -83,3 +120,27 @@ const JobLocationContact = ({ job }: JobLocationContactProps) => {
 };
 
 export default JobLocationContact;
+
+function UnitAssetLink({ unitId }: { unitId: string }) {
+  const [asset, setAsset] = useState<any | null>(undefined);
+  useEffect(() => {
+    (async () => {
+      const res = await fetch(`/api/unit-assets-latest?unitId=${unitId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAsset(data.asset || null);
+      } else {
+        setAsset(null);
+      }
+    })();
+  }, [unitId]);
+  if (asset === undefined || asset === null) return null;
+  return (
+    <Link
+      to={`/assets/${asset.id}`}
+      className="ml-1 text-xs text-primary-600 hover:text-primary-800"
+    >
+      (View Asset)
+    </Link>
+  );
+}

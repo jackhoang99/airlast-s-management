@@ -989,12 +989,40 @@ const Jobs = () => {
                         {job.locations && (
                           <div className="text-sm text-gray-500">
                             <div className="font-medium text-gray-700">
-                              {job.locations.companies?.name} •{" "}
-                              {job.locations.name}
-                              {job.units &&
-                                ` • Units ${job.units
-                                  .map((u) => u.unit_number)
-                                  .join(", ")}`}
+                              <Link
+                                to={`/companies/${
+                                  job.locations.company_id ||
+                                  job.locations.companies?.id
+                                }`}
+                                className="text-primary-600 hover:text-primary-800"
+                              >
+                                {job.locations.companies?.name}
+                              </Link>
+                              {" • "}
+                              <Link
+                                to={`/locations/${job.locations.id}`}
+                                className="text-primary-600 hover:text-primary-800"
+                              >
+                                {job.locations.name}
+                              </Link>
+                              {job.units && job.units.length > 0 && (
+                                <span>
+                                  {" • Unit"}
+                                  {job.units.length > 1 ? "s" : ""}:{" "}
+                                  {job.units.map((u, idx) => (
+                                    <span key={u.id}>
+                                      <Link
+                                        to={`/units/${u.id}`}
+                                        className="text-primary-600 hover:text-primary-800"
+                                      >
+                                        {u.unit_number}
+                                      </Link>
+                                      <UnitAssetLink unitId={u.id} />
+                                      {idx < job.units.length - 1 && ", "}
+                                    </span>
+                                  ))}
+                                </span>
+                              )}
                             </div>
                             <div>
                               {job.locations.address} • {job.locations.city},{" "}
@@ -1166,3 +1194,27 @@ const Jobs = () => {
 };
 
 export default Jobs;
+
+function UnitAssetLink({ unitId }) {
+  const [asset, setAsset] = useState(undefined);
+  useEffect(() => {
+    (async () => {
+      const res = await fetch(`/api/unit-assets-latest?unitId=${unitId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAsset(data.asset || null);
+      } else {
+        setAsset(null);
+      }
+    })();
+  }, [unitId]);
+  if (asset === undefined || asset === null) return null;
+  return (
+    <Link
+      to={`/assets/${asset.id}`}
+      className="ml-1 text-xs text-primary-600 hover:text-primary-800"
+    >
+      (View Asset)
+    </Link>
+  );
+}
