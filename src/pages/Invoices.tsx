@@ -226,7 +226,7 @@ const Invoices = () => {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
@@ -292,7 +292,7 @@ const Invoices = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -304,7 +304,7 @@ const Invoices = () => {
             />
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full">
             <div>
               <select
                 name="status"
@@ -344,7 +344,7 @@ const Invoices = () => {
           </div>
         </div>
 
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
           <div className="flex items-center">
             <Filter size={16} className="text-gray-500 mr-2" />
             <span className="text-sm text-gray-500">
@@ -372,31 +372,31 @@ const Invoices = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[700px]">
               <thead className="bg-gray-50 text-left">
                 <tr>
-                  <th className="px-4 py-2 font-semibold text-gray-500">
+                  <th className="px-2 py-2 sm:px-4 sm:py-2 font-semibold text-gray-500">
                     INVOICE #
                   </th>
-                  <th className="px-4 py-2 font-semibold text-gray-500">
+                  <th className="px-2 py-2 sm:px-4 sm:py-2 font-semibold text-gray-500">
                     JOB NAME
                   </th>
-                  <th className="px-4 py-2 font-semibold text-gray-500">
+                  <th className="px-2 py-2 sm:px-4 sm:py-2 font-semibold text-gray-500">
                     DATE
                   </th>
-                  <th className="px-4 py-2 font-semibold text-gray-500">
+                  <th className="px-2 py-2 sm:px-4 sm:py-2 font-semibold text-gray-500">
                     DUE DATE
                   </th>
-                  <th className="px-4 py-2 font-semibold text-gray-500">
+                  <th className="px-2 py-2 sm:px-4 sm:py-2 font-semibold text-gray-500">
                     AMOUNT
                   </th>
-                  <th className="px-4 py-2 font-semibold text-gray-500">
+                  <th className="px-2 py-2 sm:px-4 sm:py-2 font-semibold text-gray-500">
                     STATUS
                   </th>
-                  <th className="px-4 py-2 font-semibold text-gray-500">
+                  <th className="px-2 py-2 sm:px-4 sm:py-2 font-semibold text-gray-500">
                     TYPE
                   </th>
-                  <th className="px-4 py-2 font-semibold text-gray-500">
+                  <th className="px-2 py-2 sm:px-4 sm:py-2 font-semibold text-gray-500">
                     ACTIONS
                   </th>
                 </tr>
@@ -409,22 +409,22 @@ const Invoices = () => {
                       index % 2 === 0 ? "bg-white" : "bg-gray-50"
                     }`}
                   >
-                    <td className="px-4 py-3 font-medium align-middle">
+                    <td className="px-2 py-2 sm:px-4 sm:py-3 font-medium align-middle">
                       {invoice.invoice_number}
                     </td>
-                    <td className="px-4 py-3 align-middle">
+                    <td className="px-2 py-2 sm:px-4 sm:py-3 align-middle">
                       {invoice.jobs?.name || "-"}
                     </td>
-                    <td className="px-4 py-3 align-middle">
+                    <td className="px-2 py-2 sm:px-4 sm:py-3 align-middle">
                       {invoice.issued_date || "-"}
                     </td>
-                    <td className="px-4 py-3 align-middle">
+                    <td className="px-2 py-2 sm:px-4 sm:py-3 align-middle">
                       {invoice.due_date || "-"}
                     </td>
-                    <td className="px-4 py-3 font-medium align-middle">
+                    <td className="px-2 py-2 sm:px-4 sm:py-3 font-medium align-middle">
                       ${Number(invoice.amount).toFixed(2)}
                     </td>
-                    <td className="px-4 py-3 align-middle">
+                    <td className="px-2 py-2 sm:px-4 sm:py-3 align-middle">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClass(
                           invoice.status
@@ -433,7 +433,7 @@ const Invoices = () => {
                         {invoice.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 align-middle">
+                    <td className="px-2 py-2 sm:px-4 sm:py-3 align-middle">
                       {invoice.type === "replacement" && (
                         <span className="inline-block px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-xs font-semibold">
                           Replacement
@@ -460,10 +460,10 @@ const Invoices = () => {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 align-middle">
-                      <div className="flex gap-1 items-center">
+                    <td className="px-2 py-2 sm:px-4 sm:py-3 align-middle">
+                      <div className="flex flex-wrap gap-1 items-center">
                         <button
-                          className="btn btn-secondary btn-xs"
+                          className="btn btn-secondary btn-xs w-full sm:w-auto"
                           title="View Invoice"
                           onClick={async () => {
                             setSelectedInvoice(invoice);
@@ -474,7 +474,7 @@ const Invoices = () => {
                           View
                         </button>
                         <button
-                          className="btn btn-primary btn-xs"
+                          className="btn btn-primary btn-xs w-full sm:w-auto"
                           title="Send Invoice"
                           onClick={async () => {
                             setSelectedInvoice(invoice);
@@ -485,7 +485,7 @@ const Invoices = () => {
                           Send
                         </button>
                         <button
-                          className="btn btn-success btn-xs"
+                          className="btn btn-success btn-xs w-full sm:w-auto"
                           title="Mark as Paid"
                           onClick={async () => {
                             setSelectedInvoice(invoice);

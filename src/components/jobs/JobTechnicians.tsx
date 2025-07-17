@@ -27,7 +27,7 @@ const JobTechnicians = ({
           {job.job_technicians.map((tech) => (
             <div
               key={tech.id}
-              className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg"
+              className="flex flex-col sm:flex-row items-start gap-4 p-4 bg-gray-50 rounded-lg relative"
             >
               <div className="w-10 h-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
                 <span className="text-sm font-medium">
@@ -35,8 +35,8 @@ const JobTechnicians = ({
                   {tech.users.last_name?.[0] || "?"}
                 </span>
               </div>
-              <div>
-                <div className="font-medium flex items-center">
+              <div className="w-full">
+                <div className="font-medium flex items-center flex-wrap">
                   {tech.users.first_name} {tech.users.last_name}
                   {tech.is_primary && (
                     <span className="ml-2 text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">
@@ -70,12 +70,12 @@ const JobTechnicians = ({
                   </button>
                 )}
                 <div className="text-sm text-gray-500 space-y-1 mt-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Phone size={14} />
                     {tech.users.phone ? (
                       <a
                         href={`tel:${tech.users.phone}`}
-                        className="text-primary-600 hover:text-primary-800"
+                        className="text-primary-600 hover:text-primary-800 break-all"
                       >
                         {tech.users.phone}
                       </a>
@@ -83,12 +83,12 @@ const JobTechnicians = ({
                       "No phone"
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Mail size={14} />
                     {tech.users.email ? (
                       <a
                         href={`mailto:${tech.users.email}`}
-                        className="text-primary-600 hover:text-primary-800"
+                        className="text-primary-600 hover:text-primary-800 break-all"
                       >
                         {tech.users.email}
                       </a>

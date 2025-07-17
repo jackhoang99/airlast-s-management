@@ -691,7 +691,7 @@ const TechnicianJobDetails = () => {
               {additionalContacts.map((contact) => (
                 <div
                   key={contact.id}
-                  className="flex items-center gap-4 text-sm"
+                  className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm break-words"
                 >
                   <User size={16} className="text-gray-400" />
                   <span className="font-medium">{contact.name}</span>
@@ -701,7 +701,7 @@ const TechnicianJobDetails = () => {
                   {contact.phone && (
                     <a
                       href={`tel:${contact.phone}`}
-                      className="text-primary-600 hover:text-primary-800 flex items-center gap-1"
+                      className="text-primary-600 hover:text-primary-800 flex items-center gap-1 break-all"
                     >
                       <Phone size={14} />
                       {contact.phone}
@@ -710,7 +710,7 @@ const TechnicianJobDetails = () => {
                   {contact.email && (
                     <a
                       href={`mailto:${contact.email}`}
-                      className="text-primary-600 hover:text-primary-800 flex items-center gap-1"
+                      className="text-primary-600 hover:text-primary-800 flex items-center gap-1 break-all"
                     >
                       <Mail size={14} />
                       {contact.email}
