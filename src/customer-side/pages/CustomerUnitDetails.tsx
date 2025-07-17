@@ -71,15 +71,15 @@ const CustomerUnitDetails = () => {
 
         setUnit(unitData);
 
-        // Fetch jobs for this unit
-        const { data: jobsData, error: jobsError } = await supabase
-          .from("jobs")
-          .select("*")
+        // Fetch jobs for this unit via job_units join table
+        const { data: jobUnitsData, error: jobUnitsError } = await supabase
+          .from("job_units")
+          .select("job_id, jobs:job_id(*)")
           .eq("unit_id", id)
-          .order("updated_at", { ascending: false });
-
-        if (jobsError) throw jobsError;
-        setJobs(jobsData || []);
+          .order("created_at", { ascending: false });
+        if (jobUnitsError) throw jobUnitsError;
+        const jobs = (jobUnitsData || []).map((ju: any) => ju.jobs);
+        setJobs(jobs);
       } catch (err) {
         console.error("Error fetching unit details:", err);
         setError(

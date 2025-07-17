@@ -83,7 +83,7 @@ const TechnicianJobs = () => {
             data: { user },
           } = await supabase.auth.getUser();
 
-          if (user) {
+          if (user && user.email) {
             console.log("Looking up technician with auth user:", user.email);
 
             // Try to find by email
@@ -187,8 +187,23 @@ const TechnicianJobs = () => {
               state,
               zip
             ),
-            units (
-              unit_number
+            job_units:job_units!inner (
+              id,
+              unit_id,
+              units:unit_id (
+                id,
+                unit_number,
+                status,
+                primary_contact_type,
+                primary_contact_email,
+                primary_contact_phone,
+                billing_entity,
+                billing_email,
+                billing_city,
+                billing_state,
+                billing_zip,
+                office
+              )
             )
           `
           )
@@ -527,7 +542,11 @@ const TechnicianJobs = () => {
                   </p>
                   <p className="text-sm text-gray-500 truncate">
                     {job.locations?.name}
-                    {job.units ? ` • Unit ${job.units.unit_number}` : ""}
+                    {job.job_units && job.job_units.length > 0
+                      ? ` • Units ${job.job_units
+                          .map((ju: any) => ju.units?.unit_number || ju.unit_id)
+                          .join(", ")}`
+                      : ""}
                   </p>
                   <div className="flex items-center mt-1 text-xs text-gray-500 truncate">
                     <MapPin size={12} className="mr-1" />

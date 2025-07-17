@@ -50,45 +50,57 @@ const AssetSummary = ({
         onChange={(e) => setSearch(e.target.value)}
       />
       {filteredAssets.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {shownAssets.map((asset) => (
-            <button
-              key={asset.id}
-              className="block w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
-              onClick={() => setModalAsset(asset)}
-              type="button"
-            >
-              <div className="flex justify-between items-center">
+            <div key={asset.id} className="bg-gray-50 rounded p-4 border">
+              <div className="font-medium text-primary-700 mb-1 text-base">
+                {asset.model?.model_number || "(No Model #)"} -{" "}
+                {asset.model?.serial_number || "(No Serial #)"}
+              </div>
+              <div className="text-sm text-gray-700 mb-1">
+                Unit: {asset.units?.unit_number || "-"}
+              </div>
+              <div className="text-xs text-gray-500 mb-1">
+                Location: {asset.units?.locations?.name || "-"}
+                {asset.units?.locations?.companies?.name && (
+                  <>
+                    {" | Company: "}
+                    {asset.units.locations.companies.name}
+                  </>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-700 mt-2">
                 <div>
-                  <p className="font-medium">
-                    {asset.model?.model_number || "No model number"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    S/N: {asset.model?.serial_number || "N/A"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Age: {asset.model?.age || "N/A"} • Tonnage:{" "}
-                    {asset.model?.tonnage || "N/A"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Unit Type: {asset.model?.unit_type || "N/A"} • System:{" "}
-                    {asset.model?.system_type || "N/A"}
-                  </p>
-                  {asset.model?.comment && (
-                    <p className="text-xs text-gray-500">
-                      Comment: {asset.model.comment}
-                    </p>
-                  )}
+                  <span className="font-semibold">Age:</span>{" "}
+                  {asset.model?.age ?? "-"}
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">
-                    {asset.inspection_date
-                      ? new Date(asset.inspection_date).toLocaleDateString()
-                      : ""}
-                  </p>
+                <div>
+                  <span className="font-semibold">Tonnage:</span>{" "}
+                  {asset.model?.tonnage ?? "-"}
+                </div>
+                <div>
+                  <span className="font-semibold">Unit Type:</span>{" "}
+                  {asset.model?.unit_type ?? "-"}
+                </div>
+                <div>
+                  <span className="font-semibold">Model #:</span>{" "}
+                  {asset.model?.model_number ?? "-"}
+                </div>
+                <div>
+                  <span className="font-semibold">Serial #:</span>{" "}
+                  {asset.model?.serial_number ?? "-"}
+                </div>
+                <div className="col-span-2">
+                  <span className="font-semibold">Comment:</span>{" "}
+                  {asset.model?.comment ?? "-"}
                 </div>
               </div>
-            </button>
+              {asset.model?.system_type && (
+                <div className="text-xs text-gray-500 mt-1">
+                  System: {asset.model.system_type}
+                </div>
+              )}
+            </div>
           ))}
           {!expanded && filteredAssets.length > 3 && (
             <p className="text-center text-sm text-gray-500">

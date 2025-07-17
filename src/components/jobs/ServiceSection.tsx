@@ -87,8 +87,12 @@ const ServiceSection = ({
               state,
               zip
             ),
-            units (
-              unit_number
+            job_units:job_units!inner (
+              unit_id,
+              units:unit_id (
+                id,
+                unit_number
+              )
             )
           `
           )
@@ -96,7 +100,9 @@ const ServiceSection = ({
           .single();
 
         if (error) throw error;
-        setJobDetails(data);
+        // Flatten units from job_units
+        const units = (data.job_units || []).map((ju: any) => ju.units);
+        setJobDetails({ ...data, units });
       } catch (err) {
         console.error("Error fetching job details:", err);
       }
@@ -779,9 +785,9 @@ const ServiceSection = ({
           }
           unit={
             jobDetails.units
-              ? {
-                  unit_number: jobDetails.units.unit_number,
-                }
+              ? jobDetails.units.map((u: any) => ({
+                  unit_number: u.unit_number,
+                }))
               : null
           }
           quoteType={activeTab}

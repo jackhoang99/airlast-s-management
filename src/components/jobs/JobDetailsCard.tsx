@@ -1,5 +1,5 @@
-import { Calendar, Clock } from 'lucide-react';
-import { Job } from '../../types/job';
+import { Calendar, Clock } from "lucide-react";
+import { Job } from "../../types/job";
 
 type JobDetailsCardProps = {
   job: Job;
@@ -8,40 +8,40 @@ type JobDetailsCardProps = {
 const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
-      case 'scheduled':
-        return 'bg-blue-100 text-blue-800';
-      case 'unscheduled':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
+      case "scheduled":
+        return "bg-blue-100 text-blue-800";
+      case "unscheduled":
+        return "bg-yellow-100 text-yellow-800";
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "cancelled":
+        return "bg-red-100 text-red-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const getTypeBadgeClass = (type: string) => {
     switch (type) {
-      case 'replacement maintenance':
-        return 'bg-purple-100 text-purple-800';
-      case 'service call':
-        return 'bg-cyan-100 text-cyan-800';
-      case 'inspection':
-        return 'bg-blue-100 text-blue-800';
+      case "replacement maintenance":
+        return "bg-purple-100 text-purple-800";
+      case "service call":
+        return "bg-cyan-100 text-cyan-800";
+      case "inspection":
+        return "bg-blue-100 text-blue-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const formatDateTime = (date: string) => {
-    return new Date(date).toLocaleString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
+    return new Date(date).toLocaleString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
     });
   };
 
@@ -78,12 +78,19 @@ const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
             )}
           </div>
           <h2 className="text-xl font-semibold">{job.name}</h2>
+          {job.units && job.units.length > 0 && (
+            <div className="mt-2 text-sm text-gray-500">
+              Units: {job.units.map((u: any) => u.unit_number).join(", ")}
+            </div>
+          )}
           {job.description && (
             <p className="text-gray-600 mt-2">{job.description}</p>
           )}
           {job.problem_description && (
             <div className="mt-4">
-              <h3 className="text-sm font-medium text-gray-500">Problem Description</h3>
+              <h3 className="text-sm font-medium text-gray-500">
+                Problem Description
+              </h3>
               <p className="text-gray-700">{job.problem_description}</p>
             </div>
           )}

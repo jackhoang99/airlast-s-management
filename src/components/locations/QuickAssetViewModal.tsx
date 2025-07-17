@@ -8,12 +8,14 @@ interface QuickAssetViewModalProps {
   open: boolean;
   onClose: () => void;
   location: Database["public"]["Tables"]["locations"]["Row"];
+  unit?: Database["public"]["Tables"]["units"]["Row"];
 }
 
 const QuickAssetViewModal = ({
   open,
   onClose,
   location,
+  unit,
 }: QuickAssetViewModalProps) => {
   const { supabase } = useSupabase();
   const [assets, setAssets] = useState<any[]>([]);
@@ -26,27 +28,38 @@ const QuickAssetViewModal = ({
       setIsLoading(true);
       setError(null);
       try {
-        // First, fetch all units for this location
-        const { data: units, error: unitsError } = await supabase
-          .from("units")
-          .select("id")
-          .eq("location_id", location.id);
-        if (unitsError) throw unitsError;
-        const unitIds = (units || []).map((u: any) => u.id);
-        if (unitIds.length === 0) {
-          setAssets([]);
-          setIsLoading(false);
-          return;
+        if (unit) {
+          // Fetch only assets for the selected unit
+          const { data: assetsData, error: assetsError } = await supabase
+            .from("assets")
+            .select(
+              `*, units(id, unit_number, locations(id, name, companies(name)))`
+            )
+            .eq("unit_id", unit.id);
+          if (assetsError) throw assetsError;
+          setAssets(assetsData || []);
+        } else {
+          // Fallback: fetch all units for this location (legacy behavior)
+          const { data: units, error: unitsError } = await supabase
+            .from("units")
+            .select("id")
+            .eq("location_id", location.id);
+          if (unitsError) throw unitsError;
+          const unitIds = (units || []).map((u: any) => u.id);
+          if (unitIds.length === 0) {
+            setAssets([]);
+            setIsLoading(false);
+            return;
+          }
+          const { data: assetsData, error: assetsError } = await supabase
+            .from("assets")
+            .select(
+              `*, units(id, unit_number, locations(id, name, companies(name)))`
+            )
+            .in("unit_id", unitIds);
+          if (assetsError) throw assetsError;
+          setAssets(assetsData || []);
         }
-        // Then fetch all assets for these units
-        const { data: assetsData, error: assetsError } = await supabase
-          .from("assets")
-          .select(
-            `*, units(id, unit_number, locations(id, name, companies(name)))`
-          )
-          .in("unit_id", unitIds);
-        if (assetsError) throw assetsError;
-        setAssets(assetsData || []);
       } catch (err) {
         setError("Failed to load assets");
       } finally {
@@ -54,7 +67,7 @@ const QuickAssetViewModal = ({
       }
     };
     fetchAssets();
-  }, [open, location, supabase]);
+  }, [open, location, supabase, unit]);
 
   if (!open) return null;
 
@@ -68,7 +81,9 @@ const QuickAssetViewModal = ({
           <X size={20} />
         </button>
         <h2 className="text-xl font-semibold mb-4">
-          Assets for {location.name}
+          {unit
+            ? `Assets for ${unit.unit_number}`
+            : `Assets for ${location.name}`}
         </h2>
         {isLoading ? (
           <div className="flex justify-center py-8">

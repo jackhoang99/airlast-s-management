@@ -72,8 +72,12 @@ const CustomerLocationDetails = () => {
           .select(
             `
             *,
-            units (
-              unit_number
+            job_units:job_units!inner (
+              unit_id,
+              units:unit_id (
+                id,
+                unit_number
+              )
             )
           `
           )
@@ -320,7 +324,20 @@ const CustomerLocationDetails = () => {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {job.units ? `Unit ${job.units.unit_number}` : "-"}
+                      {job.job_units && job.job_units.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {job.job_units.map((ju: any) => (
+                            <span
+                              key={ju.unit_id}
+                              className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800"
+                            >
+                              Unit {ju.units.unit_number}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {job.schedule_start

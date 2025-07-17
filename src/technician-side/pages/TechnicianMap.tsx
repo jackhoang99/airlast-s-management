@@ -398,8 +398,12 @@ const TechnicianMap = () => {
               state,
               zip
             ),
-            units (
-              unit_number
+            job_units:job_units!inner (
+              unit_id,
+              units:unit_id (
+                id,
+                unit_number
+              )
             )
           `
           )
@@ -1068,7 +1072,11 @@ const TechnicianMap = () => {
                         <h3 className="font-medium">{job.name}</h3>
                         <p className="text-sm text-gray-500">
                           {job.locations?.name}
-                          {job.units ? ` • Unit ${job.units.unit_number}` : ""}
+                          {job.units && job.units.length > 0
+                            ? ` • Units ${job.units
+                                .map((unit: any) => unit.unit_number)
+                                .join(", ")}`
+                            : ""}
                         </p>
                         <div className="flex items-center mt-1 text-xs text-gray-500">
                           <MapPin size={12} className="mr-1" />
@@ -1153,7 +1161,11 @@ const TechnicianMap = () => {
                     <h3 className="font-medium">{job.name}</h3>
                     <p className="text-sm text-gray-500">
                       {job.locations?.name}
-                      {job.units ? ` • Unit ${job.units.unit_number}` : ""}
+                      {job.units && job.units.length > 0
+                        ? ` • Units ${job.units
+                            .map((unit: any) => unit.unit_number)
+                            .join(", ")}`
+                        : ""}
                     </p>
                   </div>
                   <button

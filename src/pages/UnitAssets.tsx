@@ -122,7 +122,6 @@ const UnitAssets = () => {
           </h1>
         </div>
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
           <div className="card">
@@ -167,115 +166,71 @@ const UnitAssets = () => {
         </div>
 
         <div className="lg:col-span-2">
-          {selectedAsset ? (
-            <div className="card">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-semibold flex items-center">
-                  <Info className="h-5 w-5 mr-2 text-primary-600" />
-                  Asset Details
-                </h2>
-                <div className="text-sm text-gray-500">
-                  Last updated: {formatDate(selectedAsset.updated_at)}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">
-                    Model Information
-                  </h3>
-                  <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
-                    <div>
-                      <label className="text-xs text-gray-500">
-                        Model Number
-                      </label>
-                      <p className="font-medium">
-                        {selectedAsset.model?.model_number || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">
-                        Serial Number
-                      </label>
-                      <p className="font-medium">
-                        {selectedAsset.model?.serial_number || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">
-                        Age (Years)
-                      </label>
-                      <p className="font-medium">
-                        {selectedAsset.model?.age || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">Tonnage</label>
-                      <p className="font-medium">
-                        {selectedAsset.model?.tonnage || "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">
-                    System Information
-                  </h3>
-                  <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
-                    <div>
-                      <label className="text-xs text-gray-500">Unit Type</label>
-                      <p className="font-medium">
-                        {selectedAsset.model?.unit_type || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">
-                        System Type
-                      </label>
-                      <p className="font-medium">
-                        {selectedAsset.model?.system_type || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">
-                        Inspection Date
-                      </label>
-                      <p className="font-medium">
-                        {formatDate(selectedAsset.inspection_date)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {selectedAsset.model?.job_id && (
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                  <h3 className="text-sm font-medium text-blue-700 mb-2 flex items-center">
-                    <FileText className="h-4 w-4 mr-2" />
-                    Related Job Information
-                  </h3>
-                  <div>
-                    <Link
-                      to={`/jobs/${selectedAsset.model.job_id}`}
-                      className="text-primary-600 hover:text-primary-800"
-                    >
-                      View Job Details
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
+          {assets.length === 0 ? (
             <div className="card">
               <div className="text-center py-12">
                 <Info className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">Select an asset to view details</p>
+                <p className="text-gray-500">No asset records found</p>
               </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {assets.map((asset) => (
+                <div key={asset.id} className="bg-gray-50 rounded p-4 border">
+                  <div className="font-medium text-primary-700 mb-1 text-base">
+                    {asset.model?.model_number || "(No Model #)"} -{" "}
+                    {asset.model?.serial_number || "(No Serial #)"}
+                  </div>
+                  <div className="text-sm text-gray-700 mb-1">
+                    Unit: {unit.unit_number}
+                  </div>
+                  <div className="text-xs text-gray-500 mb-1">
+                    Location: {unit.locations?.name || "-"}
+                    {unit.locations?.companies?.name && (
+                      <>
+                        {" | Company: "}
+                        {unit.locations.companies.name}
+                      </>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-700 mt-2">
+                    <div>
+                      <span className="font-semibold">Age:</span>{" "}
+                      {asset.model?.age ?? "-"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Tonnage:</span>{" "}
+                      {asset.model?.tonnage ?? "-"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Unit Type:</span>{" "}
+                      {asset.model?.unit_type ?? "-"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Model #:</span>{" "}
+                      {asset.model?.model_number ?? "-"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Serial #:</span>{" "}
+                      {asset.model?.serial_number ?? "-"}
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-semibold">Comment:</span>{" "}
+                      {asset.model?.comment ?? "-"}
+                    </div>
+                  </div>
+                  {asset.model?.system_type && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      System: {asset.model.system_type}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
-      </div>
+      </div>{" "}
+      {/* <-- Add this to close the top-level container */}
     </div>
   );
 };

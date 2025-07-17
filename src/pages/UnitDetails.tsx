@@ -122,21 +122,14 @@ const UnitDetails = () => {
       if (!UUID_REGEX.test(id)) return;
 
       try {
-        const { data, error: fetchError } = await supabase
-          .from("jobs")
-          .select(
-            `
-            *,
-            job_items (
-              total_cost
-            )
-          `
-          )
-          .eq("unit_id", id)
-          .order("created_at", { ascending: false });
-
-        if (fetchError) throw fetchError;
-        setJobs(data || []);
+        // Fetch jobs for this unit via job_units join table
+        const { data: jobUnitsData, error: jobUnitsError } = await supabase
+          .from("job_units")
+          .select("job_id, jobs:job_id(*)")
+          .eq("unit_id", id);
+        if (jobUnitsError) throw jobUnitsError;
+        const jobs = (jobUnitsData || []).map((ju: any) => ju.jobs);
+        setJobs(jobs);
       } catch (err) {
         console.error("Error fetching jobs for unit:", err);
       }

@@ -45,7 +45,7 @@ export default function AllQuotes() {
       const { data: quotesData, error } = await supabase
         .from("job_quotes")
         .select(
-          "*, jobs:job_id(number, name, contact_name, contact_email, locations(name, companies(name)))"
+          "*, jobs:job_id(number, name, contact_name, contact_email, locations(name, companies(name)), job_units:job_units!inner(unit_id, units:unit_id(id, unit_number)))"
         )
         .order("created_at", { ascending: false });
       if (!error && quotesData) {
@@ -304,7 +304,7 @@ export default function AllQuotes() {
                                   await supabase
                                     .from("job_quotes")
                                     .select(
-                                      "*, jobs:job_id(number, name, contact_name, contact_email, locations(name, companies(name)))"
+                                      "*, jobs:job_id(number, name, contact_name, contact_email, locations(name, companies(name)), job_units:job_units!inner(unit_id, units:unit_id(id, unit_number)))"
                                     )
                                     .order("created_at", { ascending: false });
                                 if (!fetchError && quotesData)

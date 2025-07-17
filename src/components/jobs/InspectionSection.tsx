@@ -7,12 +7,14 @@ type InspectionSectionProps = {
   jobId: string;
   inspectionData?: any[];
   onInspectionUpdated?: () => void;
+  jobUnits?: { id: string; unit_id: string; unit_number: string }[];
 };
 
 const InspectionSection = ({
   jobId,
   inspectionData = [],
   onInspectionUpdated,
+  jobUnits, // Add this line
 }: InspectionSectionProps) => {
   const { supabase } = useSupabase();
   const [isLoading, setIsLoading] = useState(false);
@@ -50,6 +52,26 @@ const InspectionSection = ({
     try {
       setIsLoading(true);
 
+      // First, delete the asset(s) associated with this inspection
+      // Find all assets where model.inspection_id === inspectionId
+      const { data: assetsToDelete, error: assetFetchError } = await supabase
+        .from("assets")
+        .select("id, model");
+      if (assetFetchError) throw assetFetchError;
+      if (assetsToDelete && Array.isArray(assetsToDelete)) {
+        for (const asset of assetsToDelete) {
+          let model = asset.model;
+          if (typeof model === "string") {
+            try {
+              model = JSON.parse(model);
+            } catch {}
+          }
+          if (model && model.inspection_id === inspectionId) {
+            await supabase.from("assets").delete().eq("id", asset.id);
+          }
+        }
+      }
+
       // Then delete the inspection
       const { error } = await supabase
         .from("job_inspections")
@@ -81,10 +103,11 @@ const InspectionSection = ({
       setIsLoading(true);
 
       // Update all inspections to mark them as completed
-      const { error: updateError } = await supabase
+      const { data: updatedInspections, error: updateError } = await supabase
         .from("job_inspections")
         .update({ completed: true })
-        .eq("job_id", jobId);
+        .eq("job_id", jobId)
+        .select();
 
       if (updateError) throw updateError;
 
@@ -92,6 +115,63 @@ const InspectionSection = ({
       setLocalInspectionData((prev) =>
         prev.map((item) => ({ ...item, completed: true }))
       );
+
+      // For each completed inspection, create an asset if not already present
+      if (updatedInspections && Array.isArray(updatedInspections)) {
+        for (const inspection of updatedInspections) {
+          // Find the job_unit to get the unit_id
+          let unit_id = null;
+          if (inspection.job_unit_id && jobUnits) {
+            const jobUnit = jobUnits.find(
+              (u) => u.id === inspection.job_unit_id
+            );
+            if (jobUnit && jobUnit.unit_id) {
+              unit_id = jobUnit.unit_id;
+            }
+          }
+          // If still not found, skip
+          if (!unit_id) continue;
+
+          // Check if asset already exists for this inspection
+          const { data: existingAssets, error: assetCheckError } =
+            await supabase
+              .from("assets")
+              .select("id, model")
+              .eq("unit_id", unit_id);
+
+          if (assetCheckError) continue;
+          const alreadyExists = (existingAssets || []).some((asset) => {
+            try {
+              const model =
+                typeof asset.model === "string"
+                  ? JSON.parse(asset.model)
+                  : asset.model;
+              return model && model.inspection_id === inspection.id;
+            } catch {
+              return false;
+            }
+          });
+          if (alreadyExists) continue;
+
+          // Insert asset in the format from your screenshot
+          const model = {
+            age: inspection.age,
+            job_id: inspection.job_id,
+            tonnage: inspection.tonnage,
+            unit_type: inspection.unit_type,
+            system_type: inspection.system_type,
+            model_number: inspection.model_number,
+            serial_number: inspection.serial_number,
+            inspection_id: inspection.id,
+            comment: inspection.comment,
+          };
+          await supabase.from("assets").insert({
+            unit_id,
+            model,
+            inspection_date: new Date().toISOString(),
+          });
+        }
+      }
 
       if (onInspectionUpdated) {
         onInspectionUpdated();
@@ -120,6 +200,7 @@ const InspectionSection = ({
             setShowInspectionForm(false);
             setInspectionToEdit(null);
           }}
+          jobUnits={jobUnits} // Pass jobUnits to InspectionForm
         />
       ) : (
         <>
@@ -219,6 +300,16 @@ const InspectionSection = ({
                       </p>
                       <p className="text-sm">
                         {inspection.system_type || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">Unit</p>
+                      <p className="text-sm">
+                        {jobUnits && inspection.job_unit_id
+                          ? jobUnits.find(
+                              (u) => u.id === inspection.job_unit_id
+                            )?.unit_number || "N/A"
+                          : "N/A"}
                       </p>
                     </div>
                     <div>

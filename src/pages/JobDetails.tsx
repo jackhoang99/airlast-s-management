@@ -8,6 +8,9 @@ import {
   ChevronUp,
   Clipboard,
   FileText,
+  Phone,
+  Mail,
+  User,
 } from "lucide-react";
 import { Job, JobItem } from "../types/job";
 import JobHeader from "../components/jobs/JobHeader";
@@ -52,6 +55,7 @@ const JobDetails = () => {
   >("repair");
   const [repairData, setRepairData] = useState<any | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [additionalContacts, setAdditionalContacts] = useState<any[]>([]);
 
   // Collapsible section states - all set to true (expanded) by default
   const [showServiceSection, setShowServiceSection] = useState(true);
@@ -79,7 +83,7 @@ const JobDetails = () => {
           return;
         }
 
-        // Fetch job details
+        // Fetch job details with all associated units via job_units
         const { data: jobData, error: jobError } = await supabase
           .from("jobs")
           .select(
@@ -96,18 +100,23 @@ const JobDetails = () => {
                 name
               )
             ),
-            units (
-              unit_number,
-              status,
-              primary_contact_type,
-              primary_contact_email,
-              primary_contact_phone,
-              billing_entity,
-              billing_email,
-              billing_city,
-              billing_state,
-              billing_zip,
-              office
+            job_units:job_units!inner (
+              id,
+              unit_id,
+              units:unit_id (
+                id,
+                unit_number,
+                status,
+                primary_contact_type,
+                primary_contact_email,
+                primary_contact_phone,
+                billing_entity,
+                billing_email,
+                billing_city,
+                billing_state,
+                billing_zip,
+                office
+              )
             ),
             job_technicians (
               id,
@@ -134,7 +143,14 @@ const JobDetails = () => {
           return;
         }
 
-        setJob(jobData);
+        // Flatten job_units to include the join table's id and unit_id for inspection linkage
+        const jobUnits = (jobData.job_units || []).map((ju: any) => ({
+          id: ju.id, // job_units table PK
+          unit_id: ju.unit_id, // unit_id from job_units
+          unit_number: ju.units.unit_number,
+        }));
+        const units = (jobData.job_units || []).map((ju: any) => ju.units);
+        setJob({ ...jobData, units, jobUnits });
 
         // If the job has a quote sent, store the timestamp for comparison
         if (jobData.quote_sent && jobData.quote_sent_at) {
@@ -203,6 +219,17 @@ const JobDetails = () => {
           // Don't throw here, just log the error
         } else {
           setJobAssets(assetsData || []);
+        }
+
+        // Fetch additional contacts
+        if (supabase && id) {
+          supabase
+            .from("job_contacts")
+            .select("*")
+            .eq("job_id", id)
+            .then(({ data, error }) => {
+              if (!error && data) setAdditionalContacts(data);
+            });
         }
       } catch (err: any) {
         console.error("Error fetching job details:", err);
@@ -291,9 +318,22 @@ const JobDetails = () => {
               name
             )
           ),
-          units (
-            unit_number,
-            status
+          job_units:job_units!inner (
+            unit_id,
+            units:unit_id (
+              id,
+              unit_number,
+              status,
+              primary_contact_type,
+              primary_contact_email,
+              primary_contact_phone,
+              billing_entity,
+              billing_email,
+              billing_city,
+              billing_state,
+              billing_zip,
+              office
+            )
           ),
           job_technicians (
             id,
@@ -318,7 +358,9 @@ const JobDetails = () => {
         throw new Error("Failed to refresh job data");
       }
 
-      setJob(updatedJob);
+      // Flatten units from job_units
+      const units = (updatedJob.job_units || []).map((ju: any) => ju.units);
+      setJob({ ...updatedJob, units });
       setShowAppointmentModal(false);
     } catch (err) {
       console.error("Error updating technicians:", err);
@@ -531,6 +573,48 @@ const JobDetails = () => {
               <div className="mt-4">
                 <JobLocationContact job={job} />
 
+                {additionalContacts.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="text-md font-medium mb-2">
+                      Additional Contacts
+                    </h3>
+                    <div className="space-y-2">
+                      {additionalContacts.map((contact) => (
+                        <div
+                          key={contact.id}
+                          className="flex items-center gap-4 text-sm"
+                        >
+                          <User size={16} className="text-gray-400" />
+                          <span className="font-medium">{contact.name}</span>
+                          {contact.type && (
+                            <span className="text-gray-500">
+                              ({contact.type})
+                            </span>
+                          )}
+                          {contact.phone && (
+                            <a
+                              href={`facetime:${contact.phone}`}
+                              className="text-primary-600 hover:text-primary-800 flex items-center gap-1"
+                            >
+                              <Phone size={14} />
+                              {contact.phone}
+                            </a>
+                          )}
+                          {contact.email && (
+                            <a
+                              href={`mailto:${contact.email}`}
+                              className="text-primary-600 hover:text-primary-800 flex items-center gap-1"
+                            >
+                              <Mail size={14} />
+                              {contact.email}
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <hr className="my-4" />
 
                 <JobTechnicians
@@ -546,7 +630,7 @@ const JobDetails = () => {
           <div className="card">
             <div
               className="flex justify-between items-center cursor-pointer"
-              onClick={() => setShowInspectionSection(!showInspectionSection)}
+              onClick={() => setShowUnitSection(!showUnitSection)}
             >
               <h2 className="text-lg font-medium">Unit Information</h2>
               <span className="text-gray-500">
@@ -616,6 +700,7 @@ const JobDetails = () => {
                         });
                     }
                   }}
+                  jobUnits={job.jobUnits}
                 />
               </div>
             )}

@@ -1,32 +1,45 @@
-import { useState, useEffect } from 'react';
-import { Link, useOutletContext, useLocation } from 'react-router-dom';
-import { useSupabase } from '../../lib/supabase-context';
-import { FileText, Search, Filter, Calendar, Clock, MapPin, Building2, AlertTriangle, Package } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Link, useOutletContext, useLocation } from "react-router-dom";
+import { useSupabase } from "../../lib/supabase-context";
+import {
+  FileText,
+  Search,
+  Filter,
+  Calendar,
+  Clock,
+  MapPin,
+  Building2,
+  AlertTriangle,
+  Package,
+} from "lucide-react";
 
 const CustomerJobs = () => {
   const { supabase } = useSupabase();
-  const { company, searchTerm: globalSearchTerm } = useOutletContext<{ company: any, searchTerm: string }>();
+  const { company, searchTerm: globalSearchTerm } = useOutletContext<{
+    company: any;
+    searchTerm: string;
+  }>();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
-  const statusParam = searchParams.get('status');
-  const unitIdParam = searchParams.get('unitId');
-  
+  const statusParam = searchParams.get("status");
+  const unitIdParam = searchParams.get("unitId");
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
-    jobNumber: '',
-    location: '',
-    unit: '',
-    status: statusParam || '',
-    dateFrom: '',
-    dateTo: '',
+    jobNumber: "",
+    location: "",
+    unit: "",
+    status: statusParam || "",
+    dateFrom: "",
+    dateTo: "",
   });
   const [showFilters, setShowFilters] = useState(false);
   const [locations, setLocations] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
-  const [assets, setAssets] = useState<{[key: string]: any[]}>({});
+  const [assets, setAssets] = useState<{ [key: string]: any[] }>({});
 
   useEffect(() => {
     // Set local search term from global search if provided
@@ -41,41 +54,42 @@ const CustomerJobs = () => {
 
       try {
         setIsLoading(true);
-        
+
         // First get all locations for this company
         const { data: locationData, error: locationError } = await supabase
-          .from('locations')
-          .select('id, name')
-          .eq('company_id', company.id)
-          .order('name');
-          
+          .from("locations")
+          .select("id, name")
+          .eq("company_id", company.id)
+          .order("name");
+
         if (locationError) throw locationError;
         setLocations(locationData || []);
-        
-        const locationIds = locationData?.map(loc => loc.id) || [];
-        
+
+        const locationIds = locationData?.map((loc) => loc.id) || [];
+
         if (locationIds.length === 0) {
           setJobs([]);
           setIsLoading(false);
           return;
         }
-        
+
         // Get all units for these locations
         const { data: unitData, error: unitError } = await supabase
-          .from('units')
-          .select('id, unit_number, location_id')
-          .in('location_id', locationIds)
-          .order('unit_number');
-          
+          .from("units")
+          .select("id, unit_number, location_id")
+          .in("location_id", locationIds)
+          .order("unit_number");
+
         if (unitError) throw unitError;
         setUnits(unitData || []);
-        
-        const unitIds = unitData?.map(unit => unit.id) || [];
-        
+
+        const unitIds = unitData?.map((unit) => unit.id) || [];
+
         // Then fetch all jobs for these locations
         let query = supabase
-          .from('jobs')
-          .select(`
+          .from("jobs")
+          .select(
+            `
             *,
             locations (
               id,
@@ -85,129 +99,139 @@ const CustomerJobs = () => {
               state,
               zip
             ),
-            units (
-              id,
-              unit_number
+            job_units:job_units!inner (
+              unit_id,
+              units:unit_id (
+                id,
+                unit_number
+              )
             )
-          `)
-          .in('location_id', locationIds);
-          
+          `
+          )
+          .in("location_id", locationIds);
+
         // Apply filters
         if (filters.jobNumber) {
-          query = query.ilike('number', `%${filters.jobNumber}%`);
+          query = query.ilike("number", `%${filters.jobNumber}%`);
         }
         if (filters.location) {
-          query = query.eq('location_id', filters.location);
+          query = query.eq("location_id", filters.location);
         }
         if (filters.unit || unitIdParam) {
-          query = query.eq('unit_id', filters.unit || unitIdParam);
+          query = query.eq("unit_id", filters.unit || unitIdParam);
         }
         if (filters.status) {
-          query = query.eq('status', filters.status);
+          query = query.eq("status", filters.status);
         }
         if (filters.dateFrom) {
-          query = query.gte('schedule_start', filters.dateFrom);
+          query = query.gte("schedule_start", filters.dateFrom);
         }
         if (filters.dateTo) {
-          query = query.lte('schedule_start', filters.dateTo);
+          query = query.lte("schedule_start", filters.dateTo);
         }
-        
-        const { data, error: jobsError } = await query.order('updated_at', { ascending: false });
-        
+
+        const { data, error: jobsError } = await query.order("updated_at", {
+          ascending: false,
+        });
+
         if (jobsError) throw jobsError;
         setJobs(data || []);
-        
+
         // Fetch assets for units
         if (unitIds.length > 0) {
           const { data: assetsData, error: assetsError } = await supabase
-            .from('assets')
-            .select(`
+            .from("assets")
+            .select(
+              `
               *,
               units (
                 id,
                 unit_number
               )
-            `)
-            .in('unit_id', unitIds);
-            
+            `
+            )
+            .in("unit_id", unitIds);
+
           if (assetsError) throw assetsError;
-          
+
           // Group assets by unit_id
-          const assetsByUnit: {[key: string]: any[]} = {};
-          assetsData?.forEach(asset => {
+          const assetsByUnit: { [key: string]: any[] } = {};
+          assetsData?.forEach((asset) => {
             if (!assetsByUnit[asset.unit_id]) {
               assetsByUnit[asset.unit_id] = [];
             }
             assetsByUnit[asset.unit_id].push(asset);
           });
-          
+
           setAssets(assetsByUnit);
         }
       } catch (err) {
-        console.error('Error fetching jobs:', err);
-        setError('Failed to load jobs');
+        console.error("Error fetching jobs:", err);
+        setError("Failed to load jobs");
       } finally {
         setIsLoading(false);
       }
     };
-    
+
     fetchJobs();
   }, [supabase, company, filters, unitIdParam]);
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const resetFilters = () => {
     setFilters({
-      jobNumber: '',
-      location: '',
-      unit: '',
-      status: '',
-      dateFrom: '',
-      dateTo: '',
+      jobNumber: "",
+      location: "",
+      unit: "",
+      status: "",
+      dateFrom: "",
+      dateTo: "",
     });
-    setSearchTerm('');
+    setSearchTerm("");
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'Not scheduled';
+    if (!dateString) return "Not scheduled";
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
   const formatTime = (dateString: string) => {
-    if (!dateString) return '';
+    if (!dateString) return "";
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
-      case 'scheduled':
-        return 'bg-blue-100 text-blue-800';
-      case 'unscheduled':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
+      case "scheduled":
+        return "bg-blue-100 text-blue-800";
+      case "unscheduled":
+        return "bg-yellow-100 text-yellow-800";
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "cancelled":
+        return "bg-red-100 text-red-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
-  const filteredJobs = jobs.filter(job => {
+  const filteredJobs = jobs.filter((job) => {
     if (!searchTerm) return true;
-    
+
     const searchLower = searchTerm.toLowerCase();
     return (
       job.name.toLowerCase().includes(searchLower) ||
@@ -236,20 +260,23 @@ const CustomerJobs = () => {
               className="pl-9 input w-full"
             />
           </div>
-          
+
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="btn btn-secondary"
           >
             <Filter size={16} className="mr-2" />
-            {showFilters ? 'Hide Filters' : 'Show Filters'}
+            {showFilters ? "Hide Filters" : "Show Filters"}
           </button>
         </div>
 
         {showFilters && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
-              <label htmlFor="jobNumber" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="jobNumber"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Job Number
               </label>
               <input
@@ -261,9 +288,12 @@ const CustomerJobs = () => {
                 className="input"
               />
             </div>
-            
+
             <div>
-              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="location"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Location
               </label>
               <select
@@ -274,39 +304,47 @@ const CustomerJobs = () => {
                 className="select"
               >
                 <option value="">All Locations</option>
-                {locations.map(location => (
+                {locations.map((location) => (
                   <option key={location.id} value={location.id}>
                     {location.name}
                   </option>
                 ))}
               </select>
             </div>
-            
+
             <div>
-              <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="unit"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Unit
               </label>
               <select
                 id="unit"
                 name="unit"
-                value={filters.unit || unitIdParam || ''}
+                value={filters.unit || unitIdParam || ""}
                 onChange={handleFilterChange}
                 className="select"
               >
                 <option value="">All Units</option>
                 {units
-                  .filter(unit => !filters.location || unit.location_id === filters.location)
-                  .map(unit => (
+                  .filter(
+                    (unit) =>
+                      !filters.location || unit.location_id === filters.location
+                  )
+                  .map((unit) => (
                     <option key={unit.id} value={unit.id}>
                       Unit {unit.unit_number}
                     </option>
-                  ))
-                }
+                  ))}
               </select>
             </div>
-            
+
             <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="status"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Status
               </label>
               <select
@@ -323,9 +361,12 @@ const CustomerJobs = () => {
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>
-            
+
             <div>
-              <label htmlFor="dateFrom" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="dateFrom"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Date From
               </label>
               <input
@@ -337,9 +378,12 @@ const CustomerJobs = () => {
                 className="input"
               />
             </div>
-            
+
             <div>
-              <label htmlFor="dateTo" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="dateTo"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Date To
               </label>
               <input
@@ -389,20 +433,34 @@ const CustomerJobs = () => {
             <table className="w-full">
               <thead className="bg-gray-50 text-left">
                 <tr>
-                  <th className="px-4 py-3 text-sm font-medium text-gray-500">JOB #</th>
-                  <th className="px-4 py-3 text-sm font-medium text-gray-500">SERVICE</th>
-                  <th className="px-4 py-3 text-sm font-medium text-gray-500">LOCATION</th>
-                  <th className="px-4 py-3 text-sm font-medium text-gray-500">UNIT</th>
-                  <th className="px-4 py-3 text-sm font-medium text-gray-500">DATE</th>
-                  <th className="px-4 py-3 text-sm font-medium text-gray-500">STATUS</th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
+                    JOB #
+                  </th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
+                    SERVICE
+                  </th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
+                    LOCATION
+                  </th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
+                    UNIT
+                  </th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
+                    DATE
+                  </th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
+                    STATUS
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredJobs.map(job => (
+                {filteredJobs.map((job) => (
                   <tr key={job.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium">{job.number}</td>
+                    <td className="px-4 py-3 text-sm font-medium">
+                      {job.number}
+                    </td>
                     <td className="px-4 py-3 text-sm">
-                      <Link 
+                      <Link
                         to={`/customer/jobs/${job.id}`}
                         className="text-primary-600 hover:text-primary-800"
                       >
@@ -420,30 +478,38 @@ const CustomerJobs = () => {
                         <div className="flex items-center">
                           <Building2 size={14} className="text-gray-400 mr-1" />
                           <span className="flex items-center">
-                            Unit {job.units.unit_number}
-                            {assets[job.unit_id] && assets[job.unit_id].length > 0 && (
-                              <span className="ml-2 flex items-center text-primary-600">
-                                <Package size={12} className="mr-1" />
-                                <Link 
-                                  to={`/customer/units/${job.unit_id}/assets`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="text-primary-600 hover:text-primary-800"
-                                >
-                                  {assets[job.unit_id].length} assets
-                                </Link>
+                            {job.units.map((unit) => (
+                              <span key={unit.id} className="mr-1">
+                                Unit {unit.unit_number}
+                                {assets[unit.id] &&
+                                  assets[unit.id].length > 0 && (
+                                    <span className="ml-2 flex items-center text-primary-600">
+                                      <Package size={12} className="mr-1" />
+                                      <Link
+                                        to={`/customer/units/${unit.id}/assets`}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="text-primary-600 hover:text-primary-800"
+                                      >
+                                        {assets[unit.id].length} assets
+                                      </Link>
+                                    </span>
+                                  )}
                               </span>
-                            )}
+                            ))}
                           </span>
                         </div>
                       ) : (
-                        '-'
+                        "-"
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {job.schedule_start ? (
                         <div>
                           <div className="flex items-center">
-                            <Calendar size={14} className="text-gray-400 mr-1" />
+                            <Calendar
+                              size={14}
+                              className="text-gray-400 mr-1"
+                            />
                             <span>{formatDate(job.schedule_start)}</span>
                           </div>
                           <div className="flex items-center text-xs text-gray-500 mt-1">
@@ -452,11 +518,15 @@ const CustomerJobs = () => {
                           </div>
                         </div>
                       ) : (
-                        'Not scheduled'
+                        "Not scheduled"
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClass(job.status)}`}>
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClass(
+                          job.status
+                        )}`}
+                      >
                         {job.status}
                       </span>
                     </td>

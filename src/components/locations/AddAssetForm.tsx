@@ -20,6 +20,7 @@ interface AddAssetFormProps {
   companyId?: string;
   locationId?: string;
   unitId?: string;
+  units?: any[]; // new prop: restrict unit selection
   onSuccess?: () => void;
   onCancel?: () => void;
 }
@@ -38,13 +39,14 @@ const AddAssetForm = ({
   companyId,
   locationId,
   unitId,
+  units: propUnits,
   onSuccess,
   onCancel,
 }: AddAssetFormProps) => {
   const { supabase } = useSupabase();
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [locations, setLocations] = useState<LocationOption[]>([]);
-  const [units, setUnits] = useState<UnitOption[]>([]);
+  const [units, setUnits] = useState<UnitOption[]>(propUnits || []);
   const [companyName, setCompanyName] = useState("");
 
   const [selectedCompany, setSelectedCompany] = useState<string>(
@@ -99,8 +101,12 @@ const AddAssetForm = ({
     fetchLocations();
   }, [supabase, selectedCompany]);
 
-  // Fetch units for selected location
+  // Fetch units for selected location, unless propUnits is provided
   useEffect(() => {
+    if (propUnits) {
+      setUnits(propUnits);
+      return;
+    }
     if (!selectedLocation) return;
     const fetchUnits = async () => {
       const { data, error } = await supabase
@@ -111,7 +117,7 @@ const AddAssetForm = ({
       if (!error) setUnits(data || []);
     };
     fetchUnits();
-  }, [supabase, selectedLocation]);
+  }, [supabase, selectedLocation, propUnits]);
 
   // Pre-populate location/unit if provided
   useEffect(() => {

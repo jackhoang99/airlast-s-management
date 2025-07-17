@@ -84,29 +84,25 @@ const PublicUnitDetails = () => {
         if (fetchError) throw fetchError;
         setUnit(data);
 
-        // Fetch only recent completed jobs for public view
+        // Fetch only recent completed jobs for public view via job_units join table
         if (data) {
-          const { data: jobsData, error: jobsError } = await supabase
-            .from("jobs")
+          const { data: jobUnitsData, error: jobUnitsError } = await supabase
+            .from("job_units")
             .select(
-              `
-              id,
-              number,
-              name,
-              status,
-              type,
-              service_line,
-              schedule_start,
-              updated_at
-            `
+              "job_id, jobs:job_id(id, number, name, status, type, service_line, schedule_start, updated_at)"
             )
-            .eq("unit_id", id)
-            .eq("status", "completed")
-            .order("updated_at", { ascending: false })
-            .limit(5);
-
-          if (jobsError) throw jobsError;
-          setRecentJobs(jobsData || []);
+            .eq("unit_id", id);
+          if (jobUnitsError) throw jobUnitsError;
+          const jobs = (jobUnitsData || [])
+            .map((ju: any) => ju.jobs)
+            .filter((job: any) => job.status === "completed")
+            .sort(
+              (a: any, b: any) =>
+                new Date(b.updated_at).getTime() -
+                new Date(a.updated_at).getTime()
+            )
+            .slice(0, 5);
+          setRecentJobs(jobs);
         }
       } catch (err) {
         console.error("Error fetching unit:", err);

@@ -27,6 +27,7 @@ import {
   DollarSign,
   FileInput,
   Users,
+  User,
 } from "lucide-react";
 import InspectionSection from "../../components/jobs/InspectionSection";
 import ServiceSection from "../../components/jobs/ServiceSection";
@@ -64,6 +65,7 @@ const TechnicianJobDetails = () => {
   const [lastQuoteUpdateTime, setLastQuoteUpdateTime] = useState<string | null>(
     null
   );
+  const [additionalContacts, setAdditionalContacts] = useState<any[]>([]);
 
   // Collapsible section states
   const [showServiceSection, setShowServiceSection] = useState(false);
@@ -133,15 +135,24 @@ const TechnicianJobDetails = () => {
     fetchAuthUser();
   }, [supabase]);
 
-  // Fetch job details
+  // Fetch job details (admin-style)
   useEffect(() => {
     const fetchJobDetails = async () => {
       if (!supabase || !id) return;
 
       try {
-        setIsLoading(true);
+        // Validate UUID
+        if (
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            id
+          )
+        ) {
+          setError("Invalid job ID format");
+          setIsLoading(false);
+          return;
+        }
 
-        // Fetch job details
+        // Fetch job details with all associated units via job_units (admin logic)
         const { data: jobData, error: jobError } = await supabase
           .from("jobs")
           .select(
@@ -158,12 +169,23 @@ const TechnicianJobDetails = () => {
                 name
               )
             ),
-            units (
-              unit_number,
-              status,
-              primary_contact_type,
-              primary_contact_email,
-              primary_contact_phone
+            job_units:job_units!inner (
+              id,
+              unit_id,
+              units:unit_id (
+                id,
+                unit_number,
+                status,
+                primary_contact_type,
+                primary_contact_email,
+                primary_contact_phone,
+                billing_entity,
+                billing_email,
+                billing_city,
+                billing_state,
+                billing_zip,
+                office
+              )
             ),
             job_technicians (
               id,
@@ -179,15 +201,35 @@ const TechnicianJobDetails = () => {
           `
           )
           .eq("id", id)
-          .single();
+          .limit(1)
+          .maybeSingle();
 
-        if (jobError) {
-          console.error("Error fetching job:", jobError);
-          throw new Error("Error fetching job details");
+        if (jobError) throw jobError;
+        if (!jobData) {
+          setError("Job not found");
+          setIsLoading(false);
+          return;
         }
 
-        setJob(jobData);
-        setJobStatus(jobData.status as any);
+        // Flatten jobUnits for inspection linkage
+        const jobUnits = (jobData.job_units || []).map((ju: any) => ({
+          id: ju.id,
+          unit_id: ju.unit_id,
+          unit_number: ju.units.unit_number,
+          status: ju.units.status,
+          primary_contact_type: ju.units.primary_contact_type,
+          primary_contact_email: ju.units.primary_contact_email,
+          primary_contact_phone: ju.units.primary_contact_phone,
+          billing_entity: ju.units.billing_entity,
+          billing_email: ju.units.billing_email,
+          billing_city: ju.units.billing_city,
+          billing_state: ju.units.billing_state,
+          billing_zip: ju.units.billing_zip,
+          office: ju.units.office,
+        }));
+        const units = (jobData.job_units || []).map((ju: any) => ju.units);
+        setJob({ ...jobData, units, jobUnits });
+        setJobStatus(jobData.status);
 
         // If the job has a quote sent, store the timestamp for comparison
         if (jobData.quote_sent && jobData.quote_sent_at) {
@@ -200,13 +242,8 @@ const TechnicianJobDetails = () => {
           .select("*")
           .eq("job_id", id)
           .order("created_at");
-
-        if (itemsError) {
-          console.error("Error fetching job items:", itemsError);
-          // Don't throw here, just log the error
-        } else {
-          setJobItems(itemsData || []);
-        }
+        if (itemsError) throw itemsError;
+        setJobItems(itemsData || []);
 
         // Check if any items were updated after the quote was sent
         if (jobData.quote_sent && jobData.quote_sent_at) {
@@ -215,8 +252,21 @@ const TechnicianJobDetails = () => {
             const itemTime = new Date(item.created_at).getTime();
             return itemTime > quoteTime;
           });
-
           setQuoteNeedsUpdate(needsUpdate || false);
+        }
+
+        // Fetch repair data
+        const { data: repairData, error: repairError } = await supabase
+          .from("job_replacements")
+          .select("*")
+          .eq("job_id", id)
+          .limit(1)
+          .maybeSingle();
+        if (repairError && !repairError.message.includes("contains 0 rows")) {
+          throw repairError;
+        }
+        if (repairData) {
+          setRepairData(repairData);
         }
 
         // Fetch inspection data
@@ -225,26 +275,10 @@ const TechnicianJobDetails = () => {
           .select("*")
           .eq("job_id", id)
           .order("created_at", { ascending: false });
-
         if (inspectionError) {
           console.error("Error fetching inspection data:", inspectionError);
-          // Don't throw here, just log the error
         } else {
           setInspectionData(inspectionData || []);
-        }
-
-        // Fetch repair data - Fixed to handle multiple rows
-        const { data: repairData, error: repairError } = await supabase
-          .from("job_replacements")
-          .select("*")
-          .eq("job_id", id)
-          .limit(1);
-
-        if (repairError) {
-          console.error("Error fetching repair data:", repairError);
-          // Don't throw here, just log the error
-        } else if (repairData && repairData.length > 0) {
-          setRepairData(repairData[0]);
         }
 
         // Fetch assets related to this job
@@ -252,49 +286,61 @@ const TechnicianJobDetails = () => {
           .from("assets")
           .select("*")
           .eq("model->>job_id", id);
-
         if (assetsError) {
           console.error("Error fetching job assets:", assetsError);
-          // Don't throw here, just log the error
         } else {
           setJobAssets(assetsData || []);
         }
 
-        // Check current clock status - Only if technicianId is available
-        if (technicianId) {
-          const { data: clockData, error: clockError } = await supabase
-            .from("job_clock_events")
+        // Fetch additional contacts
+        if (supabase && id) {
+          supabase
+            .from("job_contacts")
             .select("*")
             .eq("job_id", id)
-            .eq("user_id", technicianId)
-            .order("event_time", { ascending: true });
-
-          if (clockError) {
-            console.error("Error fetching clock events:", clockError);
-            // Don't throw here, just log the error
-          } else if (clockData && clockData.length > 0) {
-            // Determine current clock status from the last event
-            const lastEvent = clockData[clockData.length - 1];
-            if (lastEvent.event_type === "clock_in") {
-              setCurrentClockStatus("clocked_in");
-            } else if (lastEvent.event_type === "break_start") {
-              setCurrentClockStatus("on_break");
-            } else {
-              setCurrentClockStatus("clocked_out");
-            }
-          }
+            .then(({ data, error }) => {
+              if (!error && data) setAdditionalContacts(data);
+            });
         }
-      } catch (err) {
-        console.error("Error in fetchJobDetails:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to load job details"
-        );
+      } catch (err: any) {
+        console.error("Error fetching job details:", err);
+        setError(err.message || "Failed to fetch job details");
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchJobDetails();
+  }, [supabase, id]);
+
+  // Check current clock status - Only if technicianId is available
+  useEffect(() => {
+    if (supabase && technicianId) {
+      const fetchClockStatus = async () => {
+        const { data: clockData, error: clockError } = await supabase
+          .from("job_clock_events")
+          .select("*")
+          .eq("job_id", id)
+          .eq("user_id", technicianId)
+          .order("event_time", { ascending: true });
+
+        if (clockError) {
+          console.error("Error fetching clock events:", clockError);
+          // Don't throw here, just log the error
+        } else if (clockData && clockData.length > 0) {
+          // Determine current clock status from the last event
+          const lastEvent = clockData[clockData.length - 1];
+          if (lastEvent.event_type === "clock_in") {
+            setCurrentClockStatus("clocked_in");
+          } else if (lastEvent.event_type === "break_start") {
+            setCurrentClockStatus("on_break");
+          } else {
+            setCurrentClockStatus("clocked_out");
+          }
+        }
+      };
+      fetchClockStatus();
+    }
   }, [supabase, id, technicianId]);
 
   const handleCompleteJob = async () => {
@@ -555,7 +601,34 @@ const TechnicianJobDetails = () => {
                       {job.locations?.companies?.name}
                     </p>
                     <p>{job.locations.name}</p>
-                    {job.units && <p>Unit: {job.units.unit_number}</p>}
+                    {/* Enhanced units display using job_units */}
+                    {job.job_units && job.job_units.length > 0 && (
+                      <div className="mt-2">
+                        <p className="font-semibold mb-1">
+                          Units for this Job:
+                        </p>
+                        <ul className="list-disc list-inside space-y-1">
+                          {job.job_units.map((ju: any) => (
+                            <li key={ju.unit_id}>
+                              <span className="font-medium">
+                                {ju.units?.unit_number || ju.unit_id}
+                              </span>
+                              {ju.units?.status && (
+                                <span
+                                  className={`ml-2 badge ${
+                                    ju.units.status === "active"
+                                      ? "bg-success-100 text-success-800"
+                                      : "bg-error-100 text-error-800"
+                                  }`}
+                                >
+                                  {ju.units.status}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
@@ -611,6 +684,43 @@ const TechnicianJobDetails = () => {
             )}
           </div>
         </div>
+        {additionalContacts.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-md font-medium mb-2">Additional Contacts</h3>
+            <div className="space-y-2">
+              {additionalContacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  className="flex items-center gap-4 text-sm"
+                >
+                  <User size={16} className="text-gray-400" />
+                  <span className="font-medium">{contact.name}</span>
+                  {contact.type && (
+                    <span className="text-gray-500">({contact.type})</span>
+                  )}
+                  {contact.phone && (
+                    <a
+                      href={`facetime:${contact.phone}`}
+                      className="text-primary-600 hover:text-primary-800 flex items-center gap-1"
+                    >
+                      <Phone size={14} />
+                      {contact.phone}
+                    </a>
+                  )}
+                  {contact.email && (
+                    <a
+                      href={`mailto:${contact.email}`}
+                      className="text-primary-600 hover:text-primary-800 flex items-center gap-1"
+                    >
+                      <Mail size={14} />
+                      {contact.email}
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {/* Assigned Technicians */}
         <div className="mt-6 pt-4 border-t border-gray-200">
           <h3 className="text-md font-medium mb-3 flex items-center">
@@ -716,6 +826,11 @@ const TechnicianJobDetails = () => {
                       });
                   }
                 }}
+                jobUnits={job.job_units?.map((ju: any) => ({
+                  id: ju.id,
+                  unit_id: ju.unit_id,
+                  unit_number: ju.units?.unit_number || ju.unit_id,
+                }))}
               />
             </div>
           )}

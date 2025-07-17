@@ -11,6 +11,7 @@ import {
   Plus,
   Edit,
   Trash2,
+  X,
 } from "lucide-react";
 import InspectionForm from "../components/jobs/inspection/InspectionForm";
 import AddAssetForm from "../components/locations/AddAssetForm";
@@ -36,6 +37,10 @@ const Assets = () => {
   const [units, setUnits] = useState<any[]>([]);
   const [showInspectionForm, setShowInspectionForm] = useState(false);
   const [editingAsset, setEditingAsset] = useState<any | null>(null);
+  const [commentModal, setCommentModal] = useState<{
+    open: boolean;
+    comment: string | null;
+  }>({ open: false, comment: null });
 
   useEffect(() => {
     const fetchAssets = async () => {
@@ -287,6 +292,9 @@ const Assets = () => {
                     INSPECTION DATE
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
+                    COMMENTS
+                  </th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
                     DETAILS
                   </th>
                 </tr>
@@ -351,6 +359,23 @@ const Assets = () => {
                       {formatDate(asset.inspection_date)}
                     </td>
                     <td className="px-4 py-3 text-sm">
+                      {asset.model?.comment ? (
+                        <button
+                          className="text-primary-600 hover:text-primary-800 underline"
+                          onClick={() =>
+                            setCommentModal({
+                              open: true,
+                              comment: asset.model.comment,
+                            })
+                          }
+                        >
+                          View Comment
+                        </button>
+                      ) : (
+                        "N/A"
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
                       <Link
                         to={`/assets/${asset.id}`}
                         className="text-primary-600 hover:text-primary-800"
@@ -400,45 +425,34 @@ const Assets = () => {
             </table>
           </div>
         )}
-      </div>
-      {showInspectionForm && !editingAsset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-          <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md mx-auto">
-            <h3 className="text-lg font-semibold mb-4">Add Asset</h3>
-            <AddAssetForm
-              onSuccess={() => {
-                setShowInspectionForm(false);
-                // Refresh asset list
-                if (supabase) {
-                  supabase
-                    .from("assets")
-                    .select("*")
-                    .then(({ data }) => setAssets(data || []));
-                }
-              }}
-              onCancel={() => setShowInspectionForm(false)}
-            />
+        {/* Comment Modal */}
+        {commentModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative">
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                onClick={() => setCommentModal({ open: false, comment: null })}
+              >
+                <X size={24} />
+              </button>
+              <h3 className="text-lg font-semibold mb-2">Asset Comment</h3>
+              <div className="text-gray-700 whitespace-pre-line">
+                {commentModal.comment}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
-      {showInspectionForm && editingAsset && (
+        )}
+      </div>
+
+      {showInspectionForm && (
         <InspectionForm
-          jobId={editingAsset?.job_id || ""}
-          initialData={editingAsset}
-          onSave={() => {
+          asset={editingAsset}
+          locations={locations}
+          units={units}
+          onClose={() => setShowInspectionForm(false)}
+          onSuccess={() => {
             setShowInspectionForm(false);
-            setEditingAsset(null);
-            // Refresh asset list
-            if (supabase) {
-              supabase
-                .from("assets")
-                .select("*")
-                .then(({ data }) => setAssets(data || []));
-            }
-          }}
-          onCancel={() => {
-            setShowInspectionForm(false);
-            setEditingAsset(null);
+            fetchAssets();
           }}
         />
       )}

@@ -116,6 +116,8 @@ const LocationDetails = () => {
     );
   }
 
+  const unitIdsParam = units.length > 0 ? units.map((u) => u.id).join(",") : "";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -141,6 +143,15 @@ const LocationDetails = () => {
           >
             <Plus size={16} className="mr-2" />
             Add Unit
+          </Link>
+          <Link
+            to={`/jobs/create?locationId=${location.id}${
+              unitIdsParam ? `&unitIds=${unitIdsParam}` : ""
+            }`}
+            className="btn btn-primary"
+          >
+            <Plus size={16} className="mr-2" />
+            Create Job
           </Link>
           <Link
             to={`/locations/${location.id}/edit`}
@@ -294,6 +305,15 @@ const LocationDetails = () => {
               >
                 <Plus size={16} className="mr-2" />
                 Add Unit
+              </Link>
+              <Link
+                to={`/jobs/create?locationId=${location.id}${
+                  unitIdsParam ? `&unitIds=${unitIdsParam}` : ""
+                }`}
+                className="btn btn-primary w-full justify-start"
+              >
+                <Plus size={16} className="mr-2" />
+                Create Job
               </Link>
               <Link
                 to={`/locations/${location.id}/edit`}

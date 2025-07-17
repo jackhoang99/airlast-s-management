@@ -1,3 +1,9 @@
+export interface JobUnit {
+  job_id: string;
+  unit_id: string;
+  // Add any additional fields from the join table if needed
+}
+
 export interface Job {
   id: string;
   number: string;
@@ -27,7 +33,8 @@ export interface Job {
   service_contract: string | null;
   schedule_date: string | null;
   schedule_time: string | null;
-  unit_id: string | null;
+  // Remove unit_id and units?: Unit
+  // unit_id: string | null;
   quote_sent: boolean | null;
   quote_sent_at: string | null;
   quote_token: string | null;
@@ -45,24 +52,21 @@ export interface Job {
       name: string;
     };
   };
-  units?: {
+  // Replace with array of units
+  units?: Array<{
+    id: string;
     unit_number: string;
     status: string;
-    phone: string | null;
     primary_contact_type: string | null;
     primary_contact_email: string | null;
     primary_contact_phone: string | null;
-    email: string | null;
     billing_entity: string | null;
     billing_email: string | null;
     billing_city: string | null;
     billing_state: string | null;
     billing_zip: string | null;
     office: string | null;
-    taxable: boolean | null;
-    tax_group_name: string | null;
-    tax_group_code: string | null;
-  };
+  }>;
   job_technicians?: {
     id: string;
     technician_id: string;

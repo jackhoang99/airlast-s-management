@@ -40,7 +40,7 @@ type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
   }[];
   units?: {
     unit_number: string;
-  };
+  }[];
 };
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
@@ -118,8 +118,12 @@ const Jobs = () => {
               id,
               total_cost
             ),
-            units (
-              unit_number
+            job_units:job_units!inner (
+              unit_id,
+              units:unit_id (
+                id,
+                unit_number
+              )
             )
           `);
 
@@ -585,8 +589,12 @@ const Jobs = () => {
             id,
             total_cost
           ),
-          units (
-            unit_number
+          job_units:job_units!inner (
+            unit_id,
+            units:unit_id (
+              id,
+              unit_number
+            )
           )
         `);
 
@@ -965,9 +973,10 @@ const Jobs = () => {
                               ${getJobTotalCost(job).toFixed(2)}
                             </span>
                           )}
-                          {job.units && (
+                          {job.units && job.units.length > 0 && (
                             <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                              Unit: {job.units.unit_number}
+                              Units:{" "}
+                              {job.units.map((u) => u.unit_number).join(", ")}
                             </span>
                           )}
                         </div>
@@ -982,7 +991,10 @@ const Jobs = () => {
                             <div className="font-medium text-gray-700">
                               {job.locations.companies?.name} •{" "}
                               {job.locations.name}
-                              {job.units && ` • Unit ${job.units.unit_number}`}
+                              {job.units &&
+                                ` • Units ${job.units
+                                  .map((u) => u.unit_number)
+                                  .join(", ")}`}
                             </div>
                             <div>
                               {job.locations.address} • {job.locations.city},{" "}

@@ -1,6 +1,6 @@
-import { Calendar, Building2 } from 'lucide-react';
-import { Job } from '../../types/job';
-import Map from '../ui/Map';
+import { Calendar, Building2 } from "lucide-react";
+import { Job } from "../../types/job";
+import Map from "../ui/Map";
 
 type JobSidebarProps = {
   job: Job;
@@ -26,7 +26,9 @@ const JobSidebar = ({ job }: JobSidebarProps) => {
           </div>
           {job.service_line && (
             <div>
-              <h3 className="text-sm font-medium text-gray-500">Service Line</h3>
+              <h3 className="text-sm font-medium text-gray-500">
+                Service Line
+              </h3>
               <p>{job.service_line}</p>
             </div>
           )}
@@ -42,8 +44,16 @@ const JobSidebar = ({ job }: JobSidebarProps) => {
           )}
           {job.service_contract && (
             <div>
-              <h3 className="text-sm font-medium text-gray-500">Service Contract</h3>
+              <h3 className="text-sm font-medium text-gray-500">
+                Service Contract
+              </h3>
               <p>{job.service_contract}</p>
+            </div>
+          )}
+          {job.units && job.units.length > 0 && (
+            <div className="mb-2">
+              <span className="font-medium">Units:</span>{" "}
+              {job.units.map((u: any) => u.unit_number).join(", ")}
             </div>
           )}
         </div>
@@ -52,7 +62,7 @@ const JobSidebar = ({ job }: JobSidebarProps) => {
       {job.locations && (
         <div className="card mt-6">
           <h2 className="text-lg font-medium mb-4">Location</h2>
-          <Map 
+          <Map
             address={job.locations.address}
             city={job.locations.city}
             state={job.locations.state}

@@ -126,7 +126,13 @@ const Contacts = () => {
             contact_phone,
             contact_type,
             location_id,
-            unit_id,
+            job_units:job_units!inner (
+              unit_id,
+              units:unit_id (
+                id,
+                unit_number
+              )
+            ),
             locations (
               id,
               name,
@@ -139,10 +145,6 @@ const Contacts = () => {
                 id,
                 name
               )
-            ),
-            units (
-              id,
-              unit_number
             )
           `
           )
@@ -169,12 +171,7 @@ const Contacts = () => {
                   zip: job.locations.zip,
                 }
               : undefined,
-            unit: job.units
-              ? {
-                  id: job.units.id,
-                  unit_number: job.units.unit_number,
-                }
-              : undefined,
+            unit: job.job_units?.map((ju) => ju.units),
           }))
           .filter((contact) => contact.email || contact.phone);
 
@@ -235,8 +232,10 @@ const Contacts = () => {
           contact.company.name.toLowerCase().includes(searchLower)) ||
         (contact.location?.name &&
           contact.location.name.toLowerCase().includes(searchLower)) ||
-        (contact.unit?.unit_number &&
-          contact.unit.unit_number.toLowerCase().includes(searchLower));
+        (contact.unit &&
+          contact.unit.some((unit) =>
+            unit.unit_number.toLowerCase().includes(searchLower)
+          ));
 
       if (!matchesSearch) return false;
     }
@@ -288,10 +287,10 @@ const Contacts = () => {
 
     if (
       filters.unit &&
-      contact.unit?.unit_number &&
-      !contact.unit.unit_number
-        .toLowerCase()
-        .includes(filters.unit.toLowerCase())
+      contact.unit &&
+      !contact.unit.some((unit) =>
+        unit.unit_number.toLowerCase().includes(filters.unit.toLowerCase())
+      )
     ) {
       return false;
     }
@@ -533,14 +532,14 @@ const Contacts = () => {
                       </div>
                     )}
 
-                    {contact.unit && (
+                    {contact.unit && contact.unit.length > 0 && (
                       <div>
                         <Link
-                          to={`/units/${contact.unit.id}`}
+                          to={`/units/${contact.unit[0].id}`}
                           className="flex items-center gap-1 text-primary-600 hover:text-primary-800 md:justify-end"
                         >
                           <Building2 size={14} />
-                          <span>Unit {contact.unit.unit_number}</span>
+                          <span>Unit {contact.unit[0].unit_number}</span>
                         </Link>
                       </div>
                     )}

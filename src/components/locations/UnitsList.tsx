@@ -154,6 +154,7 @@ const UnitsList = ({ location, search }: UnitsListProps) => {
           open={!!assetModalUnit}
           onClose={() => setAssetModalUnit(null)}
           location={location}
+          unit={assetModalUnit}
         />
       )}
     </div>

@@ -33,7 +33,7 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
         setIsLoading(true);
         setError(null);
 
-        // Fetch job details with locations and units
+        // Fetch job details with locations and all units via job_units
         const { data: jobData, error: jobError } = await supabase
           .from("jobs")
           .select(
@@ -49,14 +49,20 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
                 name
               )
             ),
-            units (
-              unit_number
+            job_units:job_units!inner (
+              unit_id,
+              units:unit_id (
+                id,
+                unit_number
+              )
             )
           `
           )
           .eq("id", jobId)
           .single();
         if (jobError) throw jobError;
+        // Flatten units from job_units
+        const units = (jobData.job_units || []).map((ju: any) => ju.units);
 
         // Fetch inspection data
         const { data: inspectionData, error: inspectionError } = await supabase
