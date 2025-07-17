@@ -1,27 +1,39 @@
-import { useState, useEffect } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
-import { useSupabase } from '../../lib/supabase-context';
-import { Package, Search, Filter, Calendar, AlertTriangle, Building2, MapPin } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Link, useOutletContext } from "react-router-dom";
+import { useSupabase } from "../../lib/supabase-context";
+import {
+  Package,
+  Search,
+  Filter,
+  Calendar,
+  AlertTriangle,
+  Building2,
+  MapPin,
+} from "lucide-react";
 
 const CustomerAssets = () => {
   const { supabase } = useSupabase();
-  const { company, searchTerm: globalSearchTerm } = useOutletContext<{ company: any, searchTerm: string }>();
+  const { company, searchTerm: globalSearchTerm } = useOutletContext<{
+    company: any;
+    searchTerm: string;
+  }>();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assets, setAssets] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
-    modelNumber: '',
-    serialNumber: '',
-    unitType: '',
-    location: '',
-    unit: '',
-    dateFrom: '',
-    dateTo: '',
+    modelNumber: "",
+    serialNumber: "",
+    unitType: "",
+    location: "",
+    unit: "",
+    dateFrom: "",
+    dateTo: "",
   });
   const [showFilters, setShowFilters] = useState(false);
   const [locations, setLocations] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
+  const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
 
   useEffect(() => {
     // Set local search term from global search if provided
@@ -36,47 +48,48 @@ const CustomerAssets = () => {
 
       try {
         setIsLoading(true);
-        
+
         // First get all locations for this company
         const { data: locationData, error: locationError } = await supabase
-          .from('locations')
-          .select('id, name')
-          .eq('company_id', company.id)
-          .order('name');
-          
+          .from("locations")
+          .select("id, name")
+          .eq("company_id", company.id)
+          .order("name");
+
         if (locationError) throw locationError;
         setLocations(locationData || []);
-        
-        const locationIds = locationData?.map(loc => loc.id) || [];
-        
+
+        const locationIds = locationData?.map((loc) => loc.id) || [];
+
         if (locationIds.length === 0) {
           setAssets([]);
           setIsLoading(false);
           return;
         }
-        
+
         // Get all units for these locations
         const { data: unitData, error: unitError } = await supabase
-          .from('units')
-          .select('id, unit_number, location_id')
-          .in('location_id', locationIds)
-          .order('unit_number');
-          
+          .from("units")
+          .select("id, unit_number, location_id")
+          .in("location_id", locationIds)
+          .order("unit_number");
+
         if (unitError) throw unitError;
         setUnits(unitData || []);
-        
-        const unitIds = unitData?.map(unit => unit.id) || [];
-        
+
+        const unitIds = unitData?.map((unit) => unit.id) || [];
+
         if (unitIds.length === 0) {
           setAssets([]);
           setIsLoading(false);
           return;
         }
-        
+
         // Then fetch all assets for these units
         let query = supabase
-          .from('assets')
-          .select(`
+          .from("assets")
+          .select(
+            `
             *,
             units (
               id,
@@ -90,86 +103,97 @@ const CustomerAssets = () => {
                 )
               )
             )
-          `)
-          .in('unit_id', unitIds);
-          
+          `
+          )
+          .in("unit_id", unitIds);
+
         // Apply filters
         if (filters.modelNumber) {
-          query = query.ilike('model->>model_number', `%${filters.modelNumber}%`);
+          query = query.ilike(
+            "model->>model_number",
+            `%${filters.modelNumber}%`
+          );
         }
         if (filters.serialNumber) {
-          query = query.ilike('model->>serial_number', `%${filters.serialNumber}%`);
+          query = query.ilike(
+            "model->>serial_number",
+            `%${filters.serialNumber}%`
+          );
         }
         if (filters.unitType) {
-          query = query.eq('model->>unit_type', filters.unitType);
+          query = query.eq("model->>unit_type", filters.unitType);
         }
         if (filters.location) {
-          query = query.eq('units.location_id', filters.location);
+          query = query.eq("units.location_id", filters.location);
         }
         if (filters.unit) {
-          query = query.eq('unit_id', filters.unit);
+          query = query.eq("unit_id", filters.unit);
         }
         if (filters.dateFrom) {
-          query = query.gte('inspection_date', filters.dateFrom);
+          query = query.gte("inspection_date", filters.dateFrom);
         }
         if (filters.dateTo) {
-          query = query.lte('inspection_date', filters.dateTo);
+          query = query.lte("inspection_date", filters.dateTo);
         }
-        
-        const { data, error } = await query.order('inspection_date', { ascending: false });
-        
+
+        const { data, error } = await query.order("inspection_date", {
+          ascending: false,
+        });
+
         if (error) throw error;
         setAssets(data || []);
       } catch (err) {
-        console.error('Error fetching assets:', err);
-        setError('Failed to load assets');
+        console.error("Error fetching assets:", err);
+        setError("Failed to load assets");
       } finally {
         setIsLoading(false);
       }
     };
-    
+
     fetchAssets();
   }, [supabase, company, filters]);
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const resetFilters = () => {
     setFilters({
-      modelNumber: '',
-      serialNumber: '',
-      unitType: '',
-      location: '',
-      unit: '',
-      dateFrom: '',
-      dateTo: '',
+      modelNumber: "",
+      serialNumber: "",
+      unitType: "",
+      location: "",
+      unit: "",
+      dateFrom: "",
+      dateTo: "",
     });
-    setSearchTerm('');
+    setSearchTerm("");
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
-  const filteredAssets = assets.filter(asset => {
+  const filteredAssets = assets.filter((asset) => {
     if (!searchTerm) return true;
-    
+
     const searchLower = searchTerm.toLowerCase();
-    const modelNumber = asset.model?.model_number?.toLowerCase() || '';
-    const serialNumber = asset.model?.serial_number?.toLowerCase() || '';
-    const unitType = asset.model?.unit_type?.toLowerCase() || '';
-    const systemType = asset.model?.system_type?.toLowerCase() || '';
-    const unitNumber = asset.units?.unit_number?.toLowerCase() || '';
-    const locationName = asset.units?.locations?.name?.toLowerCase() || '';
-    
+    const modelNumber = asset.model?.model_number?.toLowerCase() || "";
+    const serialNumber = asset.model?.serial_number?.toLowerCase() || "";
+    const unitType = asset.model?.unit_type?.toLowerCase() || "";
+    const systemType = asset.model?.system_type?.toLowerCase() || "";
+    const unitNumber = asset.units?.unit_number?.toLowerCase() || "";
+    const locationName = asset.units?.locations?.name?.toLowerCase() || "";
+
     return (
       modelNumber.includes(searchLower) ||
       serialNumber.includes(searchLower) ||
@@ -198,20 +222,23 @@ const CustomerAssets = () => {
               className="pl-9 input w-full"
             />
           </div>
-          
+
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="btn btn-secondary"
           >
             <Filter size={16} className="mr-2" />
-            {showFilters ? 'Hide Filters' : 'Show Filters'}
+            {showFilters ? "Hide Filters" : "Show Filters"}
           </button>
         </div>
 
         {showFilters && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
-              <label htmlFor="modelNumber" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="modelNumber"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Model Number
               </label>
               <input
@@ -223,9 +250,12 @@ const CustomerAssets = () => {
                 className="input"
               />
             </div>
-            
+
             <div>
-              <label htmlFor="serialNumber" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="serialNumber"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Serial Number
               </label>
               <input
@@ -237,9 +267,12 @@ const CustomerAssets = () => {
                 className="input"
               />
             </div>
-            
+
             <div>
-              <label htmlFor="unitType" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="unitType"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Unit Type
               </label>
               <select
@@ -252,9 +285,12 @@ const CustomerAssets = () => {
                 <option value="">All Types</option>
               </select>
             </div>
-            
+
             <div>
-              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="location"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Location
               </label>
               <select
@@ -265,16 +301,19 @@ const CustomerAssets = () => {
                 className="select"
               >
                 <option value="">All Locations</option>
-                {locations.map(location => (
+                {locations.map((location) => (
                   <option key={location.id} value={location.id}>
                     {location.name}
                   </option>
                 ))}
               </select>
             </div>
-            
+
             <div>
-              <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="unit"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Unit
               </label>
               <select
@@ -286,17 +325,23 @@ const CustomerAssets = () => {
               >
                 <option value="">All Units</option>
                 {units
-                  .filter(unit => !filters.location || unit.location_id === filters.location)
-                  .map(unit => (
+                  .filter(
+                    (unit) =>
+                      !filters.location || unit.location_id === filters.location
+                  )
+                  .map((unit) => (
                     <option key={unit.id} value={unit.id}>
                       {unit.unit_number}
                     </option>
                   ))}
               </select>
             </div>
-            
+
             <div>
-              <label htmlFor="dateFrom" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="dateFrom"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Date From
               </label>
               <input
@@ -308,9 +353,12 @@ const CustomerAssets = () => {
                 className="input"
               />
             </div>
-            
+
             <div>
-              <label htmlFor="dateTo" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="dateTo"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Date To
               </label>
               <input
@@ -357,11 +405,11 @@ const CustomerAssets = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAssets.map(asset => (
-              <Link
+            {filteredAssets.map((asset) => (
+              <div
                 key={asset.id}
-                to={`/customer/units/${asset.units.id}/assets`}
-                className="bg-white border rounded-lg shadow-sm p-4 hover:bg-gray-50"
+                className="bg-white border rounded-lg shadow-sm p-4 hover:bg-gray-50 cursor-pointer"
+                onClick={() => setSelectedAsset(asset)}
               >
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center">
@@ -374,27 +422,69 @@ const CustomerAssets = () => {
                     {formatDate(asset.inspection_date)}
                   </div>
                 </div>
-                
                 <div className="text-sm text-gray-600 mb-2">
                   <div>S/N: {asset.model?.serial_number || "N/A"}</div>
                   <div>Age: {asset.model?.age || "N/A"} years</div>
                   <div>Type: {asset.model?.unit_type || "N/A"}</div>
+                  <div>Tonnage: {asset.model?.tonnage || "N/A"}</div>
                 </div>
-                
                 <div className="flex items-center text-xs text-gray-500 mt-3">
                   <Building2 size={14} className="mr-1" />
                   <span>Unit {asset.units.unit_number}</span>
                 </div>
-                
                 <div className="flex items-center text-xs text-gray-500 mt-1">
                   <MapPin size={14} className="mr-1" />
                   <span>{asset.units.locations?.name}</span>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}
       </div>
+      {selectedAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg relative">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+              onClick={() => setSelectedAsset(null)}
+            >
+              ×
+            </button>
+            <h3 className="text-lg font-semibold mb-2">Asset Details</h3>
+            <div className="space-y-2">
+              <div>
+                <b>Model Number:</b>{" "}
+                {selectedAsset.model?.model_number || "N/A"}
+              </div>
+              <div>
+                <b>Serial Number:</b>{" "}
+                {selectedAsset.model?.serial_number || "N/A"}
+              </div>
+              <div>
+                <b>Age:</b> {selectedAsset.model?.age || "N/A"}
+              </div>
+              <div>
+                <b>Tonnage:</b> {selectedAsset.model?.tonnage || "N/A"}
+              </div>
+              <div>
+                <b>Unit Type:</b> {selectedAsset.model?.unit_type || "N/A"}
+              </div>
+              <div>
+                <b>System Type:</b> {selectedAsset.model?.system_type || "N/A"}
+              </div>
+              <div>
+                <b>Comment:</b> {selectedAsset.model?.comment || ""}
+              </div>
+              <div>
+                <b>Inspection Date:</b>{" "}
+                {selectedAsset.inspection_date
+                  ? formatDate(selectedAsset.inspection_date)
+                  : "N/A"}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

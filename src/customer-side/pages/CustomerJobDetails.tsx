@@ -30,6 +30,8 @@ const CustomerJobDetails = () => {
   const [jobAssets, setJobAssets] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [additionalContacts, setAdditionalContacts] = useState<any[]>([]);
+  const [replacementData, setReplacementData] = useState<any[]>([]);
+  const [replacementTotal, setReplacementTotal] = useState<number>(0);
 
   useEffect(() => {
     // Check if user is logged in
@@ -136,6 +138,18 @@ const CustomerJobDetails = () => {
             .then(({ data, error }) => {
               if (!error && data) setAdditionalContacts(data);
             });
+        }
+
+        // Fetch job replacements (repair/replacement totals)
+        const { data: replacementData, error: replacementError } =
+          await supabase.from("job_replacements").select("*").eq("job_id", id);
+        if (!replacementError && replacementData) {
+          setReplacementData(replacementData);
+          const total = replacementData.reduce(
+            (sum, item) => sum + Number(item.total_cost || 0),
+            0
+          );
+          setReplacementTotal(total);
         }
       } catch (err) {
         console.error("Error fetching job details:", err);
@@ -442,6 +456,96 @@ const CustomerJobDetails = () => {
               </div>
             )}
 
+            {/* Repair/Replacement Sections */}
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Repair Section */}
+              <div className="card">
+                <h3 className="text-md font-medium mb-2">Repair</h3>
+                {jobItems.length > 0 ? (
+                  <>
+                    <div className="overflow-x-auto mb-2">
+                      <table className="w-full">
+                        <thead className="bg-gray-50 text-left">
+                          <tr>
+                            <th className="px-4 py-2 text-xs font-medium text-gray-500">
+                              ITEM
+                            </th>
+                            <th className="px-4 py-2 text-xs font-medium text-gray-500">
+                              QTY
+                            </th>
+                            <th className="px-4 py-2 text-xs font-medium text-gray-500">
+                              UNIT PRICE
+                            </th>
+                            <th className="px-4 py-2 text-xs font-medium text-gray-500">
+                              TOTAL
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {jobItems.map((item) => (
+                            <tr key={item.id}>
+                              <td className="px-4 py-2 text-sm">
+                                <div className="font-medium">{item.name}</div>
+                                <div className="text-xs text-gray-500">
+                                  {item.code}
+                                </div>
+                              </td>
+                              <td className="px-4 py-2 text-sm">
+                                {item.quantity}
+                              </td>
+                              <td className="px-4 py-2 text-sm">
+                                ${Number(item.unit_cost).toFixed(2)}
+                              </td>
+                              <td className="px-4 py-2 text-sm font-medium">
+                                ${Number(item.total_cost).toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="bg-gray-50 font-bold">
+                            <td
+                              className="px-4 py-2 text-sm"
+                              colSpan={3}
+                              align="right"
+                            >
+                              Repair Total
+                            </td>
+                            <td className="px-4 py-2 text-sm">
+                              $
+                              {jobItems
+                                .reduce(
+                                  (sum, item) => sum + Number(item.total_cost),
+                                  0
+                                )
+                                .toFixed(2)}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-gray-500">No repair for this job.</div>
+                )}
+              </div>
+              {/* Replacement Section */}
+              <div className="card">
+                <h3 className="text-md font-medium mb-2">Replacement</h3>
+                {replacementData.length > 0 ? (
+                  <div className="text-2xl font-bold text-primary-700 mb-2">
+                    $
+                    {replacementTotal.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-gray-500">
+                    No replacement for this job.
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Job Assets Section - Show inspection results */}
             {jobAssets.length > 0 && (
               <div className="mt-6">
@@ -495,72 +599,6 @@ const CustomerJobDetails = () => {
                       </div>
                     </div>
                   ))}
-                </div>
-              </div>
-            )}
-
-            {/* Service Items */}
-            {jobItems.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">
-                  Service Items
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 text-left">
-                      <tr>
-                        <th className="px-4 py-2 text-xs font-medium text-gray-500">
-                          ITEM
-                        </th>
-                        <th className="px-4 py-2 text-xs font-medium text-gray-500">
-                          QTY
-                        </th>
-                        <th className="px-4 py-2 text-xs font-medium text-gray-500">
-                          UNIT PRICE
-                        </th>
-                        <th className="px-4 py-2 text-xs font-medium text-gray-500">
-                          TOTAL
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {jobItems.map((item) => (
-                        <tr key={item.id}>
-                          <td className="px-4 py-2 text-sm">
-                            <div className="font-medium">{item.name}</div>
-                            <div className="text-xs text-gray-500">
-                              {item.code}
-                            </div>
-                          </td>
-                          <td className="px-4 py-2 text-sm">{item.quantity}</td>
-                          <td className="px-4 py-2 text-sm">
-                            ${Number(item.unit_cost).toFixed(2)}
-                          </td>
-                          <td className="px-4 py-2 text-sm font-medium">
-                            ${Number(item.total_cost).toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
-                      <tr className="bg-gray-50 font-bold">
-                        <td
-                          className="px-4 py-2 text-sm"
-                          colSpan={3}
-                          align="right"
-                        >
-                          Total
-                        </td>
-                        <td className="px-4 py-2 text-sm">
-                          $
-                          {jobItems
-                            .reduce(
-                              (sum, item) => sum + Number(item.total_cost),
-                              0
-                            )
-                            .toFixed(2)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
                 </div>
               </div>
             )}

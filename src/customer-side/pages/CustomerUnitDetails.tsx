@@ -12,6 +12,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Map from "../../components/ui/Map";
+import QuickAssetViewModal from "../../components/locations/QuickAssetViewModal";
 
 const CustomerUnitDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +23,7 @@ const CustomerUnitDetails = () => {
   const [unit, setUnit] = useState<any>(null);
   const [jobs, setJobs] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [showAssetModal, setShowAssetModal] = useState(false);
 
   useEffect(() => {
     // Check if user is logged in
@@ -308,13 +310,13 @@ const CustomerUnitDetails = () => {
           <div className="card">
             <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
             <div className="space-y-2">
-              <Link
-                to={`/customer/units/${unit.id}/assets`}
+              <button
                 className="btn btn-secondary w-full justify-start"
+                onClick={() => setShowAssetModal(true)}
               >
                 <Building2 size={16} className="mr-2" />
                 View Assets
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -382,6 +384,12 @@ const CustomerUnitDetails = () => {
           </div>
         </div>
       </div>
+      <QuickAssetViewModal
+        open={showAssetModal}
+        onClose={() => setShowAssetModal(false)}
+        location={unit.locations}
+        unit={unit}
+      />
     </div>
   );
 };

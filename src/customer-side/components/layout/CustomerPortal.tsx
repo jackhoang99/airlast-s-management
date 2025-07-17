@@ -1,7 +1,26 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams, Link, Outlet, useLocation } from 'react-router-dom';
-import { useSupabase } from '../../../lib/supabase-context';
-import { Building, MapPin, Building2, FileText, FileInput, Menu, X, LogOut, Home, User, Search, Package } from 'lucide-react';
+import { useState, useEffect } from "react";
+import {
+  useNavigate,
+  useParams,
+  Link,
+  Outlet,
+  useLocation,
+} from "react-router-dom";
+import { useSupabase } from "../../../lib/supabase-context";
+import {
+  Building,
+  MapPin,
+  Building2,
+  FileText,
+  FileInput,
+  Menu,
+  X,
+  LogOut,
+  Home,
+  User,
+  Search,
+  Package,
+} from "lucide-react";
 
 const CustomerPortal = () => {
   const { supabase } = useSupabase();
@@ -11,7 +30,7 @@ const CustomerPortal = () => {
   const [error, setError] = useState<string | null>(null);
   const [company, setCompany] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   // Handle mobile resize
@@ -27,49 +46,49 @@ const CustomerPortal = () => {
 
       try {
         setIsLoading(true);
-        
+
         // Check if we have company info in session storage
-        const companyId = sessionStorage.getItem('customerPortalCompanyId');
-        
+        const companyId = sessionStorage.getItem("customerPortalCompanyId");
+
         if (!companyId) {
           // Not logged in, redirect to login
-          navigate('/customer/login');
+          navigate("/customer/login");
           return;
         }
-        
+
         // Fetch company details
         const { data, error } = await supabase
-          .from('companies')
-          .select('*')
-          .eq('id', companyId)
+          .from("companies")
+          .select("*")
+          .eq("id", companyId)
           .single();
-          
+
         if (error) throw error;
-        
+
         if (!data) {
           // Company not found, redirect to login
-          sessionStorage.removeItem('customerPortalCompanyId');
-          navigate('/customer/login');
+          sessionStorage.removeItem("customerPortalCompanyId");
+          navigate("/customer/login");
           return;
         }
-        
+
         setCompany(data);
       } catch (err) {
-        console.error('Error checking auth:', err);
-        setError('Authentication error. Please log in again.');
-        sessionStorage.removeItem('customerPortalCompanyId');
-        navigate('/customer/login');
+        console.error("Error checking auth:", err);
+        setError("Authentication error. Please log in again.");
+        sessionStorage.removeItem("customerPortalCompanyId");
+        navigate("/customer/login");
       } finally {
         setIsLoading(false);
       }
     };
-    
+
     checkAuth();
   }, [supabase, navigate]);
 
   const handleLogout = () => {
-    sessionStorage.removeItem('customerPortalCompanyId');
-    navigate('/customer/login');
+    sessionStorage.removeItem("customerPortalCompanyId");
+    navigate("/customer/login");
   };
 
   if (isLoading) {
@@ -88,7 +107,7 @@ const CustomerPortal = () => {
           <p className="text-center text-error-600 mb-6">{error}</p>
           <div className="flex justify-center">
             <button
-              onClick={() => navigate('/customer/login')}
+              onClick={() => navigate("/customer/login")}
               className="btn btn-primary"
             >
               Back to Login
@@ -135,7 +154,9 @@ const CustomerPortal = () => {
               <Building size={20} />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900">{company?.name}</p>
+              <p className="text-sm font-medium text-gray-900">
+                {company?.name}
+              </p>
               <p className="text-xs text-gray-500">Customer Portal</p>
             </div>
           </div>
@@ -148,7 +169,7 @@ const CustomerPortal = () => {
               <Link
                 to="/customer"
                 className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                  location.pathname === '/customer'
+                  location.pathname === "/customer"
                     ? "bg-primary-50 text-primary-700"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
@@ -162,7 +183,7 @@ const CustomerPortal = () => {
               <Link
                 to="/customer/locations"
                 className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                  location.pathname.includes('/customer/locations')
+                  location.pathname.includes("/customer/locations")
                     ? "bg-primary-50 text-primary-700"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
@@ -176,7 +197,7 @@ const CustomerPortal = () => {
               <Link
                 to="/customer/units"
                 className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                  location.pathname.includes('/customer/units')
+                  location.pathname.includes("/customer/units")
                     ? "bg-primary-50 text-primary-700"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
@@ -190,7 +211,7 @@ const CustomerPortal = () => {
               <Link
                 to="/customer/assets"
                 className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                  location.pathname.includes('/customer/assets')
+                  location.pathname.includes("/customer/assets")
                     ? "bg-primary-50 text-primary-700"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
@@ -204,21 +225,21 @@ const CustomerPortal = () => {
               <Link
                 to="/customer/jobs"
                 className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                  location.pathname.includes('/customer/jobs')
+                  location.pathname.includes("/customer/jobs")
                     ? "bg-primary-50 text-primary-700"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
                 onClick={() => setSidebarOpen(false)}
               >
                 <FileText size={16} className="mr-3" />
-                Service History
+                Service
               </Link>
             </li>
             <li>
               <Link
                 to="/customer/invoices"
                 className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                  location.pathname.includes('/customer/invoices')
+                  location.pathname.includes("/customer/invoices")
                     ? "bg-primary-50 text-primary-700"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
@@ -257,7 +278,9 @@ const CustomerPortal = () => {
             <Menu size={24} />
           </button>
           <div className="flex-1 flex justify-between items-center">
-            <h1 className="text-xl font-semibold text-gray-800">Customer Portal</h1>
+            <h1 className="text-xl font-semibold text-gray-800">
+              Customer Portal
+            </h1>
             <div className="flex items-center gap-4">
               <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -273,7 +296,9 @@ const CustomerPortal = () => {
                 <div className="w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
                   <User size={16} />
                 </div>
-                <span className="text-sm font-medium hidden md:block">{company?.name}</span>
+                <span className="text-sm font-medium hidden md:block">
+                  {company?.name}
+                </span>
               </div>
             </div>
           </div>

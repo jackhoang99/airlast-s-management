@@ -474,26 +474,13 @@ const CustomerJobs = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {job.units ? (
+                      {job.job_units && job.job_units.length > 0 ? (
                         <div className="flex items-center">
                           <Building2 size={14} className="text-gray-400 mr-1" />
                           <span className="flex items-center">
-                            {job.units.map((unit) => (
-                              <span key={unit.id} className="mr-1">
-                                Unit {unit.unit_number}
-                                {assets[unit.id] &&
-                                  assets[unit.id].length > 0 && (
-                                    <span className="ml-2 flex items-center text-primary-600">
-                                      <Package size={12} className="mr-1" />
-                                      <Link
-                                        to={`/customer/units/${unit.id}/assets`}
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="text-primary-600 hover:text-primary-800"
-                                      >
-                                        {assets[unit.id].length} assets
-                                      </Link>
-                                    </span>
-                                  )}
+                            {job.job_units.map((ju) => (
+                              <span key={ju.unit_id} className="mr-1">
+                                Unit {ju.units?.unit_number || ju.unit_id}
                               </span>
                             ))}
                           </span>
