@@ -681,7 +681,7 @@ const TechnicianNavigation = ({
                       <Phone size={14} className="text-gray-400" />
                       <a
                         href={`tel:${job.contact_phone}`}
-                        className="text-primary-600"
+                        className="text-primary-600 hover:text-primary-800"
                       >
                         {job.contact_phone}
                       </a>
@@ -692,7 +692,7 @@ const TechnicianNavigation = ({
                       <Mail size={14} className="text-gray-400" />
                       <a
                         href={`mailto:${job.contact_email}`}
-                        className="text-primary-600"
+                        className="text-primary-600 hover:text-primary-800"
                       >
                         {job.contact_email}
                       </a>

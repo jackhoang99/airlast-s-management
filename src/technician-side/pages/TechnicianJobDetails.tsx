@@ -661,7 +661,7 @@ const TechnicianJobDetails = () => {
                     <Phone size={16} className="text-gray-400" />
                     <a
                       href={`tel:${job.contact_phone}`}
-                      className="text-primary-600"
+                      className="text-primary-600 hover:text-primary-800"
                     >
                       {job.contact_phone}
                     </a>
@@ -672,7 +672,7 @@ const TechnicianJobDetails = () => {
                     <Mail size={16} className="text-gray-400" />
                     <a
                       href={`mailto:${job.contact_email}`}
-                      className="text-primary-600"
+                      className="text-primary-600 hover:text-primary-800"
                     >
                       {job.contact_email}
                     </a>
@@ -700,7 +700,7 @@ const TechnicianJobDetails = () => {
                   )}
                   {contact.phone && (
                     <a
-                      href={`facetime:${contact.phone}`}
+                      href={`tel:${contact.phone}`}
                       className="text-primary-600 hover:text-primary-800 flex items-center gap-1"
                     >
                       <Phone size={14} />
@@ -757,11 +757,29 @@ const TechnicianJobDetails = () => {
                     <div className="text-sm text-gray-500 space-y-1 mt-1">
                       <div className="flex items-center gap-2">
                         <Phone size={14} />
-                        {tech.users.phone || "No phone"}
+                        {tech.users.phone ? (
+                          <a
+                            href={`tel:${tech.users.phone}`}
+                            className="text-primary-600 hover:text-primary-800"
+                          >
+                            {tech.users.phone}
+                          </a>
+                        ) : (
+                          "No phone"
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <Mail size={14} />
-                        {tech.users.email}
+                        {tech.users.email ? (
+                          <a
+                            href={`mailto:${tech.users.email}`}
+                            className="text-primary-600 hover:text-primary-800"
+                          >
+                            {tech.users.email}
+                          </a>
+                        ) : (
+                          ""
+                        )}
                       </div>
                     </div>
                   </div>

@@ -77,13 +77,23 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
                 {sharedContactEmail && (
                   <div className="flex items-center gap-2 text-gray-700">
                     <Mail className="h-4 w-4 text-gray-400" />
-                    <span>{sharedContactEmail}</span>
+                    <a
+                      href={`mailto:${sharedContactEmail}`}
+                      className="text-primary-600 hover:text-primary-800"
+                    >
+                      {sharedContactEmail}
+                    </a>
                   </div>
                 )}
                 {sharedContactPhone && (
                   <div className="flex items-center gap-2 text-gray-700">
                     <Phone className="h-4 w-4 text-gray-400" />
-                    <span>{sharedContactPhone}</span>
+                    <a
+                      href={`tel:${sharedContactPhone}`}
+                      className="text-primary-600 hover:text-primary-800"
+                    >
+                      {sharedContactPhone}
+                    </a>
                   </div>
                 )}
               </div>
@@ -221,13 +231,23 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
                         {uniqueContactEmail && (
                           <div className="flex items-center gap-2 text-gray-700">
                             <Mail className="h-4 w-4 text-gray-400" />
-                            <span>{uniqueContactEmail}</span>
+                            <a
+                              href={`mailto:${uniqueContactEmail}`}
+                              className="text-primary-600 hover:text-primary-800"
+                            >
+                              {uniqueContactEmail}
+                            </a>
                           </div>
                         )}
                         {uniqueContactPhone && (
                           <div className="flex items-center gap-2 text-gray-700">
                             <Phone className="h-4 w-4 text-gray-400" />
-                            <span>{uniqueContactPhone}</span>
+                            <a
+                              href={`tel:${uniqueContactPhone}`}
+                              className="text-primary-600 hover:text-primary-800"
+                            >
+                              {uniqueContactPhone}
+                            </a>
                           </div>
                         )}
                       </div>

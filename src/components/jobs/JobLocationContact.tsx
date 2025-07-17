@@ -1,5 +1,5 @@
-import { Building, MapPin, User, Phone, Mail } from 'lucide-react';
-import { Job } from '../../types/job';
+import { Building, MapPin, User, Phone, Mail } from "lucide-react";
+import { Job } from "../../types/job";
 
 type JobLocationContactProps = {
   job: Job;
@@ -24,7 +24,10 @@ const JobLocationContact = ({ job }: JobLocationContactProps) => {
               <MapPin className="h-5 w-5 text-gray-400 mt-1" />
               <div>
                 <p>{job.locations.address}</p>
-                <p>{job.locations.city}, {job.locations.state} {job.locations.zip}</p>
+                <p>
+                  {job.locations.city}, {job.locations.state}{" "}
+                  {job.locations.zip}
+                </p>
               </div>
             </div>
           </div>
@@ -42,20 +45,32 @@ const JobLocationContact = ({ job }: JobLocationContactProps) => {
               <div>
                 <p className="font-medium">{job.contact_name}</p>
                 {job.contact_type && (
-                  <p className="text-sm text-gray-500 capitalize">{job.contact_type} Contact</p>
+                  <p className="text-sm text-gray-500 capitalize">
+                    {job.contact_type} Contact
+                  </p>
                 )}
               </div>
             </div>
             {job.contact_phone && (
               <div className="flex items-start gap-2">
                 <Phone className="h-5 w-5 text-gray-400 mt-1" />
-                <p>{job.contact_phone}</p>
+                <a
+                  href={`tel:${job.contact_phone}`}
+                  className="text-primary-600 hover:text-primary-800"
+                >
+                  {job.contact_phone}
+                </a>
               </div>
             )}
             {job.contact_email && (
               <div className="flex items-start gap-2">
                 <Mail className="h-5 w-5 text-gray-400 mt-1" />
-                <p>{job.contact_email}</p>
+                <a
+                  href={`mailto:${job.contact_email}`}
+                  className="text-primary-600 hover:text-primary-800"
+                >
+                  {job.contact_email}
+                </a>
               </div>
             )}
           </div>

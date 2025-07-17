@@ -75,8 +75,7 @@ const CustomerUnitDetails = () => {
         const { data: jobUnitsData, error: jobUnitsError } = await supabase
           .from("job_units")
           .select("job_id, jobs:job_id(*)")
-          .eq("unit_id", id)
-          .order("created_at", { ascending: false });
+          .eq("unit_id", id);
         if (jobUnitsError) throw jobUnitsError;
         const jobs = (jobUnitsData || []).map((ju: any) => ju.jobs);
         setJobs(jobs);
