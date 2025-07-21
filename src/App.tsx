@@ -45,6 +45,8 @@ import AllQuotes from "./pages/AllQuotes";
 
 // Customer Portal
 import CustomerLogin from "./pages/CustomerLogin";
+import ServiceOpportunities from "./pages/ServiceOpportunities";
+import TechScorecard from "./pages/TechScorecard";
 
 function App() {
   const { supabase } = useSupabase();
@@ -117,6 +119,8 @@ function App() {
             <Route path=":id" element={<JobDetails />} />
             <Route path="create" element={<CreateJob />} />
             <Route path="dispatch" element={<DispatchSchedule />} />
+            <Route path="opportunities" element={<ServiceOpportunities />} />
+            <Route path="scorecard" element={<TechScorecard />} />
           </Route>
           <Route path="invoices">
             <Route index element={<Invoices />} />

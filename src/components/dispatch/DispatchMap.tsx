@@ -1,17 +1,27 @@
 import { useEffect, useRef } from "react";
 import { Loader } from "@googlemaps/js-api-loader";
 
-interface MapProps {
+interface Call {
   address: string;
-  city: string;
-  state: string;
   zip: string;
+  city?: string;
+  state?: string;
+}
+
+interface MapProps {
+  selectedCall?: Call | null;
   className?: string;
 }
 
-const Map = ({ address, city, state, zip, className = "" }: MapProps) => {
+const Map = ({ selectedCall, className = "" }: MapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
-  const fullAddress = `${address}, ${city}, ${state} ${zip}`;
+  const fullAddress = selectedCall
+    ? `${selectedCall.address}${
+        selectedCall.city ? ", " + selectedCall.city : ""
+      }${selectedCall.state ? ", " + selectedCall.state : ""} ${
+        selectedCall.zip
+      }`
+    : "Atlanta, GA";
 
   useEffect(() => {
     const initMap = async () => {
@@ -19,7 +29,7 @@ const Map = ({ address, city, state, zip, className = "" }: MapProps) => {
         const loader = new Loader({
           apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
           version: "weekly",
-          libraries: ["places", "routes", "marker"],
+          libraries: ["places", "routes"],
         });
 
         const google = await loader.load();
@@ -37,6 +47,12 @@ const Map = ({ address, city, state, zip, className = "" }: MapProps) => {
               new google.maps.Marker({
                 map,
                 position: results[0].geometry.location,
+              });
+            } else if (mapRef.current) {
+              // fallback: show Atlanta
+              const map = new google.maps.Map(mapRef.current, {
+                center: { lat: 33.749, lng: -84.388 },
+                zoom: 10,
               });
             }
           });
