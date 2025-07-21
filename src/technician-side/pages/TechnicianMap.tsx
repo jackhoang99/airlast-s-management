@@ -434,11 +434,16 @@ const TechnicianMap = () => {
           })
         );
 
-        setJobs(jobsWithCoordinates);
+        // Flatten units from job_units
+        const jobsWithUnits = (jobsWithCoordinates || []).map((job: any) => ({
+          ...job,
+          units: (job.job_units || []).map((ju: any) => ju.units),
+        }));
+        setJobs(jobsWithUnits);
 
         // Update map markers if map is already initialized
         if (map) {
-          updateMapMarkers(jobsWithCoordinates);
+          updateMapMarkers(jobsWithUnits);
         }
       } catch (err) {
         console.error("Error fetching jobs:", err);

@@ -152,31 +152,15 @@ const Contacts = () => {
 
         if (jobError) throw jobError;
 
-        // Format job data into contacts
-        const jobContacts = (jobData || [])
-          .map((job) => ({
-            id: `job-${job.id}`,
-            name: job.contact_name || `Job #${job.number} Contact`,
-            email: job.contact_email || "",
-            phone: job.contact_phone || "",
-            type: job.contact_type || "Job Contact",
-            company: job.locations?.companies,
-            location: job.locations
-              ? {
-                  id: job.locations.id,
-                  name: job.locations.name,
-                  address: job.locations.address,
-                  city: job.locations.city,
-                  state: job.locations.state,
-                  zip: job.locations.zip,
-                }
-              : undefined,
-            unit: job.job_units?.map((ju) => ju.units),
-          }))
-          .filter((contact) => contact.email || contact.phone);
+        // Flatten units from job_units
+        const jobsWithUnits = (jobData || []).map((job: any) => ({
+          ...job,
+          units: (job.job_units || []).map((ju: any) => ju.units),
+        }));
+        setJobs(jobsWithUnits);
 
         // Combine and deduplicate contacts
-        const allContacts = [...unitContacts, ...jobContacts];
+        const allContacts = [...unitContacts, ...jobsWithUnits];
 
         // Simple deduplication by email
         const emailMap = new Map();

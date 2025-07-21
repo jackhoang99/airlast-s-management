@@ -176,7 +176,12 @@ const Jobs = () => {
 
         const { data, error } = await query;
         if (error) throw error;
-        setJobs(data || []);
+        // Flatten units from job_units
+        const jobsWithUnits = (data || []).map((job: any) => ({
+          ...job,
+          units: (job.job_units || []).map((ju: any) => ju.units),
+        }));
+        setJobs(jobsWithUnits);
       } catch (err) {
         console.error("Error fetching jobs:", err);
       } finally {

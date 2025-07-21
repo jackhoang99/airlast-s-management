@@ -12,6 +12,10 @@ interface Job {
     name: string;
     zip: string;
   };
+  units?: {
+    id: string;
+    unit_number: string;
+  }[];
 }
 
 interface User {
@@ -439,6 +443,15 @@ const TechnicianSchedule = ({
                               {job.name}
                             </div>
                           </div>
+                          {/* Show units if available */}
+                          {job.units && job.units.length > 0 && (
+                            <div className="truncate text-xs text-gray-500">
+                              Units:{" "}
+                              {job.units
+                                .map((unit: any) => unit.unit_number)
+                                .join(", ")}
+                            </div>
+                          )}
                           <div className="truncate text-xs opacity-75">
                             {job.locations?.zip}
                           </div>

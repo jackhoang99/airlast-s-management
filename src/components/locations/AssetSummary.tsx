@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Package, X } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface AssetSummaryProps {
   assets: any[];
@@ -58,14 +59,39 @@ const AssetSummary = ({
                 {asset.model?.serial_number || "(No Serial #)"}
               </div>
               <div className="text-sm text-gray-700 mb-1">
-                Unit: {asset.units?.unit_number || "-"}
+                Unit:{" "}
+                {asset.units?.id ? (
+                  <Link
+                    to={`/units/${asset.units.id}`}
+                    className="text-primary-600 hover:underline"
+                  >
+                    {asset.units.unit_number || asset.units.id}
+                  </Link>
+                ) : (
+                  asset.units?.unit_number || "-"
+                )}
               </div>
               <div className="text-xs text-gray-500 mb-1">
-                Location: {asset.units?.locations?.name || "-"}
-                {asset.units?.locations?.companies?.name && (
+                Location:{" "}
+                {asset.units?.locations?.id ? (
+                  <Link
+                    to={`/locations/${asset.units.locations.id}`}
+                    className="text-primary-600 hover:underline"
+                  >
+                    {asset.units.locations.name}
+                  </Link>
+                ) : (
+                  asset.units?.locations?.name || "-"
+                )}
+                {asset.units?.locations?.companies?.id && (
                   <>
                     {" | Company: "}
-                    {asset.units.locations.companies.name}
+                    <Link
+                      to={`/companies/${asset.units.locations.companies.id}`}
+                      className="text-primary-600 hover:underline"
+                    >
+                      {asset.units.locations.companies.name}
+                    </Link>
                   </>
                 )}
               </div>

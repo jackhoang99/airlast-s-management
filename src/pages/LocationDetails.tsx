@@ -74,7 +74,7 @@ const LocationDetails = () => {
       // Fetch all units for this location
       const { data: unitsData, error: unitsError } = await supabase
         .from("units")
-        .select("id, unit_number")
+        .select("id")
         .eq("location_id", location.id);
       if (unitsError) return;
       setUnits(unitsData || []);
@@ -83,10 +83,12 @@ const LocationDetails = () => {
         setLocationAssets([]);
         return;
       }
-      // Fetch all assets for these units
+      // Fetch all assets for these units, joining units, locations, companies
       const { data: assets, error: assetsError } = await supabase
         .from("assets")
-        .select("*")
+        .select(
+          `*, units(id, unit_number, location_id, locations(id, name, companies(id, name)))`
+        )
         .in("unit_id", unitIds);
       if (assetsError) return;
       setLocationAssets(assets || []);

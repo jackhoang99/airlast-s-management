@@ -264,7 +264,12 @@ const TechnicianJobs = () => {
         }
 
         console.log("Found jobs:", jobsData);
-        setJobs(jobsData || []);
+        // Flatten units from job_units
+        const jobsWithUnits = (jobsData || []).map((job: any) => ({
+          ...job,
+          units: (job.job_units || []).map((ju: any) => ju.units),
+        }));
+        setJobs(jobsWithUnits);
       } catch (err) {
         console.error("Error fetching jobs:", err);
         setError("Failed to load job information");
@@ -542,9 +547,9 @@ const TechnicianJobs = () => {
                   </p>
                   <p className="text-sm text-gray-500 truncate">
                     {job.locations?.name}
-                    {job.job_units && job.job_units.length > 0
-                      ? ` • Units ${job.job_units
-                          .map((ju: any) => ju.units?.unit_number || ju.unit_id)
+                    {job.units && job.units.length > 0
+                      ? ` • Units ${job.units
+                          .map((unit: any) => unit.unit_number || unit.id)
                           .join(", ")}`
                       : ""}
                   </p>

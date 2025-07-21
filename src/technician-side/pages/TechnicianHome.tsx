@@ -361,7 +361,12 @@ const TechnicianHome = () => {
         }
 
         console.log("Today's jobs:", todayJobsData);
-        setTodayJobs(todayJobsData || []);
+        // Flatten units from job_units for todayJobsData
+        const todayJobsWithUnits = (todayJobsData || []).map((job: any) => ({
+          ...job,
+          units: (job.job_units || []).map((ju: any) => ju.units),
+        }));
+        setTodayJobs(todayJobsWithUnits);
 
         // Fetch upcoming jobs
         const { data: upcomingJobsData, error: upcomingError } = await supabase
@@ -399,7 +404,14 @@ const TechnicianHome = () => {
         }
 
         console.log("Upcoming jobs:", upcomingJobsData);
-        setUpcomingJobs(upcomingJobsData || []);
+        // Flatten units from job_units for upcomingJobsData
+        const upcomingJobsWithUnits = (upcomingJobsData || []).map(
+          (job: any) => ({
+            ...job,
+            units: (job.job_units || []).map((ju: any) => ju.units),
+          })
+        );
+        setUpcomingJobs(upcomingJobsWithUnits);
 
         // Fetch recently completed jobs
         const { data: completedJobsData, error: completedError } =
@@ -435,7 +447,14 @@ const TechnicianHome = () => {
         }
 
         console.log("Completed jobs:", completedJobsData);
-        setCompletedJobs(completedJobsData || []);
+        // Flatten units from job_units for completedJobsData
+        const completedJobsWithUnits = (completedJobsData || []).map(
+          (job: any) => ({
+            ...job,
+            units: (job.job_units || []).map((ju: any) => ju.units),
+          })
+        );
+        setCompletedJobs(completedJobsWithUnits);
       } catch (err) {
         console.error("Error fetching jobs:", err);
         setError("Failed to load job information");
@@ -561,9 +580,9 @@ const TechnicianHome = () => {
                         </h3>
                         <p className="text-sm text-gray-500">
                           {job.locations?.name}
-                          {job.job_units && job.job_units.length > 0
-                            ? ` • Units ${job.job_units
-                                .map((unit) => unit.units.unit_number)
+                          {job.units && job.units.length > 0
+                            ? ` • Units ${job.units
+                                .map((unit) => unit.unit_number)
                                 .join(", ")}`
                             : ""}
                         </p>
@@ -694,9 +713,9 @@ const TechnicianHome = () => {
                         </h3>
                         <p className="text-sm text-gray-500">
                           {job.locations?.name}
-                          {job.job_units && job.job_units.length > 0
-                            ? ` • Units ${job.job_units
-                                .map((unit) => unit.units.unit_number)
+                          {job.units && job.units.length > 0
+                            ? ` • Units ${job.units
+                                .map((unit) => unit.unit_number)
                                 .join(", ")}`
                             : ""}
                         </p>
@@ -748,9 +767,9 @@ const TechnicianHome = () => {
                         </h3>
                         <p className="text-sm text-gray-500">
                           {job.locations?.name}
-                          {job.job_units && job.job_units.length > 0
-                            ? ` • Units ${job.job_units
-                                .map((unit) => unit.units.unit_number)
+                          {job.units && job.units.length > 0
+                            ? ` • Units ${job.units
+                                .map((unit) => unit.unit_number)
                                 .join(", ")}`
                             : ""}
                         </p>

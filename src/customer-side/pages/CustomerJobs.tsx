@@ -135,7 +135,12 @@ const CustomerJobs = () => {
         });
 
         if (jobsError) throw jobsError;
-        setJobs(data || []);
+        // Flatten units from job_units
+        const jobsWithUnits = (data || []).map((job: any) => ({
+          ...job,
+          units: (job.job_units || []).map((ju: any) => ju.units),
+        }));
+        setJobs(jobsWithUnits);
 
         // Fetch assets for units
         if (unitIds.length > 0) {

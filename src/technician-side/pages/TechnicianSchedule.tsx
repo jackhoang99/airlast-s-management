@@ -236,7 +236,12 @@ const TechnicianSchedule = () => {
           .order("schedule_start");
 
         if (jobsError) throw jobsError;
-        setJobs(jobsData || []);
+        // Flatten units from job_units
+        const jobsWithUnits = (jobsData || []).map((job: any) => ({
+          ...job,
+          units: (job.job_units || []).map((ju: any) => ju.units),
+        }));
+        setJobs(jobsWithUnits);
       } catch (err) {
         console.error("Error fetching jobs:", err);
         setError("Failed to load job information");

@@ -144,7 +144,9 @@ const UnitDetails = () => {
       try {
         const { data, error: fetchError } = await supabase
           .from("assets")
-          .select("*")
+          .select(
+            `*, units(id, unit_number, location_id, locations(id, name, companies(id, name)))`
+          )
           .eq("unit_id", id)
           .order("inspection_date", { ascending: false });
 

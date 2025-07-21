@@ -16,6 +16,7 @@ import {
   Mail,
   ArrowRight,
 } from "lucide-react";
+import QuickAssetViewModal from "../components/locations/QuickAssetViewModal";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
 
@@ -156,23 +157,27 @@ const DispatchSchedule = () => {
 
       if (jobsError) throw jobsError;
 
-      // Process jobs to add geocoded locations
+      // Process jobs to add geocoded locations and flatten units
       const jobsWithCoordinates = await Promise.all(
         (jobsData || []).map(async (job) => {
-          if (job.locations) {
+          let locations = job.locations;
+          if (locations) {
             const { lat, lng } = await geocodeAddress(
-              `${job.locations.address}, ${job.locations.city}, ${job.locations.state} ${job.locations.zip}`
+              `${locations.address}, ${locations.city}, ${locations.state} ${locations.zip}`
             );
-            return {
-              ...job,
-              locations: {
-                ...job.locations,
-                lat,
-                lng,
-              },
+            locations = {
+              ...locations,
+              lat,
+              lng,
             };
           }
-          return job;
+          // Flatten units from job_units
+          const units = (job.job_units || []).map((ju: any) => ju.units);
+          return {
+            ...job,
+            locations,
+            units,
+          };
         })
       );
 
@@ -521,6 +526,19 @@ const DispatchSchedule = () => {
   const handleJobClick = (jobId: string) => {
     const job = jobs.find((j) => j.id === jobId);
     if (job) {
+      // If the job has a schedule_start, move the calendar to that date
+      if (job.schedule_start) {
+        const jobDate = new Date(job.schedule_start);
+        // Only change the date if it's different from the current calendar date
+        if (
+          jobDate.getFullYear() !== currentDate.getFullYear() ||
+          jobDate.getMonth() !== currentDate.getMonth() ||
+          jobDate.getDate() !== currentDate.getDate()
+        ) {
+          setCurrentDate(jobDate);
+        }
+      }
+      setSelectedJobId(jobId);
       setSelectedJobForModal(job);
       setShowJobModal(true);
     }
@@ -549,6 +567,21 @@ const DispatchSchedule = () => {
       }
     }, 200); // Wait for modal to close
   };
+
+  const [showAssetModal, setShowAssetModal] = useState(false);
+  const [assetModalUnit, setAssetModalUnit] = useState<{
+    id: string;
+    unit_number: string;
+  } | null>(null);
+  const [assetModalLocation, setAssetModalLocation] = useState<{
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    lat?: number;
+    lng?: number;
+  } | null>(null);
 
   if (isLoading) {
     return (
@@ -614,6 +647,13 @@ const DispatchSchedule = () => {
                       zip: job.locations.zip || "",
                       city: job.locations.city || "",
                       state: job.locations.state || "",
+                      company:
+                        job.locations.company_name || job.company_name || "",
+                      unit:
+                        job.units && job.units.length > 0
+                          ? job.units[0].unit_number
+                          : "",
+                      locationId: job.locations.id || job.location_id || "",
                     };
                   }
                 }
@@ -622,9 +662,28 @@ const DispatchSchedule = () => {
                   zip: "",
                   city: "Atlanta",
                   state: "GA",
+                  company: "",
+                  unit: "",
+                  locationId: "",
                 };
               })()}
               className="h-full w-full"
+              onMarkerJobClick={(locationId) => {
+                console.log("Marker clicked, locationId:", locationId, jobs);
+                const job = jobs.find(
+                  (j) =>
+                    j.locations &&
+                    (j.locations.id === locationId ||
+                      j.location_id === locationId)
+                );
+                if (job) {
+                  setSelectedJobId(job.id);
+                  setSelectedJobForModal(job);
+                  setShowJobModal(true);
+                } else {
+                  console.warn("No job found for locationId:", locationId);
+                }
+              }}
             />
           </div>
 
@@ -767,7 +826,23 @@ const DispatchSchedule = () => {
                     <p className="text-sm text-gray-500 mb-1">Units</p>
                     <ul className="list-disc list-inside text-sm text-gray-700">
                       {selectedJobForModal.units.map((unit, idx) => (
-                        <li key={idx}>{unit.unit_number}</li>
+                        <li key={idx} className="flex items-center gap-2">
+                          <span>{unit.unit_number}</span>
+                          {unit.id && (
+                            <button
+                              className="btn btn-xs btn-primary ml-2"
+                              onClick={() => {
+                                setAssetModalUnit(unit);
+                                setAssetModalLocation(
+                                  selectedJobForModal.locations
+                                );
+                                setShowAssetModal(true);
+                              }}
+                            >
+                              View Assets
+                            </button>
+                          )}
+                        </li>
                       ))}
                     </ul>
                   </div>
@@ -791,16 +866,37 @@ const DispatchSchedule = () => {
                 View Full Job Page
                 <ArrowRight size={16} className="ml-2" />
               </a>
-              <button
-                className="btn btn-secondary flex items-center justify-center"
-                onClick={() => handleViewOnSchedule(selectedJobForModal.id)}
-              >
-                View on Schedule
-              </button>
+              {selectedJobForModal.units &&
+              selectedJobForModal.units.length > 0 ? (
+                <button
+                  className="btn btn-secondary flex items-center justify-center"
+                  onClick={() => {
+                    setAssetModalUnit(selectedJobForModal.units[0]);
+                    setAssetModalLocation(selectedJobForModal.locations);
+                    setShowAssetModal(true);
+                  }}
+                >
+                  View Assets
+                </button>
+              ) : (
+                <button
+                  className="btn btn-secondary flex items-center justify-center"
+                  disabled
+                >
+                  View Assets
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
+      {/* QuickAssetViewModal for job details */}
+      <QuickAssetViewModal
+        open={showAssetModal}
+        onClose={() => setShowAssetModal(false)}
+        location={assetModalLocation}
+        unit={assetModalUnit}
+      />
     </div>
   );
 };

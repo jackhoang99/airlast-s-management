@@ -99,31 +99,50 @@ const CompanyDetails = () => {
 
   useEffect(() => {
     const fetchCompanyAssets = async () => {
-      if (!supabase || !id) return;
-      // Fetch all units for this company
-      const { data: units, error: unitsError } = await supabase
-        .from("units")
-        .select("id")
-        .in(
-          "location_id",
-          locations.map((l) => l.id)
-        );
-      if (unitsError) return;
-      const unitIds = (units || []).map((u: any) => u.id);
-      if (unitIds.length === 0) {
+      if (!supabase || !company) return;
+      try {
+        setIsLoading(true);
+        // Fetch all units for this company
+        const { data: locationsData, error: locationsError } = await supabase
+          .from("locations")
+          .select("id")
+          .eq("company_id", company.id);
+        if (locationsError) throw locationsError;
+        const locationIds = (locationsData || []).map((l: any) => l.id);
+        if (locationIds.length === 0) {
+          setCompanyAssets([]);
+          setIsLoading(false);
+          return;
+        }
+        // Fetch all units for these locations
+        const { data: unitsData, error: unitsError } = await supabase
+          .from("units")
+          .select("id")
+          .in("location_id", locationIds);
+        if (unitsError) throw unitsError;
+        const unitIds = (unitsData || []).map((u: any) => u.id);
+        if (unitIds.length === 0) {
+          setCompanyAssets([]);
+          setIsLoading(false);
+          return;
+        }
+        // Fetch all assets for these units, joining units, locations, companies
+        const { data: assetsData, error: assetsError } = await supabase
+          .from("assets")
+          .select(
+            `*, units(id, unit_number, location_id, locations(id, name, companies(id, name)))`
+          )
+          .in("unit_id", unitIds);
+        if (assetsError) throw assetsError;
+        setCompanyAssets(assetsData || []);
+      } catch (err) {
         setCompanyAssets([]);
-        return;
+      } finally {
+        setIsLoading(false);
       }
-      // Fetch all assets for these units
-      const { data: assets, error: assetsError } = await supabase
-        .from("assets")
-        .select("*")
-        .in("unit_id", unitIds);
-      if (assetsError) return;
-      setCompanyAssets(assets || []);
     };
-    if (locations.length > 0) fetchCompanyAssets();
-  }, [supabase, id, locations]);
+    fetchCompanyAssets();
+  }, [supabase, company]);
 
   const handleDeleteCompany = async () => {
     if (!supabase || !company) return;
