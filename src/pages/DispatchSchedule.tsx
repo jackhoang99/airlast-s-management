@@ -338,6 +338,7 @@ const DispatchSchedule = () => {
 
         // Refresh the jobs data to reflect changes
         await fetchJobs();
+        setDragModeActive(false); // Exit drag mode after drop
       } else if (to.type === "column") {
         // Handle dropping job back to unassigned columns
         if (to.id === "unassigned") {
@@ -369,6 +370,7 @@ const DispatchSchedule = () => {
 
           // Refresh the jobs data to reflect changes
           await fetchJobs();
+          setDragModeActive(false); // Exit drag mode after drop
         }
       }
     } catch (err) {
@@ -716,6 +718,7 @@ const DispatchSchedule = () => {
               dragModeActive={dragModeActive}
               selectedJobToDrag={selectedJobToDrag}
               highlightedJobId={highlightedJobId}
+              onActivateDragMode={handleActivateDragMode}
             />
           </div>
         </div>

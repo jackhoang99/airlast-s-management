@@ -57,6 +57,7 @@ interface TechnicianScheduleProps {
   dragModeActive?: boolean;
   selectedJobToDrag?: string | null;
   highlightedJobId?: string | null;
+  onActivateDragMode?: () => void;
 }
 
 const TechnicianSchedule = ({
@@ -77,6 +78,8 @@ const TechnicianSchedule = ({
   dragModeActive,
   selectedJobToDrag,
   highlightedJobId,
+  onActivateDragMode,
+  ...rest
 }: TechnicianScheduleProps) => {
   // Time slots for the schedule (8 AM to 8 PM)
   const timeSlots = Array.from({ length: 13 }, (_, i) => i + 8); // 8 AM to 8 PM (24-hour format)
@@ -262,6 +265,14 @@ const TechnicianSchedule = ({
           <h2 className="font-medium text-gray-900 text-sm">
             Technician Schedule
           </h2>
+          {!dragModeActive && (
+            <button
+              className="p-2 border-2 border-primary-300 rounded-lg text-primary-700 bg-primary-50 hover:bg-primary-100 transition-colors font-semibold text-xs ml-2"
+              onClick={onActivateDragMode}
+            >
+              Click here to drag a job
+            </button>
+          )}
         </div>
 
         {/* Date Navigation */}
@@ -369,7 +380,7 @@ const TechnicianSchedule = ({
                       return (
                         <div
                           key={job.id}
-                          draggable
+                          draggable={!!dragModeActive}
                           onDragStart={(e) => {
                             e.dataTransfer.setData(
                               "application/json",
