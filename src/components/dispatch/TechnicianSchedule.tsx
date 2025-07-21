@@ -91,6 +91,9 @@ const TechnicianSchedule = ({
     toTechName: string;
   } | null>(null);
 
+  const [dragOverHour, setDragOverHour] = useState<number | null>(null);
+  const [dragOverTechId, setDragOverTechId] = useState<string | null>(null);
+
   const handlePrevDay = () => {
     const newDate = new Date(currentDate);
     newDate.setDate(currentDate.getDate() - 1);
@@ -324,16 +327,28 @@ const TechnicianSchedule = ({
                         key={hour}
                         className={`absolute border-l border-gray-300 h-full transition-colors cursor-pointer z-10 ${
                           dragModeActive && selectedJobToDrag
-                            ? "bg-blue-100 border-blue-400"
+                            ? dragOverHour === hour &&
+                              dragOverTechId === tech.id
+                              ? "bg-blue-200 border-blue-500"
+                              : "bg-white opacity-60"
                             : "bg-white hover:bg-blue-50"
                         }`}
                         style={{
                           left: `${((hour - 8) / timeSlots.length) * 100}%`,
                           width: `${100 / timeSlots.length}%`,
+                          minHeight: 32,
                         }}
                         onDragOver={handleDragOver}
-                        onDragEnter={handleDragEnter}
-                        onDragLeave={handleDragLeave}
+                        onDragEnter={(e) => {
+                          setDragOverHour(hour);
+                          setDragOverTechId(tech.id);
+                          handleDragEnter(e);
+                        }}
+                        onDragLeave={(e) => {
+                          setDragOverHour(null);
+                          setDragOverTechId(null);
+                          handleDragLeave(e);
+                        }}
                         onDrop={(e) => handleTimeSlotDrop(e, tech.id, hour)}
                         title={`Drop job here for ${formatTime(hour)}`}
                       />
@@ -434,6 +449,7 @@ const TechnicianSchedule = ({
                           style={{
                             left: `${Math.max(0, left)}%`,
                             width: `${Math.max(8, Math.min(width, 30))}%`,
+                            minHeight: 32,
                           }}
                           title={`${job.name} - ${job.locations?.name || ""}`}
                           data-job-id={job.id}

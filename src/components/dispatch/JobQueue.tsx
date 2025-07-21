@@ -73,14 +73,19 @@ const JobQueue = ({
     <div
       key={job.id}
       draggable={!!dragModeActive}
-      onDragStart={() => dragModeActive && onJobDragStart(job, from)}
+      onDragStart={(e) => {
+        if (dragModeActive) {
+          e.dataTransfer.setData("application/json", JSON.stringify(job));
+          onJobDragStart(job, from);
+        }
+      }}
       onDragEnd={onJobDragEnd}
       onClick={() => {
         if (!dragModeActive) {
           onJobClick(job.id);
         }
       }}
-      className={`p-2 mb-2 rounded-lg border transition-shadow ${getJobTypeColorClass(
+      className={`p-1 mb-1 rounded border transition-shadow text-xs min-h-[32px] flex flex-col justify-center ${getJobTypeColorClass(
         job.type
       )} ${selectedJobId === job.id ? "ring-2 ring-primary-500" : ""} ${
         dragModeActive ? "cursor-move" : "cursor-pointer"
@@ -89,12 +94,11 @@ const JobQueue = ({
           ? "ring-2 ring-blue-500 border-blue-400 bg-blue-50"
           : ""
       }`}
+      style={{ minHeight: 32, fontSize: 12, padding: 6 }}
     >
-      <div className="text-xs font-medium truncate">{job.name}</div>
-      <div className="text-xs text-gray-600 truncate">
-        {job.locations?.name}
-      </div>
-      <div className="text-xs text-gray-500">{job.locations?.zip}</div>
+      <div className="font-medium truncate">{job.name}</div>
+      <div className="text-gray-600 truncate">{job.locations?.name}</div>
+      <div className="text-gray-500">{job.locations?.zip}</div>
     </div>
   );
 
@@ -193,18 +197,25 @@ const JobQueue = ({
         </div>
       </div>
       {/* Drag Mode Activation Button */}
-      <div className="m-4">
+      <div className="m-4 flex flex-col gap-2">
         <button
-          className="w-full p-4 border-2 border-primary-300 rounded-lg text-center text-primary-700 bg-primary-50 hover:bg-primary-100 transition-colors font-semibold"
+          className="w-full p-2 border-2 border-primary-300 rounded-lg text-center text-primary-700 bg-primary-50 hover:bg-primary-100 transition-colors font-semibold text-sm"
           onClick={() =>
             typeof onActivateDragMode === "function" && onActivateDragMode()
           }
           disabled={dragModeActive}
         >
-          {dragModeActive
-            ? "Click here to drop a job"
-            : "Click here to drag a job"}
+          Click here to drag a job
         </button>
+        {dragModeActive && (
+          <button
+            className="w-full p-2 border-2 border-gray-300 rounded-lg text-center text-gray-700 bg-white hover:bg-gray-100 transition-colors font-semibold text-sm"
+            onClick={onJobDragEnd}
+            type="button"
+          >
+            Cancel
+          </button>
+        )}
       </div>
     </div>
   );
