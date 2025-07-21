@@ -287,7 +287,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                   </li>
                   <li>
                     <Link
-                      to="/jobs/scorecard" 
+                      to="/jobs/scorecard"
                       className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
                         location.pathname.includes("/jobs/scorecard")
                           ? "bg-primary-50 text-primary-700"
