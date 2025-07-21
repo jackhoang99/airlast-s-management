@@ -17,6 +17,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import QuickAssetViewModal from "../components/locations/QuickAssetViewModal";
+import { Link } from "react-router-dom";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
 
@@ -128,11 +129,17 @@ const DispatchSchedule = () => {
           `
           *,
           locations (
+            id,
             name,
             address,
             city,
             state,
-            zip
+            zip,
+            company_id,
+            companies (
+              id,
+              name
+            )
           ),
           job_units:job_units!inner (
             unit_id,
@@ -582,6 +589,7 @@ const DispatchSchedule = () => {
     lat?: number;
     lng?: number;
   } | null>(null);
+  const [assetModalUnits, setAssetModalUnits] = useState<any[] | null>(null);
 
   if (isLoading) {
     return (
@@ -766,11 +774,29 @@ const DispatchSchedule = () => {
                   <div className="flex items-start gap-2">
                     <MapPin size={16} className="text-gray-400 mt-0.5" />
                     <div>
-                      <p className="font-medium">
+                      <Link
+                        to={
+                          selectedJobForModal.locations.id
+                            ? `/locations/${selectedJobForModal.locations.id}`
+                            : "#"
+                        }
+                        className="font-medium underline hover:text-primary-700"
+                        onClick={() => setShowJobModal(false)}
+                      >
                         {selectedJobForModal.locations.name}
-                      </p>
+                      </Link>
                       <p className="text-sm text-gray-600">
-                        {selectedJobForModal.locations.address}
+                        <Link
+                          to={
+                            selectedJobForModal.locations.id
+                              ? `/locations/${selectedJobForModal.locations.id}`
+                              : "#"
+                          }
+                          className="underline hover:text-primary-700"
+                          onClick={() => setShowJobModal(false)}
+                        >
+                          {selectedJobForModal.locations.address}
+                        </Link>
                       </p>
                       <p className="text-sm text-gray-600">
                         {selectedJobForModal.locations.city},{" "}
@@ -780,6 +806,22 @@ const DispatchSchedule = () => {
                   </div>
                 </div>
               )}
+              {/* Company clickable if available */}
+              {selectedJobForModal.locations &&
+                selectedJobForModal.locations.companies &&
+                selectedJobForModal.locations.companies.id && (
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Company</p>
+                    <Link
+                      to={`/companies/${selectedJobForModal.locations.companies.id}`}
+                      className="font-medium underline hover:text-primary-700"
+                      onClick={() => setShowJobModal(false)}
+                    >
+                      {selectedJobForModal.locations.companies.name ||
+                        "View Company"}
+                    </Link>
+                  </div>
+                )}
               {selectedJobForModal.schedule_start && (
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Scheduled</p>
@@ -827,20 +869,16 @@ const DispatchSchedule = () => {
                     <ul className="list-disc list-inside text-sm text-gray-700">
                       {selectedJobForModal.units.map((unit, idx) => (
                         <li key={idx} className="flex items-center gap-2">
-                          <span>{unit.unit_number}</span>
-                          {unit.id && (
-                            <button
-                              className="btn btn-xs btn-primary ml-2"
-                              onClick={() => {
-                                setAssetModalUnit(unit);
-                                setAssetModalLocation(
-                                  selectedJobForModal.locations
-                                );
-                                setShowAssetModal(true);
-                              }}
+                          {unit.id ? (
+                            <Link
+                              to={`/units/${unit.id}`}
+                              className="underline hover:text-primary-700"
+                              onClick={() => setShowJobModal(false)}
                             >
-                              View Assets
-                            </button>
+                              {unit.unit_number}
+                            </Link>
+                          ) : (
+                            <span>{unit.unit_number}</span>
                           )}
                         </li>
                       ))}
@@ -871,8 +909,9 @@ const DispatchSchedule = () => {
                 <button
                   className="btn btn-secondary flex items-center justify-center"
                   onClick={() => {
-                    setAssetModalUnit(selectedJobForModal.units[0]);
+                    setAssetModalUnit(null); // null means all units
                     setAssetModalLocation(selectedJobForModal.locations);
+                    setAssetModalUnits(selectedJobForModal.units); // <-- pass only job's units
                     setShowAssetModal(true);
                   }}
                 >
@@ -896,6 +935,7 @@ const DispatchSchedule = () => {
         onClose={() => setShowAssetModal(false)}
         location={assetModalLocation}
         unit={assetModalUnit}
+        units={assetModalUnits}
       />
     </div>
   );

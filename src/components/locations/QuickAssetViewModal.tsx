@@ -9,6 +9,7 @@ interface QuickAssetViewModalProps {
   onClose: () => void;
   location: Database["public"]["Tables"]["locations"]["Row"];
   unit?: Database["public"]["Tables"]["units"]["Row"];
+  units?: Database["public"]["Tables"]["units"]["Row"][] | null;
 }
 
 const QuickAssetViewModal = ({
@@ -16,6 +17,7 @@ const QuickAssetViewModal = ({
   onClose,
   location,
   unit,
+  units,
 }: QuickAssetViewModalProps) => {
   const { supabase } = useSupabase();
   const [assets, setAssets] = useState<any[]>([]);
@@ -38,14 +40,25 @@ const QuickAssetViewModal = ({
             .eq("unit_id", unit.id);
           if (assetsError) throw assetsError;
           setAssets(assetsData || []);
+        } else if (units && Array.isArray(units) && units.length > 0) {
+          // Fetch only assets for the provided units (job's units)
+          const unitIds = units.map((u: any) => u.id);
+          const { data: assetsData, error: assetsError } = await supabase
+            .from("assets")
+            .select(
+              `*, units(id, unit_number, locations(id, name, companies(name)))`
+            )
+            .in("unit_id", unitIds);
+          if (assetsError) throw assetsError;
+          setAssets(assetsData || []);
         } else {
           // Fallback: fetch all units for this location (legacy behavior)
-          const { data: units, error: unitsError } = await supabase
+          const { data: unitsData, error: unitsError } = await supabase
             .from("units")
             .select("id")
             .eq("location_id", location.id);
           if (unitsError) throw unitsError;
-          const unitIds = (units || []).map((u: any) => u.id);
+          const unitIds = (unitsData || []).map((u: any) => u.id);
           if (unitIds.length === 0) {
             setAssets([]);
             setIsLoading(false);
@@ -67,7 +80,7 @@ const QuickAssetViewModal = ({
       }
     };
     fetchAssets();
-  }, [open, location, supabase, unit]);
+  }, [open, location, supabase, unit, units]);
 
   if (!open) return null;
 
