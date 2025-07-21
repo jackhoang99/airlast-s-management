@@ -30,8 +30,8 @@ const TechnicianMap = () => {
   const { supabase } = useSupabase();
   const location = useLocation();
   const mapRef = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
   const [jobs, setJobs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMapInitializing, setIsMapInitializing] = useState(true);
@@ -228,7 +228,7 @@ const TechnicianMap = () => {
           // If we're navigating, update the route
           if (
             isNavigating &&
-            map &&
+            mapInstanceRef.current &&
             directionsService &&
             directionsRenderer &&
             selectedJobId
@@ -272,6 +272,7 @@ const TechnicianMap = () => {
 
   // Initialize Google Maps
   useEffect(() => {
+    let isMounted = true;
     const initMap = async () => {
       if (!technicianLocation || !mapRef.current) return;
 
@@ -287,32 +288,33 @@ const TechnicianMap = () => {
         const google = await loader.load();
         setGoogleMaps(google.maps);
 
-        const mapInstance = new google.maps.Map(mapRef.current, {
-          center: technicianLocation,
-          zoom: 12,
-          mapTypeId: mapType as google.maps.MapTypeId,
-          mapTypeControl: false,
-          fullscreenControl: false,
-          streetViewControl: false,
-          zoomControl: true,
-          zoomControlOptions: {
-            position: google.maps.ControlPosition.RIGHT_TOP,
-          },
-          styles: [
-            {
-              featureType: "poi",
-              elementType: "labels",
-              stylers: [{ visibility: "off" }],
+        if (mapRef.current && !mapInstanceRef.current && isMounted) {
+          const mapInstance = new google.maps.Map(mapRef.current, {
+            center: technicianLocation,
+            zoom: 12,
+            mapTypeId: mapType as google.maps.MapTypeId,
+            mapTypeControl: false,
+            fullscreenControl: false,
+            streetViewControl: false,
+            zoomControl: true,
+            zoomControlOptions: {
+              position: google.maps.ControlPosition.RIGHT_TOP,
             },
-          ],
-        });
-
-        setMap(mapInstance);
+            styles: [
+              {
+                featureType: "poi",
+                elementType: "labels",
+                stylers: [{ visibility: "off" }],
+              },
+            ],
+          });
+          mapInstanceRef.current = mapInstance;
+        }
 
         // Add marker for technician's location
         const techMarker = new google.maps.Marker({
           position: technicianLocation,
-          map: mapInstance,
+          map: mapInstanceRef.current,
           title: "Your Location",
           icon: {
             path: google.maps.SymbolPath.CIRCLE,
@@ -327,7 +329,7 @@ const TechnicianMap = () => {
         // Initialize directions service and renderer
         const directionsService = new google.maps.DirectionsService();
         const directionsRenderer = new google.maps.DirectionsRenderer({
-          map: mapInstance,
+          map: mapInstanceRef.current,
           suppressMarkers: true,
           polylineOptions: {
             strokeColor: "#4f46e5",
@@ -341,7 +343,7 @@ const TechnicianMap = () => {
         // Enable traffic layer if selected
         if (trafficEnabled) {
           const trafficLayer = new google.maps.TrafficLayer();
-          trafficLayer.setMap(mapInstance);
+          trafficLayer.setMap(mapInstanceRef.current);
         }
 
         // If jobs are already loaded, update markers
@@ -361,6 +363,12 @@ const TechnicianMap = () => {
     if (technicianLocation && mapRef.current) {
       initMap();
     }
+    return () => {
+      isMounted = false;
+      markersRef.current.forEach((marker) => marker.setMap(null));
+      markersRef.current = [];
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [technicianLocation, mapType, trafficEnabled]);
 
   // Fetch jobs assigned to technician
@@ -442,7 +450,7 @@ const TechnicianMap = () => {
         setJobs(jobsWithUnits);
 
         // Update map markers if map is already initialized
-        if (map) {
+        if (mapInstanceRef.current) {
           updateMapMarkers(jobsWithUnits);
         }
       } catch (err) {
@@ -456,22 +464,22 @@ const TechnicianMap = () => {
     if (technicianId) {
       fetchJobs();
     }
-  }, [supabase, technicianId, map]);
+  }, [supabase, technicianId, mapInstanceRef.current]);
 
   // Update map markers when selectedJobId changes
   useEffect(() => {
-    if (map && jobs.length > 0 && selectedJobId) {
+    if (mapInstanceRef.current && jobs.length > 0 && selectedJobId) {
       const selectedJob = jobs.find((job) => job.id === selectedJobId);
       if (
         selectedJob &&
         selectedJob.locations?.lat &&
         selectedJob.locations?.lng
       ) {
-        map.setCenter({
+        mapInstanceRef.current.setCenter({
           lat: selectedJob.locations.lat,
           lng: selectedJob.locations.lng,
         });
-        map.setZoom(15);
+        mapInstanceRef.current.setZoom(15);
 
         // Calculate route if technician location is available
         if (technicianLocation && directionsService && directionsRenderer) {
@@ -484,7 +492,7 @@ const TechnicianMap = () => {
     }
   }, [
     selectedJobId,
-    map,
+    mapInstanceRef.current,
     jobs,
     technicianLocation,
     directionsService,
@@ -525,10 +533,10 @@ const TechnicianMap = () => {
   };
 
   const updateMapMarkers = (jobsToMark: any[]) => {
-    // Clear existing markers
-    markers.forEach((marker) => marker.setMap(null));
+    if (!mapInstanceRef.current || !googleMaps) return;
 
-    if (!map || !googleMaps) return;
+    // Clear existing markers
+    markersRef.current.forEach((marker) => marker.setMap(null));
 
     const newMarkers: google.maps.Marker[] = [];
     const bounds = new google.maps.LatLngBounds();
@@ -540,7 +548,7 @@ const TechnicianMap = () => {
       // Add technician marker
       const techMarker = new google.maps.Marker({
         position: technicianLocation,
-        map,
+        map: mapInstanceRef.current,
         title: "Your Location",
         icon: {
           path: googleMaps.SymbolPath.CIRCLE,
@@ -562,7 +570,7 @@ const TechnicianMap = () => {
         // Create marker
         const marker = new google.maps.Marker({
           position,
-          map,
+          map: mapInstanceRef.current,
           title: job.name,
           icon: {
             path: googleMaps.SymbolPath.CIRCLE,
@@ -610,7 +618,7 @@ const TechnicianMap = () => {
 
         // Add click listener
         marker.addListener("click", () => {
-          infoWindow.open(map, marker);
+          infoWindow.open(mapInstanceRef.current, marker);
           setSelectedJobId(job.id);
         });
 
@@ -619,19 +627,23 @@ const TechnicianMap = () => {
       }
     });
 
-    setMarkers(newMarkers);
+    markersRef.current = newMarkers;
 
     // Adjust map to fit all markers
     if (newMarkers.length > 0) {
-      map.fitBounds(bounds);
+      mapInstanceRef.current.fitBounds(bounds);
 
       // Don't zoom in too far
-      const listener = googleMaps.event.addListener(map, "idle", () => {
-        if (map.getZoom() > 15) {
-          map.setZoom(15);
+      const listener = googleMaps.event.addListener(
+        mapInstanceRef.current,
+        "idle",
+        () => {
+          if (mapInstanceRef.current.getZoom() > 15) {
+            mapInstanceRef.current.setZoom(15);
+          }
+          googleMaps.event.removeListener(listener);
         }
-        googleMaps.event.removeListener(listener);
-      });
+      );
     }
   };
 
@@ -779,20 +791,20 @@ const TechnicianMap = () => {
   };
 
   const toggleMapType = () => {
-    if (!map || !googleMaps) return;
+    if (!mapInstanceRef.current || !googleMaps) return;
 
     const newMapType = mapType === "roadmap" ? "satellite" : "roadmap";
     setMapType(newMapType);
-    map.setMapTypeId(newMapType as google.maps.MapTypeId);
+    mapInstanceRef.current.setMapTypeId(newMapType as google.maps.MapTypeId);
   };
 
   const toggleTraffic = () => {
     setTrafficEnabled(!trafficEnabled);
 
-    if (map && googleMaps) {
+    if (mapInstanceRef.current && googleMaps) {
       if (!trafficEnabled) {
         const trafficLayer = new googleMaps.TrafficLayer();
-        trafficLayer.setMap(map);
+        trafficLayer.setMap(mapInstanceRef.current);
       } else {
         // This effectively removes the traffic layer
         new googleMaps.TrafficLayer().setMap(null);

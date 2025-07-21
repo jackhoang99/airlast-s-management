@@ -1014,6 +1014,7 @@ const TechnicianJobDetails = () => {
             name: job.locations.name,
           }}
           job={job}
+          startNavigation={true}
         />
       )}
     </div>

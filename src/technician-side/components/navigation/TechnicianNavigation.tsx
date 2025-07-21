@@ -76,6 +76,7 @@ const TechnicianNavigation = ({
   const [techMarker, setTechMarker] = useState<google.maps.Marker | null>(null);
   const [destMarker, setDestMarker] = useState<google.maps.Marker | null>(null);
   const [googleMaps, setGoogleMaps] = useState<typeof google.maps | null>(null);
+  const [hasStartedNavigation, setHasStartedNavigation] = useState(false);
 
   // Get technician's current location
   useEffect(() => {
@@ -539,13 +540,15 @@ const TechnicianNavigation = ({
     return div.textContent || div.innerText || "";
   };
 
+  // Only show the intro screen until user clicks the car icon
   if (!isOpen) return null;
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col bg-white ${
+      className={`fixed top-0 left-0 right-0 bottom-0 m-0 p-0 z-50 flex flex-col bg-white ${
         isFullscreen ? "fullscreen" : ""
       }`}
+      style={{ margin: 0, padding: 0 }}
     >
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-white shadow-sm">
@@ -578,299 +581,378 @@ const TechnicianNavigation = ({
         </div>
       </div>
 
-      {/* Map Controls */}
-      <div className="absolute top-20 right-4 z-10 flex flex-col gap-2">
-        <button
-          onClick={toggleMapType}
-          className="p-3 bg-white rounded-full shadow-md text-gray-700 hover:bg-gray-50"
-          title={
-            mapType === "roadmap" ? "Switch to Satellite" : "Switch to Map"
-          }
+      {/* Intro Screen */}
+      {!hasStartedNavigation ? (
+        <div
+          className="flex-1 flex flex-col items-center justify-center relative px-4"
+          style={{ minHeight: 0 }}
         >
-          <Layers size={20} />
-        </button>
-        <button
-          onClick={toggleTraffic}
-          className={`p-3 rounded-full shadow-md ${
-            trafficEnabled
-              ? "bg-primary-600 text-white"
-              : "bg-white text-gray-700 hover:bg-gray-50"
-          }`}
-          title={trafficEnabled ? "Hide Traffic" : "Show Traffic"}
-        >
-          <Car size={20} />
-        </button>
-        <button
-          onClick={recalculateRoute}
-          className="p-3 bg-white rounded-full shadow-md text-gray-700 hover:bg-gray-50"
-          title="Recalculate Route"
-        >
-          <RotateCw size={20} />
-        </button>
-      </div>
-
-      {/* Map */}
-      <div className="flex-1 relative">
-        {isLoading ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
-          </div>
-        ) : error ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-            <div className="bg-white p-4 rounded-lg shadow text-center max-w-md">
-              <AlertTriangle className="h-12 w-12 text-error-500 mx-auto mb-3" />
-              <p className="text-error-600 font-medium mb-2">{error}</p>
-              <button onClick={onClose} className="btn btn-primary mt-2">
-                Go Back
-              </button>
+          <div
+            className="flex flex-col items-center justify-center w-full h-full"
+            style={{ minHeight: 0 }}
+          >
+            <button
+              onClick={() => {
+                setHasStartedNavigation(true);
+                setTrafficEnabled((prev) => !prev);
+              }}
+              className="rounded-full shadow-lg bg-primary-600 text-white mb-8 animate-bounce"
+              style={{
+                boxShadow: "0 8px 24px rgba(37,99,235,0.20)",
+                fontSize: "clamp(32px, 10vw, 48px)",
+                padding: "clamp(32px, 8vw, 48px)",
+              }}
+              id="car-icon-btn-intro"
+            >
+              <Car
+                size={48}
+                className="w-[clamp(32px,8vw,48px)] h-[clamp(32px,8vw,48px)]"
+              />
+            </button>
+            <div className="flex items-center mt-2">
+              <svg
+                width="40"
+                height="28"
+                viewBox="0 0 60 40"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-10 h-7 md:w-16 md:h-10"
+              >
+                <path
+                  d="M55 20 Q35 20 35 30"
+                  stroke="#2563eb"
+                  strokeWidth="3"
+                  fill="none"
+                  markerEnd="url(#arrowhead)"
+                />
+                <defs>
+                  <marker
+                    id="arrowhead"
+                    markerWidth="6"
+                    markerHeight="6"
+                    refX="5"
+                    refY="3"
+                    orient="auto"
+                    markerUnits="strokeWidth"
+                  >
+                    <path d="M0,0 L0,6 L6,3 z" fill="#2563eb" />
+                  </marker>
+                </defs>
+              </svg>
+              <span className="ml-2 bg-primary-600 text-white px-3 py-2 rounded shadow text-sm md:text-base font-medium whitespace-nowrap">
+                Tap the car icon to start navigation
+              </span>
             </div>
           </div>
-        ) : (
-          <div ref={mapRef} className="h-full w-full"></div>
-        )}
-
-        {/* Recalculating indicator */}
-        {isRecalculating && (
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-4 py-2 rounded-full text-sm flex items-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-            Recalculating...
-          </div>
-        )}
-
-        {/* Compass */}
-        <div className="absolute bottom-40 right-4 p-3 bg-white rounded-full shadow-md">
-          <Compass size={24} className="text-primary-600" />
         </div>
-      </div>
-
-      {/* Job Info Panel - Slide in from right */}
-      {showJobInfo && (
-        <div className="absolute top-16 right-0 bottom-0 w-80 bg-white shadow-lg border-l border-gray-200 overflow-y-auto z-20 animate-slide-in-right">
-          <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="font-medium">Job Details</h3>
+      ) : (
+        <>
+          {/* Map Controls */}
+          <div className="absolute top-20 right-4 z-10 flex flex-col gap-2">
             <button
-              onClick={() => setShowJobInfo(false)}
-              className="text-gray-500 hover:text-gray-700"
+              onClick={toggleMapType}
+              className="p-3 bg-white rounded-full shadow-md text-gray-700 hover:bg-gray-50"
+              title={
+                mapType === "roadmap" ? "Switch to Satellite" : "Switch to Map"
+              }
             >
-              <X size={20} />
+              <Layers size={20} />
+            </button>
+            <button
+              onClick={toggleTraffic}
+              className={`p-3 rounded-full shadow-md ${
+                trafficEnabled
+                  ? "bg-primary-600 text-white"
+                  : "bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+              title={trafficEnabled ? "Hide Traffic" : "Show Traffic"}
+              id="car-icon-btn"
+            >
+              <Car size={20} />
+            </button>
+            <button
+              onClick={recalculateRoute}
+              className="p-3 bg-white rounded-full shadow-md text-gray-700 hover:bg-gray-50"
+              title="Recalculate Route"
+            >
+              <RotateCw size={20} />
             </button>
           </div>
-          <div className="p-4">
-            <h4 className="font-medium text-lg">{job.name}</h4>
-            <p className="text-gray-600 text-sm mb-4">Job #{job.number}</p>
 
-            <div className="space-y-4">
-              <div>
-                <h5 className="text-sm font-medium text-gray-500">Location</h5>
-                <p className="font-medium">{location.name}</p>
-                <p className="text-sm">{location.address}</p>
-                <p className="text-sm">
-                  {location.city}, {location.state} {location.zip}
-                </p>
-                {job.units && (
-                  <p className="text-sm">Unit: {job.units.unit_number}</p>
-                )}
+          {/* Map */}
+          <div className="flex-1 relative">
+            {isLoading ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
               </div>
-
-              {job.contact_name && (
-                <div>
-                  <h5 className="text-sm font-medium text-gray-500">Contact</h5>
-                  <p className="font-medium">{job.contact_name}</p>
-                  {job.contact_phone && (
-                    <div className="flex items-center gap-1 text-sm">
-                      <Phone size={14} className="text-gray-400" />
-                      <a
-                        href={`tel:${job.contact_phone}`}
-                        className="text-primary-600 hover:text-primary-800"
-                      >
-                        {job.contact_phone}
-                      </a>
-                    </div>
-                  )}
-                  {job.contact_email && (
-                    <div className="flex items-center gap-1 text-sm">
-                      <Mail size={14} className="text-gray-400" />
-                      <a
-                        href={`mailto:${job.contact_email}`}
-                        className="text-primary-600 hover:text-primary-800"
-                      >
-                        {job.contact_email}
-                      </a>
-                    </div>
-                  )}
+            ) : error ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                <div className="bg-white p-4 rounded-lg shadow text-center max-w-md">
+                  <AlertTriangle className="h-12 w-12 text-error-500 mx-auto mb-3" />
+                  <p className="text-error-600 font-medium mb-2">{error}</p>
+                  <button onClick={onClose} className="btn btn-primary mt-2">
+                    Go Back
+                  </button>
                 </div>
-              )}
+              </div>
+            ) : (
+              <div ref={mapRef} className="h-full w-full"></div>
+            )}
 
-              {job.description && (
-                <div>
-                  <h5 className="text-sm font-medium text-gray-500">
-                    Description
-                  </h5>
-                  <p className="text-sm">{job.description}</p>
-                </div>
-              )}
+            {/* Recalculating indicator */}
+            {isRecalculating && (
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-4 py-2 rounded-full text-sm flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                Recalculating...
+              </div>
+            )}
 
-              {job.problem_description && (
-                <div>
-                  <h5 className="text-sm font-medium text-gray-500">Problem</h5>
-                  <p className="text-sm">{job.problem_description}</p>
-                </div>
-              )}
+            {/* Compass */}
+            <div className="absolute bottom-40 right-4 p-3 bg-white rounded-full shadow-md">
+              <Compass size={24} className="text-primary-600" />
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Directions Panel - Slide up from bottom when showing directions */}
-      {showDirections && directionsSteps.length > 0 && (
-        <div className="absolute left-0 right-0 bottom-32 max-h-[50vh] bg-white shadow-lg border-t border-gray-200 overflow-y-auto z-20 animate-slide-up">
-          <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
-            <h3 className="font-medium">Turn-by-Turn Directions</h3>
-            <button
-              onClick={() => setShowDirections(false)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          <div className="p-4">
-            <div className="space-y-4">
-              {directionsSteps.map((step, index) => (
-                <div
-                  key={index}
-                  className={`p-3 rounded-lg border ${
-                    index === currentStepIndex
-                      ? "border-primary-500 bg-primary-50"
-                      : "border-gray-200"
-                  }`}
+          {/* Job Info Panel - Slide in from right */}
+          {showJobInfo && (
+            <div className="absolute top-16 right-0 bottom-0 w-80 bg-white shadow-lg border-l border-gray-200 overflow-y-auto z-20 animate-slide-in-right">
+              <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 className="font-medium">Job Details</h3>
+                <button
+                  onClick={() => setShowJobInfo(false)}
+                  className="text-gray-500 hover:text-gray-700"
                 >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        index === currentStepIndex
-                          ? "bg-primary-600 text-white"
-                          : "bg-gray-200 text-gray-700"
-                      }`}
-                    >
-                      {index + 1}
-                    </div>
-                    <div>
-                      <p
-                        className={`${
-                          index === currentStepIndex ? "font-medium" : ""
-                        }`}
-                      >
-                        {formatInstructions(step.instructions)}
-                      </p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {step.distance?.text || ""} •{" "}
-                        {step.duration?.text || ""}
-                      </p>
-                    </div>
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-4">
+                <h4 className="font-medium text-lg">{job.name}</h4>
+                <p className="text-gray-600 text-sm mb-4">Job #{job.number}</p>
+
+                <div className="space-y-4">
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-500">
+                      Location
+                    </h5>
+                    <p className="font-medium">{location.name}</p>
+                    <p className="text-sm">{location.address}</p>
+                    <p className="text-sm">
+                      {location.city}, {location.state} {location.zip}
+                    </p>
+                    {job.units && (
+                      <p className="text-sm">Unit: {job.units.unit_number}</p>
+                    )}
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Bottom Navigation Panel */}
-      <div className="bg-white border-t border-gray-200 p-4 shadow-lg">
-        {/* ETA and Distance */}
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <div className="text-sm text-gray-500">Estimated arrival</div>
-            <div className="text-xl font-bold">{arrivalTime || "--:--"}</div>
-          </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-500">Distance</div>
-            <div className="text-xl font-bold">{estimatedDistance || "--"}</div>
-          </div>
-        </div>
+                  {job.contact_name && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-500">
+                        Contact
+                      </h5>
+                      <p className="font-medium">{job.contact_name}</p>
+                      {job.contact_phone && (
+                        <div className="flex items-center gap-1 text-sm">
+                          <Phone size={14} className="text-gray-400" />
+                          <a
+                            href={`tel:${job.contact_phone}`}
+                            className="text-primary-600 hover:text-primary-800"
+                          >
+                            {job.contact_phone}
+                          </a>
+                        </div>
+                      )}
+                      {job.contact_email && (
+                        <div className="flex items-center gap-1 text-sm">
+                          <Mail size={14} className="text-gray-400" />
+                          <a
+                            href={`mailto:${job.contact_email}`}
+                            className="text-primary-600 hover:text-primary-800"
+                          >
+                            {job.contact_email}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-        {/* Current Step */}
-        {directionsSteps.length > 0 && (
-          <div className="bg-primary-50 p-3 rounded-lg border border-primary-100 mb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center">
-                  {currentStepIndex + 1}
-                </div>
-                <div className="font-medium">
-                  {formatInstructions(
-                    directionsSteps[currentStepIndex].instructions
+                  {job.description && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-500">
+                        Description
+                      </h5>
+                      <p className="text-sm">{job.description}</p>
+                    </div>
+                  )}
+
+                  {job.problem_description && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-500">
+                        Problem
+                      </h5>
+                      <p className="text-sm">{job.problem_description}</p>
+                    </div>
                   )}
                 </div>
               </div>
-              <div className="text-sm text-primary-700">
-                {directionsSteps[currentStepIndex].distance?.text || ""}
-              </div>
             </div>
-
-            {/* Step navigation */}
-            <div className="flex justify-between mt-3">
-              <button
-                onClick={prevStep}
-                disabled={currentStepIndex === 0}
-                className={`p-2 rounded ${
-                  currentStepIndex === 0
-                    ? "text-gray-400 cursor-not-allowed"
-                    : "text-primary-600 hover:bg-primary-100"
-                }`}
-              >
-                <ArrowLeft size={20} />
-              </button>
-              <button
-                onClick={() => setShowDirections(!showDirections)}
-                className="text-primary-600 text-sm font-medium"
-              >
-                {showDirections ? "Hide All Steps" : "View All Steps"}
-              </button>
-              <button
-                onClick={nextStep}
-                disabled={currentStepIndex === directionsSteps.length - 1}
-                className={`p-2 rounded ${
-                  currentStepIndex === directionsSteps.length - 1
-                    ? "text-gray-400 cursor-not-allowed"
-                    : "text-primary-600 hover:bg-primary-100"
-                }`}
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="grid grid-cols-3 gap-3">
-          {job.contact_phone && (
-            <a
-              href={`tel:${job.contact_phone}`}
-              className="btn btn-secondary flex-1 flex flex-col items-center justify-center py-3 h-auto"
-            >
-              <Phone size={20} className="mb-1" />
-              <span className="text-xs">Call</span>
-            </a>
           )}
 
-          <button
-            onClick={recalculateRoute}
-            className="btn btn-secondary flex-1 flex flex-col items-center justify-center py-3 h-auto"
-          >
-            <RotateCw size={20} className="mb-1" />
-            <span className="text-xs">Recalculate</span>
-          </button>
+          {/* Directions Panel - Slide up from bottom when showing directions */}
+          {showDirections && directionsSteps.length > 0 && (
+            <div className="absolute left-0 right-0 bottom-32 max-h-[50vh] bg-white shadow-lg border-t border-gray-200 overflow-y-auto z-20 animate-slide-up">
+              <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+                <h3 className="font-medium">Turn-by-Turn Directions</h3>
+                <button
+                  onClick={() => setShowDirections(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-4">
+                <div className="space-y-4">
+                  {directionsSteps.map((step, index) => (
+                    <div
+                      key={index}
+                      className={`p-3 rounded-lg border ${
+                        index === currentStepIndex
+                          ? "border-primary-500 bg-primary-50"
+                          : "border-gray-200"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            index === currentStepIndex
+                              ? "bg-primary-600 text-white"
+                              : "bg-gray-200 text-gray-700"
+                          }`}
+                        >
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p
+                            className={`${
+                              index === currentStepIndex ? "font-medium" : ""
+                            }`}
+                          >
+                            {formatInstructions(step.instructions)}
+                          </p>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {step.distance?.text || ""} •{" "}
+                            {step.duration?.text || ""}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
-          <button
-            onClick={openExternalNavigation}
-            className="btn btn-primary flex-1 flex flex-col items-center justify-center py-3 h-auto"
-          >
-            <Navigation size={20} className="mb-1" />
-            <span className="text-xs">Open Maps</span>
-          </button>
-        </div>
-      </div>
+          {/* Bottom Navigation Panel */}
+          <div className="bg-white border-t border-gray-200 p-4 shadow-lg">
+            {/* ETA and Distance */}
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <div className="text-sm text-gray-500">Estimated arrival</div>
+                <div className="text-xl font-bold">
+                  {arrivalTime || "--:--"}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-gray-500">Distance</div>
+                <div className="text-xl font-bold">
+                  {estimatedDistance || "--"}
+                </div>
+              </div>
+            </div>
+
+            {/* Current Step */}
+            {directionsSteps.length > 0 && (
+              <div className="bg-primary-50 p-3 rounded-lg border border-primary-100 mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center">
+                      {currentStepIndex + 1}
+                    </div>
+                    <div className="font-medium">
+                      {formatInstructions(
+                        directionsSteps[currentStepIndex].instructions
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-sm text-primary-700">
+                    {directionsSteps[currentStepIndex].distance?.text || ""}
+                  </div>
+                </div>
+
+                {/* Step navigation */}
+                <div className="flex justify-between mt-3">
+                  <button
+                    onClick={prevStep}
+                    disabled={currentStepIndex === 0}
+                    className={`p-2 rounded ${
+                      currentStepIndex === 0
+                        ? "text-gray-400 cursor-not-allowed"
+                        : "text-primary-600 hover:bg-primary-100"
+                    }`}
+                  >
+                    <ArrowLeft size={20} />
+                  </button>
+                  <button
+                    onClick={() => setShowDirections(!showDirections)}
+                    className="text-primary-600 text-sm font-medium"
+                  >
+                    {showDirections ? "Hide All Steps" : "View All Steps"}
+                  </button>
+                  <button
+                    onClick={nextStep}
+                    disabled={currentStepIndex === directionsSteps.length - 1}
+                    className={`p-2 rounded ${
+                      currentStepIndex === directionsSteps.length - 1
+                        ? "text-gray-400 cursor-not-allowed"
+                        : "text-primary-600 hover:bg-primary-100"
+                    }`}
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-3 gap-3">
+              {job.contact_phone && (
+                <a
+                  href={`tel:${job.contact_phone}`}
+                  className="btn btn-secondary flex-1 flex flex-col items-center justify-center py-3 h-auto"
+                >
+                  <Phone size={20} className="mb-1" />
+                  <span className="text-xs">Call</span>
+                </a>
+              )}
+
+              <button
+                onClick={recalculateRoute}
+                className="btn btn-secondary flex-1 flex flex-col items-center justify-center py-3 h-auto"
+              >
+                <RotateCw size={20} className="mb-1" />
+                <span className="text-xs">Recalculate</span>
+              </button>
+
+              <button
+                onClick={openExternalNavigation}
+                className="btn btn-primary flex-1 flex flex-col items-center justify-center py-3 h-auto"
+              >
+                <Navigation size={20} className="mb-1" />
+                <span className="text-xs">Open Maps</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
