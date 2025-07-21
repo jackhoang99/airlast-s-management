@@ -196,27 +196,6 @@ const JobQueue = ({
           </div>
         </div>
       </div>
-      {/* Drag Mode Activation Button */}
-      <div className="m-4 flex flex-col gap-2">
-        <button
-          className="w-full p-2 border-2 border-primary-300 rounded-lg text-center text-primary-700 bg-primary-50 hover:bg-primary-100 transition-colors font-semibold text-sm"
-          onClick={() =>
-            typeof onActivateDragMode === "function" && onActivateDragMode()
-          }
-          disabled={dragModeActive}
-        >
-          Click here to drag a job
-        </button>
-        {dragModeActive && (
-          <button
-            className="w-full p-2 border-2 border-gray-300 rounded-lg text-center text-gray-700 bg-white hover:bg-gray-100 transition-colors font-semibold text-sm"
-            onClick={onJobDragEnd}
-            type="button"
-          >
-            Cancel
-          </button>
-        )}
-      </div>
     </div>
   );
 };

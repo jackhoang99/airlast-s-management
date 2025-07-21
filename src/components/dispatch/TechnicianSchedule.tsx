@@ -265,14 +265,6 @@ const TechnicianSchedule = ({
           <h2 className="font-medium text-gray-900 text-sm">
             Technician Schedule
           </h2>
-          {!dragModeActive && (
-            <button
-              className="p-2 border-2 border-primary-300 rounded-lg text-primary-700 bg-primary-50 hover:bg-primary-100 transition-colors font-semibold text-xs ml-2"
-              onClick={onActivateDragMode}
-            >
-              Click here to drag a job
-            </button>
-          )}
         </div>
 
         {/* Date Navigation */}

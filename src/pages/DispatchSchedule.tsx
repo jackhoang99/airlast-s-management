@@ -117,12 +117,10 @@ const DispatchSchedule = () => {
     fetchData();
   }, [supabase, filterJobType, filterZipCode, sortBy]);
 
-  // Create a separate function to fetch jobs that can be called from drag handlers
+  // Fetch jobs from Supabase, but do not filter/sort here
   const fetchJobs = async () => {
     if (!supabase) return;
-
     try {
-      // Fetch all jobs, not just assigned ones for dispatch view
       const { data: jobsData, error: jobsError } = await supabase
         .from("jobs")
         .select(
@@ -187,44 +185,71 @@ const DispatchSchedule = () => {
           };
         })
       );
-
-      // Apply filters
-      let filteredJobs = jobsWithCoordinates;
-
-      if (filterJobType !== "all") {
-        filteredJobs = filteredJobs.filter((job) => job.type === filterJobType);
-      }
-
-      if (filterZipCode) {
-        filteredJobs = filteredJobs.filter((job) =>
-          job.locations?.zip?.includes(filterZipCode)
-        );
-      }
-
-      // Sort jobs
-      const sortedJobs = [...filteredJobs].sort((a, b) => {
-        switch (sortBy) {
-          case "job_type":
-            return (a.type || "").localeCompare(b.type || "");
-          case "zip_code":
-            return (a.locations?.zip || "").localeCompare(
-              b.locations?.zip || ""
-            );
-          case "date":
-            return (
-              new Date(a.schedule_start || a.created_at).getTime() -
-              new Date(b.schedule_start || b.created_at).getTime()
-            );
-          default:
-            return 0;
-        }
-      });
-
-      setJobs(sortedJobs);
+      setJobs(jobsWithCoordinates);
     } catch (err) {
       console.error("Error fetching jobs:", err);
     }
   };
+
+  // Derived filtered/sorted jobs
+  const filteredJobs = jobs.filter((job) => {
+    // Job type filter
+    if (filterJobType !== "all" && job.type !== filterJobType) return false;
+    // Zip code filter
+    if (filterZipCode && !job.locations?.zip?.includes(filterZipCode))
+      return false;
+    // Free-text search (job name, number, location, address, city, state, zip, technician)
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      const techNames = (job.job_technicians || [])
+        .map(
+          (jt) => `${jt.users?.first_name || ""} ${jt.users?.last_name || ""}`
+        )
+        .join(" ")
+        .toLowerCase();
+      if (
+        !(
+          job.name?.toLowerCase().includes(search) ||
+          job.number?.toLowerCase().includes(search) ||
+          job.locations?.name?.toLowerCase().includes(search) ||
+          job.locations?.address?.toLowerCase().includes(search) ||
+          job.locations?.city?.toLowerCase().includes(search) ||
+          job.locations?.state?.toLowerCase().includes(search) ||
+          job.locations?.zip?.toLowerCase().includes(search) ||
+          techNames.includes(search)
+        )
+      ) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const sortedJobs = [...filteredJobs].sort((a, b) => {
+    switch (sortBy) {
+      case "job_type":
+        return (a.type || "").localeCompare(b.type || "");
+      case "zip_code":
+        return (a.locations?.zip || "").localeCompare(b.locations?.zip || "");
+      case "date":
+        return (
+          new Date(a.schedule_start || a.created_at).getTime() -
+          new Date(b.schedule_start || b.created_at).getTime()
+        );
+      default:
+        return 0;
+    }
+  });
+
+  // Compute jobsByDate for the calendar
+  const jobsByDate: Record<string, number> = {};
+  sortedJobs.forEach((job) => {
+    const date = job.schedule_start ? new Date(job.schedule_start) : null;
+    if (date) {
+      const key = date.toISOString().slice(0, 10);
+      jobsByDate[key] = (jobsByDate[key] || 0) + 1;
+    }
+  });
 
   const geocodeAddress = async (
     address: string
@@ -608,7 +633,7 @@ const DispatchSchedule = () => {
         <div className="bg-blue-100 text-blue-800 text-center py-2 font-semibold">
           {selectedJobToDrag
             ? "Drag the job to a technician to reassign."
-            : "Drag a job from the Job Queue to a technician."}
+            : "Drag a job to reassign or reschedule."}
         </div>
       )}
       {/* Header with Filters */}
@@ -621,6 +646,12 @@ const DispatchSchedule = () => {
         onJobTypeFilterChange={setFilterJobType}
         filterZipCode={filterZipCode}
         onZipCodeFilterChange={setFilterZipCode}
+        searchTerm={searchTerm}
+        onSearchTermChange={setSearchTerm}
+        dragModeActive={dragModeActive}
+        onActivateDragMode={handleActivateDragMode}
+        onCancelDragMode={handleJobDragEnd}
+        jobsByDate={jobsByDate}
       />
 
       {/* Main Content - New Layout */}
@@ -628,7 +659,7 @@ const DispatchSchedule = () => {
         {/* Left Side - Job Queue Columns */}
         <div className="w-80 flex-shrink-0">
           <JobQueue
-            jobs={jobs}
+            jobs={sortedJobs}
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             onJobDragStart={handleJobDragStart}
@@ -696,12 +727,11 @@ const DispatchSchedule = () => {
               }}
             />
           </div>
-
           {/* Bottom Half - Technician Schedule */}
           <div className="h-80 border-t border-gray-200" ref={scheduleRef}>
             <TechnicianSchedule
               technicians={technicians}
-              jobs={jobs}
+              jobs={sortedJobs}
               currentDate={currentDate}
               onDateChange={setCurrentDate}
               onJobDragStart={handleJobDragStart}
@@ -718,7 +748,6 @@ const DispatchSchedule = () => {
               dragModeActive={dragModeActive}
               selectedJobToDrag={selectedJobToDrag}
               highlightedJobId={highlightedJobId}
-              onActivateDragMode={handleActivateDragMode}
             />
           </div>
         </div>
