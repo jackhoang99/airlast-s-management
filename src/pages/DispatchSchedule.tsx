@@ -17,6 +17,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import QuickAssetViewModal from "../components/locations/QuickAssetViewModal";
+import JobDetailsModal from "../components/jobs/JobDetailsModal";
 import { Link } from "react-router-dom";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
@@ -757,210 +758,28 @@ const DispatchSchedule = () => {
       <JobTypeLegend />
 
       {/* Job Details Modal */}
-      {showJobModal && selectedJobForModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Job Details</h3>
-              <button
-                onClick={() => setShowJobModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-medium text-lg">
-                  {selectedJobForModal.name}
-                </h4>
-                <p className="text-gray-600 text-sm">
-                  Job #{selectedJobForModal.number}
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Status</p>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getJobTypeColorClass(
-                      selectedJobForModal.status
-                    )}`}
-                  >
-                    {selectedJobForModal.status}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Type</p>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getJobTypeColorClass(
-                      selectedJobForModal.type
-                    )}`}
-                  >
-                    {selectedJobForModal.type}
-                  </span>
-                </div>
-              </div>
-              {selectedJobForModal.locations && (
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Location</p>
-                  <div className="flex items-start gap-2">
-                    <MapPin size={16} className="text-gray-400 mt-0.5" />
-                    <div>
-                      <Link
-                        to={
-                          selectedJobForModal.locations.id
-                            ? `/locations/${selectedJobForModal.locations.id}`
-                            : "#"
-                        }
-                        className="font-medium underline hover:text-primary-700"
-                        onClick={() => setShowJobModal(false)}
-                      >
-                        {selectedJobForModal.locations.name}
-                      </Link>
-                      <p className="text-sm text-gray-600">
-                        <Link
-                          to={
-                            selectedJobForModal.locations.id
-                              ? `/locations/${selectedJobForModal.locations.id}`
-                              : "#"
-                          }
-                          className="underline hover:text-primary-700"
-                          onClick={() => setShowJobModal(false)}
-                        >
-                          {selectedJobForModal.locations.address}
-                        </Link>
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {selectedJobForModal.locations.city},{" "}
-                        {selectedJobForModal.locations.state}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {/* Company clickable if available */}
-              {selectedJobForModal.locations &&
-                selectedJobForModal.locations.companies &&
-                selectedJobForModal.locations.companies.id && (
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Company</p>
-                    <Link
-                      to={`/companies/${selectedJobForModal.locations.companies.id}`}
-                      className="font-medium underline hover:text-primary-700"
-                      onClick={() => setShowJobModal(false)}
-                    >
-                      {selectedJobForModal.locations.companies.name ||
-                        "View Company"}
-                    </Link>
-                  </div>
-                )}
-              {selectedJobForModal.schedule_start && (
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Scheduled</p>
-                  <div className="flex items-center gap-2">
-                    <Calendar size={16} className="text-gray-400" />
-                    <span className="text-sm">
-                      {new Date(
-                        selectedJobForModal.schedule_start
-                      ).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              )}
-              {selectedJobForModal.job_technicians &&
-                selectedJobForModal.job_technicians.length > 0 && (
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">
-                      Assigned Technicians
-                    </p>
-                    <div className="space-y-1">
-                      {selectedJobForModal.job_technicians.map((tech) => (
-                        <div
-                          key={tech.technician_id}
-                          className="flex items-center gap-2"
-                        >
-                          <User size={14} className="text-gray-400" />
-                          <span className="text-sm">
-                            {tech.users.first_name} {tech.users.last_name}
-                            {tech.is_primary && (
-                              <span className="ml-1 text-xs bg-primary-100 text-primary-700 px-1 py-0.5 rounded">
-                                Primary
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              {/* Show units if available */}
-              {selectedJobForModal.units &&
-                selectedJobForModal.units.length > 0 && (
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Units</p>
-                    <ul className="list-disc list-inside text-sm text-gray-700">
-                      {selectedJobForModal.units.map((unit, idx) => (
-                        <li key={idx} className="flex items-center gap-2">
-                          {unit.id ? (
-                            <Link
-                              to={`/units/${unit.id}`}
-                              className="underline hover:text-primary-700"
-                              onClick={() => setShowJobModal(false)}
-                            >
-                              {unit.unit_number}
-                            </Link>
-                          ) : (
-                            <span>{unit.unit_number}</span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              {selectedJobForModal.description && (
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Description</p>
-                  <p className="text-sm text-gray-700">
-                    {selectedJobForModal.description}
-                  </p>
-                </div>
-              )}
-            </div>
-            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <a
-                href={`/jobs/${selectedJobForModal.id}`}
-                className="btn btn-primary flex items-center justify-center"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                View Full Job Page
-                <ArrowRight size={16} className="ml-2" />
-              </a>
-              {selectedJobForModal.units &&
-              selectedJobForModal.units.length > 0 ? (
-                <button
-                  className="btn btn-secondary flex items-center justify-center"
-                  onClick={() => {
-                    setAssetModalUnit(null); // null means all units
-                    setAssetModalLocation(selectedJobForModal.locations);
-                    setAssetModalUnits(selectedJobForModal.units); // <-- pass only job's units
-                    setShowAssetModal(true);
-                  }}
-                >
-                  View Assets
-                </button>
-              ) : (
-                <button
-                  className="btn btn-secondary flex items-center justify-center"
-                  disabled
-                >
-                  View Assets
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <JobDetailsModal
+        isOpen={showJobModal}
+        onClose={() => setShowJobModal(false)}
+        job={
+          selectedJobForModal || {
+            id: "",
+            number: "",
+            name: "",
+            status: "",
+            type: "",
+            locations: { name: "" },
+            units: [],
+          }
+        }
+        onViewAssets={(location, units) => {
+          setAssetModalUnit(null); // null means all units
+          setAssetModalLocation(location);
+          setAssetModalUnits(units);
+          setShowAssetModal(true);
+        }}
+        showViewAssetsButton={true}
+      />
       {/* QuickAssetViewModal for job details */}
       <QuickAssetViewModal
         open={showAssetModal}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
 import {
@@ -50,6 +50,7 @@ type JobType = Database["public"]["Tables"]["job_types"]["Row"];
 
 const Jobs = () => {
   const { supabase } = useSupabase();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<"list" | "calendar">("list");
@@ -78,6 +79,31 @@ const Jobs = () => {
   const [isCompletingJob, setIsCompletingJob] = useState(false);
   const [isDeletingJob, setIsDeletingJob] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Handle URL parameters for automatic filtering
+  useEffect(() => {
+    const status = searchParams.get("status");
+    const overdue = searchParams.get("overdue");
+
+    console.log("🔍 URL Parameter Debug:", { status, overdue });
+
+    if (status === "completed") {
+      console.log("🔍 Setting status filter to completed");
+      setFilters((prev) => ({
+        ...prev,
+        status: "completed",
+        showCompleted: true,
+      }));
+    } else if (overdue === "true") {
+      console.log("🔍 Setting overdue filter");
+      setFilters((prev) => ({
+        ...prev,
+        status: "All",
+        showCompleted: true,
+      }));
+      // Note: Overdue filtering will be handled in the query logic
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -118,7 +144,7 @@ const Jobs = () => {
               id,
               total_cost
             ),
-            job_units:job_units!inner (
+            job_units:job_units (
               unit_id,
               units:unit_id (
                 id,
@@ -151,9 +177,26 @@ const Jobs = () => {
         if (filters.unit) {
           query = query.eq("unit_id", filters.unit);
         }
-        if (filters.status !== "All") {
+        // Handle URL-based filtering first (these take precedence)
+        const urlStatus = searchParams.get("status");
+        const urlOverdue = searchParams.get("overdue");
+
+        if (urlOverdue === "true") {
+          const today = new Date().toISOString().split("T")[0];
+          query = query.lt("time_period_due", today).neq("status", "completed");
+          console.log("🔍 Applied URL overdue filter:", { today });
+        } else if (urlStatus === "completed") {
+          // URL parameter takes precedence over state
+          query = query.eq("status", "completed");
+          console.log("🔍 Applied URL status filter:", { status: "completed" });
+        } else if (filters.status !== "All") {
+          // Fall back to state-based filtering
           query = query.eq("status", filters.status.toLowerCase());
+          console.log("🔍 Applied state status filter:", {
+            status: filters.status.toLowerCase(),
+          });
         }
+
         if (filters.type !== "All") {
           query = query.eq("type", filters.type.toLowerCase());
         }
@@ -169,13 +212,33 @@ const Jobs = () => {
         if (filters.scheduleTo) {
           query = query.lte("schedule_start", filters.scheduleTo);
         }
-        // Filter out completed jobs if showCompleted is false
-        if (!filters.showCompleted) {
+
+        // Handle completed jobs visibility
+        if (filters.status !== "completed" && !filters.showCompleted) {
           query = query.neq("status", "completed");
         }
 
         const { data, error } = await query;
         if (error) throw error;
+
+        // Debug logging
+        console.log("🔍 Filter Debug:", {
+          status: filters.status,
+          showCompleted: filters.showCompleted,
+          urlStatus: searchParams.get("status"),
+          urlOverdue: searchParams.get("overdue"),
+          totalJobs: data?.length || 0,
+          jobStatuses: data?.map((job: any) => job.status) || [],
+          queryApplied:
+            urlStatus === "completed"
+              ? "URL status filter"
+              : urlOverdue === "true"
+              ? "URL overdue filter"
+              : filters.status !== "All"
+              ? "State status filter"
+              : "No status filter",
+        });
+
         // Flatten units from job_units
         const jobsWithUnits = (data || []).map((job: any) => ({
           ...job,
@@ -661,6 +724,44 @@ const Jobs = () => {
         </div>
       </div>
 
+      {/* URL Parameter Filter Indicator */}
+      {(searchParams.get("status") === "completed" ||
+        searchParams.get("overdue") === "true") && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5 text-blue-600" />
+            <span className="text-sm font-medium text-blue-800">
+              {searchParams.get("status") === "completed"
+                ? "Showing completed jobs only"
+                : "Showing overdue jobs only"}
+            </span>
+            <button
+              onClick={() => {
+                setSearchParams({});
+                setFilters({
+                  jobNumber: "",
+                  jobName: "",
+                  company: "",
+                  location: "",
+                  unit: "",
+                  technician: "All",
+                  status: "All",
+                  type: "All",
+                  dueFrom: "",
+                  dueTo: "",
+                  scheduleFrom: "",
+                  scheduleTo: "",
+                  showCompleted: true,
+                });
+              }}
+              className="ml-auto text-blue-600 hover:text-blue-800 text-sm underline"
+            >
+              Clear filter
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
           <div>
@@ -781,10 +882,10 @@ const Jobs = () => {
               className="select"
             >
               <option value="All">All</option>
-              <option value="Scheduled">Scheduled</option>
-              <option value="Unscheduled">Unscheduled</option>
-              <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="unscheduled">Unscheduled</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
 

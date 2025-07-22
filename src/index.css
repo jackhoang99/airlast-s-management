@@ -41,6 +41,10 @@
     @apply bg-error-600 text-white hover:bg-error-700;
   }
 
+  .btn-outline-secondary {
+    @apply bg-white text-gray-700 border border-gray-300 hover:bg-gray-50;
+  }
+
   .card {
     @apply rounded-lg bg-white p-6 shadow-sm;
   }
@@ -51,6 +55,15 @@
 
   .select {
     @apply flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .select-sm {
+    @apply h-8 px-2 py-1 text-xs;
+  }
+
+  /* Ensure dropdown options are properly sized */
+  .select option {
+    @apply text-sm;
   }
 
   .table-container {
@@ -96,6 +109,63 @@
 
 .animate-fade {
   animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Dashboard specific styles */
+.dashboard-card {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+.dashboard-card:hover {
+  @apply transform -translate-y-1 shadow-lg;
+}
+
+/* Clickable dashboard elements */
+.dashboard-link {
+  @apply transition-all duration-200 ease-in-out;
+}
+
+.dashboard-link:hover {
+  @apply transform scale-[1.02] shadow-md;
+}
+
+/* Metric card hover effects */
+.metric-card {
+  @apply relative overflow-hidden;
+}
+
+.metric-card::before {
+  content: '';
+  @apply absolute inset-0 bg-gradient-to-br from-transparent to-black/5 opacity-0 transition-opacity duration-300;
+}
+
+.metric-card:hover::before {
+  @apply opacity-100;
+}
+
+.quick-action-card {
+  @apply transition-all duration-200 ease-in-out cursor-pointer;
+}
+
+.quick-action-card:hover {
+  @apply transform scale-105 shadow-md border-primary-200;
+}
+
+/* Loading skeleton animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.skeleton {
+  @apply bg-gray-200 rounded;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
 }
 
 @keyframes fadeIn {
