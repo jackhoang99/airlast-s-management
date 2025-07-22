@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Package, X } from "lucide-react";
+import { Package, X, Edit, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useSupabase } from "../../lib/supabase-context";
+import EditAssetForm from "./EditAssetForm";
 
 interface AssetSummaryProps {
   assets: any[];
@@ -12,9 +14,13 @@ const AssetSummary = ({
   assets,
   title = "Asset Summary",
 }: AssetSummaryProps) => {
+  const { supabase } = useSupabase();
   const [expanded, setExpanded] = useState(false);
   const [search, setSearch] = useState("");
   const [modalAsset, setModalAsset] = useState<any | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<any | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Filter assets by search
   const filteredAssets = assets.filter((asset) => {
@@ -29,6 +35,28 @@ const AssetSummary = ({
   });
 
   const shownAssets = expanded ? filteredAssets : filteredAssets.slice(0, 3);
+
+  const handleEdit = (asset: any) => {
+    setEditingAsset(asset);
+    setShowEditModal(true);
+  };
+
+  const handleDelete = async (asset: any) => {
+    if (window.confirm("Are you sure you want to delete this asset?")) {
+      if (!supabase) return;
+      setIsLoading(true);
+      try {
+        await supabase.from("assets").delete().eq("id", asset.id);
+        // Refresh the page or trigger a callback to refresh assets
+        window.location.reload();
+      } catch (error) {
+        console.error("Error deleting asset:", error);
+        alert("Failed to delete asset");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
 
   return (
     <div className="card">
@@ -126,6 +154,26 @@ const AssetSummary = ({
                   System: {asset.model.system_type}
                 </div>
               )}
+              
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-2 mt-3 pt-2 border-t border-gray-200">
+                <button
+                  onClick={() => handleEdit(asset)}
+                  className="text-primary-600 hover:text-primary-800 p-1"
+                  title="Edit Asset"
+                  disabled={isLoading}
+                >
+                  <Edit size={16} />
+                </button>
+                <button
+                  onClick={() => handleDelete(asset)}
+                  className="text-error-600 hover:text-error-800 p-1"
+                  title="Delete Asset"
+                  disabled={isLoading}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           ))}
           {!expanded && filteredAssets.length > 3 && (
@@ -183,6 +231,34 @@ const AssetSummary = ({
                   : "N/A"}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Asset Modal */}
+      {showEditModal && editingAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl relative">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowEditModal(false)}
+            >
+              <X size={24} />
+            </button>
+            <h2 className="text-lg font-semibold mb-4">Edit Asset</h2>
+            <EditAssetForm
+              asset={editingAsset}
+              onSuccess={() => {
+                setShowEditModal(false);
+                setEditingAsset(null);
+                // Refresh the page to show updated data
+                window.location.reload();
+              }}
+              onCancel={() => {
+                setShowEditModal(false);
+                setEditingAsset(null);
+              }}
+            />
           </div>
         </div>
       )}

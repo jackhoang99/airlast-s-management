@@ -1,7 +1,15 @@
 import { Link } from "react-router-dom";
-import { Building2, MapPin, FileText, Mail, Phone } from "lucide-react";
+import {
+  Building2,
+  MapPin,
+  FileText,
+  Mail,
+  Phone,
+  Package,
+} from "lucide-react";
 import { Job } from "../../types/job";
 import { useEffect, useState } from "react";
+import QuickAssetViewModal from "../locations/QuickAssetViewModal";
 
 type JobUnitSectionProps = {
   job: Job;
@@ -14,6 +22,9 @@ function getSharedValue(units: any[], field: string) {
 }
 
 const JobUnitSection = ({ job }: JobUnitSectionProps) => {
+  const [showAssetModal, setShowAssetModal] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState<any>(null);
+
   if (!job.units || job.units.length === 0) {
     return (
       <div className="card">
@@ -193,24 +204,32 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
               className="bg-white rounded-lg border border-gray-200 p-4 flex flex-col gap-2 shadow-sm"
               aria-label={`Unit ${unit.unit_number} Details`}
             >
-              <div className="flex items-center gap-2 mb-1">
-                <Building2 className="h-5 w-5 text-gray-400" />
-                <Link
-                  to={`/units/${unit.id}`}
-                  className="text-lg font-semibold text-primary-600 hover:text-primary-800"
-                >
-                  {unit.unit_number}
-                </Link>
-                <UnitAssetLink unitId={unit.id} />
-                <span
-                  className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
-                    unit.status === "active"
-                      ? "bg-success-100 text-success-800"
-                      : "bg-error-100 text-error-800"
-                  }`}
-                >
-                  {unit.status}
-                </span>
+                            <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-gray-400" />
+                  <Link
+                    to={`/units/${unit.id}`}
+                    className="text-lg font-semibold text-primary-600 hover:text-primary-800"
+                  >
+                    {unit.unit_number}
+                  </Link>
+                  <span
+                    className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                      unit.status === "active"
+                        ? "bg-success-100 text-success-800"
+                        : "bg-error-100 text-error-800"
+                    }`}
+                  >
+                    {unit.status}
+                  </span>
+                </div>
+                <ViewAssetButton 
+                  unit={unit} 
+                  onViewAsset={() => {
+                    setSelectedUnit(unit);
+                    setShowAssetModal(true);
+                  }}
+                />
               </div>
               {hasUniqueInfo ? (
                 <div className="space-y-2 mt-2">
@@ -317,32 +336,41 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
           );
         })}
       </div>
+
+      {/* Asset Modal */}
+      {showAssetModal && selectedUnit && job.locations && (
+        <QuickAssetViewModal
+          open={showAssetModal}
+          onClose={() => {
+            setShowAssetModal(false);
+            setSelectedUnit(null);
+          }}
+          location={job.locations}
+          unit={selectedUnit}
+        />
+      )}
     </div>
   );
 };
 
 export default JobUnitSection;
 
-function UnitAssetLink({ unitId }: { unitId: string }) {
-  const [asset, setAsset] = useState<any | null>(undefined);
-  useEffect(() => {
-    (async () => {
-      const res = await fetch(`/api/unit-assets-latest?unitId=${unitId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setAsset(data.asset || null);
-      } else {
-        setAsset(null);
-      }
-    })();
-  }, [unitId]);
-  if (asset === undefined || asset === null) return null;
+function ViewAssetButton({
+  unit,
+  onViewAsset,
+}: {
+  unit: any;
+  onViewAsset: () => void;
+}) {
   return (
-    <Link
-      to={`/assets/${asset.id}`}
-      className="ml-1 text-xs text-primary-600 hover:text-primary-800"
+    <button
+      onClick={onViewAsset}
+      className="ml-1 text-sm text-primary-600 hover:text-primary-800 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-primary-50 transition-colors"
+      title="View Assets"
     >
-      (View Asset)
-    </Link>
+      <Package className="h-4 w-4" />
+      <span className="hidden sm:inline">View Assets</span>
+      <span className="sm:hidden">Assets</span>
+    </button>
   );
 }

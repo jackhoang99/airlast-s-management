@@ -47,6 +47,7 @@ const CompanyDetails = () => {
   );
   const [companyAssets, setCompanyAssets] = useState<any[]>([]);
   const [showAddAssetModal, setShowAddAssetModal] = useState(false);
+  const [assetsRefreshKey, setAssetsRefreshKey] = useState(0);
 
   useEffect(() => {
     const fetchCompanyDetails = async () => {
@@ -130,7 +131,7 @@ const CompanyDetails = () => {
         const { data: assetsData, error: assetsError } = await supabase
           .from("assets")
           .select(
-            `*, units(id, unit_number, location_id, locations(id, name, companies(id, name)))`
+            `*, units(id, unit_number, location_id, locations(id, name, company_id, companies(id, name)))`
           )
           .in("unit_id", unitIds);
         if (assetsError) throw assetsError;
@@ -142,7 +143,7 @@ const CompanyDetails = () => {
       }
     };
     fetchCompanyAssets();
-  }, [supabase, company]);
+  }, [supabase, company, assetsRefreshKey]);
 
   const handleDeleteCompany = async () => {
     if (!supabase || !company) return;
@@ -442,7 +443,8 @@ const CompanyDetails = () => {
               companyId={id}
               onSuccess={() => {
                 setShowAddAssetModal(false);
-                // Optionally refresh assets here
+                // Refresh assets after adding new asset
+                setAssetsRefreshKey(prev => prev + 1);
               }}
               onCancel={() => setShowAddAssetModal(false)}
             />

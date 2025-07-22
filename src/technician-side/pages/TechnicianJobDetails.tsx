@@ -37,6 +37,7 @@ import TechnicianNavigation from "../components/navigation/TechnicianNavigation"
 import JobTimeTracking from "../../components/jobs/JobTimeTracking";
 import JobComments from "../../components/jobs/JobComments";
 import ClockInOut from "../components/jobs/ClockInOut";
+import JobUnitSection from "../../components/jobs/JobUnitSection";
 
 const TechnicianJobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -601,34 +602,6 @@ const TechnicianJobDetails = () => {
                       {job.locations?.companies?.name}
                     </p>
                     <p>{job.locations.name}</p>
-                    {/* Enhanced units display using job_units */}
-                    {job.job_units && job.job_units.length > 0 && (
-                      <div className="mt-2">
-                        <p className="font-semibold mb-1">
-                          Units for this Job:
-                        </p>
-                        <ul className="list-disc list-inside space-y-1">
-                          {job.job_units.map((ju: any) => (
-                            <li key={ju.unit_id}>
-                              <span className="font-medium">
-                                {ju.units?.unit_number || ju.unit_id}
-                              </span>
-                              {ju.units?.status && (
-                                <span
-                                  className={`ml-2 badge ${
-                                    ju.units.status === "active"
-                                      ? "bg-success-100 text-success-800"
-                                      : "bg-error-100 text-error-800"
-                                  }`}
-                                >
-                                  {ju.units.status}
-                                </span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
@@ -792,6 +765,11 @@ const TechnicianJobDetails = () => {
         </div>
       </div>
       <hr className="my-2 border-gray-200" />
+      {/* Unit Information Section */}
+      <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
+        <JobUnitSection job={job} />
+      </div>
+      <hr className="my-2 border-gray-200" />
       {/* Clock In/Out Section */}
       {technicianId && (
         <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
@@ -824,7 +802,7 @@ const TechnicianJobDetails = () => {
             )}
           </button>
           {showInspectionSection && (
-            <div className="p-3 max-h-[60vh] overflow-y-auto">
+            <div className="p-3">
               <div className="text-sm text-gray-500 mb-2">
                 <p>Manage inspection details</p>
               </div>
@@ -872,7 +850,7 @@ const TechnicianJobDetails = () => {
             )}
           </button>
           {showServiceSection && (
-            <div className="p-3 max-h-[60vh] overflow-y-auto">
+            <div className="p-3">
               <div className="text-sm text-gray-500 mb-2">
                 <p>Tap on sections below to expand service details</p>
               </div>
@@ -906,7 +884,7 @@ const TechnicianJobDetails = () => {
             )}
           </button>
           {showQuoteSection && (
-            <div className="p-3 max-h-[60vh] overflow-y-auto">
+            <div className="p-3">
               <div className="text-sm text-gray-500 mb-2">
                 <p>Manage and send quotes to customers</p>
               </div>
@@ -939,7 +917,7 @@ const TechnicianJobDetails = () => {
             )}
           </button>
           {showInvoiceSection && (
-            <div className="p-3 max-h-[60vh] overflow-y-auto">
+            <div className="p-3">
               <div className="text-sm text-gray-500 mb-2">
                 <p>Create and manage invoices</p>
               </div>

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import { Link } from "react-router-dom";
+import { useMediaQuery } from "react-responsive";
 
 interface DispatchFiltersProps {
   currentDate: Date;
@@ -45,7 +46,7 @@ const DispatchFilters = ({
       year: "numeric",
     }).format(date);
   };
-
+  const isMobile = useMediaQuery({ maxWidth: 767 });
   const [showCalendar, setShowCalendar] = useState(false);
   const [tooltip, setTooltip] = useState<{
     date: string;
@@ -55,19 +56,39 @@ const DispatchFilters = ({
   } | null>(null);
 
   return (
-    <div className="bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
-      <div className="flex items-center justify-between gap-4">
+    <div
+      className={`bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0 ${
+        isMobile ? "flex flex-col gap-3" : ""
+      }`}
+    >
+      <div
+        className={`flex ${
+          isMobile ? "flex-col gap-3" : "items-center justify-between gap-4"
+        }`}
+      >
         {/* Left: Search and Filters */}
-        <div className="flex flex-wrap items-center gap-3 text-sm">
+        <div
+          className={`flex ${
+            isMobile
+              ? "flex-col gap-3 w-full"
+              : "flex-wrap items-center gap-3 text-sm"
+          }`}
+        >
           <input
             type="text"
             placeholder="Search jobs, locations, etc..."
             value={searchTerm}
             onChange={(e) => onSearchTermChange(e.target.value)}
-            className="input text-xs w-48"
-            style={{ minWidth: 180 }}
+            className={`input ${
+              isMobile ? "w-full h-12 text-base" : "text-xs w-48"
+            }`}
+            style={isMobile ? { minWidth: 0 } : { minWidth: 180 }}
           />
-          <div className="flex items-center gap-2">
+          <div
+            className={`flex ${
+              isMobile ? "flex-col gap-2" : "items-center gap-2"
+            }`}
+          >
             <label className="text-xs font-medium text-gray-700">
               Sort by:
             </label>
@@ -76,21 +97,29 @@ const DispatchFilters = ({
               onChange={(e) =>
                 onSortChange(e.target.value as "job_type" | "zip_code" | "date")
               }
-              className="select text-xs"
+              className={`select ${
+                isMobile ? "w-full h-12 text-base" : "text-xs"
+              }`}
             >
               <option value="job_type">Job Type</option>
               <option value="zip_code">Zip Code</option>
               <option value="date">Date</option>
             </select>
           </div>
-          <div className="flex items-center gap-2">
+          <div
+            className={`flex ${
+              isMobile ? "flex-col gap-2" : "items-center gap-2"
+            }`}
+          >
             <label className="text-xs font-medium text-gray-700">
               Job Type:
             </label>
             <select
               value={filterJobType}
               onChange={(e) => onJobTypeFilterChange(e.target.value)}
-              className="select text-xs"
+              className={`select ${
+                isMobile ? "w-full h-12 text-base" : "text-xs"
+              }`}
             >
               <option value="all">All Types</option>
               <option value="preventative maintenance">
@@ -102,7 +131,11 @@ const DispatchFilters = ({
               <option value="inspection">Inspection</option>
             </select>
           </div>
-          <div className="flex items-center gap-2">
+          <div
+            className={`flex ${
+              isMobile ? "flex-col gap-2" : "items-center gap-2"
+            }`}
+          >
             <label className="text-xs font-medium text-gray-700">
               Zip Code:
             </label>
@@ -111,15 +144,23 @@ const DispatchFilters = ({
               placeholder="Filter by zip"
               value={filterZipCode}
               onChange={(e) => onZipCodeFilterChange(e.target.value)}
-              className="input text-xs w-24"
+              className={`input ${
+                isMobile ? "w-full h-12 text-base" : "text-xs w-24"
+              }`}
             />
           </div>
         </div>
         {/* Right: Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div
+          className={`flex ${
+            isMobile ? "flex-col gap-2 w-full" : "items-center gap-2"
+          }`}
+        >
           <div className="relative">
             <button
-              className="btn btn-secondary"
+              className={`btn btn-secondary ${
+                isMobile ? "w-full h-12 text-base" : ""
+              }`}
               onClick={() => setShowCalendar((v) => !v)}
               type="button"
             >
@@ -172,13 +213,20 @@ const DispatchFilters = ({
               </div>
             )}
           </div>
-          <Link to="/jobs/create" className="btn btn-primary">
+          <Link
+            to="/jobs/create"
+            className={`btn btn-primary ${
+              isMobile ? "w-full h-12 text-base" : ""
+            }`}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Job
           </Link>
           {!dragModeActive ? (
             <button
-              className="btn btn-success ml-2"
+              className={`btn btn-success ml-2 ${
+                isMobile ? "w-full h-12 text-base ml-0" : ""
+              }`}
               onClick={onActivateDragMode}
               type="button"
             >
@@ -186,7 +234,9 @@ const DispatchFilters = ({
             </button>
           ) : (
             <button
-              className="btn btn-outline-secondary ml-2"
+              className={`btn btn-outline-secondary ml-2 ${
+                isMobile ? "w-full h-12 text-base ml-0" : ""
+              }`}
               onClick={onCancelDragMode}
               type="button"
             >

@@ -10,6 +10,7 @@ import {
   Calendar,
   Clock,
   AlertTriangle,
+  Package,
 } from "lucide-react";
 import Map from "../../components/ui/Map";
 import QuickAssetViewModal from "../../components/locations/QuickAssetViewModal";

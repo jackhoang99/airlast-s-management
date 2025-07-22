@@ -31,6 +31,7 @@ const LocationDetails = () => {
   const [locationAssets, setLocationAssets] = useState<any[]>([]);
   const [showAddAssetModal, setShowAddAssetModal] = useState(false);
   const [units, setUnits] = useState<any[]>([]);
+  const [assetsRefreshKey, setAssetsRefreshKey] = useState(0);
 
   useEffect(() => {
     const fetchLocation = async () => {
@@ -87,14 +88,14 @@ const LocationDetails = () => {
       const { data: assets, error: assetsError } = await supabase
         .from("assets")
         .select(
-          `*, units(id, unit_number, location_id, locations(id, name, companies(id, name)))`
+          `*, units(id, unit_number, location_id, locations(id, name, company_id, companies(id, name)))`
         )
         .in("unit_id", unitIds);
       if (assetsError) return;
       setLocationAssets(assets || []);
     };
     fetchLocationAssets();
-  }, [supabase, location]);
+  }, [supabase, location, assetsRefreshKey]);
 
   if (isLoading) {
     return (
@@ -288,7 +289,8 @@ const LocationDetails = () => {
                   companyId={location?.company_id}
                   onSuccess={() => {
                     setShowAddAssetModal(false);
-                    // Optionally refresh assets here
+                    // Refresh assets after adding new asset
+                    setAssetsRefreshKey((prev) => prev + 1);
                   }}
                   onCancel={() => setShowAddAssetModal(false)}
                 />

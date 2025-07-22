@@ -40,7 +40,6 @@ import TemplateDebug from "./pages/TemplateDebug";
 import Contacts from "./pages/Contacts";
 import PublicUnitDetails from "./pages/PublicUnitDetails";
 import Assets from "./pages/Assets";
-import AssetDetails from "./pages/AssetDetails";
 import AllQuotes from "./pages/AllQuotes";
 
 // Customer Portal
@@ -108,10 +107,7 @@ function App() {
             <Route path=":id/edit" element={<EditUnit />} />
           </Route>
 
-          <Route path="assets">
-            <Route index element={<Assets />} />
-            <Route path=":id" element={<AssetDetails />} />
-          </Route>
+          <Route path="assets" element={<Assets />} />
 
           <Route path="contacts" element={<Contacts />} />
           <Route path="jobs">

@@ -19,6 +19,7 @@ const UnitAssets = () => {
   const [unit, setUnit] = useState<any>(null);
   const [assets, setAssets] = useState<any[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const fetchUnitAndAssets = async () => {
@@ -75,7 +76,21 @@ const UnitAssets = () => {
     };
 
     fetchUnitAndAssets();
-  }, [supabase, id]);
+  }, [supabase, id, refreshKey]);
+
+  // Refresh data when page becomes visible (user navigates back)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        setRefreshKey((prev) => prev + 1);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "N/A";

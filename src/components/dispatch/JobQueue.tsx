@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AlertTriangle, Package, Wrench, Search } from "lucide-react";
+import { useMediaQuery } from "react-responsive";
 
 interface Job {
   id: string;
@@ -36,6 +37,23 @@ interface JobQueueProps {
   onSelectJobToDrag?: (jobId: string) => void;
 }
 
+const getJobTypeColorClass = (type: string) => {
+  switch (type) {
+    case "preventative maintenance":
+      return "bg-purple-100 border-purple-300 text-purple-800";
+    case "service call":
+      return "bg-cyan-100 border-cyan-300 text-cyan-800";
+    case "repair":
+      return "bg-amber-100 border-amber-300 text-amber-800";
+    case "installation":
+      return "bg-emerald-100 border-emerald-300 text-emerald-800";
+    case "inspection":
+      return "bg-blue-100 border-blue-300 text-blue-800";
+    default:
+      return "bg-gray-100 border-gray-300 text-gray-800";
+  }
+};
+
 const JobQueue = ({
   jobs,
   searchTerm,
@@ -50,7 +68,9 @@ const JobQueue = ({
   dragModeActive,
   selectedJobToDrag,
   onSelectJobToDrag,
-}: JobQueueProps) => {
+  closeDrawer, // optional prop for mobile close
+}: JobQueueProps & { closeDrawer?: () => void }) => {
+  const isMobile = useMediaQuery({ maxWidth: 767 });
   // Categorize jobs
   const unassignedJobs = jobs.filter(
     (job) => !job.job_technicians || job.job_technicians.length === 0
@@ -85,7 +105,7 @@ const JobQueue = ({
           onJobClick(job.id);
         }
       }}
-      className={`p-1 mb-1 rounded border transition-shadow text-xs min-h-[32px] flex flex-col justify-center ${getJobTypeColorClass(
+      className={`p-2 mb-2 rounded border transition-shadow text-base min-h-[44px] flex flex-col justify-center ${getJobTypeColorClass(
         job.type
       )} ${selectedJobId === job.id ? "ring-2 ring-primary-500" : ""} ${
         dragModeActive ? "cursor-move" : "cursor-pointer"
@@ -93,10 +113,12 @@ const JobQueue = ({
         dragModeActive && selectedJobToDrag === job.id
           ? "ring-2 ring-blue-500 border-blue-400 bg-blue-50"
           : ""
-      }`}
-      style={{ minHeight: 32, fontSize: 12, padding: 6 }}
+      } ${isMobile ? "text-base min-h-[56px]" : "text-xs min-h-[32px]"}`}
+      style={
+        isMobile ? { fontSize: 16, padding: 12 } : { fontSize: 12, padding: 6 }
+      }
     >
-      <div className="font-medium truncate">{job.name}</div>
+      <div className="font-medium truncate text-lg">{job.name}</div>
       <div className="text-gray-600 truncate">{job.locations?.name}</div>
       <div className="text-gray-500">{job.locations?.zip}</div>
     </div>
@@ -117,10 +139,18 @@ const JobQueue = ({
 
   return (
     <div
-      className={`w-80 bg-white border-r border-gray-200 flex flex-col${
-        dragModeActive ? " ring-2 ring-blue-400" : ""
-      }`}
+      className={`bg-white border-r border-gray-200 flex flex-col ${
+        isMobile ? "w-full h-full" : "w-80"
+      }${dragModeActive ? " ring-2 ring-blue-400" : ""}`}
     >
+      {isMobile && closeDrawer && (
+        <div className="flex items-center justify-between p-4 border-b">
+          <span className="font-bold text-lg">Job Queue</span>
+          <button className="btn btn-secondary" onClick={closeDrawer}>
+            Close
+          </button>
+        </div>
+      )}
       <div className="p-4 border-b border-gray-200">
         <h2 className="font-medium text-gray-900 mb-3">Job Queue</h2>
         <div className="relative">
@@ -130,7 +160,7 @@ const JobQueue = ({
             placeholder="Search jobs..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9 input w-full"
+            className={`pl-9 input w-full ${isMobile ? "h-12 text-base" : ""}`}
           />
         </div>
       </div>

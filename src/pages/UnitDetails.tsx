@@ -71,6 +71,7 @@ const UnitDetails = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddAssetModal, setShowAddAssetModal] = useState(false);
+  const [assetsRefreshKey, setAssetsRefreshKey] = useState(0);
 
   useEffect(() => {
     const fetchUnit = async () => {
@@ -145,7 +146,7 @@ const UnitDetails = () => {
         const { data, error: fetchError } = await supabase
           .from("assets")
           .select(
-            `*, units(id, unit_number, location_id, locations(id, name, companies(id, name)))`
+            `*, units(id, unit_number, location_id, locations(id, name, company_id, companies(id, name)))`
           )
           .eq("unit_id", id)
           .order("inspection_date", { ascending: false });
@@ -160,7 +161,7 @@ const UnitDetails = () => {
     fetchUnit();
     fetchJobs();
     fetchAssets();
-  }, [supabase, id]);
+  }, [supabase, id, assetsRefreshKey]);
 
   const formatDateTime = (dateString: string) => {
     if (!dateString) return "Not scheduled";
@@ -544,7 +545,8 @@ const UnitDetails = () => {
                   companyId={unit?.locations?.company_id}
                   onSuccess={() => {
                     setShowAddAssetModal(false);
-                    // Optionally refresh assets here
+                    // Refresh assets after adding new asset
+                    setAssetsRefreshKey(prev => prev + 1);
                   }}
                   onCancel={() => setShowAddAssetModal(false)}
                 />

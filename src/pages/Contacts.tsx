@@ -10,30 +10,44 @@ import {
   Building,
   MapPin,
   Building2,
+  Users,
 } from "lucide-react";
 
 type Contact = {
   id: string;
-  name: string;
   email: string;
   phone: string;
   type: string;
-  company?: {
+  units: Array<{
+    id: string;
+    unit_number: string;
+    location: {
+      id: string;
+      name: string;
+      address: string;
+      city: string;
+      state: string;
+      zip: string;
+      company: {
+        id: string;
+        name: string;
+      };
+    };
+  }>;
+  // Grouped contact info
+  contactTypes: string[];
+  companies: Array<{
     id: string;
     name: string;
-  };
-  location?: {
+  }>;
+  locations: Array<{
     id: string;
     name: string;
     address: string;
     city: string;
     state: string;
     zip: string;
-  };
-  unit?: {
-    id: string;
-    unit_number: string;
-  };
+  }>;
 };
 
 const Contacts = () => {
@@ -43,7 +57,6 @@ const Contacts = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
-    name: "",
     email: "",
     phone: "",
     company: "",
@@ -59,7 +72,7 @@ const Contacts = () => {
       try {
         setIsLoading(true);
 
-        // First, get all units with their contact information
+        // Fetch all units with their contact information and related data
         const { data: unitData, error: unitError } = await supabase
           .from("units")
           .select(
@@ -89,15 +102,39 @@ const Contacts = () => {
 
         if (unitError) throw unitError;
 
-        // Format unit data into contacts
-        const unitContacts = (unitData || [])
-          .map((unit) => ({
-            id: `unit-${unit.id}`,
-            name: `Unit ${unit.unit_number} Contact`,
-            email: unit.primary_contact_email || "",
-            phone: unit.primary_contact_phone || "",
-            type: unit.primary_contact_type || "Primary",
-            company: unit.locations?.companies,
+        // Group units by shared contact information
+        const contactGroups = new Map<string, Contact>();
+
+        (unitData || []).forEach((unit) => {
+          const email = unit.primary_contact_email?.toLowerCase().trim() || "";
+          const phone = unit.primary_contact_phone?.trim() || "";
+
+          // Skip units without any contact information
+          if (!email && !phone) return;
+
+          // Create a unique key for grouping
+          const groupKey = email || phone;
+
+          if (!contactGroups.has(groupKey)) {
+            // Create new contact group
+            contactGroups.set(groupKey, {
+              id: groupKey,
+              email: unit.primary_contact_email || "",
+              phone: unit.primary_contact_phone || "",
+              type: unit.primary_contact_type || "Primary",
+              units: [],
+              contactTypes: [],
+              companies: [],
+              locations: [],
+            });
+          }
+
+          const contact = contactGroups.get(groupKey)!;
+
+          // Add unit to this contact group
+          contact.units.push({
+            id: unit.id,
+            unit_number: unit.unit_number,
             location: {
               id: unit.locations?.id || "",
               name: unit.locations?.name || "",
@@ -105,77 +142,52 @@ const Contacts = () => {
               city: unit.locations?.city || "",
               state: unit.locations?.state || "",
               zip: unit.locations?.zip || "",
+              company: unit.locations?.companies || { id: "", name: "" },
             },
-            unit: {
-              id: unit.id,
-              unit_number: unit.unit_number,
-            },
-          }))
-          .filter((contact) => contact.email || contact.phone);
+          });
 
-        // Next, get all jobs with contact information
-        const { data: jobData, error: jobError } = await supabase
-          .from("jobs")
-          .select(
-            `
-            id,
-            number,
-            name,
-            contact_name,
-            contact_email,
-            contact_phone,
-            contact_type,
-            location_id,
-            job_units:job_units!inner (
-              unit_id,
-              units:unit_id (
-                id,
-                unit_number
-              )
-            ),
-            locations (
-              id,
-              name,
-              address,
-              city,
-              state,
-              zip,
-              company_id,
-              companies (
-                id,
-                name
-              )
-            )
-          `
-          )
-          .order("created_at", { ascending: false });
-
-        if (jobError) throw jobError;
-
-        // Flatten units from job_units
-        const jobsWithUnits = (jobData || []).map((job: any) => ({
-          ...job,
-          units: (job.job_units || []).map((ju: any) => ju.units),
-        }));
-        setJobs(jobsWithUnits);
-
-        // Combine and deduplicate contacts
-        const allContacts = [...unitContacts, ...jobsWithUnits];
-
-        // Simple deduplication by email
-        const emailMap = new Map();
-        const uniqueContacts = allContacts.filter((contact) => {
-          if (!contact.email) return true; // Keep contacts without email
-
-          if (!emailMap.has(contact.email)) {
-            emailMap.set(contact.email, true);
-            return true;
+          // Add contact type if not already present
+          if (
+            unit.primary_contact_type &&
+            !contact.contactTypes.includes(unit.primary_contact_type)
+          ) {
+            contact.contactTypes.push(unit.primary_contact_type);
           }
 
-          return false;
+          // Add company if not already present
+          if (
+            unit.locations?.companies &&
+            !contact.companies.some((c) => c.id === unit.locations.companies.id)
+          ) {
+            contact.companies.push(unit.locations.companies);
+          }
+
+          // Add location if not already present
+          if (
+            unit.locations &&
+            !contact.locations.some((l) => l.id === unit.locations.id)
+          ) {
+            contact.locations.push({
+              id: unit.locations.id,
+              name: unit.locations.name,
+              address: unit.locations.address,
+              city: unit.locations.city,
+              state: unit.locations.state,
+              zip: unit.locations.zip,
+            });
+          }
         });
 
-        setContacts(uniqueContacts);
+        // Convert map to array and sort by email/phone
+        const contactsArray = Array.from(contactGroups.values()).sort(
+          (a, b) => {
+            const aKey = a.email || a.phone;
+            const bKey = b.email || b.phone;
+            return aKey.localeCompare(bKey);
+          }
+        );
+
+        setContacts(contactsArray);
       } catch (err) {
         console.error("Error fetching contacts:", err);
         setError("Failed to load contacts");
@@ -194,7 +206,6 @@ const Contacts = () => {
 
   const resetFilters = () => {
     setFilters({
-      name: "",
       email: "",
       phone: "",
       company: "",
@@ -209,30 +220,22 @@ const Contacts = () => {
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
-        (contact.name && contact.name.toLowerCase().includes(searchLower)) ||
         (contact.email && contact.email.toLowerCase().includes(searchLower)) ||
         (contact.phone && contact.phone.toLowerCase().includes(searchLower)) ||
-        (contact.company?.name &&
-          contact.company.name.toLowerCase().includes(searchLower)) ||
-        (contact.location?.name &&
-          contact.location.name.toLowerCase().includes(searchLower)) ||
-        (contact.unit &&
-          contact.unit.some((unit) =>
-            unit.unit_number.toLowerCase().includes(searchLower)
-          ));
+        contact.companies.some((company) =>
+          company.name.toLowerCase().includes(searchLower)
+        ) ||
+        contact.locations.some((location) =>
+          location.name.toLowerCase().includes(searchLower)
+        ) ||
+        contact.units.some((unit) =>
+          unit.unit_number.toLowerCase().includes(searchLower)
+        );
 
       if (!matchesSearch) return false;
     }
 
     // Apply specific filters
-    if (
-      filters.name &&
-      contact.name &&
-      !contact.name.toLowerCase().includes(filters.name.toLowerCase())
-    ) {
-      return false;
-    }
-
     if (
       filters.email &&
       contact.email &&
@@ -251,28 +254,25 @@ const Contacts = () => {
 
     if (
       filters.company &&
-      contact.company?.name &&
-      !contact.company.name
-        .toLowerCase()
-        .includes(filters.company.toLowerCase())
+      !contact.companies.some((company) =>
+        company.name.toLowerCase().includes(filters.company.toLowerCase())
+      )
     ) {
       return false;
     }
 
     if (
       filters.location &&
-      contact.location?.name &&
-      !contact.location.name
-        .toLowerCase()
-        .includes(filters.location.toLowerCase())
+      !contact.locations.some((location) =>
+        location.name.toLowerCase().includes(filters.location.toLowerCase())
+      )
     ) {
       return false;
     }
 
     if (
       filters.unit &&
-      contact.unit &&
-      !contact.unit.some((unit) =>
+      !contact.units.some((unit) =>
         unit.unit_number.toLowerCase().includes(filters.unit.toLowerCase())
       )
     ) {
@@ -316,24 +316,7 @@ const Contacts = () => {
         </div>
 
         {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div>
-              <label
-                htmlFor="name"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={filters.name}
-                onChange={handleFilterChange}
-                className="input"
-              />
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <div>
               <label
                 htmlFor="email"
@@ -457,7 +440,13 @@ const Contacts = () => {
               >
                 <div className="flex flex-col md:flex-row justify-between">
                   <div className="space-y-2">
-                    <h3 className="text-lg font-medium">{contact.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <Users size={16} className="text-gray-400" />
+                      <h3 className="text-lg font-medium">
+                        {contact.units.length} Unit
+                        {contact.units.length !== 1 ? "s" : ""} Contact
+                      </h3>
+                    </div>
 
                     <div className="flex flex-col sm:flex-row gap-4">
                       {contact.email && (
@@ -485,58 +474,103 @@ const Contacts = () => {
                       )}
                     </div>
 
-                    <div className="text-sm text-gray-500">
-                      Contact Type:{" "}
-                      <span className="capitalize">{contact.type}</span>
-                    </div>
+                    {contact.contactTypes.length > 0 && (
+                      <div className="text-sm text-gray-500">
+                        Contact Types:{" "}
+                        <span className="capitalize">
+                          {contact.contactTypes.join(", ")}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-4 md:mt-0 md:text-right">
-                    {contact.company && (
+                    {contact.companies.length > 0 && (
                       <div className="mb-1">
                         <Link
-                          to={`/companies/${contact.company.id}`}
+                          to={`/companies/${contact.companies[0].id}`}
                           className="flex items-center gap-1 text-primary-600 hover:text-primary-800 md:justify-end"
                         >
                           <Building size={14} />
-                          <span>{contact.company.name}</span>
+                          <span>{contact.companies[0].name}</span>
+                          {contact.companies.length > 1 && (
+                            <span className="text-xs text-gray-500">
+                              (+{contact.companies.length - 1} more)
+                            </span>
+                          )}
                         </Link>
                       </div>
                     )}
 
-                    {contact.location && (
+                    {contact.locations.length > 0 && (
                       <div className="mb-1">
                         <Link
-                          to={`/locations/${contact.location.id}`}
+                          to={`/locations/${contact.locations[0].id}`}
                           className="flex items-center gap-1 text-primary-600 hover:text-primary-800 md:justify-end"
                         >
                           <MapPin size={14} />
-                          <span>{contact.location.name}</span>
+                          <span>{contact.locations[0].name}</span>
+                          {contact.locations.length > 1 && (
+                            <span className="text-xs text-gray-500">
+                              (+{contact.locations.length - 1} more)
+                            </span>
+                          )}
                         </Link>
                       </div>
                     )}
 
-                    {contact.unit && contact.unit.length > 0 && (
-                      <div>
-                        <Link
-                          to={`/units/${contact.unit[0].id}`}
-                          className="flex items-center gap-1 text-primary-600 hover:text-primary-800 md:justify-end"
-                        >
-                          <Building2 size={14} />
-                          <span>Unit {contact.unit[0].unit_number}</span>
-                        </Link>
+                    <div>
+                      <div className="flex items-center gap-1 text-primary-600 md:justify-end">
+                        <Building2 size={14} />
+                        <span>
+                          {contact.units.length} Unit
+                          {contact.units.length !== 1 ? "s" : ""}
+                        </span>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
 
-                {contact.location && (
+                {/* Units List */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    Associated Units:
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {contact.units.map((unit) => (
+                      <Link
+                        key={unit.id}
+                        to={`/units/${unit.id}`}
+                        className="flex items-center gap-2 p-2 bg-gray-50 rounded hover:bg-gray-100 text-sm"
+                      >
+                        <Building2 size={12} className="text-gray-400" />
+                        <span className="font-medium">
+                          Unit {unit.unit_number}
+                        </span>
+                        <span className="text-gray-500">•</span>
+                        <span className="text-gray-500 truncate">
+                          {unit.location.name}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Address Information */}
+                {contact.locations.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-gray-200 text-sm text-gray-500">
                     <div className="flex items-start gap-2">
                       <MapPin size={14} className="mt-0.5 flex-shrink-0" />
                       <div>
-                        {contact.location.address}, {contact.location.city},{" "}
-                        {contact.location.state} {contact.location.zip}
+                        {contact.locations[0].address},{" "}
+                        {contact.locations[0].city},{" "}
+                        {contact.locations[0].state} {contact.locations[0].zip}
+                        {contact.locations.length > 1 && (
+                          <span className="text-xs text-gray-400 ml-1">
+                            (and {contact.locations.length - 1} other location
+                            {contact.locations.length - 1 !== 1 ? "s" : ""})
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
