@@ -32,7 +32,7 @@ const UnitQRCode = ({ unitId, unitNumber }: UnitQRCodeProps) => {
       try {
         await navigator.share({
           title: `Unit ${unitNumber} QR Code`,
-          text: `Scan this QR code to view details for Unit ${unitNumber}`,
+          text: `Scan this QR code to view location, equipment, and service details for Unit ${unitNumber}`,
           url: unitUrl,
         });
       } catch {}
@@ -56,13 +56,14 @@ const UnitQRCode = ({ unitId, unitNumber }: UnitQRCodeProps) => {
       {showInfo && (
         <div className="bg-blue-50 p-3 rounded-md mb-4 text-sm text-blue-700">
           <p>
-            This QR code provides quick access to this unit's details. Anyone
-            can scan this code to view basic unit information without needing to
-            log in.
+            This QR code provides quick access to this unit's complete
+            information including location details, assets, and service history.
+            Anyone can scan this code to view comprehensive unit information
+            without needing to log in.
           </p>
           <p className="mt-2">
             Use this for maintenance tags, equipment labels, or sharing with
-            contractors.
+            contractors and service providers.
           </p>
         </div>
       )}
@@ -84,7 +85,7 @@ const UnitQRCode = ({ unitId, unitNumber }: UnitQRCodeProps) => {
         </div>
         <div className="text-center mb-4">
           <p className="text-sm text-gray-500">
-            Scan to view Unit {unitNumber} details
+            Scan to view Unit {unitNumber} details, location & assets
           </p>
           <p className="text-xs text-gray-400 mt-1">{unitUrl}</p>
         </div>

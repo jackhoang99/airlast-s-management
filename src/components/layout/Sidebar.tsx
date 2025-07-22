@@ -408,6 +408,21 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
               </div>
             </li>
 
+            {/* Permits Section */}
+            <li className="pt-4 mt-4">
+              <Link
+                to="/permits"
+                className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                  location.pathname === "/permits"
+                    ? "bg-primary-50 text-primary-700"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <FileCheck size={18} className="mr-3 text-gray-400" />
+                Permits
+              </Link>
+            </li>
+
             {/* Invoices Section */}
             <li className="pt-4 mt-4">
               <button

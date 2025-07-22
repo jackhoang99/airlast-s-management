@@ -686,6 +686,56 @@ export interface Database {
           payment_notes?: string | null
         }
       }
+      permits: {
+        Row: {
+          id: string
+          permit_number: string
+          mobile: string | null
+          city: string
+          county: string
+          file_path: string | null
+          file_name: string | null
+          file_size: number | null
+          file_type: string | null
+          created_at: string
+          updated_at: string
+          created_by: string | null
+          status: string
+          notes: string | null
+        }
+        Insert: {
+          id?: string
+          permit_number: string
+          mobile?: string | null
+          city: string
+          county: string
+          file_path?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+          status?: string
+          notes?: string | null
+        }
+        Update: {
+          id?: string
+          permit_number?: string
+          mobile?: string | null
+          city?: string
+          county?: string
+          file_path?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+          status?: string
+          notes?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never

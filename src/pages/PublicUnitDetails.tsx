@@ -11,6 +11,7 @@ import {
   Mail,
   Clock,
   AlertTriangle,
+  Package,
 } from "lucide-react";
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
@@ -36,6 +37,18 @@ type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
   }[];
 };
 
+type Asset = Database["public"]["Tables"]["assets"]["Row"] & {
+  model?: {
+    model_number: string;
+    serial_number: string;
+    age: string;
+    tonnage: string;
+    unit_type: string;
+    system_type: string;
+    comment: string;
+  };
+};
+
 // UUID validation regex
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -45,6 +58,7 @@ const PublicUnitDetails = () => {
   const { supabase } = useSupabase();
   const [unit, setUnit] = useState<Unit | null>(null);
   const [recentJobs, setRecentJobs] = useState<Job[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,6 +117,27 @@ const PublicUnitDetails = () => {
             )
             .slice(0, 5);
           setRecentJobs(jobs);
+
+          // Fetch assets for this unit
+          const { data: assetsData, error: assetsError } = await supabase
+            .from("assets")
+            .select(`
+              *,
+              model:model_id (
+                model_number,
+                serial_number,
+                age,
+                tonnage,
+                unit_type,
+                system_type,
+                comment
+              )
+            `)
+            .eq("unit_id", id)
+            .order("inspection_date", { ascending: false });
+          
+          if (assetsError) throw assetsError;
+          setAssets(assetsData || []);
         }
       } catch (err) {
         console.error("Error fetching unit:", err);
@@ -243,6 +278,94 @@ const PublicUnitDetails = () => {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Location Information */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-primary-600" />
+            Location Information
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-md font-medium mb-3">Address</h3>
+              <div className="space-y-2">
+                <p className="font-medium">{unit.locations.name}</p>
+                <p>{unit.locations.address}</p>
+                <p>
+                  {unit.locations.city}, {unit.locations.state} {unit.locations.zip}
+                </p>
+              </div>
+            </div>
+            <div>
+              <h3 className="text-md font-medium mb-3">Company</h3>
+              <div className="space-y-2">
+                <p className="font-medium">{unit.locations.companies.name}</p>
+                <p className="text-sm text-gray-600">
+                  Unit {unit.unit_number}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Asset Summary */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Package className="h-5 w-5 text-primary-600" />
+            Equipment Assets
+          </h2>
+          {assets.length > 0 ? (
+            <div className="space-y-4">
+              {assets.slice(0, 3).map((asset) => (
+                <div key={asset.id} className="border rounded-lg p-4">
+                  <div className="font-medium text-primary-700 mb-2">
+                    {asset.model?.model_number || "(No Model #)"} -{" "}
+                    {asset.model?.serial_number || "(No Serial #)"}
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-700">
+                    <div>
+                      <span className="font-semibold">Age:</span>{" "}
+                      {asset.model?.age ?? "-"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Tonnage:</span>{" "}
+                      {asset.model?.tonnage ?? "-"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Unit Type:</span>{" "}
+                      {asset.model?.unit_type ?? "-"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">System Type:</span>{" "}
+                      {asset.model?.system_type ?? "-"}
+                    </div>
+                  </div>
+                  {asset.model?.comment && (
+                    <div className="text-sm text-gray-600 mt-2">
+                      <span className="font-semibold">Notes:</span> {asset.model.comment}
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-500 mt-2">
+                    Inspection Date: {formatDate(asset.inspection_date)}
+                  </div>
+                </div>
+              ))}
+              {assets.length > 3 && (
+                <p className="text-center text-sm text-gray-500">
+                  +{assets.length - 3} more assets
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 bg-gray-50 rounded-lg">
+              <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No equipment assets found</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Equipment information will appear after inspections
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Recent Service History */}

@@ -41,6 +41,7 @@ import Contacts from "./pages/Contacts";
 import PublicUnitDetails from "./pages/PublicUnitDetails";
 import Assets from "./pages/Assets";
 import AllQuotes from "./pages/AllQuotes";
+import Permits from "./pages/Permits";
 
 // Customer Portal
 import CustomerLogin from "./pages/CustomerLogin";
@@ -128,6 +129,7 @@ function App() {
             <Route path="templates" element={<QuoteTemplates />} />
           </Route>
           <Route path="all-quotes" element={<AllQuotes />} />
+          <Route path="permits" element={<Permits />} />
           <Route path="technicians">
             <Route path="add" element={<AddTechnician />} />
           </Route>
