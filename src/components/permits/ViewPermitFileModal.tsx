@@ -123,19 +123,71 @@ const ViewPermitFileModal: React.FC<ViewPermitFileModalProps> = ({
 
         const blob = await response.blob();
 
-        // Create a blob URL and trigger download
-        const blobUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = blobUrl;
-        link.download = fileName;
-        link.style.display = "none";
+        // Check if we're on iOS and it's an image
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isImage = fileType.includes("image");
 
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        if (isIOS && isImage) {
+          // For iOS images, try to save to photos using canvas approach
+          try {
+            // Canvas approach for direct download
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            const img = document.createElement("img") as HTMLImageElement;
 
-        // Clean up the blob URL
-        window.URL.revokeObjectURL(blobUrl);
+            img.onload = () => {
+              canvas.width = img.width;
+              canvas.height = img.height;
+              ctx?.drawImage(img, 0, 0);
+
+              // Convert to data URL
+              const dataUrl = canvas.toDataURL("image/png");
+
+              // Create a link with download attribute
+              const link = document.createElement("a");
+              link.href = dataUrl;
+              link.download = fileName;
+              link.style.display = "none";
+
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            };
+
+            img.src = URL.createObjectURL(blob);
+          } catch (iosError) {
+            console.log(
+              "iOS photo save failed, falling back to regular download:",
+              iosError
+            );
+            // Fallback to regular download
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = blobUrl;
+            link.download = fileName;
+            link.style.display = "none";
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            window.URL.revokeObjectURL(blobUrl);
+          }
+        } else {
+          // Regular download for non-iOS or non-images
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = blobUrl;
+          link.download = fileName;
+          link.style.display = "none";
+
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          // Clean up the blob URL
+          window.URL.revokeObjectURL(blobUrl);
+        }
       } catch (err) {
         console.error("Download error:", err);
         // Fallback to opening in new tab
@@ -145,7 +197,25 @@ const ViewPermitFileModal: React.FC<ViewPermitFileModalProps> = ({
   };
 
   const handleOpenInNewTab = () => {
-    setIsFullscreen(!isFullscreen);
+    if (isFullscreen) {
+      setIsFullscreen(false);
+    } else {
+      // For fullscreen, we'll use the browser's fullscreen API
+      const modalElement = document.querySelector(".modal-fullscreen");
+      if (modalElement) {
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        } else {
+          modalElement.requestFullscreen().catch((err) => {
+            console.log("Fullscreen failed:", err);
+            // Fallback to our custom fullscreen
+            setIsFullscreen(true);
+          });
+        }
+      } else {
+        setIsFullscreen(true);
+      }
+    }
   };
 
   const handleZoomIn = () => {
@@ -231,7 +301,7 @@ const ViewPermitFileModal: React.FC<ViewPermitFileModalProps> = ({
   try {
     return (
       <div
-        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-all duration-300 ${
+        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-all duration-300 modal-fullscreen ${
           isFullscreen
             ? "bg-opacity-90"
             : "flex items-center justify-center p-2 sm:p-4"
@@ -405,7 +475,9 @@ const ViewPermitFileModal: React.FC<ViewPermitFileModalProps> = ({
                       </div>
                     ) : fileType.includes("image") ? (
                       <div
-                        className="flex items-center justify-center h-full bg-gray-50 overflow-auto p-4"
+                        className={`flex items-center justify-center bg-gray-50 overflow-auto ${
+                          isFullscreen ? "h-full" : "h-full p-4"
+                        }`}
                         style={{
                           cursor:
                             zoom > 1

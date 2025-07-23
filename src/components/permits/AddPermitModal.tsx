@@ -251,7 +251,6 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
         notes: newPermit.notes || null,
         location_id: newPermit.location_id || null,
         company_id: newPermit.company_id || null,
-        created_by: session.user.id,
         status: "active",
       });
 
@@ -300,27 +299,27 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto sm:mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
-              <FileCheck className="w-5 h-5 text-blue-600" />
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
+          <div className="flex items-center min-w-0 flex-1">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3 sm:mr-4 flex-shrink-0">
+              <FileCheck className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
             </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
                 Add New Permit
               </h2>
-              <p className="text-sm text-gray-500">
+              <p className="text-xs sm:text-sm text-gray-500 truncate">
                 Create a new permit record with file attachment
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors p-2 -m-2"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
@@ -329,7 +328,7 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
           onSubmit={handleSubmit}
           className="p-4 sm:p-6 space-y-4 sm:space-y-6"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Company *
@@ -338,7 +337,7 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
                 required
                 value={newPermit.company_id}
                 onChange={(e) => handleCompanyChange(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
               >
                 <option value="">Select a company</option>
                 {loadingCompanies ? (
@@ -362,7 +361,7 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
                 value={newPermit.location_id}
                 onChange={(e) => handleLocationChange(e.target.value)}
                 disabled={!newPermit.company_id}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed text-base"
               >
                 <option value="">
                   {!newPermit.company_id
@@ -392,7 +391,7 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
                 onChange={(e) =>
                   setNewPermit({ ...newPermit, permit_number: e.target.value })
                 }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                 placeholder="Enter permit number"
               />
             </div>
@@ -407,7 +406,7 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
                 onChange={(e) =>
                   setNewPermit({ ...newPermit, mobile: e.target.value })
                 }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                 placeholder="Enter mobile number"
               />
             </div>
@@ -428,7 +427,7 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
                 onChange={(e) =>
                   setNewPermit({ ...newPermit, city: e.target.value })
                 }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                 placeholder="Enter city"
               />
             </div>
@@ -444,7 +443,7 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
                 onChange={(e) =>
                   setNewPermit({ ...newPermit, county: e.target.value })
                 }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
                 placeholder="Enter county"
               />
             </div>
@@ -463,35 +462,35 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                   id="file-upload"
                 />
-                <div className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-                  <div className="px-6 py-8 text-center">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors min-h-[120px] flex items-center justify-center">
+                  <div className="px-4 sm:px-6 py-6 sm:py-8 text-center w-full">
                     {selectedFile ? (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto">
                           <FileCheck className="w-6 h-6 text-green-600" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-gray-900 break-words">
                             {selectedFile.name}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 mt-1">
                             {formatFileSize(selectedFile.size)}
                           </p>
                         </div>
                         <p className="text-xs text-gray-400">
-                          Click to change file
+                          Tap to change file
                         </p>
                       </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center mx-auto">
                           <Upload className="w-6 h-6 text-gray-400" />
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-700">
-                            Click to upload permit file
+                            Tap to upload permit file
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 mt-1">
                             PDF, DOC, DOCX, JPG, PNG up to 10MB
                           </p>
                         </div>
@@ -536,27 +535,27 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
                 setNewPermit({ ...newPermit, notes: e.target.value })
               }
               rows={3}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-base"
               placeholder="Enter any additional notes about this permit..."
             />
           </div>
 
           {/* Footer */}
-          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 sticky bottom-0 bg-white">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 sm:px-6 py-2 sm:py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors font-medium"
+              className="w-full sm:w-auto px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors font-medium text-base"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={uploading}
-              className="px-4 sm:px-8 py-2 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-base"
             >
               {uploading ? (
-                <div className="flex items-center">
+                <div className="flex items-center justify-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   Uploading...
                 </div>

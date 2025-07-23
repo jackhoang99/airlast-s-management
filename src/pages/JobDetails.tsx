@@ -93,6 +93,7 @@ const JobDetails = () => {
             `
             *,
             locations (
+              id,
               name,
               address,
               city,

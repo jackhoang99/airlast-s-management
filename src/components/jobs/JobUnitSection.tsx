@@ -130,7 +130,12 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
                 {sharedBillingEmail && (
                   <div className="flex items-center gap-2 text-gray-700">
                     <Mail className="h-4 w-4 text-gray-400" />
-                    <span>{sharedBillingEmail}</span>
+                    <a
+                      href={`mailto:${sharedBillingEmail}`}
+                      className="text-primary-600 hover:text-primary-800"
+                    >
+                      {sharedBillingEmail}
+                    </a>
                   </div>
                 )}
                 {(sharedBillingCity ||
@@ -293,7 +298,12 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
                         {uniqueBillingEmail && (
                           <div className="flex items-center gap-2 text-gray-700">
                             <Mail className="h-4 w-4 text-gray-400" />
-                            <span>{uniqueBillingEmail}</span>
+                            <a
+                              href={`mailto:${uniqueBillingEmail}`}
+                              className="text-primary-600 hover:text-primary-800"
+                            >
+                              {uniqueBillingEmail}
+                            </a>
                           </div>
                         )}
                         {(uniqueBillingCity ||

@@ -28,6 +28,11 @@ const LocationDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { supabase } = useSupabase();
+
+  // Debug logging
+  console.log("LocationDetails: Current URL =", window.location.href);
+  console.log("LocationDetails: Pathname =", window.location.pathname);
+  console.log("LocationDetails: useParams id =", id);
   const [location, setLocation] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,9 +44,35 @@ const LocationDetails = () => {
 
   useEffect(() => {
     const fetchLocation = async () => {
-      if (!supabase || !id) return;
+      console.log("LocationDetails: id parameter =", id);
+      console.log("LocationDetails: supabase available =", !!supabase);
+
+      if (!supabase) {
+        console.error("LocationDetails: Supabase client not available");
+        setError("Database connection not available");
+        setIsLoading(false);
+        return;
+      }
+
+      if (!id) {
+        console.error("LocationDetails: No location ID provided");
+        setError("No location ID provided. Please check the URL.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate UUID format
+      const UUID_REGEX =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!UUID_REGEX.test(id)) {
+        console.error("LocationDetails: Invalid UUID format:", id);
+        setError("Invalid location ID format");
+        setIsLoading(false);
+        return;
+      }
 
       try {
+        console.log("LocationDetails: Fetching location with ID:", id);
         const { data, error: fetchError } = await supabase
           .from("locations")
           .select(
@@ -61,6 +92,7 @@ const LocationDetails = () => {
           .single();
 
         if (fetchError) throw fetchError;
+        console.log("LocationDetails: Successfully fetched location:", data);
         setLocation(data);
       } catch (err) {
         console.error("Error fetching location:", err);

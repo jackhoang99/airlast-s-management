@@ -699,7 +699,6 @@ export interface Database {
           file_type: string | null;
           created_at: string;
           updated_at: string;
-          created_by: string | null;
           status: string;
           notes: string | null;
           location_id: string | null;
@@ -717,7 +716,6 @@ export interface Database {
           file_type?: string | null;
           created_at?: string;
           updated_at?: string;
-          created_by?: string | null;
           status?: string;
           notes?: string | null;
           location_id?: string | null;
@@ -735,7 +733,6 @@ export interface Database {
           file_type?: string | null;
           created_at?: string;
           updated_at?: string;
-          created_by?: string | null;
           status?: string;
           notes?: string | null;
           location_id?: string | null;

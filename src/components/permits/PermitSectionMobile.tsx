@@ -45,7 +45,7 @@ const PermitSectionMobile: React.FC<PermitSectionMobileProps> = ({
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [selectedPermit, setSelectedPermit] = useState<Permit | null>(null);
   const [deletingPermit, setDeletingPermit] = useState<string | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   useEffect(() => {
     fetchPermits();
@@ -166,15 +166,15 @@ const PermitSectionMobile: React.FC<PermitSectionMobileProps> = ({
       <div className="bg-white rounded-lg shadow p-3 mb-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium flex items-center">
-            <FileCheck className="h-4 w-4 text-blue-500 mr-2" />
+            <FileCheck className="h-4 w-4 text-green-600 mr-2" />
             {title} ({permits.length})
           </h3>
           <button
             onClick={handleAddPermit}
-            className="btn btn-primary btn-xs"
+            className="btn btn-primary btn-sm"
             disabled={!locationId}
           >
-            <Plus size={12} className="mr-1" /> Add
+            <Plus size={14} className="mr-1" /> Add
           </button>
         </div>
         <div className="flex justify-center items-center h-12">
@@ -188,16 +188,16 @@ const PermitSectionMobile: React.FC<PermitSectionMobileProps> = ({
     <div className="bg-white rounded-lg shadow p-3 mb-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium flex items-center">
-          <FileCheck className="h-4 w-4 text-blue-500 mr-2" />
+          <FileCheck className="h-4 w-4 text-green-600 mr-2" />
           {title} ({permits.length})
         </h3>
         <div className="flex items-center gap-2">
           <button
             onClick={handleAddPermit}
-            className="btn btn-primary btn-xs"
+            className="btn btn-primary btn-sm"
             disabled={!locationId}
           >
-            <Plus size={12} className="mr-1" /> Add
+            <Plus size={14} className="mr-1" /> Add
           </button>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
@@ -229,10 +229,10 @@ const PermitSectionMobile: React.FC<PermitSectionMobileProps> = ({
               </p>
               <button
                 onClick={handleAddPermit}
-                className="btn btn-primary btn-xs"
+                className="btn btn-primary btn-sm mx-auto"
                 disabled={!locationId}
               >
-                <Plus size={12} className="mr-1" />
+                <Plus size={14} className="mr-1" />
                 Add Permit
               </button>
             </div>
@@ -259,34 +259,29 @@ const PermitSectionMobile: React.FC<PermitSectionMobileProps> = ({
                       </div>
                       <div className="text-xs text-gray-500 space-y-1">
                         <div className="flex items-center gap-1">
-                          <span>🏢</span>
                           <span className="font-medium">
                             {permit.locations?.companies?.name ||
                               "Unknown Company"}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span>📍</span>
                           <span>
                             {permit.locations?.name} • {permit.locations?.city},{" "}
                             {permit.locations?.state}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span>🏙️</span>
                           <span>
                             {permit.city}, {permit.county}
                           </span>
                         </div>
                         {permit.mobile && (
                           <div className="flex items-center gap-1">
-                            <span>📱</span>
                             <span>{permit.mobile}</span>
                           </div>
                         )}
                         {permit.created_at && (
                           <div className="flex items-center gap-1">
-                            <span>📅</span>
                             <span>{formatDate(permit.created_at)}</span>
                           </div>
                         )}
@@ -303,7 +298,6 @@ const PermitSectionMobile: React.FC<PermitSectionMobileProps> = ({
                         )}
                         {permit.notes && (
                           <div className="flex items-center gap-1">
-                            <span>📝</span>
                             <button
                               onClick={() => {
                                 setSelectedPermit(permit);
