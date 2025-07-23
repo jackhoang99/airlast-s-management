@@ -19,6 +19,11 @@ import {
 } from "lucide-react";
 import { useMediaQuery } from "react-responsive";
 import { Dialog } from "@headlessui/react";
+import {
+  getJobTypeBorderColor,
+  getJobTypeBackgroundColor,
+  getJobTypeHoverColor,
+} from "../../components/jobs/JobTypeColors";
 
 const TechnicianMap = () => {
   const { supabase } = useSupabase();

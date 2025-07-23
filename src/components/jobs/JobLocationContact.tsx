@@ -46,9 +46,7 @@ const JobLocationContact = ({ job }: JobLocationContactProps) => {
                         >
                           {u.unit_number}
                         </Link>
-                        {/* Asset info will be injected here */}
-                        <UnitAssetLink unitId={u.id} />
-                        {idx < job.units.length - 1 && ", "}
+                        {idx < job.units!.length - 1 && ", "}
                       </span>
                     ))}
                   </div>
@@ -120,27 +118,3 @@ const JobLocationContact = ({ job }: JobLocationContactProps) => {
 };
 
 export default JobLocationContact;
-
-function UnitAssetLink({ unitId }: { unitId: string }) {
-  const [asset, setAsset] = useState<any | null>(undefined);
-  useEffect(() => {
-    (async () => {
-      const res = await fetch(`/api/unit-assets-latest?unitId=${unitId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setAsset(data.asset || null);
-      } else {
-        setAsset(null);
-      }
-    })();
-  }, [unitId]);
-  if (asset === undefined || asset === null) return null;
-  return (
-    <Link
-      to={`/assets/${asset.id}`}
-      className="ml-1 text-xs text-primary-600 hover:text-primary-800"
-    >
-      (View Asset)
-    </Link>
-  );
-}

@@ -52,21 +52,16 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
 }) => {
   const [showAssetsModal, setShowAssetsModal] = useState(false);
   const getJobTypeColorClass = (type: string): string => {
-    switch (type?.toLowerCase()) {
-      case "preventative maintenance":
-      case "planned maintenance":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      case "service call":
-        return "bg-cyan-100 text-cyan-800 border-cyan-200";
-      case "repair":
-        return "bg-amber-100 text-amber-800 border-amber-200";
-      case "installation":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200";
-      case "inspection":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
+    const colorMap: { [key: string]: string } = {
+      "preventative maintenance": "bg-purple-100 text-purple-800",
+      "service call": "bg-teal-100 text-teal-800",
+      inspection: "bg-blue-100 text-blue-800",
+      repair: "bg-orange-100 text-orange-800",
+      installation: "bg-green-100 text-green-800",
+      "planned maintenance": "bg-indigo-100 text-indigo-800",
+    };
+
+    return colorMap[type.toLowerCase()] || "bg-gray-100 text-gray-800";
   };
 
   if (!isOpen) return null;

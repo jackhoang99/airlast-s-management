@@ -15,14 +15,23 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import ArrowBack from "../components/ui/ArrowBack";
+import JobTypeLegend from "../components/jobs/JobTypeLegend";
+import {
+  getJobTypeBorderColor,
+  getJobTypeBackgroundColor,
+  getJobTypeHoverColor,
+} from "../components/jobs/JobTypeColors";
 
 type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
   locations?: {
+    id: string;
     name: string;
     address: string;
     city: string;
     state: string;
+    company_id: string;
     companies: {
+      id: string;
       name: string;
     };
   };
@@ -39,8 +48,10 @@ type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
     total_cost: number;
   }[];
   units?: {
+    id: string;
     unit_number: string;
   }[];
+  additional_type?: string;
 };
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
@@ -131,11 +142,14 @@ const Jobs = () => {
         let query = supabase.from("jobs").select(`
             *,
             locations (
+              id,
               name,
               address,
               city,
               state,
+              company_id,
               companies (
+                id,
                 name
               )
             ),
@@ -501,21 +515,16 @@ const Jobs = () => {
   };
 
   const getTypeBadgeClass = (type: string) => {
-    switch (type?.toLowerCase()) {
-      case "preventative maintenance":
-      case "planned maintenance":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      case "service call":
-        return "bg-cyan-100 text-cyan-800 border-cyan-200";
-      case "repair":
-        return "bg-amber-100 text-amber-800 border-amber-200";
-      case "installation":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200";
-      case "inspection":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
+    const colorMap: { [key: string]: string } = {
+      "preventative maintenance": "bg-purple-500 text-white",
+      "service call": "bg-teal-500 text-white",
+      inspection: "bg-blue-500 text-white",
+      repair: "bg-orange-500 text-white",
+      installation: "bg-green-500 text-white",
+      "planned maintenance": "bg-indigo-500 text-white",
+    };
+
+    return colorMap[type.toLowerCase()] || "bg-gray-500 text-white";
   };
 
   const getContractBadgeClass = (isContract: boolean) => {
@@ -746,6 +755,9 @@ const Jobs = () => {
           </Link>
         </div>
       </div>
+
+      {/* Job Type Color Legend */}
+      <JobTypeLegend className="mb-4" />
 
       {/* URL Parameter Filter Indicator */}
       {(searchParams.get("status") === "completed" ||
@@ -1044,7 +1056,11 @@ const Jobs = () => {
               jobs.map((job) => (
                 <div
                   key={job.id}
-                  className="bg-white border rounded-lg shadow-sm relative"
+                  className={`bg-white border rounded-lg shadow-sm relative border-l-4 ${getJobTypeBorderColor(
+                    job.type
+                  )} ${getJobTypeBackgroundColor(
+                    job.type
+                  )} transition-colors duration-200`}
                 >
                   <button
                     onClick={() => {
@@ -1156,8 +1172,7 @@ const Jobs = () => {
                                       >
                                         {u.unit_number}
                                       </Link>
-                                      <UnitAssetLink unitId={u.id} />
-                                      {idx < job.units.length - 1 && ", "}
+                                      {idx < job.units!.length - 1 && ", "}
                                     </span>
                                   ))}
                                 </span>
@@ -1333,27 +1348,3 @@ const Jobs = () => {
 };
 
 export default Jobs;
-
-function UnitAssetLink({ unitId }) {
-  const [asset, setAsset] = useState(undefined);
-  useEffect(() => {
-    (async () => {
-      const res = await fetch(`/api/unit-assets-latest?unitId=${unitId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setAsset(data.asset || null);
-      } else {
-        setAsset(null);
-      }
-    })();
-  }, [unitId]);
-  if (asset === undefined || asset === null) return null;
-  return (
-    <Link
-      to={`/assets/${asset.id}`}
-      className="ml-1 text-xs text-primary-600 hover:text-primary-800"
-    >
-      (View Asset)
-    </Link>
-  );
-}

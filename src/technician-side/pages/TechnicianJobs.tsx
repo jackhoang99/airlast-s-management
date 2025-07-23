@@ -13,6 +13,12 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import JobTypeLegend from "../../components/jobs/JobTypeLegend";
+import {
+  getJobTypeBorderColor,
+  getJobTypeBackgroundColor,
+  getJobTypeHoverColor,
+} from "../../components/jobs/JobTypeColors";
 
 const TechnicianJobs = () => {
   const { supabase } = useSupabase();
@@ -341,6 +347,19 @@ const TechnicianJobs = () => {
     );
   };
 
+  const getJobTypeBadgeClass = (type: string) => {
+    const colorMap: { [key: string]: string } = {
+      "preventative maintenance": "bg-purple-500 text-white",
+      "service call": "bg-teal-500 text-white",
+      inspection: "bg-blue-500 text-white",
+      repair: "bg-orange-500 text-white",
+      installation: "bg-green-500 text-white",
+      "planned maintenance": "bg-indigo-500 text-white",
+    };
+
+    return colorMap[type.toLowerCase()] || "bg-gray-500 text-white";
+  };
+
   return (
     <div className="space-y-4 pb-24">
       <div className="flex items-center justify-between">
@@ -349,6 +368,9 @@ const TechnicianJobs = () => {
           My Jobs
         </h1>
       </div>
+
+      {/* Job Type Color Legend */}
+      <JobTypeLegend className="mb-4" />
 
       {/* Search and Filters */}
       <div className="bg-white rounded-none shadow-none p-2 sm:rounded-lg sm:shadow sm:p-4">
@@ -519,7 +541,11 @@ const TechnicianJobs = () => {
             <Link
               key={job.id}
               to={`/tech/jobs/${job.id}`}
-              className="block p-4 hover:bg-gray-50 text-base"
+              className={`block p-4 text-base border-l-4 ${getJobTypeBorderColor(
+                job.type
+              )} ${getJobTypeBackgroundColor(
+                job.type
+              )} transition-colors duration-200`}
             >
               <div className="flex justify-between items-start gap-2">
                 <div className="min-w-0">
@@ -543,12 +569,19 @@ const TechnicianJobs = () => {
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 mt-1 truncate">
-                    Job #{job.number} • {job.type}
-                    {(job.type === "preventative maintenance" ||
-                      job.type === "planned maintenance") &&
-                      job.additional_type && (
-                        <span className="ml-1">• {job.additional_type}</span>
-                      )}
+                    Job #{job.number} •{" "}
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${getJobTypeBadgeClass(
+                        job.type
+                      )}`}
+                    >
+                      {job.type}
+                      {(job.type === "preventative maintenance" ||
+                        job.type === "planned maintenance") &&
+                        job.additional_type && (
+                          <span className="ml-1">• {job.additional_type}</span>
+                        )}
+                    </span>
                   </p>
                   <p className="text-sm text-gray-500 truncate">
                     {job.locations?.name}
