@@ -1,6 +1,15 @@
 const JobTypeLegend = () => {
   const jobTypes = [
-    { type: "preventative maintenance", color: "bg-purple-500", label: "PM" },
+    {
+      type: "preventative maintenance",
+      color: "bg-purple-500",
+      label: "PM (Filter Change, Cleaning AC/HEAT)",
+    },
+    {
+      type: "planned maintenance",
+      color: "bg-purple-500",
+      label: "ONE (Filter Change, Cleaning AC/HEAT)",
+    },
     { type: "service call", color: "bg-cyan-500", label: "Service Call" },
     { type: "repair", color: "bg-amber-500", label: "Repair" },
     { type: "installation", color: "bg-emerald-500", label: "Installation" },

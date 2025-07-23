@@ -115,6 +115,7 @@ const CreateJob = () => {
 
     // Additional Details
     type: "preventative maintenance",
+    additional_type: "",
     is_training: false,
     status: "unscheduled",
   });
@@ -487,6 +488,12 @@ const CreateJob = () => {
     if (!formData.description) errors.description = "Description is required";
     if (!formData.contact_type)
       errors.contact_type = "Contact type is required";
+    if (
+      (formData.type === "preventative maintenance" || formData.type === "planned maintenance") &&
+      !formData.additional_type
+    )
+      errors.additional_type =
+        "Additional type is required for maintenance jobs";
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -520,6 +527,10 @@ const CreateJob = () => {
         .insert({
           name: `inspection-${formData.service_zip}-${formData.service_line}`.trim(),
           type: formData.type,
+          additional_type:
+            (formData.type === "preventative maintenance" || formData.type === "planned maintenance")
+              ? formData.additional_type
+              : null,
           location_id: formData.location_id,
           unit_id: selectedUnitIds.length > 0 ? null : formData.unit_id || null,
           contact_name:
@@ -656,8 +667,12 @@ const CreateJob = () => {
                 <h3 className="font-medium">{preset.name}</h3>
                 <div className="text-sm text-gray-500 mt-1">
                   <div>
-                    {preset.data.type === "preventative maintenance"
-                      ? "PM"
+                    {(preset.data.type === "preventative maintenance" || preset.data.type === "planned maintenance")
+                      ? `${preset.data.type === "preventative maintenance" ? "PM" : "ONE"}${
+                          preset.data.additional_type
+                            ? ` • ${preset.data.additional_type}`
+                            : ""
+                        }`
                       : "Service Call"}
                     {preset.data.service_line
                       ? ` • ${preset.data.service_line}`
@@ -1284,6 +1299,55 @@ const CreateJob = () => {
                 ))}
               </select>
             </div>
+
+            {(formData.type === "preventative maintenance" || formData.type === "planned maintenance") && (
+              <div>
+                <label
+                  htmlFor="additional_type"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Additional Type *
+                </label>
+                <select
+                  id="additional_type"
+                  name="additional_type"
+                  value={formData.additional_type}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      additional_type: e.target.value,
+                    }))
+                  }
+                  required
+                  className={`select ${
+                    validationErrors.additional_type
+                      ? "border-error-500 ring-1 ring-error-500"
+                      : ""
+                  }`}
+                >
+                  <option value="">Select Additional Type</option>
+                  {formData.type === "preventative maintenance" && (
+                    <>
+                      <option value="PM Filter Change">PM Filter Change</option>
+                      <option value="PM Cleaning AC">PM Cleaning AC</option>
+                      <option value="PM Cleaning HEAT">PM Cleaning HEAT</option>
+                    </>
+                  )}
+                  {formData.type === "planned maintenance" && (
+                    <>
+                      <option value="ONE Filter Change">ONE Filter Change</option>
+                      <option value="ONE Cleaning AC">ONE Cleaning AC</option>
+                      <option value="ONE Cleaning HEAT">ONE Cleaning HEAT</option>
+                    </>
+                  )}
+                </select>
+                {validationErrors.additional_type && (
+                  <p className="mt-1 text-sm text-error-600">
+                    {validationErrors.additional_type}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div>
               <label

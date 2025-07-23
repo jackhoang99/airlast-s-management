@@ -12,6 +12,7 @@
   "dependencies": {
     "@capacitor/cli": "^7.3.0",
     "@capacitor/core": "^7.3.0",
+    "@capacitor/ios": "^7.4.2",
     "@googlemaps/js-api-loader": "^1.16.2",
     "@headlessui/react": "^1.7.19",
     "@supabase/supabase-js": "^2.26.0",

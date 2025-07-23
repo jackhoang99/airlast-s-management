@@ -544,6 +544,11 @@ const TechnicianJobs = () => {
                   </div>
                   <p className="text-sm text-gray-500 mt-1 truncate">
                     Job #{job.number} • {job.type}
+                    {(job.type === "preventative maintenance" ||
+                      job.type === "planned maintenance") &&
+                      job.additional_type && (
+                        <span className="ml-1">• {job.additional_type}</span>
+                      )}
                   </p>
                   <p className="text-sm text-gray-500 truncate">
                     {job.locations?.name}

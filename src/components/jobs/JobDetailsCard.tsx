@@ -24,6 +24,7 @@ const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
   const getTypeBadgeClass = (type: string) => {
     switch (type?.toLowerCase()) {
       case "preventative maintenance":
+      case "planned maintenance":
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "service call":
         return "bg-cyan-100 text-cyan-800 border-cyan-200";
@@ -59,6 +60,9 @@ const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
             </span>
             <span className={`badge ${getTypeBadgeClass(job.type)}`}>
               {job.type}
+              {(job.type === "preventative maintenance" || job.type === "planned maintenance") && job.additional_type && (
+                <span className="ml-1">• {job.additional_type}</span>
+              )}
             </span>
             {job.service_line && (
               <span className="badge bg-blue-100 text-blue-800">

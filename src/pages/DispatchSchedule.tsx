@@ -23,6 +23,7 @@ import { Link } from "react-router-dom";
 type User = Database["public"]["Tables"]["users"]["Row"];
 
 type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
+  additional_type?: string;
   locations?: {
     name: string;
     address: string;
@@ -287,6 +288,7 @@ const DispatchSchedule = () => {
   const getJobTypeColorClass = (type: string): string => {
     switch (type?.toLowerCase()) {
       case "preventative maintenance":
+      case "planned maintenance":
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "service call":
         return "bg-cyan-100 text-cyan-800 border-cyan-200";

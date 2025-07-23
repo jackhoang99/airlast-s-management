@@ -1,11 +1,20 @@
 import { useState } from "react";
-import { AlertTriangle, Package, Wrench, Search } from "lucide-react";
+import {
+  AlertTriangle,
+  Package,
+  Wrench,
+  Search,
+  Calendar,
+  Clock,
+} from "lucide-react";
 import { useMediaQuery } from "react-responsive";
 
 interface Job {
   id: string;
   name: string;
   type: string;
+  status: string;
+  additional_type?: string;
   locations?: {
     name: string;
     zip: string;
@@ -40,6 +49,7 @@ interface JobQueueProps {
 const getJobTypeColorClass = (type: string) => {
   switch (type?.toLowerCase()) {
     case "preventative maintenance":
+    case "planned maintenance":
       return "bg-purple-100 text-purple-800 border-purple-200";
     case "service call":
       return "bg-cyan-100 text-cyan-800 border-cyan-200";
@@ -71,19 +81,43 @@ const JobQueue = ({
   closeDrawer, // optional prop for mobile close
 }: JobQueueProps & { closeDrawer?: () => void }) => {
   const isMobile = useMediaQuery({ maxWidth: 767 });
-  // Categorize jobs
+  const [showScheduledJobs, setShowScheduledJobs] = useState(false);
+
+  // Categorize jobs based on view mode
   const unassignedJobs = jobs.filter(
-    (job) => !job.job_technicians || job.job_technicians.length === 0
+    (job) =>
+      job.status === "unscheduled" &&
+      (!job.job_technicians || job.job_technicians.length === 0)
   );
 
   const partsOrderedJobs = jobs
     .filter(
-      (job) => job.type === "repair" || job.name.toLowerCase().includes("parts")
+      (job) =>
+        job.status === "unscheduled" &&
+        (job.type === "repair" || job.name.toLowerCase().includes("parts"))
     )
     .slice(0, 10);
 
   const pmsToScheduleJobs = jobs.filter(
-    (job) => job.type === "preventative maintenance"
+    (job) =>
+      job.status === "unscheduled" &&
+      (job.type === "preventative maintenance" ||
+        job.type === "planned maintenance")
+  );
+
+  const allJobsToSchedule = jobs.filter(
+    (job) =>
+      job.status === "unscheduled" &&
+      job.type !== "preventative maintenance" &&
+      job.type !== "planned maintenance"
+  );
+
+  // For scheduled jobs view
+  const scheduledJobs = jobs.filter(
+    (job) =>
+      job.status === "scheduled" &&
+      job.job_technicians &&
+      job.job_technicians.length > 0
   );
 
   const renderJobCard = (
@@ -121,6 +155,13 @@ const JobQueue = ({
       <div className="font-medium truncate text-lg">{job.name}</div>
       <div className="text-gray-600 truncate">{job.locations?.name}</div>
       <div className="text-gray-500">{job.locations?.zip}</div>
+      {(job.type === "preventative maintenance" ||
+        job.type === "planned maintenance") &&
+        job.additional_type && (
+          <div className="text-xs text-gray-400 mt-1">
+            {job.additional_type}
+          </div>
+        )}
     </div>
   );
 
@@ -152,7 +193,31 @@ const JobQueue = ({
         </div>
       )}
       <div className="p-4 border-b border-gray-200">
-        <h2 className="font-medium text-gray-900 mb-3">Job Queue</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-medium text-gray-900">
+            {showScheduledJobs ? "Scheduled" : "Job Queue"}
+          </h2>
+          <button
+            onClick={() => setShowScheduledJobs(!showScheduledJobs)}
+            className={`flex items-center gap-2 px-3 py-1 text-sm rounded-md transition-colors ${
+              showScheduledJobs
+                ? "bg-red-500 hover:bg-red-600 text-white"
+                : "bg-green-500 hover:bg-green-600 text-white"
+            }`}
+          >
+            {showScheduledJobs ? (
+              <>
+                <Calendar size={14} />
+                Jobs Queue
+              </>
+            ) : (
+              <>
+                <Clock size={14} />
+                Scheduled Jobs
+              </>
+            )}
+          </button>
+        </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
@@ -166,65 +231,112 @@ const JobQueue = ({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {/* Unassigned Calls */}
-        <div className="p-4 border-b border-gray-200">
-          <h3 className="font-medium text-sm text-gray-700 mb-3 flex items-center">
-            <AlertTriangle size={16} className="mr-2 text-amber-500" />
-            Unassigned Calls ({unassignedJobs.length})
-          </h3>
-          <div className="min-h-[120px] bg-gray-50 rounded-lg p-2">
-            {filteredJobs(unassignedJobs).map((job) =>
-              renderJobCard(job, { type: "column", id: "unassigned" })
-            )}
-            {filteredJobs(unassignedJobs).length === 0 && (
-              <div className="text-center text-gray-500 text-sm py-8">
-                No unassigned calls
-              </div>
-            )}
+        {showScheduledJobs ? (
+          /* Scheduled Jobs View */
+          <div className="p-4">
+            <h3 className="font-medium text-sm text-gray-700 mb-3 flex items-center">
+              <Clock size={16} className="mr-2 text-green-500" />
+              Scheduled Jobs ({scheduledJobs.length})
+            </h3>
+            <div
+              className="min-h-[120px] bg-gray-50 rounded-lg p-2"
+              onDragOver={handleDragOver}
+            >
+              {filteredJobs(scheduledJobs).map((job) =>
+                renderJobCard(job, { type: "column", id: "scheduled" })
+              )}
+              {filteredJobs(scheduledJobs).length === 0 && (
+                <div className="text-center text-gray-500 text-sm py-8">
+                  No scheduled jobs
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Jobs to Schedule View */
+          <>
+            {/* Unassigned Calls */}
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="font-medium text-sm text-gray-700 mb-3 flex items-center">
+                <AlertTriangle size={16} className="mr-2 text-amber-500" />
+                Unassigned Calls ({unassignedJobs.length})
+              </h3>
+              <div className="min-h-[120px] bg-gray-50 rounded-lg p-2">
+                {filteredJobs(unassignedJobs).map((job) =>
+                  renderJobCard(job, { type: "column", id: "unassigned" })
+                )}
+                {filteredJobs(unassignedJobs).length === 0 && (
+                  <div className="text-center text-gray-500 text-sm py-8">
+                    No unassigned calls
+                  </div>
+                )}
+              </div>
+            </div>
 
-        {/* Parts Ordered */}
-        <div className="p-4 border-b border-gray-200">
-          <h3 className="font-medium text-sm text-gray-700 mb-3 flex items-center">
-            <Package size={16} className="mr-2 text-blue-500" />
-            Parts Ordered ({partsOrderedJobs.length})
-          </h3>
-          <div
-            className="min-h-[120px] bg-gray-50 rounded-lg p-2"
-            onDragOver={handleDragOver}
-          >
-            {filteredJobs(partsOrderedJobs).map((job) =>
-              renderJobCard(job, { type: "column", id: "parts_ordered" })
-            )}
-            {filteredJobs(partsOrderedJobs).length === 0 && (
-              <div className="text-center text-gray-500 text-sm py-8">
-                No parts ordered
+            {/* Parts Ordered */}
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="font-medium text-sm text-gray-700 mb-3 flex items-center">
+                <Package size={16} className="mr-2 text-blue-500" />
+                Parts Ordered ({partsOrderedJobs.length})
+              </h3>
+              <div
+                className="min-h-[120px] bg-gray-50 rounded-lg p-2"
+                onDragOver={handleDragOver}
+              >
+                {filteredJobs(partsOrderedJobs).map((job) =>
+                  renderJobCard(job, { type: "column", id: "parts_ordered" })
+                )}
+                {filteredJobs(partsOrderedJobs).length === 0 && (
+                  <div className="text-center text-gray-500 text-sm py-8">
+                    No parts ordered
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {/* PMs to Schedule */}
-        <div className="p-4">
-          <h3 className="font-medium text-sm text-gray-700 mb-3 flex items-center">
-            <Wrench size={16} className="mr-2 text-purple-500" />
-            PMs to Schedule ({pmsToScheduleJobs.length})
-          </h3>
-          <div
-            className="min-h-[120px] bg-gray-50 rounded-lg p-2"
-            onDragOver={handleDragOver}
-          >
-            {filteredJobs(pmsToScheduleJobs).map((job) =>
-              renderJobCard(job, { type: "column", id: "pms_to_schedule" })
-            )}
-            {filteredJobs(pmsToScheduleJobs).length === 0 && (
-              <div className="text-center text-gray-500 text-sm py-8">
-                No PMs to schedule
+            {/* Maintenance Jobs to Schedule */}
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="font-medium text-sm text-gray-700 mb-3 flex items-center">
+                <Wrench size={16} className="mr-2 text-purple-500" />
+                Maintenance Jobs to Schedule ({pmsToScheduleJobs.length})
+              </h3>
+              <div
+                className="min-h-[120px] bg-gray-50 rounded-lg p-2"
+                onDragOver={handleDragOver}
+              >
+                {filteredJobs(pmsToScheduleJobs).map((job) =>
+                  renderJobCard(job, { type: "column", id: "pms_to_schedule" })
+                )}
+                {filteredJobs(pmsToScheduleJobs).length === 0 && (
+                  <div className="text-center text-gray-500 text-sm py-8">
+                    No maintenance jobs to schedule
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+
+            {/* All Jobs to Schedule */}
+            <div className="p-4">
+              <h3 className="font-medium text-sm text-gray-700 mb-3 flex items-center">
+                <Calendar size={16} className="mr-2 text-green-500" />
+                All Jobs to Schedule ({allJobsToSchedule.length})
+              </h3>
+              <div
+                className="min-h-[120px] bg-gray-50 rounded-lg p-2"
+                onDragOver={handleDragOver}
+              >
+                {filteredJobs(allJobsToSchedule).map((job) =>
+                  renderJobCard(job, { type: "column", id: "all_to_schedule" })
+                )}
+                {filteredJobs(allJobsToSchedule).length === 0 && (
+                  <div className="text-center text-gray-500 text-sm py-8">
+                    No jobs to schedule
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

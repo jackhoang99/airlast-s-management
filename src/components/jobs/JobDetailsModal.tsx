@@ -12,6 +12,7 @@ interface JobDetailsModalProps {
     name: string;
     status: string;
     type: string;
+    additional_type?: string;
     schedule_start?: string;
     description?: string;
     locations?: {
@@ -53,6 +54,7 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   const getJobTypeColorClass = (type: string): string => {
     switch (type?.toLowerCase()) {
       case "preventative maintenance":
+      case "planned maintenance":
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "service call":
         return "bg-cyan-100 text-cyan-800 border-cyan-200";
@@ -105,6 +107,11 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                 )}`}
               >
                 {job.type}
+                {(job.type === "preventative maintenance" ||
+                  job.type === "planned maintenance") &&
+                  job.additional_type && (
+                    <span className="ml-1">• {job.additional_type}</span>
+                  )}
               </span>
             </div>
           </div>

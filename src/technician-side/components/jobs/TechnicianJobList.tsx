@@ -101,19 +101,27 @@ const TechnicianJobList = ({
                 </div>
               </div>
               <div className="mt-2 flex justify-between">
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full
-                  ${
-                    job.status === "scheduled"
-                      ? "bg-blue-100 text-blue-800"
-                      : job.status === "unscheduled"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-gray-100 text-gray-800"
-                  }
-                `}
-                >
-                  {job.status}
-                </span>
+                <div className="flex gap-2">
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full
+                    ${
+                      job.status === "scheduled"
+                        ? "bg-blue-100 text-blue-800"
+                        : job.status === "unscheduled"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-gray-100 text-gray-800"
+                    }
+                  `}
+                  >
+                    {job.status}
+                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-800">
+                    {job.type}
+                    {(job.type === "preventative maintenance" || job.type === "planned maintenance") && job.additional_type && (
+                      <span className="ml-1">• {job.additional_type}</span>
+                    )}
+                  </span>
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={(e) => {

@@ -71,6 +71,7 @@ interface RecentJob {
   name: string;
   status: string;
   type: string;
+  additional_type?: string;
   schedule_start: string;
   locations: {
     name: string;
@@ -101,6 +102,7 @@ interface ScheduledJob {
   name: string;
   status: string;
   type: string;
+  additional_type?: string;
   schedule_start: string;
   locations: {
     name: string;
@@ -270,6 +272,7 @@ const Home = () => {
           name,
           status,
           type,
+          additional_type,
           schedule_start,
           locations (
             name,
@@ -356,6 +359,7 @@ const Home = () => {
             name,
             status,
             type,
+            additional_type,
             schedule_start,
             schedule_duration,
             locations (
@@ -742,6 +746,7 @@ const Home = () => {
   const getJobTypeColorClass = (type: string): string => {
     switch (type?.toLowerCase()) {
       case "preventative maintenance":
+      case "planned maintenance":
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "service call":
         return "bg-cyan-100 text-cyan-800 border-cyan-200";
@@ -1471,6 +1476,11 @@ const Home = () => {
                 <div className="text-right">
                   <p className="text-sm font-medium text-gray-900">
                     {job.type}
+                    {(job.type === "preventative maintenance" ||
+                      job.type === "planned maintenance") &&
+                      job.additional_type && (
+                        <span className="ml-1">• {job.additional_type}</span>
+                      )}
                   </p>
                   {job.schedule_start && (
                     <p className="text-xs text-gray-500">

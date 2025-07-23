@@ -301,6 +301,7 @@ const UnitDetails = () => {
   const getTypeBadgeClass = (type: string) => {
     switch (type?.toLowerCase()) {
       case "preventative maintenance":
+      case "planned maintenance":
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "service call":
         return "bg-cyan-100 text-cyan-800 border-cyan-200";
@@ -556,6 +557,13 @@ const UnitDetails = () => {
                             )}`}
                           >
                             {job.type}
+                            {(job.type === "preventative maintenance" ||
+                              job.type === "planned maintenance") &&
+                              job.additional_type && (
+                                <span className="ml-1">
+                                  • {job.additional_type}
+                                </span>
+                              )}
                           </span>
                           {job.service_contract && (
                             <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">

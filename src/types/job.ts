@@ -33,6 +33,7 @@ export interface Job {
   service_contract: string | null;
   schedule_date: string | null;
   schedule_time: string | null;
+  additional_type: string | null;
   // Remove unit_id and units?: Unit
   // unit_id: string | null;
   quote_sent: boolean | null;

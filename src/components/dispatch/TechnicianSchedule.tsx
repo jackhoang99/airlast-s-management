@@ -6,6 +6,7 @@ interface Job {
   id: string;
   name: string;
   type: string;
+  additional_type?: string;
   schedule_start?: string;
   schedule_duration?: string;
   locations?: {
@@ -481,6 +482,9 @@ const TechnicianSchedule = ({
                           ) : null}
                           <div className="truncate text-xs opacity-75">
                             {job.locations?.zip}
+                            {(job.type === "preventative maintenance" || job.type === "planned maintenance") && job.additional_type && (
+                              <span className="ml-1">• {job.additional_type}</span>
+                            )}
                           </div>
                         </div>
                       );
