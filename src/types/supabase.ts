@@ -642,6 +642,44 @@ export interface Database {
           created_at?: string;
         };
       };
+      job_maintenance_checklists: {
+        Row: {
+          id: string;
+          job_id: string;
+          job_unit_id: string | null;
+          task_description: string;
+          completed: boolean;
+          notes: string | null;
+          reading_value: string | null;
+          task_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          job_unit_id?: string | null;
+          task_description: string;
+          completed?: boolean;
+          notes?: string | null;
+          reading_value?: string | null;
+          task_order: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          job_unit_id?: string | null;
+          task_description?: string;
+          completed?: boolean;
+          notes?: string | null;
+          reading_value?: string | null;
+          task_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       job_invoices: {
         Row: {
           id: string;

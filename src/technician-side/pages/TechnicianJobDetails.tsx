@@ -39,6 +39,7 @@ import JobComments from "../../components/jobs/JobComments";
 import ClockInOut from "../components/jobs/ClockInOut";
 import JobUnitSection from "../../components/jobs/JobUnitSection";
 import PermitSectionMobile from "../../components/permits/PermitSectionMobile";
+import MaintenanceChecklist from "../../components/jobs/MaintenanceChecklist";
 
 const TechnicianJobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -74,6 +75,10 @@ const TechnicianJobDetails = () => {
   const [showQuoteSection, setShowQuoteSection] = useState(false);
   const [showInvoiceSection, setShowInvoiceSection] = useState(false);
   const [showInspectionSection, setShowInspectionSection] = useState(true);
+  const [showMaintenanceChecklist, setShowMaintenanceChecklist] =
+    useState(true);
+  const [isMaintenanceChecklistComplete, setIsMaintenanceChecklistComplete] =
+    useState(false);
 
   // Get technician ID directly from auth
   useEffect(() => {
@@ -578,7 +583,43 @@ const TechnicianJobDetails = () => {
             {jobStatus !== "completed" && jobStatus !== "cancelled" && (
               <button
                 onClick={() => setShowCompleteJobModal(true)}
-                className="btn btn-success w-full sm:w-auto"
+                disabled={
+                  (job?.type === "preventative maintenance" ||
+                    job?.type === "planned maintenance") &&
+                  (job?.additional_type === "PM Cleaning AC" ||
+                    job?.additional_type === "ONE Cleaning AC" ||
+                    job?.additional_type === "PM Cleaning HEAT" ||
+                    job?.additional_type === "ONE Cleaning HEAT" ||
+                    job?.additional_type === "PM Filter Change" ||
+                    job?.additional_type === "ONE Filter Change") &&
+                  !isMaintenanceChecklistComplete
+                }
+                className={`btn w-full sm:w-auto ${
+                  (job?.type === "preventative maintenance" ||
+                    job?.type === "planned maintenance") &&
+                  (job?.additional_type === "PM Cleaning AC" ||
+                    job?.additional_type === "ONE Cleaning AC" ||
+                    job?.additional_type === "PM Cleaning HEAT" ||
+                    job?.additional_type === "ONE Cleaning HEAT" ||
+                    job?.additional_type === "PM Filter Change" ||
+                    job?.additional_type === "ONE Filter Change") &&
+                  !isMaintenanceChecklistComplete
+                    ? "btn-secondary cursor-not-allowed"
+                    : "btn-success"
+                }`}
+                title={
+                  (job?.type === "preventative maintenance" ||
+                    job?.type === "planned maintenance") &&
+                  (job?.additional_type === "PM Cleaning AC" ||
+                    job?.additional_type === "ONE Cleaning AC" ||
+                    job?.additional_type === "PM Cleaning HEAT" ||
+                    job?.additional_type === "ONE Cleaning HEAT" ||
+                    job?.additional_type === "PM Filter Change" ||
+                    job?.additional_type === "ONE Filter Change") &&
+                  !isMaintenanceChecklistComplete
+                    ? "PM Checklist must be completed first"
+                    : ""
+                }
               >
                 <CheckSquare size={16} className="mr-2" />
                 Complete Job
@@ -802,6 +843,56 @@ const TechnicianJobDetails = () => {
         </div>
       )}
       <hr className="my-2 border-gray-200" />
+      {/* Maintenance Checklist Section */}
+      {(job?.type === "preventative maintenance" ||
+        job?.type === "planned maintenance") &&
+        (job?.additional_type === "PM Cleaning AC" ||
+          job?.additional_type === "ONE Cleaning AC" ||
+          job?.additional_type === "PM Cleaning HEAT" ||
+          job?.additional_type === "ONE Cleaning HEAT" ||
+          job?.additional_type === "PM Filter Change" ||
+          job?.additional_type === "ONE Filter Change") && (
+          <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
+            <div className="border rounded-lg overflow-hidden">
+              <button
+                onClick={() =>
+                  setShowMaintenanceChecklist(!showMaintenanceChecklist)
+                }
+                className="w-full flex justify-between items-center p-3 bg-orange-50 hover:bg-orange-100 transition-colors"
+              >
+                <h3 className="text-md font-medium flex items-center">
+                  <CheckSquare size={16} className="mr-2 text-orange-500" />
+                  PM Checklist
+                </h3>
+                {showMaintenanceChecklist ? (
+                  <ChevronUp className="h-5 w-5 text-orange-500" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-orange-500" />
+                )}
+              </button>
+              {showMaintenanceChecklist && (
+                <div className="p-3">
+                  <div className="text-sm text-gray-500 mb-2">
+                    <p>Complete maintenance tasks and record readings</p>
+                  </div>
+                  <MaintenanceChecklist
+                    jobId={id || ""}
+                    jobType={job?.type || ""}
+                    additionalType={job?.additional_type || null}
+                    jobUnits={job.job_units?.map((ju: any) => ({
+                      id: ju.id,
+                      unit_number: ju.units?.unit_number || ju.unit_id,
+                    }))}
+                    onChecklistUpdated={() => {
+                      // Refresh checklist data if needed
+                    }}
+                    onCompletionChange={setIsMaintenanceChecklistComplete}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       {/* Inspection Details Section */}
       <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
         <div className="border rounded-lg overflow-hidden">
@@ -971,6 +1062,23 @@ const TechnicianJobDetails = () => {
               Are you sure you want to mark Job #{job.number} as completed? This
               will update the job status and notify the office.
             </p>
+            {(job?.type === "preventative maintenance" ||
+              job?.type === "planned maintenance") &&
+              (job?.additional_type === "PM Cleaning AC" ||
+                job?.additional_type === "ONE Cleaning AC" ||
+                job?.additional_type === "PM Cleaning HEAT" ||
+                job?.additional_type === "ONE Cleaning HEAT" ||
+                job?.additional_type === "PM Filter Change" ||
+                job?.additional_type === "ONE Filter Change") &&
+              !isMaintenanceChecklistComplete && (
+                <div className="bg-warning-50 border border-warning-200 rounded-md p-3 mb-6">
+                  <p className="text-warning-700 text-sm text-center">
+                    ⚠️ PM Checklist is not complete. Please ensure all
+                    maintenance tasks are completed before marking this job as
+                    complete.
+                  </p>
+                </div>
+              )}
             <div className="flex justify-end space-x-3">
               <button
                 className="btn btn-secondary"
