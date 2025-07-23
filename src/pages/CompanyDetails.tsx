@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
+import BackLink from "../components/ui/BackLink";
+import ArrowBack from "../components/ui/ArrowBack";
 import { Database } from "../types/supabase";
 import {
   ArrowLeft,
@@ -218,12 +220,10 @@ const CompanyDetails = () => {
     return (
       <div className="text-center py-12">
         <p className="text-error-600 mb-4">{error}</p>
-        <Link
-          to="/companies"
+        <ArrowBack
+          fallbackRoute="/companies"
           className="text-primary-600 hover:text-primary-800"
-        >
-          Back to Companies
-        </Link>
+        />
       </div>
     );
   }
@@ -232,12 +232,10 @@ const CompanyDetails = () => {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500">Company not found.</p>
-        <Link
-          to="/companies"
+        <ArrowBack
+          fallbackRoute="/companies"
           className="text-primary-600 hover:text-primary-800 mt-2 inline-block"
-        >
-          Back to Companies
-        </Link>
+        />
       </div>
     );
   }
@@ -246,13 +244,10 @@ const CompanyDetails = () => {
     <div className="space-y-6 animate-fade">
       {/* Back link and actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <Link
-          to="/companies"
-          className="flex items-center text-gray-600 hover:text-gray-900"
-        >
-          <ArrowLeft size={16} className="mr-1" />
-          Back to Companies
-        </Link>
+        <ArrowBack
+          fallbackRoute="/companies"
+          className="text-gray-600 hover:text-gray-900"
+        />
         <div className="flex space-x-2">
           <Link
             to={`/companies/${company.id}/edit`}
@@ -444,7 +439,7 @@ const CompanyDetails = () => {
               onSuccess={() => {
                 setShowAddAssetModal(false);
                 // Refresh assets after adding new asset
-                setAssetsRefreshKey(prev => prev + 1);
+                setAssetsRefreshKey((prev) => prev + 1);
               }}
               onCancel={() => setShowAddAssetModal(false)}
             />

@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useSupabase } from "../../lib/supabase-context";
+import BackLink from "../../components/ui/BackLink";
+import BackButton from "../../components/ui/BackButton";
+import ArrowBack from "../../components/ui/ArrowBack";
 import {
   ArrowLeft,
   FileText,
@@ -232,9 +235,7 @@ const CustomerJobDetails = () => {
           Error Loading Job
         </h3>
         <p className="text-gray-500 mb-4">{error || "Job not found"}</p>
-        <Link to="/customer/jobs" className="btn btn-primary">
-          Back to Jobs
-        </Link>
+        <ArrowBack fallbackRoute="/customer/jobs" className="btn btn-primary" />
       </div>
     );
   }
@@ -243,12 +244,10 @@ const CustomerJobDetails = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link
-            to="/customer/jobs"
+          <ArrowBack
+            fallbackRoute="/customer/jobs"
             className="text-gray-500 hover:text-gray-700"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
+          />
           <h1 className="text-2xl font-bold">Job #{job.number}</h1>
         </div>
         <span className={`badge ${getStatusBadgeClass(job.status)}`}>

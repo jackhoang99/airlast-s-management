@@ -245,17 +245,22 @@ const TechnicianSchedule = ({
     setShowReassignModal(false);
     setReassignData(null);
   };
-  const handleJobDragStart = (e: React.DragEvent, job: Job, techId: string) => {
-    // Store job data in dataTransfer for time slot drops
+  const handleTimeSlotDragStart = (
+    e: React.DragEvent,
+    hour: number,
+    techId: string
+  ) => {
+    // Store time slot data in dataTransfer for job drops
     e.dataTransfer.setData(
       "application/json",
       JSON.stringify({
-        ...job,
-        currentTechId: techId,
+        type: "timeSlot",
+        hour: hour,
         techId: techId,
+        date: currentDate.toISOString(),
       })
     );
-    onJobDragStart(job, { type: "technician", id: techId });
+    e.dataTransfer.effectAllowed = "copy";
   };
 
   return (

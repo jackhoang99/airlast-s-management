@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
 import {
-  ArrowLeft,
   Plus,
   FileInput as FileInvoice,
   Search,
@@ -14,6 +13,7 @@ import {
   AlertTriangle,
   Trash2,
 } from "lucide-react";
+import ArrowBack from "../components/ui/ArrowBack";
 import InvoicePDFTemplate from "../components/invoices/InvoicePDFTemplate";
 import MarkAsPaidModal from "../components/invoices/MarkAsPaidModal";
 
@@ -197,9 +197,10 @@ const Invoices = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/" className="text-gray-500 hover:text-gray-700">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
+          <ArrowBack
+            fallbackRoute="/"
+            className="text-gray-500 hover:text-gray-700"
+          />
           <h1 className="flex items-center gap-2">
             <FileInvoice className="h-6 w-6" />
             Invoices

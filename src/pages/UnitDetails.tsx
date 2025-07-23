@@ -12,6 +12,9 @@ import {
   Package,
 } from "lucide-react";
 import { useSupabase } from "../lib/supabase-context";
+import BackLink from "../components/ui/BackLink";
+import BackButton from "../components/ui/BackButton";
+import ArrowBack from "../components/ui/ArrowBack";
 import { Database } from "../types/supabase";
 import Map from "../components/ui/Map";
 import UnitQRCode from "../components/units/UnitQRCode";
@@ -226,9 +229,12 @@ const UnitDetails = () => {
     return (
       <div className="text-center py-12">
         <p className="text-error-600 mb-4">{error || "Unit not found"}</p>
-        <Link to="/units" className="text-primary-600 hover:text-primary-800">
+        <BackLink
+          fallbackRoute="/units"
+          className="text-primary-600 hover:text-primary-800"
+        >
           Back to Units
-        </Link>
+        </BackLink>
       </div>
     );
   }
@@ -237,13 +243,10 @@ const UnitDetails = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => unit && navigate(`/locations/${unit.location_id}`)}
+          <ArrowBack
+            fallbackRoute={`/locations/${unit?.location_id || ""}`}
             className="text-gray-500 hover:text-gray-700"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
+          />
           <h1 className="flex items-center gap-2">
             <Building2 className="h-6 w-6" />
             {unit.unit_number}
@@ -546,7 +549,7 @@ const UnitDetails = () => {
                   onSuccess={() => {
                     setShowAddAssetModal(false);
                     // Refresh assets after adding new asset
-                    setAssetsRefreshKey(prev => prev + 1);
+                    setAssetsRefreshKey((prev) => prev + 1);
                   }}
                   onCancel={() => setShowAddAssetModal(false)}
                 />

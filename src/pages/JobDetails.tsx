@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
+import BackLink from "../components/ui/BackLink";
+import ArrowBack from "../components/ui/ArrowBack";
 import {
   AlertTriangle,
   Bell,
@@ -514,9 +516,12 @@ const JobDetails = () => {
     return (
       <div className="text-center py-12">
         <p className="text-error-600 mb-4">{error || "Job not found"}</p>
-        <Link to="/jobs" className="text-primary-600 hover:text-primary-800">
+        <BackLink
+          fallbackRoute="/jobs"
+          className="text-primary-600 hover:text-primary-800"
+        >
           Back to Jobs
-        </Link>
+        </BackLink>
       </div>
     );
   }

@@ -3,7 +3,6 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
 import {
-  ArrowLeft,
   Filter,
   Plus,
   Calendar,
@@ -15,6 +14,7 @@ import {
   Trash2,
   AlertTriangle,
 } from "lucide-react";
+import ArrowBack from "../components/ui/ArrowBack";
 
 type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
   locations?: {
@@ -681,9 +681,10 @@ const Jobs = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/" className="text-gray-500 hover:text-gray-700">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
+          <ArrowBack
+            fallbackRoute="/"
+            className="text-gray-500 hover:text-gray-700"
+          />
           <h1>Jobs</h1>
         </div>
         <div className="flex gap-2">

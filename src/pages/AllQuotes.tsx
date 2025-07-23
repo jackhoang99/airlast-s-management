@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSupabase } from "../lib/supabase-context";
 import { Link } from "react-router-dom";
 import { FileSpreadsheet, FileText, Eye, Trash2 } from "lucide-react";
+import ArrowBack from "../components/ui/ArrowBack";
 import QuotePDFViewer from "../components/quotes/QuotePDFViewer";
 
 const TABS = [
@@ -112,9 +113,15 @@ export default function AllQuotes() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <FileSpreadsheet className="h-6 w-6 text-primary-600" />
-          <h1 className="text-2xl font-bold">All Quotes</h1>
+        <div className="flex items-center gap-4">
+          <ArrowBack
+            fallbackRoute="/"
+            className="text-gray-500 hover:text-gray-700"
+          />
+          <div className="flex items-center gap-2">
+            <FileSpreadsheet className="h-6 w-6 text-primary-600" />
+            <h1 className="text-2xl font-bold">All Quotes</h1>
+          </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="flex gap-2">

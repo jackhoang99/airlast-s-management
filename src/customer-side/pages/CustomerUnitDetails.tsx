@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useSupabase } from "../../lib/supabase-context";
 import {
-  ArrowLeft,
   Building2,
   MapPin,
   Building,
@@ -12,6 +11,7 @@ import {
   AlertTriangle,
   Package,
 } from "lucide-react";
+import ArrowBack from "../../components/ui/ArrowBack";
 import Map from "../../components/ui/Map";
 import QuickAssetViewModal from "../../components/locations/QuickAssetViewModal";
 
@@ -159,12 +159,10 @@ const CustomerUnitDetails = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link
-            to="/customer/units"
+          <ArrowBack
+            fallbackRoute="/customer/units"
             className="text-gray-500 hover:text-gray-700"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
+          />
           <h1 className="text-2xl font-bold">Unit {unit.unit_number}</h1>
         </div>
         <span

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import ArrowBack from "../../components/ui/ArrowBack";
 import { useSupabase } from "../../lib/supabase-context";
 import {
   ArrowLeft,
@@ -143,9 +144,10 @@ const CustomerLocationDetails = () => {
           Error Loading Location
         </h3>
         <p className="text-gray-500 mb-4">{error || "Location not found"}</p>
-        <Link to="/customer/locations" className="btn btn-primary">
-          Back to Locations
-        </Link>
+        <ArrowBack
+          fallbackRoute="/customer/locations"
+          className="btn btn-primary"
+        />
       </div>
     );
   }
@@ -154,12 +156,10 @@ const CustomerLocationDetails = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link
-            to="/customer/locations"
+          <ArrowBack
+            fallbackRoute="/customer/locations"
             className="text-gray-500 hover:text-gray-700"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
+          />
           <h1 className="text-2xl font-bold">{location.name}</h1>
         </div>
       </div>

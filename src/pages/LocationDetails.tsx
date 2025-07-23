@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Building, MapPin, Plus, Building2 } from "lucide-react";
 import { useSupabase } from "../lib/supabase-context";
+import BackLink from "../components/ui/BackLink";
+import BackButton from "../components/ui/BackButton";
+import ArrowBack from "../components/ui/ArrowBack";
 import { Database } from "../types/supabase";
 import Map from "../components/ui/Map";
 import UnitsList from "../components/locations/UnitsList";
@@ -109,12 +112,10 @@ const LocationDetails = () => {
     return (
       <div className="text-center py-12">
         <p className="text-error-600 mb-4">{error || "Location not found"}</p>
-        <Link
-          to="/locations"
+        <ArrowBack
+          fallbackRoute="/locations"
           className="text-primary-600 hover:text-primary-800"
-        >
-          Back to Locations
-        </Link>
+        />
       </div>
     );
   }
@@ -125,15 +126,10 @@ const LocationDetails = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() =>
-              location && navigate(`/companies/${location.company_id}`)
-            }
+          <ArrowBack
+            fallbackRoute={`/companies/${location?.company_id || ""}`}
             className="text-gray-500 hover:text-gray-700"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
+          />
           <h1 className="flex items-center gap-2">
             <Building className="h-6 w-6" />
             {location.name}

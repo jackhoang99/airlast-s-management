@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
-  ArrowLeft,
   Plus,
   Filter,
   Calendar,
@@ -17,6 +16,7 @@ import {
   ToggleLeft,
   ToggleRight,
 } from "lucide-react";
+import ArrowBack from "../components/ui/ArrowBack";
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
 import AppointmentModal from "../components/jobs/AppointmentModal";
@@ -613,9 +613,10 @@ const CreateJob = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/jobs" className="text-gray-500 hover:text-gray-700">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
+          <ArrowBack
+            fallbackRoute="/jobs"
+            className="text-gray-500 hover:text-gray-700"
+          />
           <h1>Create Job</h1>
         </div>
         <button

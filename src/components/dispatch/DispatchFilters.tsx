@@ -4,6 +4,7 @@ import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import { Link } from "react-router-dom";
 import { useMediaQuery } from "react-responsive";
+import ArrowBack from "../ui/ArrowBack";
 
 interface DispatchFiltersProps {
   currentDate: Date;
@@ -66,7 +67,7 @@ const DispatchFilters = ({
           isMobile ? "flex-col gap-3" : "items-center justify-between gap-4"
         }`}
       >
-        {/* Left: Search and Filters */}
+        {/* Left: Back Button and Search and Filters */}
         <div
           className={`flex ${
             isMobile
@@ -74,6 +75,10 @@ const DispatchFilters = ({
               : "flex-wrap items-center gap-3 text-sm"
           }`}
         >
+          <ArrowBack
+            fallbackRoute="/"
+            className="text-gray-500 hover:text-gray-700"
+          />
           <input
             type="text"
             placeholder="Search jobs, locations, etc..."

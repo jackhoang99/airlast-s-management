@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { MapPin, Building2, Calendar, User, ArrowRight, X } from "lucide-react";
+import QuickAssetViewModal from "../locations/QuickAssetViewModal";
 
 interface JobDetailsModalProps {
   isOpen: boolean;
@@ -48,6 +49,7 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   onViewAssets,
   showViewAssetsButton = true,
 }) => {
+  const [showAssetsModal, setShowAssetsModal] = useState(false);
   const getJobTypeColorClass = (type: string): string => {
     switch (type.toLowerCase()) {
       case "inspection":
@@ -237,29 +239,32 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
             View Full Job Page
             <ArrowRight size={16} className="ml-2" />
           </a>
-          {showViewAssetsButton &&
-          job.units &&
-          job.units.length > 0 &&
-          onViewAssets ? (
+          {showViewAssetsButton && job.units && job.units.length > 0 ? (
             <button
               className="btn btn-secondary flex items-center justify-center"
               onClick={() => {
-                onViewAssets(job.locations, job.units);
+                if (onViewAssets) {
+                  onViewAssets(job.locations, job.units);
+                } else {
+                  setShowAssetsModal(true);
+                }
               }}
             >
               View Assets
             </button>
-          ) : showViewAssetsButton && job.units && job.units.length > 0 ? (
-            <Link
-              to={`/units/${job.units[0].id || ""}`}
-              className="btn btn-secondary flex items-center justify-center"
-              onClick={onClose}
-            >
-              View Assets
-            </Link>
           ) : null}
         </div>
       </div>
+
+      {/* Assets Modal */}
+      {job.locations && (
+        <QuickAssetViewModal
+          open={showAssetsModal}
+          onClose={() => setShowAssetsModal(false)}
+          location={job.locations as any}
+          units={job.units as any}
+        />
+      )}
     </div>
   );
 };
