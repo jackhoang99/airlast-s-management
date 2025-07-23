@@ -465,8 +465,8 @@ const PublicUnitDetails = () => {
             <div className="space-y-4">
               {recentJobs.map((job) => (
                 <div key={job.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1 min-w-0">
                       {/* Top row with job number and badges */}
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-medium text-gray-500">
@@ -557,16 +557,22 @@ const PublicUnitDetails = () => {
                     </div>
 
                     {/* Right side - dates and scheduling */}
-                    <div className="text-right text-sm">
+                    <div className="text-right text-xs sm:text-sm min-w-0 flex-shrink-0 ml-2">
                       <div className="text-gray-500 mb-1">
-                        Start: {formatDate(job.time_period_start)}
+                        <span className="hidden sm:inline">Start: </span>
+                        <span className="sm:hidden">S: </span>
+                        {formatDate(job.time_period_start)}
                       </div>
                       <div className="text-gray-500 mb-1">
-                        Due: {formatDate(job.time_period_due)}
+                        <span className="hidden sm:inline">Due: </span>
+                        <span className="sm:hidden">D: </span>
+                        {formatDate(job.time_period_due)}
                       </div>
                       {job.schedule_start && (
                         <div className="text-gray-500">
-                          Schedule: {formatDate(job.schedule_start)}
+                          <span className="hidden sm:inline">Schedule: </span>
+                          <span className="sm:hidden">Sch: </span>
+                          {formatDate(job.schedule_start)}
                           {job.schedule_duration && (
                             <span> ({job.schedule_duration})</span>
                           )}
