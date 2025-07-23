@@ -30,6 +30,9 @@ type Unit = Database["public"]["Tables"]["units"]["Row"] & {
       name: string;
     };
   };
+  primary_contact_email?: string | null;
+  primary_contact_phone?: string | null;
+  primary_contact_type?: string | null;
 };
 
 type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
@@ -38,7 +41,9 @@ type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
   }[];
 };
 
-type Asset = Database["public"]["Tables"]["assets"]["Row"] & {
+type Asset = {
+  id: string;
+  unit_id: string;
   model?: {
     model_number: string;
     serial_number: string;
@@ -48,6 +53,9 @@ type Asset = Database["public"]["Tables"]["assets"]["Row"] & {
     system_type: string;
     comment: string;
   };
+  inspection_date: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 // UUID validation regex
@@ -104,7 +112,7 @@ const PublicUnitDetails = () => {
           const { data: jobUnitsData, error: jobUnitsError } = await supabase
             .from("job_units")
             .select(
-              "job_id, jobs:job_id(id, number, name, status, type, service_line, schedule_start, updated_at)"
+              "job_id, jobs:job_id(id, number, name, status, type, service_line, schedule_start, updated_at, created_at, description, problem_description, contact_name, contact_phone, contact_email)"
             )
             .eq("unit_id", id);
           if (jobUnitsError) throw jobUnitsError;
@@ -113,13 +121,13 @@ const PublicUnitDetails = () => {
 
           const jobs = (jobUnitsData || [])
             .map((ju: any) => ju.jobs)
-            .filter((job: any) => job && job.status) // Show all jobs, not just completed
+            .filter((job: any) => job) // Show all jobs, including those without status
             .sort(
               (a: any, b: any) =>
                 new Date(b.updated_at).getTime() -
                 new Date(a.updated_at).getTime()
             )
-            .slice(0, 5);
+            .slice(0, 10); // Show more jobs
 
           console.log("Filtered jobs:", jobs);
           setRecentJobs(jobs);
@@ -342,7 +350,10 @@ const PublicUnitDetails = () => {
                     </div>
                   )}
                   <div className="text-xs text-gray-500 mt-2">
-                    Inspection Date: {formatDate(asset.inspection_date)}
+                    Inspection Date:{" "}
+                    {asset.inspection_date
+                      ? formatDate(asset.inspection_date)
+                      : "Not inspected"}
                   </div>
                 </div>
               ))}
@@ -369,7 +380,7 @@ const PublicUnitDetails = () => {
             <div className="space-y-4">
               {recentJobs.map((job) => (
                 <div key={job.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start mb-3">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-medium text-gray-500">
@@ -388,16 +399,13 @@ const PublicUnitDetails = () => {
                               : "bg-gray-100 text-gray-800"
                           }`}
                         >
-                          {job.status}
+                          {job.status || "unknown"}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {job.type}
                         </span>
                       </div>
                       <p className="font-medium">{job.name}</p>
-                      {job.service_line && (
-                        <div className="flex items-center gap-1 mt-1 text-sm text-gray-500">
-                          <Tag size={14} />
-                          <span>{job.service_line}</span>
-                        </div>
-                      )}
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-gray-500 flex items-center justify-end gap-1">
@@ -406,6 +414,62 @@ const PublicUnitDetails = () => {
                       </div>
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    {job.service_line && (
+                      <div className="flex items-center gap-1 text-gray-600">
+                        <Tag size={14} />
+                        <span className="font-semibold">Service:</span>
+                        <span>{job.service_line}</span>
+                      </div>
+                    )}
+
+                    {job.schedule_start && (
+                      <div className="flex items-center gap-1 text-gray-600">
+                        <Calendar size={14} />
+                        <span className="font-semibold">Scheduled:</span>
+                        <span>{formatDate(job.schedule_start)}</span>
+                      </div>
+                    )}
+
+                    {job.contact_name && (
+                      <div className="flex items-center gap-1 text-gray-600">
+                        <span className="font-semibold">Contact:</span>
+                        <span>{job.contact_name}</span>
+                      </div>
+                    )}
+
+                    {job.contact_phone && (
+                      <div className="flex items-center gap-1 text-gray-600">
+                        <Phone size={14} />
+                        <span>{job.contact_phone}</span>
+                      </div>
+                    )}
+
+                    {job.contact_email && (
+                      <div className="flex items-center gap-1 text-gray-600">
+                        <Mail size={14} />
+                        <span>{job.contact_email}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {(job.description || job.problem_description) && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      {job.description && (
+                        <div className="text-sm text-gray-600 mb-2">
+                          <span className="font-semibold">Description:</span>
+                          <p className="mt-1">{job.description}</p>
+                        </div>
+                      )}
+                      {job.problem_description && (
+                        <div className="text-sm text-gray-600">
+                          <span className="font-semibold">Problem:</span>
+                          <p className="mt-1">{job.problem_description}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
