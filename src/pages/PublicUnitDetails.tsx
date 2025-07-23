@@ -121,18 +121,7 @@ const PublicUnitDetails = () => {
           // Fetch assets for this unit
           const { data: assetsData, error: assetsError } = await supabase
             .from("assets")
-            .select(`
-              *,
-              model:model_id (
-                model_number,
-                serial_number,
-                age,
-                tonnage,
-                unit_type,
-                system_type,
-                comment
-              )
-            `)
+            .select("*")
             .eq("unit_id", id)
             .order("inspection_date", { ascending: false });
           
