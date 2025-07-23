@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   AlertTriangle,
   Package,
@@ -19,6 +19,11 @@ interface Job {
     name: string;
     zip: string;
   };
+  units?: Array<{
+    id: string;
+    unit_number: string;
+    status: string;
+  }>;
   job_technicians?: any[];
 }
 
@@ -83,6 +88,27 @@ const JobQueue = ({
   const isMobile = useMediaQuery({ maxWidth: 767 });
   const [showScheduledJobs, setShowScheduledJobs] = useState(false);
 
+  // Add drag state
+  const [isDragging, setIsDragging] = useState(false);
+  const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
+  const jobQueueRef = useRef<HTMLDivElement>(null);
+
+  // Simplified drag state management
+  useEffect(() => {
+    const handleGlobalDragEnd = () => {
+      setIsDragging(false);
+      setDraggedJobId(null);
+    };
+
+    if (isDragging) {
+      document.addEventListener("dragend", handleGlobalDragEnd);
+    }
+
+    return () => {
+      document.removeEventListener("dragend", handleGlobalDragEnd);
+    };
+  }, [isDragging]);
+
   // Categorize jobs based on view mode
   const unassignedJobs = jobs.filter(
     (job) =>
@@ -131,37 +157,93 @@ const JobQueue = ({
         if (dragModeActive) {
           e.dataTransfer.setData("application/json", JSON.stringify(job));
           onJobDragStart(job, from);
+
+          // Create a custom drag image that's smaller
+          const dragImage = e.currentTarget.cloneNode(true) as HTMLElement;
+          dragImage.style.transform = "scale(0.1)";
+          dragImage.style.transformOrigin = "top left";
+          dragImage.style.opacity = "0.1";
+          dragImage.style.pointerEvents = "none";
+          dragImage.style.position = "absolute";
+          dragImage.style.top = "-1000px";
+          dragImage.style.left = "-1000px";
+          document.body.appendChild(dragImage);
+
+          e.dataTransfer.setDragImage(dragImage, 0, 0);
+
+          // Remove the drag image after a short delay
+          setTimeout(() => {
+            if (document.body.contains(dragImage)) {
+              document.body.removeChild(dragImage);
+            }
+          }, 100);
+
+          // Initialize drag state
+          setIsDragging(true);
+          setDraggedJobId(job.id);
         }
       }}
-      onDragEnd={onJobDragEnd}
+      onDragEnd={(e) => {
+        onJobDragEnd();
+        setIsDragging(false);
+        setDraggedJobId(null);
+      }}
       onClick={() => {
         if (!dragModeActive) {
           onJobClick(job.id);
         }
       }}
-      className={`p-2 mb-2 rounded border transition-shadow text-base min-h-[44px] flex flex-col justify-center ${getJobTypeColorClass(
-        job.type
-      )} ${selectedJobId === job.id ? "ring-2 ring-primary-500" : ""} ${
-        dragModeActive ? "cursor-move" : "cursor-pointer"
-      } ${
+      className={`p-2 mb-2 rounded border transition-all duration-200 text-base min-h-[44px] flex flex-col justify-center job-card-scale ${
+        isDragging && draggedJobId === job.id ? "dragging" : ""
+      } ${getJobTypeColorClass(job.type)} ${
+        selectedJobId === job.id ? "ring-2 ring-primary-500" : ""
+      } ${dragModeActive ? "cursor-move" : "cursor-pointer"} ${
         dragModeActive && selectedJobToDrag === job.id
           ? "ring-2 ring-blue-500 border-blue-400 bg-blue-50"
           : ""
-      } ${isMobile ? "text-base min-h-[56px]" : "text-xs min-h-[32px]"}`}
-      style={
-        isMobile ? { fontSize: 16, padding: 12 } : { fontSize: 12, padding: 6 }
-      }
+      } ${isMobile ? "text-base min-h-[56px]" : "text-xs min-h-[32px]"} ${
+        isDragging && draggedJobId === job.id
+          ? "shadow-lg border-2 border-blue-300 job-card-dragging"
+          : ""
+      }`}
+      style={{
+        ...(isMobile
+          ? { fontSize: 16, padding: 12 }
+          : { fontSize: 12, padding: 6 }),
+        // Only apply visual feedback, not scaling to the original card
+        zIndex: isDragging && draggedJobId === job.id ? 1000 : "auto",
+        opacity: isDragging && draggedJobId === job.id ? 0.6 : 1,
+        filter:
+          isDragging && draggedJobId === job.id
+            ? "drop-shadow(0 4px 8px rgba(0,0,0,0.3))"
+            : "none",
+        // Additional styles for better drag visibility
+        ...(isDragging &&
+          draggedJobId === job.id && {
+            borderWidth: "2px",
+            borderStyle: "solid",
+            borderColor: "#3b82f6",
+            backgroundColor: "rgba(59, 130, 246, 0.05)",
+          }),
+      }}
     >
       <div className="font-medium truncate text-lg">{job.name}</div>
       <div className="text-gray-600 truncate">{job.locations?.name}</div>
       <div className="text-gray-500">{job.locations?.zip}</div>
+      {/* Display unit information */}
+      {job.units && job.units.length > 0 && (
+        <div className="text-xs text-gray-500 mt-1">
+          Unit: {job.units.map((unit) => unit.unit_number).join(", ")}
+        </div>
+      )}
+      {/* Display job type or additional type */}
       {(job.type === "preventative maintenance" ||
         job.type === "planned maintenance") &&
-        job.additional_type && (
-          <div className="text-xs text-gray-400 mt-1">
-            {job.additional_type}
-          </div>
-        )}
+      job.additional_type ? (
+        <div className="text-xs text-gray-400 mt-1">{job.additional_type}</div>
+      ) : (
+        <div className="text-xs text-gray-400 mt-1">{job.type}</div>
+      )}
     </div>
   );
 
@@ -180,10 +262,18 @@ const JobQueue = ({
 
   return (
     <div
-      className={`bg-white border-r border-gray-200 flex flex-col ${
+      ref={jobQueueRef}
+      className={`bg-white border-r border-gray-200 flex flex-col relative ${
         isMobile ? "w-full h-full" : "w-80"
-      }${dragModeActive ? " ring-2 ring-blue-400" : ""}`}
+      }${dragModeActive ? " ring-2 ring-blue-400 job-queue-drag-mode" : ""}`}
     >
+      {/* Drag indicator */}
+      {isDragging && (
+        <div className="absolute top-4 right-4 bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium z-50 animate-pulse">
+          Dragging...
+        </div>
+      )}
+
       {isMobile && closeDrawer && (
         <div className="flex items-center justify-between p-4 border-b">
           <span className="font-bold text-lg">Job Queue</span>
