@@ -78,6 +78,13 @@ interface RecentJob {
       name: string;
     };
   };
+  job_units?: {
+    unit_id: string;
+    units: {
+      id: string;
+      unit_number: string;
+    };
+  }[];
 }
 
 interface Technician {
@@ -107,6 +114,13 @@ interface ScheduledJob {
     users: {
       first_name: string;
       last_name: string;
+    };
+  }[];
+  job_units?: {
+    unit_id: string;
+    units: {
+      id: string;
+      unit_number: string;
     };
   }[];
 }
@@ -261,6 +275,13 @@ const Home = () => {
             name,
             companies (
               name
+            )
+          ),
+          job_units (
+            unit_id,
+            units:unit_id (
+              id,
+              unit_number
             )
           )
         `
@@ -1435,6 +1456,15 @@ const Home = () => {
                     </p>
                     <p className="text-sm text-gray-600">
                       {job.locations?.companies?.name} • {job.locations?.name}
+                      {job.job_units && job.job_units.length > 0 && (
+                        <span className="ml-2 text-xs text-gray-500">
+                          • Units:{" "}
+                          {job.job_units
+                            .map((ju) => ju.units?.unit_number)
+                            .filter(Boolean)
+                            .join(", ")}
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>

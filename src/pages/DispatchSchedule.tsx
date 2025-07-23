@@ -739,9 +739,10 @@ const DispatchSchedule = () => {
               onJobDrop={handleJobDrop}
               onJobDragEnd={handleJobDragEnd}
               onJobScheduleUpdate={handleJobScheduleUpdate}
-              onJobClick={handleJobSelect}
+              onJobClick={handleJobClick}
               selectedJobId={selectedJobId}
               getJobTypeColorClass={getJobTypeColorClass}
+              onJobReassign={handleJobReassign}
               isDraggingEnabled={
                 dragModeActive && selectedJobToDrag ? selectedJobToDrag : null
               }

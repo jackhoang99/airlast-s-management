@@ -16,6 +16,13 @@ interface Job {
     id: string;
     unit_number: string;
   }[];
+  job_units?: {
+    unit_id: string;
+    units: {
+      id: string;
+      unit_number: string;
+    };
+  }[];
 }
 
 interface User {
@@ -463,14 +470,15 @@ const TechnicianSchedule = ({
                             </div>
                           </div>
                           {/* Show units if available */}
-                          {job.units && job.units.length > 0 && (
+                          {(job.units && job.units.length > 0) || (job.job_units && job.job_units.length > 0) ? (
                             <div className="truncate text-xs text-gray-500">
                               Units:{" "}
-                              {job.units
-                                .map((unit: any) => unit.unit_number)
-                                .join(", ")}
+                              {job.units 
+                                ? job.units.map((unit: any) => unit.unit_number).join(", ")
+                                : job.job_units?.map((ju: any) => ju.units?.unit_number).filter(Boolean).join(", ")
+                              }
                             </div>
-                          )}
+                          ) : null}
                           <div className="truncate text-xs opacity-75">
                             {job.locations?.zip}
                           </div>
