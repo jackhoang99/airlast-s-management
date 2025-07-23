@@ -99,7 +99,7 @@ const PublicUnitDetails = () => {
         if (fetchError) throw fetchError;
         setUnit(data);
 
-        // Fetch only recent completed jobs for public view via job_units join table
+        // Fetch recent jobs for public view via job_units join table
         if (data) {
           const { data: jobUnitsData, error: jobUnitsError } = await supabase
             .from("job_units")
@@ -108,15 +108,20 @@ const PublicUnitDetails = () => {
             )
             .eq("unit_id", id);
           if (jobUnitsError) throw jobUnitsError;
+
+          console.log("Job units data:", jobUnitsData);
+
           const jobs = (jobUnitsData || [])
             .map((ju: any) => ju.jobs)
-            .filter((job: any) => job.status === "completed")
+            .filter((job: any) => job && job.status) // Show all jobs, not just completed
             .sort(
               (a: any, b: any) =>
                 new Date(b.updated_at).getTime() -
                 new Date(a.updated_at).getTime()
             )
             .slice(0, 5);
+
+          console.log("Filtered jobs:", jobs);
           setRecentJobs(jobs);
 
           // Fetch assets for this unit
@@ -370,8 +375,20 @@ const PublicUnitDetails = () => {
                         <span className="text-sm font-medium text-gray-500">
                           Job #{job.number}
                         </span>
-                        <span className="badge bg-green-100 text-green-800">
-                          completed
+                        <span
+                          className={`badge ${
+                            job.status === "completed"
+                              ? "bg-green-100 text-green-800"
+                              : job.status === "scheduled"
+                              ? "bg-blue-100 text-blue-800"
+                              : job.status === "unscheduled"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : job.status === "cancelled"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {job.status}
                         </span>
                       </div>
                       <p className="font-medium">{job.name}</p>
