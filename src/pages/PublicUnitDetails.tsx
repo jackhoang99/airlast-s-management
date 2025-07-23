@@ -12,6 +12,7 @@ import {
   Clock,
   AlertTriangle,
   Package,
+  Eye,
 } from "lucide-react";
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
@@ -124,7 +125,7 @@ const PublicUnitDetails = () => {
             .select("*")
             .eq("unit_id", id)
             .order("inspection_date", { ascending: false });
-          
+
           if (assetsError) throw assetsError;
           setAssets(assetsData || []);
         }
@@ -282,7 +283,8 @@ const PublicUnitDetails = () => {
                 <p className="font-medium">{unit.locations.name}</p>
                 <p>{unit.locations.address}</p>
                 <p>
-                  {unit.locations.city}, {unit.locations.state} {unit.locations.zip}
+                  {unit.locations.city}, {unit.locations.state}{" "}
+                  {unit.locations.zip}
                 </p>
               </div>
             </div>
@@ -290,9 +292,7 @@ const PublicUnitDetails = () => {
               <h3 className="text-md font-medium mb-3">Company</h3>
               <div className="space-y-2">
                 <p className="font-medium">{unit.locations.companies.name}</p>
-                <p className="text-sm text-gray-600">
-                  Unit {unit.unit_number}
-                </p>
+                <p className="text-sm text-gray-600">Unit {unit.unit_number}</p>
               </div>
             </div>
           </div>
@@ -302,11 +302,11 @@ const PublicUnitDetails = () => {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Package className="h-5 w-5 text-primary-600" />
-            Equipment Assets
+            Assets
           </h2>
           {assets.length > 0 ? (
             <div className="space-y-4">
-              {assets.slice(0, 3).map((asset) => (
+              {assets.map((asset) => (
                 <div key={asset.id} className="border rounded-lg p-4">
                   <div className="font-medium text-primary-700 mb-2">
                     {asset.model?.model_number || "(No Model #)"} -{" "}
@@ -332,7 +332,8 @@ const PublicUnitDetails = () => {
                   </div>
                   {asset.model?.comment && (
                     <div className="text-sm text-gray-600 mt-2">
-                      <span className="font-semibold">Notes:</span> {asset.model.comment}
+                      <span className="font-semibold">Notes:</span>{" "}
+                      {asset.model.comment}
                     </div>
                   )}
                   <div className="text-xs text-gray-500 mt-2">
@@ -340,18 +341,13 @@ const PublicUnitDetails = () => {
                   </div>
                 </div>
               ))}
-              {assets.length > 3 && (
-                <p className="text-center text-sm text-gray-500">
-                  +{assets.length - 3} more assets
-                </p>
-              )}
             </div>
           ) : (
             <div className="text-center py-8 bg-gray-50 rounded-lg">
               <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No equipment assets found</p>
+              <p className="text-gray-500">No assets found</p>
               <p className="text-xs text-gray-500 mt-1">
-                Equipment information will appear after inspections
+                Asset information will appear after inspections
               </p>
             </div>
           )}
