@@ -446,6 +446,8 @@ export interface Database {
           quote_confirmed: boolean | null;
           quote_confirmed_at: string | null;
           repair_approved: boolean | null;
+          additional_type: string | null;
+          is_agreement_customer: boolean | null;
         };
         Insert: {
           id?: string;
@@ -483,6 +485,8 @@ export interface Database {
           quote_confirmed?: boolean | null;
           quote_confirmed_at?: string | null;
           repair_approved?: boolean | null;
+          additional_type?: string | null;
+          is_agreement_customer?: boolean | null;
         };
         Update: {
           id?: string;
@@ -520,6 +524,8 @@ export interface Database {
           quote_confirmed?: boolean | null;
           quote_confirmed_at?: string | null;
           repair_approved?: boolean | null;
+          additional_type?: string | null;
+          is_agreement_customer?: boolean | null;
         };
       };
       job_replacements: {

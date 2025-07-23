@@ -11,16 +11,10 @@ const JobTypeLegend: React.FC<JobTypeLegendProps> = ({
 }) => {
   const jobTypeColors = [
     {
-      type: "preventative maintenance",
-      label: "PM (Filter Change, Cleaning AC/HEAT)",
+      type: "maintenance",
+      label: "Maintenance (PM/ONE Filter Change, Cleaning AC/HEAT)",
       color: "bg-purple-500",
-      description: "Regular maintenance tasks",
-    },
-    {
-      type: "planned maintenance",
-      label: "ONE (Filter Change, Cleaning AC/HEAT)",
-      color: "bg-purple-500",
-      description: "Scheduled maintenance activities",
+      description: "Maintenance tasks (PM for agreement customers, ONE for non-agreement)",
     },
     {
       type: "service call",

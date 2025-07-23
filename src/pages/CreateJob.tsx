@@ -114,8 +114,9 @@ const CreateJob = () => {
     technician_ids: [] as string[],
 
     // Additional Details
-    type: "preventative maintenance",
+    type: "maintenance",
     additional_type: "",
+    is_agreement_customer: false,
     is_training: false,
     status: "unscheduled",
   });
@@ -488,12 +489,20 @@ const CreateJob = () => {
     if (!formData.description) errors.description = "Description is required";
     if (!formData.contact_type)
       errors.contact_type = "Contact type is required";
-    if (
-      (formData.type === "preventative maintenance" || formData.type === "planned maintenance") &&
-      !formData.additional_type
-    )
+    if (formData.type === "maintenance" && !formData.additional_type)
       errors.additional_type =
-        "Additional type is required for maintenance jobs";
+        "Maintenance type is required for maintenance jobs";
+
+    // Unit validation - require at least one unit to be selected
+    if (
+      selectedLocation &&
+      (!selectedLocation.units || selectedLocation.units.length === 0)
+    ) {
+      errors.units =
+        "No units available for this location. Please add units to this location first.";
+    } else if (selectedUnitIds.length === 0) {
+      errors.units = "At least one unit must be selected";
+    }
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -528,9 +537,7 @@ const CreateJob = () => {
           name: `inspection-${formData.service_zip}-${formData.service_line}`.trim(),
           type: formData.type,
           additional_type:
-            (formData.type === "preventative maintenance" || formData.type === "planned maintenance")
-              ? formData.additional_type
-              : null,
+            formData.type === "maintenance" ? formData.additional_type : null,
           location_id: formData.location_id,
           unit_id: selectedUnitIds.length > 0 ? null : formData.unit_id || null,
           contact_name:
@@ -554,6 +561,7 @@ const CreateJob = () => {
           ...(formData.service_contract
             ? { service_contract: formData.service_contract }
             : {}),
+          is_agreement_customer: formData.is_agreement_customer,
         })
         .select()
         .single();
@@ -667,13 +675,13 @@ const CreateJob = () => {
                 <h3 className="font-medium">{preset.name}</h3>
                 <div className="text-sm text-gray-500 mt-1">
                   <div>
-                    {(preset.data.type === "preventative maintenance" || preset.data.type === "planned maintenance")
-                      ? `${preset.data.type === "preventative maintenance" ? "PM" : "ONE"}${
+                    {preset.data.type === "maintenance"
+                      ? `Maintenance${
                           preset.data.additional_type
                             ? ` • ${preset.data.additional_type}`
                             : ""
                         }`
-                      : "Service Call"}
+                      : preset.data.type}
                     {preset.data.service_line
                       ? ` • ${preset.data.service_line}`
                       : ""}
@@ -767,13 +775,12 @@ const CreateJob = () => {
             </div>
 
             {/* Unit Selection */}
-            {selectedLocation &&
-              selectedLocation.units &&
-              selectedLocation.units.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h2 className="text-lg font-medium mb-6">
-                    Select Units for this Job
-                  </h2>
+            {selectedLocation && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-lg font-medium mb-6">
+                  Select Units for this Job *
+                </h2>
+                {selectedLocation.units && selectedLocation.units.length > 0 ? (
                   <div className="space-y-2">
                     {selectedLocation.units.map((unit) => (
                       <label key={unit.id} className="flex items-center gap-2">
@@ -794,8 +801,19 @@ const CreateJob = () => {
                       </label>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    No units available for this location. Please add units to
+                    this location first.
+                  </p>
+                )}
+                {validationErrors.units && (
+                  <p className="mt-2 text-sm text-error-600">
+                    {validationErrors.units}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="md:col-span-2">
               <label
@@ -1300,53 +1318,87 @@ const CreateJob = () => {
               </select>
             </div>
 
-            {(formData.type === "preventative maintenance" || formData.type === "planned maintenance") && (
-              <div>
-                <label
-                  htmlFor="additional_type"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Additional Type *
-                </label>
-                <select
-                  id="additional_type"
-                  name="additional_type"
-                  value={formData.additional_type}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      additional_type: e.target.value,
-                    }))
-                  }
-                  required
-                  className={`select ${
-                    validationErrors.additional_type
-                      ? "border-error-500 ring-1 ring-error-500"
-                      : ""
-                  }`}
-                >
-                  <option value="">Select Additional Type</option>
-                  {formData.type === "preventative maintenance" && (
-                    <>
-                      <option value="PM Filter Change">PM Filter Change</option>
-                      <option value="PM Cleaning AC">PM Cleaning AC</option>
-                      <option value="PM Cleaning HEAT">PM Cleaning HEAT</option>
-                    </>
+            {formData.type === "maintenance" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Customer Agreement Status
+                  </label>
+                  <div className="flex items-center space-x-4">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_agreement_customer}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            is_agreement_customer: e.target.checked,
+                            additional_type: "", // Reset additional type when agreement status changes
+                          }))
+                        }
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">
+                        Customer is on maintenance agreement
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="additional_type"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Maintenance Type *
+                  </label>
+                  <select
+                    id="additional_type"
+                    name="additional_type"
+                    value={formData.additional_type}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        additional_type: e.target.value,
+                      }))
+                    }
+                    required
+                    className={`select ${
+                      validationErrors.additional_type
+                        ? "border-error-500 ring-1 ring-error-500"
+                        : ""
+                    }`}
+                  >
+                    <option value="">Select Maintenance Type</option>
+                    {formData.is_agreement_customer ? (
+                      <>
+                        <option value="PM Filter Change">
+                          PM Filter Change
+                        </option>
+                        <option value="PM Cleaning AC">PM Cleaning AC</option>
+                        <option value="PM Cleaning HEAT">
+                          PM Cleaning HEAT
+                        </option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="ONE Filter Change">
+                          ONE Filter Change
+                        </option>
+                        <option value="ONE Cleaning AC">ONE Cleaning AC</option>
+                        <option value="ONE Cleaning HEAT">
+                          ONE Cleaning HEAT
+                        </option>
+                      </>
+                    )}
+                  </select>
+                  {validationErrors.additional_type && (
+                    <p className="mt-1 text-sm text-error-600">
+                      {validationErrors.additional_type}
+                    </p>
                   )}
-                  {formData.type === "planned maintenance" && (
-                    <>
-                      <option value="ONE Filter Change">ONE Filter Change</option>
-                      <option value="ONE Cleaning AC">ONE Cleaning AC</option>
-                      <option value="ONE Cleaning HEAT">ONE Cleaning HEAT</option>
-                    </>
-                  )}
-                </select>
-                {validationErrors.additional_type && (
-                  <p className="mt-1 text-sm text-error-600">
-                    {validationErrors.additional_type}
-                  </p>
-                )}
-              </div>
+                </div>
+              </>
             )}
 
             <div>

@@ -349,12 +349,11 @@ const TechnicianJobs = () => {
 
   const getJobTypeBadgeClass = (type: string) => {
     const colorMap: { [key: string]: string } = {
-      "preventative maintenance": "bg-purple-500 text-white",
+      maintenance: "bg-purple-500 text-white",
       "service call": "bg-teal-500 text-white",
       inspection: "bg-blue-500 text-white",
       repair: "bg-orange-500 text-white",
       installation: "bg-green-500 text-white",
-      "planned maintenance": "bg-indigo-500 text-white",
     };
 
     return colorMap[type.toLowerCase()] || "bg-gray-500 text-white";
@@ -423,9 +422,7 @@ const TechnicianJobs = () => {
                   className="select w-full text-base h-12"
                 >
                   <option value="all">All Types</option>
-                  <option value="preventative maintenance">
-                    Preventative Maintenance
-                  </option>
+                  <option value="maintenance">Maintenance</option>
                   <option value="service call">Service Call</option>
                   <option value="inspection">Inspection</option>
                   <option value="repair">Repair</option>
@@ -576,11 +573,9 @@ const TechnicianJobs = () => {
                       )}`}
                     >
                       {job.type}
-                      {(job.type === "preventative maintenance" ||
-                        job.type === "planned maintenance") &&
-                        job.additional_type && (
-                          <span className="ml-1">• {job.additional_type}</span>
-                        )}
+                      {job.type === "maintenance" && job.additional_type && (
+                        <span className="ml-1">• {job.additional_type}</span>
+                      )}
                     </span>
                   </p>
                   <p className="text-sm text-gray-500 truncate">

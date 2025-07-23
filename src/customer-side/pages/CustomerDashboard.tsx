@@ -522,7 +522,7 @@ const CustomerDashboard = () => {
             <p className="text-blue-700">
               Regular maintenance of your HVAC system can extend its lifespan by
               up to 5 years and reduce energy costs by up to 15%. Schedule
-              preventative maintenance twice a year - once before summer and
+                              maintenance twice a year - once before summer and
               once before winter - to ensure optimal performance.
             </p>
           </div>

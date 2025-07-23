@@ -40,11 +40,9 @@ const TechnicianJobDetailSheet = ({
             </span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-800">
               {job.type}
-              {(job.type === "preventative maintenance" ||
-                job.type === "planned maintenance") &&
-                job.additional_type && (
-                  <span className="ml-1">• {job.additional_type}</span>
-                )}
+              {job.type === "maintenance" && job.additional_type && (
+                <span className="ml-1">• {job.additional_type}</span>
+              )}
             </span>
           </div>
         </div>

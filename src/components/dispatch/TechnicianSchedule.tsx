@@ -471,20 +471,28 @@ const TechnicianSchedule = ({
                             </div>
                           </div>
                           {/* Show units if available */}
-                          {(job.units && job.units.length > 0) || (job.job_units && job.job_units.length > 0) ? (
+                          {(job.units && job.units.length > 0) ||
+                          (job.job_units && job.job_units.length > 0) ? (
                             <div className="truncate text-xs text-gray-500">
                               Units:{" "}
-                              {job.units 
-                                ? job.units.map((unit: any) => unit.unit_number).join(", ")
-                                : job.job_units?.map((ju: any) => ju.units?.unit_number).filter(Boolean).join(", ")
-                              }
+                              {job.units
+                                ? job.units
+                                    .map((unit: any) => unit.unit_number)
+                                    .join(", ")
+                                : job.job_units
+                                    ?.map((ju: any) => ju.units?.unit_number)
+                                    .filter(Boolean)
+                                    .join(", ")}
                             </div>
                           ) : null}
                           <div className="truncate text-xs opacity-75">
                             {job.locations?.zip}
-                            {(job.type === "preventative maintenance" || job.type === "planned maintenance") && job.additional_type && (
-                              <span className="ml-1">• {job.additional_type}</span>
-                            )}
+                            {job.type === "maintenance" &&
+                              job.additional_type && (
+                                <span className="ml-1">
+                                  • {job.additional_type}
+                                </span>
+                              )}
                           </div>
                         </div>
                       );

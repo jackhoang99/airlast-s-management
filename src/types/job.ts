@@ -34,6 +34,7 @@ export interface Job {
   schedule_date: string | null;
   schedule_time: string | null;
   additional_type: string | null;
+  is_agreement_customer: boolean | null;
   // Remove unit_id and units?: Unit
   // unit_id: string | null;
   quote_sent: boolean | null;

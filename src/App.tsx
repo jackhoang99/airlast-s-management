@@ -47,6 +47,7 @@ import Permits from "./pages/Permits";
 import CustomerLogin from "./pages/CustomerLogin";
 import ServiceOpportunities from "./pages/ServiceOpportunities";
 import TechScorecard from "./pages/TechScorecard";
+import PMHistory from "./pages/PMHistory";
 
 function App() {
   const { supabase } = useSupabase();
@@ -118,6 +119,7 @@ function App() {
             <Route path="dispatch" element={<DispatchSchedule />} />
             <Route path="opportunities" element={<ServiceOpportunities />} />
             <Route path="scorecard" element={<TechScorecard />} />
+            <Route path="pm-history" element={<PMHistory />} />
           </Route>
           <Route path="invoices">
             <Route index element={<Invoices />} />

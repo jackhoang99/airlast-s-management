@@ -53,12 +53,11 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   const [showAssetsModal, setShowAssetsModal] = useState(false);
   const getJobTypeColorClass = (type: string): string => {
     const colorMap: { [key: string]: string } = {
-      "preventative maintenance": "bg-purple-100 text-purple-800",
+      maintenance: "bg-purple-100 text-purple-800",
       "service call": "bg-teal-100 text-teal-800",
       inspection: "bg-blue-100 text-blue-800",
       repair: "bg-orange-100 text-orange-800",
       installation: "bg-green-100 text-green-800",
-      "planned maintenance": "bg-indigo-100 text-indigo-800",
     };
 
     return colorMap[type.toLowerCase()] || "bg-gray-100 text-gray-800";
@@ -102,11 +101,9 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                 )}`}
               >
                 {job.type}
-                {(job.type === "preventative maintenance" ||
-                  job.type === "planned maintenance") &&
-                  job.additional_type && (
-                    <span className="ml-1">• {job.additional_type}</span>
-                  )}
+                {job.type === "maintenance" && job.additional_type && (
+                  <span className="ml-1">• {job.additional_type}</span>
+                )}
               </span>
             </div>
           </div>

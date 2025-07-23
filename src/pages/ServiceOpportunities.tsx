@@ -139,10 +139,10 @@ const ServiceOpportunities = () => {
 
   const getRecommendedAction = (jobType: string, cost: number) => {
     if (jobType === "inspection") {
-      return "Schedule preventative maintenance";
+      return "Schedule maintenance";
     } else if (jobType === "repair" && cost > 500) {
       return "Recommend system upgrade";
-    } else if (jobType === "preventative maintenance") {
+    } else if (jobType === "maintenance") {
       return "Schedule next PM visit";
     }
     return "Follow up for additional services";
@@ -315,9 +315,7 @@ const ServiceOpportunities = () => {
               <option value="all">All Types</option>
               <option value="inspection">Inspection</option>
               <option value="repair">Repair</option>
-              <option value="preventative maintenance">
-                Preventative Maintenance
-              </option>
+              <option value="maintenance">Maintenance</option>
               <option value="service call">Service Call</option>
             </select>
 

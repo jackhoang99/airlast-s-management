@@ -516,12 +516,11 @@ const Jobs = () => {
 
   const getTypeBadgeClass = (type: string) => {
     const colorMap: { [key: string]: string } = {
-      "preventative maintenance": "bg-purple-500 text-white",
+      maintenance: "bg-purple-500 text-white",
       "service call": "bg-teal-500 text-white",
       inspection: "bg-blue-500 text-white",
       repair: "bg-orange-500 text-white",
       installation: "bg-green-500 text-white",
-      "planned maintenance": "bg-indigo-500 text-white",
     };
 
     return colorMap[type.toLowerCase()] || "bg-gray-500 text-white";
@@ -1092,8 +1091,7 @@ const Jobs = () => {
                             )}`}
                           >
                             {job.type}
-                            {(job.type === "preventative maintenance" ||
-                              job.type === "planned maintenance") &&
+                            {job.type === "maintenance" &&
                               job.additional_type && (
                                 <span className="ml-1">
                                   • {job.additional_type}

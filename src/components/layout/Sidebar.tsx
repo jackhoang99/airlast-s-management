@@ -340,9 +340,9 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                   </li>
                   <li>
                     <Link
-                      to="/assets/inspections"
+                      to="/jobs/pm-history"
                       className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                        location.pathname.includes("/assets/PM history")
+                        location.pathname.includes("/jobs/pm-history")
                           ? "bg-primary-50 text-primary-700"
                           : "text-gray-700 hover:bg-gray-100"
                       }`}

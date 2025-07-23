@@ -670,8 +670,7 @@ const JobDetails = () => {
           />
 
           {/* Maintenance Checklist Section */}
-          {(job.type === "preventative maintenance" ||
-            job.type === "planned maintenance") &&
+          {job.type === "maintenance" &&
             (job.additional_type === "PM Cleaning AC" ||
               job.additional_type === "ONE Cleaning AC" ||
               job.additional_type === "PM Cleaning HEAT" ||
@@ -928,8 +927,7 @@ const JobDetails = () => {
               Are you sure you want to mark Job #{job.number} as completed? This
               will update the job status and notify relevant parties.
             </p>
-            {(job.type === "preventative maintenance" ||
-              job.type === "planned maintenance") &&
+            {job.type === "maintenance" &&
               (job.additional_type === "PM Cleaning AC" ||
                 job.additional_type === "ONE Cleaning AC" ||
                 job.additional_type === "PM Cleaning HEAT" ||

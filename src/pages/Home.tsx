@@ -745,13 +745,11 @@ const Home = () => {
   // Helper functions for TechnicianSchedule component
   const getJobTypeColorClass = (type: string): string => {
     const colorMap: { [key: string]: string } = {
-      "preventative maintenance":
-        "bg-purple-100 text-purple-800 border-purple-200",
+      maintenance: "bg-purple-100 text-purple-800 border-purple-200",
       "service call": "bg-teal-100 text-teal-800 border-teal-200",
       inspection: "bg-blue-100 text-blue-800 border-blue-200",
       repair: "bg-orange-100 text-orange-800 border-orange-200",
       installation: "bg-green-100 text-green-800 border-green-200",
-      "planned maintenance": "bg-indigo-100 text-indigo-800 border-indigo-200",
     };
 
     return (
@@ -1475,11 +1473,9 @@ const Home = () => {
                 <div className="text-right">
                   <p className="text-sm font-medium text-gray-900">
                     {job.type}
-                    {(job.type === "preventative maintenance" ||
-                      job.type === "planned maintenance") &&
-                      job.additional_type && (
-                        <span className="ml-1">• {job.additional_type}</span>
-                      )}
+                    {job.type === "maintenance" && job.additional_type && (
+                      <span className="ml-1">• {job.additional_type}</span>
+                    )}
                   </p>
                   {job.schedule_start && (
                     <p className="text-xs text-gray-500">

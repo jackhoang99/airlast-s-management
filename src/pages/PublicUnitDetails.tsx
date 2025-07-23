@@ -43,6 +43,7 @@ type Job = {
   status: string;
   type: string;
   additional_type: string | null;
+  is_agreement_customer: boolean | null;
   service_line: string | null;
   schedule_start: string | null;
   schedule_duration: string | null;
@@ -490,8 +491,7 @@ const PublicUnitDetails = () => {
                         </span>
                         <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-cyan-100 text-cyan-800">
                           {job.type}
-                          {(job.type === "preventative maintenance" ||
-                            job.type === "planned maintenance") &&
+                          {job.type === "maintenance" &&
                             job.additional_type && (
                               <span className="ml-1">
                                 • {job.additional_type}

@@ -29,8 +29,7 @@ const JobHeader = ({
           <button
             onClick={onCompleteJob}
             disabled={
-              (job.type === "preventative maintenance" ||
-                job.type === "planned maintenance") &&
+              job.type === "maintenance" &&
               (job.additional_type === "PM Cleaning AC" ||
                 job.additional_type === "ONE Cleaning AC" ||
                 job.additional_type === "PM Cleaning HEAT" ||
@@ -40,8 +39,7 @@ const JobHeader = ({
               !isMaintenanceChecklistComplete
             }
             className={`btn ${
-              (job.type === "preventative maintenance" ||
-                job.type === "planned maintenance") &&
+              job.type === "maintenance" &&
               (job.additional_type === "PM Cleaning AC" ||
                 job.additional_type === "ONE Cleaning AC" ||
                 job.additional_type === "PM Cleaning HEAT" ||
@@ -53,8 +51,7 @@ const JobHeader = ({
                 : "btn-success"
             }`}
             title={
-              (job.type === "preventative maintenance" ||
-                job.type === "planned maintenance") &&
+              job.type === "maintenance" &&
               (job.additional_type === "PM Cleaning AC" ||
                 job.additional_type === "ONE Cleaning AC" ||
                 job.additional_type === "PM Cleaning HEAT" ||

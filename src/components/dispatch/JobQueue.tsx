@@ -53,13 +53,11 @@ interface JobQueueProps {
 
 const getJobTypeColorClass = (type: string) => {
   const colorMap: { [key: string]: string } = {
-    "preventative maintenance":
-      "bg-purple-100 text-purple-800 border-purple-200",
+    maintenance: "bg-purple-100 text-purple-800 border-purple-200",
     "service call": "bg-teal-100 text-teal-800 border-teal-200",
     inspection: "bg-blue-100 text-blue-800 border-blue-200",
     repair: "bg-orange-100 text-orange-800 border-orange-200",
     installation: "bg-green-100 text-green-800 border-green-200",
-    "planned maintenance": "bg-indigo-100 text-indigo-800 border-indigo-200",
   };
 
   return (
@@ -123,17 +121,11 @@ const JobQueue = ({
     .slice(0, 10);
 
   const pmsToScheduleJobs = jobs.filter(
-    (job) =>
-      job.status === "unscheduled" &&
-      (job.type === "preventative maintenance" ||
-        job.type === "planned maintenance")
+    (job) => job.status === "unscheduled" && job.type === "maintenance"
   );
 
-  const allJobsToSchedule = jobs.filter(
-    (job) =>
-      job.status === "unscheduled" &&
-      job.type !== "preventative maintenance" &&
-      job.type !== "planned maintenance"
+  const otherJobsToSchedule = jobs.filter(
+    (job) => job.status === "unscheduled" && job.type !== "maintenance"
   );
 
   // For scheduled jobs view
@@ -235,9 +227,7 @@ const JobQueue = ({
         </div>
       )}
       {/* Display job type or additional type */}
-      {(job.type === "preventative maintenance" ||
-        job.type === "planned maintenance") &&
-      job.additional_type ? (
+      {job.type === "maintenance" && job.additional_type ? (
         <div className="text-xs text-gray-400 mt-1">{job.additional_type}</div>
       ) : (
         <div className="text-xs text-gray-400 mt-1">{job.type}</div>
@@ -318,7 +308,7 @@ const JobQueue = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto max-h-[calc(100vh-200px)]">
         {showScheduledJobs ? (
           /* Scheduled Jobs View */
           <div className="p-4">
@@ -327,7 +317,7 @@ const JobQueue = ({
               Scheduled Jobs ({scheduledJobs.length})
             </h3>
             <div
-              className="min-h-[120px] bg-gray-50 rounded-lg p-2"
+              className="min-h-[120px] max-h-[300px] overflow-y-auto bg-gray-50 rounded-lg p-2"
               onDragOver={handleDragOver}
             >
               {filteredJobs(scheduledJobs).map((job) =>
@@ -349,7 +339,7 @@ const JobQueue = ({
                 <AlertTriangle size={16} className="mr-2 text-amber-500" />
                 Unassigned Calls ({unassignedJobs.length})
               </h3>
-              <div className="min-h-[120px] bg-gray-50 rounded-lg p-2">
+              <div className="min-h-[120px] max-h-[300px] overflow-y-auto bg-gray-50 rounded-lg p-2">
                 {filteredJobs(unassignedJobs).map((job) =>
                   renderJobCard(job, { type: "column", id: "unassigned" })
                 )}
@@ -368,7 +358,7 @@ const JobQueue = ({
                 Parts Ordered ({partsOrderedJobs.length})
               </h3>
               <div
-                className="min-h-[120px] bg-gray-50 rounded-lg p-2"
+                className="min-h-[120px] max-h-[300px] overflow-y-auto bg-gray-50 rounded-lg p-2"
                 onDragOver={handleDragOver}
               >
                 {filteredJobs(partsOrderedJobs).map((job) =>
@@ -389,7 +379,7 @@ const JobQueue = ({
                 Maintenance Jobs to Schedule ({pmsToScheduleJobs.length})
               </h3>
               <div
-                className="min-h-[120px] bg-gray-50 rounded-lg p-2"
+                className="min-h-[120px] max-h-[300px] overflow-y-auto bg-gray-50 rounded-lg p-2"
                 onDragOver={handleDragOver}
               >
                 {filteredJobs(pmsToScheduleJobs).map((job) =>
@@ -403,20 +393,23 @@ const JobQueue = ({
               </div>
             </div>
 
-            {/* All Jobs to Schedule */}
+            {/* Other Jobs to Schedule */}
             <div className="p-4">
               <h3 className="font-medium text-sm text-gray-700 mb-3 flex items-center">
                 <Calendar size={16} className="mr-2 text-green-500" />
-                All Jobs to Schedule ({allJobsToSchedule.length})
+                Other Jobs to Schedule ({otherJobsToSchedule.length})
               </h3>
               <div
-                className="min-h-[120px] bg-gray-50 rounded-lg p-2"
+                className="min-h-[120px] max-h-[300px] overflow-y-auto bg-gray-50 rounded-lg p-2"
                 onDragOver={handleDragOver}
               >
-                {filteredJobs(allJobsToSchedule).map((job) =>
-                  renderJobCard(job, { type: "column", id: "all_to_schedule" })
+                {filteredJobs(otherJobsToSchedule).map((job) =>
+                  renderJobCard(job, {
+                    type: "column",
+                    id: "other_to_schedule",
+                  })
                 )}
-                {filteredJobs(allJobsToSchedule).length === 0 && (
+                {filteredJobs(otherJobsToSchedule).length === 0 && (
                   <div className="text-center text-gray-500 text-sm py-8">
                     No jobs to schedule
                   </div>

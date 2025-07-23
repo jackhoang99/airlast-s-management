@@ -461,8 +461,7 @@ const TechnicianJobDetails = () => {
 
   const getTypeBadgeClass = (type: string) => {
     switch (type?.toLowerCase()) {
-      case "preventative maintenance":
-      case "planned maintenance":
+      case "maintenance":
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "service call":
         return "bg-cyan-100 text-cyan-800 border-cyan-200";
@@ -523,11 +522,9 @@ const TechnicianJobDetails = () => {
           </span>
           <span className={`badge ${getTypeBadgeClass(job.type)}`}>
             {job.type}
-            {(job.type === "preventative maintenance" ||
-              job.type === "planned maintenance") &&
-              job.additional_type && (
-                <span className="ml-1">• {job.additional_type}</span>
-              )}
+            {job.type === "maintenance" && job.additional_type && (
+              <span className="ml-1">• {job.additional_type}</span>
+            )}
           </span>
           {job.service_line && (
             <span className="badge bg-blue-100 text-blue-800">
@@ -584,8 +581,7 @@ const TechnicianJobDetails = () => {
               <button
                 onClick={() => setShowCompleteJobModal(true)}
                 disabled={
-                  (job?.type === "preventative maintenance" ||
-                    job?.type === "planned maintenance") &&
+                  job?.type === "maintenance" &&
                   (job?.additional_type === "PM Cleaning AC" ||
                     job?.additional_type === "ONE Cleaning AC" ||
                     job?.additional_type === "PM Cleaning HEAT" ||
@@ -595,8 +591,7 @@ const TechnicianJobDetails = () => {
                   !isMaintenanceChecklistComplete
                 }
                 className={`btn w-full sm:w-auto ${
-                  (job?.type === "preventative maintenance" ||
-                    job?.type === "planned maintenance") &&
+                  job?.type === "maintenance" &&
                   (job?.additional_type === "PM Cleaning AC" ||
                     job?.additional_type === "ONE Cleaning AC" ||
                     job?.additional_type === "PM Cleaning HEAT" ||
@@ -608,8 +603,7 @@ const TechnicianJobDetails = () => {
                     : "btn-success"
                 }`}
                 title={
-                  (job?.type === "preventative maintenance" ||
-                    job?.type === "planned maintenance") &&
+                  job?.type === "maintenance" &&
                   (job?.additional_type === "PM Cleaning AC" ||
                     job?.additional_type === "ONE Cleaning AC" ||
                     job?.additional_type === "PM Cleaning HEAT" ||
@@ -844,8 +838,7 @@ const TechnicianJobDetails = () => {
       )}
       <hr className="my-2 border-gray-200" />
       {/* Maintenance Checklist Section */}
-      {(job?.type === "preventative maintenance" ||
-        job?.type === "planned maintenance") &&
+      {job?.type === "maintenance" &&
         (job?.additional_type === "PM Cleaning AC" ||
           job?.additional_type === "ONE Cleaning AC" ||
           job?.additional_type === "PM Cleaning HEAT" ||
@@ -1062,8 +1055,7 @@ const TechnicianJobDetails = () => {
               Are you sure you want to mark Job #{job.number} as completed? This
               will update the job status and notify the office.
             </p>
-            {(job?.type === "preventative maintenance" ||
-              job?.type === "planned maintenance") &&
+            {job?.type === "maintenance" &&
               (job?.additional_type === "PM Cleaning AC" ||
                 job?.additional_type === "ONE Cleaning AC" ||
                 job?.additional_type === "PM Cleaning HEAT" ||

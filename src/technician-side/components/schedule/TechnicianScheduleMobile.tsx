@@ -38,13 +38,11 @@ const timeSlots = Array.from({ length: 13 }, (_, i) => i + 8); // 8 AM to 8 PM
 
 const getJobTypeColorClass = (type: string) => {
   const colorMap: { [key: string]: string } = {
-    "preventative maintenance":
-      "bg-purple-100 text-purple-800 border-purple-200",
+    maintenance: "bg-purple-100 text-purple-800 border-purple-200",
     "service call": "bg-teal-100 text-teal-800 border-teal-200",
     inspection: "bg-blue-100 text-blue-800 border-blue-200",
     repair: "bg-orange-100 text-orange-800 border-orange-200",
     installation: "bg-green-100 text-green-800 border-green-200",
-    "planned maintenance": "bg-indigo-100 text-indigo-800 border-indigo-200",
   };
 
   return (
@@ -213,13 +211,9 @@ const TechnicianScheduleMobile = ({
                       </span>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 ml-2">
                         {job.type}
-                        {(job.type === "preventative maintenance" ||
-                          job.type === "planned maintenance") &&
-                          job.additional_type && (
-                            <span className="ml-1">
-                              • {job.additional_type}
-                            </span>
-                          )}
+                        {job.type === "maintenance" && job.additional_type && (
+                          <span className="ml-1">• {job.additional_type}</span>
+                        )}
                       </span>
                     </div>
                     <div className="text-gray-600 text-sm">

@@ -127,9 +127,9 @@ const DispatchFilters = ({
               }`}
             >
               <option value="all">All Types</option>
-              <option value="preventative maintenance">
-                Preventative Maintenance
-              </option>
+                              <option value="maintenance">
+                  Maintenance
+                </option>
               <option value="service call">Service Call</option>
               <option value="repair">Repair</option>
               <option value="installation">Installation</option>

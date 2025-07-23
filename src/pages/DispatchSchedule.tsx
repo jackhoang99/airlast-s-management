@@ -270,7 +270,7 @@ const DispatchSchedule = () => {
 
   const getJobTypeColor = (type: string): string => {
     switch (type?.toLowerCase()) {
-      case "preventative maintenance":
+      case "maintenance":
         return "#8b5cf6"; // purple
       case "service call":
         return "#06b6d4"; // cyan
@@ -287,13 +287,11 @@ const DispatchSchedule = () => {
 
   const getJobTypeColorClass = (type: string): string => {
     const colorMap: { [key: string]: string } = {
-      "preventative maintenance":
-        "bg-purple-100 text-purple-800 border-purple-200",
+      maintenance: "bg-purple-100 text-purple-800 border-purple-200",
       "service call": "bg-teal-100 text-teal-800 border-teal-200",
       inspection: "bg-blue-100 text-blue-800 border-blue-200",
       repair: "bg-orange-100 text-orange-800 border-orange-200",
       installation: "bg-green-100 text-green-800 border-green-200",
-      "planned maintenance": "bg-indigo-100 text-indigo-800 border-indigo-200",
     };
 
     return (
