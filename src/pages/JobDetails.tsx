@@ -31,6 +31,7 @@ import JobReminderBanner from "../components/jobs/JobReminderBanner";
 import JobTimeTracking from "../components/jobs/JobTimeTracking";
 import JobComments from "../components/jobs/JobComments";
 import JobReminderList from "../components/jobs/JobReminderList";
+import PermitSection from "../components/permits/PermitSection";
 
 const JobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -653,6 +654,13 @@ const JobDetails = () => {
               </div>
             )}
           </div>
+
+          {/* Permits Section */}
+          <PermitSection
+            locationId={job.location_id || ""}
+            companyId={job.locations?.company_id || ""}
+            title="Location Permits"
+          />
 
           {/* Inspection Section - Completely Separate */}
           <div className="card mt-6">

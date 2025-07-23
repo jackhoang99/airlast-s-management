@@ -38,6 +38,7 @@ import JobTimeTracking from "../../components/jobs/JobTimeTracking";
 import JobComments from "../../components/jobs/JobComments";
 import ClockInOut from "../components/jobs/ClockInOut";
 import JobUnitSection from "../../components/jobs/JobUnitSection";
+import PermitSectionMobile from "../../components/permits/PermitSectionMobile";
 
 const TechnicianJobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -773,6 +774,13 @@ const TechnicianJobDetails = () => {
       <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
         <JobUnitSection job={job} />
       </div>
+      <hr className="my-2 border-gray-200" />
+      {/* Permits Section */}
+      <PermitSectionMobile
+        locationId={job?.location_id || ""}
+        companyId={job?.locations?.company_id || ""}
+        title="Location Permits"
+      />
       <hr className="my-2 border-gray-200" />
       {/* Clock In/Out Section */}
       {technicianId && (

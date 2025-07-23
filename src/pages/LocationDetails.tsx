@@ -11,6 +11,7 @@ import UnitsList from "../components/locations/UnitsList";
 import AssetSummary from "../components/locations/AssetSummary";
 import { Dialog } from "@headlessui/react";
 import AddAssetForm from "../components/locations/AddAssetForm";
+import PermitSection from "../components/permits/PermitSection";
 
 type Location = Database["public"]["Tables"]["locations"]["Row"] & {
   companies: {
@@ -250,6 +251,13 @@ const LocationDetails = () => {
             </div>
             <UnitsList location={location} search={unitSearch} />
           </div>
+
+          {/* Permits Section */}
+          <PermitSection
+            locationId={location.id}
+            companyId={location.company_id}
+            title="Location Permits"
+          />
 
           {/* Asset Summary Section */}
           <div className="card mt-6">

@@ -6,12 +6,16 @@ interface AddPermitModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  preSelectedLocationId?: string;
+  preSelectedCompanyId?: string;
 }
 
 const AddPermitModal: React.FC<AddPermitModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  preSelectedLocationId,
+  preSelectedCompanyId,
 }) => {
   const { supabase, session } = useSupabase();
   const [uploading, setUploading] = useState(false);
@@ -22,8 +26,8 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
     city: "",
     county: "",
     notes: "",
-    company_id: "",
-    location_id: "",
+    company_id: preSelectedCompanyId || "",
+    location_id: preSelectedLocationId || "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [companies, setCompanies] = useState<
@@ -69,8 +73,32 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
 
     if (isOpen) {
       fetchCompanies();
+      // If we have pre-selected values, fetch locations for the company
+      if (preSelectedCompanyId) {
+        fetchLocationsForCompany(preSelectedCompanyId);
+      }
     }
-  }, [supabase, isOpen]);
+  }, [supabase, isOpen, preSelectedCompanyId]);
+
+  const fetchLocationsForCompany = async (companyId: string) => {
+    if (!supabase) return;
+
+    try {
+      setLoadingLocations(true);
+      const { data, error } = await supabase
+        .from("locations")
+        .select("id, name, address, city, state, company_id")
+        .eq("company_id", companyId)
+        .order("name");
+
+      if (error) throw error;
+      setLocations(data || []);
+    } catch (error) {
+      console.error("Error fetching locations:", error);
+    } finally {
+      setLoadingLocations(false);
+    }
+  };
 
   useEffect(() => {
     const fetchLocations = async () => {
@@ -79,21 +107,7 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
         return;
       }
 
-      try {
-        setLoadingLocations(true);
-        const { data, error } = await supabase
-          .from("locations")
-          .select("id, name, address, city, state, company_id")
-          .eq("company_id", newPermit.company_id)
-          .order("name");
-
-        if (error) throw error;
-        setLocations(data || []);
-      } catch (error) {
-        console.error("Error fetching locations:", error);
-      } finally {
-        setLoadingLocations(false);
-      }
+      fetchLocationsForCompany(newPermit.company_id);
     };
 
     fetchLocations();
@@ -116,6 +130,21 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
       city: selectedLocation ? selectedLocation.city : "",
     });
   };
+
+  // Auto-populate city when location is pre-selected
+  useEffect(() => {
+    if (preSelectedLocationId && locations.length > 0) {
+      const selectedLocation = locations.find(
+        (loc) => loc.id === preSelectedLocationId
+      );
+      if (selectedLocation) {
+        setNewPermit((prev) => ({
+          ...prev,
+          city: selectedLocation.city,
+        }));
+      }
+    }
+  }, [preSelectedLocationId, locations]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -270,8 +299,8 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center">
@@ -296,8 +325,11 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form
+          onSubmit={handleSubmit}
+          className="p-4 sm:p-6 space-y-4 sm:space-y-6"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Company *
@@ -383,6 +415,11 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 City *
+                {preSelectedLocationId && (
+                  <span className="text-xs text-gray-500 ml-1">
+                    (pre-filled from location)
+                  </span>
+                )}
               </label>
               <input
                 type="text"
@@ -505,18 +542,18 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors font-medium"
+              className="px-4 sm:px-6 py-2 sm:py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors font-medium"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={uploading}
-              className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              className="px-4 sm:px-8 py-2 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               {uploading ? (
                 <div className="flex items-center">
