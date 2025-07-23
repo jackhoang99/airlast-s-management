@@ -24,6 +24,8 @@ type AccessoryItem = {
 
 type ReplacementData = {
   needsCrane: boolean;
+  requiresPermit: boolean;
+  requiresBigLadder: boolean;
   replacementOption: PhaseOption;
   labor: string | number;
   refrigerationRecovery: string | number;
@@ -75,6 +77,8 @@ const RepairsForm = ({
     if (!dbData || !initialData) {
       return {
         needsCrane: false,
+        requiresPermit: false,
+        requiresBigLadder: false,
         replacementOption: { description: "", cost: "" },
         labor: "",
         refrigerationRecovery: "",
@@ -97,6 +101,8 @@ const RepairsForm = ({
 
     return {
       needsCrane: dbData.needs_crane || false,
+      requiresPermit: dbData.requires_permit || false,
+      requiresBigLadder: dbData.requires_big_ladder || false,
       replacementOption: {
         description: phaseData.description || "Replacement Option",
         cost: phaseData.cost || "",
@@ -253,6 +259,8 @@ const RepairsForm = ({
       const dataToSave = {
         job_id: jobId,
         needs_crane: replacementData.needsCrane,
+        requires_permit: replacementData.requiresPermit,
+        requires_big_ladder: replacementData.requiresBigLadder,
         // Map the single replacementOption to phase2 (standard) for database compatibility
         phase2: {
           description:
@@ -315,6 +323,8 @@ const RepairsForm = ({
       // Create a properly formatted data object to pass to the parent component
       const formattedData: ReplacementData = {
         needsCrane: replacementData.needsCrane,
+        requiresPermit: replacementData.requiresPermit,
+        requiresBigLadder: replacementData.requiresBigLadder,
         replacementOption: replacementData.replacementOption,
         labor: replacementData.labor,
         refrigerationRecovery: replacementData.refrigerationRecovery,
@@ -388,66 +398,26 @@ const RepairsForm = ({
 
               {expandedSection === "options" && (
                 <div className="p-3 flex flex-col gap-4">
-                  <div className="flex items-center mb-3">
-                    <input
-                      type="checkbox"
-                      id="needsCrane"
-                      checked={replacementData.needsCrane}
-                      onChange={(e) =>
-                        setReplacementData((prev) => ({
-                          ...prev,
-                          needsCrane: e.target.checked,
-                          // Optionally clear the cost if unchecked
-                          replacementOption: {
-                            ...prev.replacementOption,
-                            cost: e.target.checked
-                              ? prev.replacementOption.cost
-                              : "",
-                          },
-                        }))
-                      }
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          e.currentTarget.blur();
-                        }
-                      }}
-                    />
-                    <label
-                      htmlFor="needsCrane"
-                      className="ml-2 text-sm text-gray-700"
-                    >
-                      Requires Crane
-                    </label>
-                  </div>
-
-                  {/* Standard Option (only if crane required) */}
-                  <div className="mb-4 p-3 border rounded-lg">
-                    <h4 className="font-medium text-sm mb-2">
-                      Standard Option
-                    </h4>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                        $
-                      </span>
+                  <div className="flex items-center gap-6 mb-3">
+                    <div className="flex items-center">
                       <input
-                        type="text"
-                        inputMode="numeric"
-                        value={replacementData.replacementOption.cost}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/^0+/, "");
+                        type="checkbox"
+                        id="needsCrane"
+                        checked={replacementData.needsCrane}
+                        onChange={(e) =>
                           setReplacementData((prev) => ({
                             ...prev,
+                            needsCrane: e.target.checked,
+                            // Optionally clear the cost if unchecked
                             replacementOption: {
                               ...prev.replacementOption,
-                              cost: value,
+                              cost: e.target.checked
+                                ? prev.replacementOption.cost
+                                : "",
                             },
-                          }));
-                        }}
-                        className="input pl-7 w-full text-base sm:text-sm"
-                        placeholder="Cost"
-                        disabled={!replacementData.needsCrane}
+                          }))
+                        }
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
@@ -455,8 +425,135 @@ const RepairsForm = ({
                           }
                         }}
                       />
+                      <label
+                        htmlFor="needsCrane"
+                        className="ml-2 text-sm text-gray-700"
+                      >
+                        Requires Crane
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="requiresPermit"
+                        checked={replacementData.requiresPermit}
+                        onChange={(e) =>
+                          setReplacementData((prev) => ({
+                            ...prev,
+                            requiresPermit: e.target.checked,
+                            // Clear permit cost if unchecked
+                            permitCost: e.target.checked ? prev.permitCost : "",
+                          }))
+                        }
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="requiresPermit"
+                        className="ml-2 text-sm text-gray-700"
+                      >
+                        Requires Permit
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="requiresBigLadder"
+                        checked={replacementData.requiresBigLadder}
+                        onChange={(e) =>
+                          setReplacementData((prev) => ({
+                            ...prev,
+                            requiresBigLadder: e.target.checked,
+                          }))
+                        }
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="requiresBigLadder"
+                        className="ml-2 text-sm text-gray-700"
+                      >
+                        Requires Big Ladder
+                      </label>
                     </div>
                   </div>
+
+                  {/* Crane Option (only if crane required) */}
+                  {replacementData.needsCrane && (
+                    <div className="mb-4 p-3 border rounded-lg">
+                      <h4 className="font-medium text-sm mb-2">Crane Option</h4>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                          $
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={replacementData.replacementOption.cost}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/^0+/, "");
+                            setReplacementData((prev) => ({
+                              ...prev,
+                              replacementOption: {
+                                ...prev.replacementOption,
+                                cost: value,
+                              },
+                            }));
+                          }}
+                          className="input pl-7 w-full text-base sm:text-sm"
+                          placeholder="Cost"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Permit Cost (only if permit required) */}
+                  {replacementData.requiresPermit && (
+                    <div className="mb-4 p-3 border rounded-lg">
+                      <h4 className="font-medium text-sm mb-2">Permit Cost</h4>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                          $
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={replacementData.permitCost}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/^0+/, "");
+                            setReplacementData((prev) => ({
+                              ...prev,
+                              permitCost: value,
+                            }));
+                          }}
+                          className="input pl-7 w-full text-base sm:text-sm"
+                          placeholder="Cost"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -592,35 +689,6 @@ const RepairsForm = ({
                             setReplacementData((prev) => ({
                               ...prev,
                               removalCost: value,
-                            }));
-                          }}
-                          className="input pl-7 w-full text-base sm:text-sm"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              e.currentTarget.blur();
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Permit Cost
-                      </label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                          $
-                        </span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={replacementData.permitCost}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/^0+/, "");
-                            setReplacementData((prev) => ({
-                              ...prev,
-                              permitCost: value,
                             }));
                           }}
                           className="input pl-7 w-full text-base sm:text-sm"

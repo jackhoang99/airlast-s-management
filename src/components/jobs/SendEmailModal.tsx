@@ -213,6 +213,8 @@ const SendEmailModal = ({
         : [],
       permit_cost: Number(data.permit_cost) || 0,
       needs_crane: Boolean(data.needsCrane),
+      requires_permit: Boolean(data.requiresPermit),
+      requires_big_ladder: Boolean(data.requiresBigLadder),
       selected_phase: data.selectedPhase || "phase2",
       total_cost: Number(data.totalCost) || 0,
       created_at: data.created_at || new Date().toISOString(),

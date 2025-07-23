@@ -401,19 +401,43 @@ serve(async (req) => {
           font: bold,
         });
         y -= lineHeight;
-        // Draw "Standard Option" and show components
-        dynamicPage.drawText("Standard Option", {
-          x: margin,
-          y,
-          size: fontSize,
-          font,
+        // Add requirements if needed
+        const requirements = [];
+        console.log(`Processing requirements for replacement ${i + 1}:`, {
+          needsCrane: entry.needsCrane,
+          needs_crane: entry.needs_crane,
+          requiresPermit: entry.requiresPermit,
+          requires_permit: entry.requires_permit,
+          requiresBigLadder: entry.requiresBigLadder,
+          requires_big_ladder: entry.requires_big_ladder,
         });
-        // Add "Crane Required" if needed
+
         if (entry.needsCrane || entry.needs_crane) {
-          dynamicPage.drawText("Crane Required", {
-            x: width - margin - 200,
+          requirements.push("Crane Required");
+        }
+        if (entry.requiresPermit || entry.requires_permit) {
+          requirements.push("Permit Required");
+        }
+        if (entry.requiresBigLadder || entry.requires_big_ladder) {
+          requirements.push("Big Ladder Required");
+        }
+
+        console.log(`Requirements for replacement ${i + 1}:`, requirements);
+
+        if (requirements.length > 0) {
+          const requirementsText = requirements.join(", ");
+          const requirementsFontSize = fontSize - 2; // Smaller font size
+
+          // Calculate the center position relative to the cost amount
+          const costX = width - margin - 100; // Cost is positioned here
+          const requirementsWidth =
+            requirementsText.length * requirementsFontSize * 0.6; // Approximate text width
+          const requirementsX = costX - requirementsWidth / 2; // Center the requirements text under the cost
+
+          dynamicPage.drawText(requirementsText, {
+            x: requirementsX,
             y,
-            size: fontSize,
+            size: requirementsFontSize,
             font,
             color: rgb(0.8, 0.4, 0),
           });
@@ -421,6 +445,14 @@ serve(async (req) => {
         y -= lineHeight * 1.5;
         // List all components without prices
         const components = [];
+        // Add crane option if present
+        if (
+          (entry.needsCrane || entry.needs_crane) &&
+          entry.phase2 &&
+          entry.phase2.cost > 0
+        ) {
+          components.push("Crane Option");
+        }
         // Add labor if present
         if (entry.labor && Number(entry.labor) > 0) {
           components.push("Labor");

@@ -97,6 +97,8 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
           replacementData.forEach((item) => {
             replacementDataById[item.id] = {
               needsCrane: item.needs_crane || false,
+              requiresPermit: item.requires_permit || false,
+              requiresBigLadder: item.requires_big_ladder || false,
               phase1: item.phase1 || {},
               phase2: item.phase2 || {},
               phase3: item.phase3 || {},

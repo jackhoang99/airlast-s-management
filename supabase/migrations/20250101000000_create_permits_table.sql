@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS "public"."permits" (
     "county" "text" NOT NULL,
     "file_path" "text",
     "file_name" "text",
-    "file_size" "integer",
+    "file_size" integer,
     "file_type" "text",
     "created_at" timestamp with time zone DEFAULT "now"(),
     "updated_at" timestamp with time zone DEFAULT "now"(),

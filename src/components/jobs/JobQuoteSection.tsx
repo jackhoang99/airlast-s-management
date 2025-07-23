@@ -157,6 +157,8 @@ const JobQuoteSection = ({
             // For replacement data
             replacementDataMap[item.id] = {
               needsCrane: item.needs_crane,
+              requiresPermit: item.requires_permit,
+              requiresBigLadder: item.requires_big_ladder,
               phase2: item.phase2,
               labor: item.labor,
               refrigerationRecovery: item.refrigeration_recovery,

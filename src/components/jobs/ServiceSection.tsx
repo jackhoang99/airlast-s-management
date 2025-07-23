@@ -153,6 +153,8 @@ const ServiceSection = ({
             processedReplacements.push({
               id: item.id,
               needsCrane: item.needs_crane,
+              requiresPermit: item.requires_permit,
+              requiresBigLadder: item.requires_big_ladder,
               phase2: item.phase2,
               labor: item.labor,
               refrigerationRecovery: item.refrigeration_recovery,
@@ -299,6 +301,7 @@ const ServiceSection = ({
           ) : null}
 
           {replacementData.map((data, index) => {
+            console.log("Rendering replacement data:", data);
             const selectedPhase = data.selectedPhase || "phase2";
             const optionType =
               selectedPhase === "phase1"
@@ -318,25 +321,53 @@ const ServiceSection = ({
                         <Home size={14} className="mr-1 text-blue-500" />
                         Replacement Option {index + 1}
                       </h4>
-                      <p className="text-sm text-gray-600">
-                        {optionType} Option
-                      </p>
                     </div>
                     <div className="text-right">
                       <div className="font-semibold text-lg">
                         ${Number(data.totalCost || 0).toLocaleString()}
                       </div>
 
-                      {data.needsCrane && (
+                      {(data.needsCrane ||
+                        data.requiresPermit ||
+                        data.requiresBigLadder) && (
                         <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full mt-1 inline-block">
-                          Crane Required
+                          {[
+                            data.needsCrane && "Crane Required",
+                            data.requiresPermit && "Permit Required",
+                            data.requiresBigLadder && "Big Ladder Required",
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
 
+                {/* Date display */}
+                {data.created_at && (
+                  <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                    <div className="text-xs text-gray-500">
+                      Created:{" "}
+                      {new Date(data.created_at).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div>
+                  {data.phase2 && data.phase2.cost > 0 && (
+                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                      <span>Crane Option:</span>
+                      <span className="font-semibold">
+                        ${Number(data.phase2.cost).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                  {data.phase2 && console.log("Phase2 data:", data.phase2)}
                   {data.labor > 0 && (
                     <div className="flex justify-between items-center p-3 border-b border-gray-100">
                       <span>Labor:</span>
@@ -466,7 +497,8 @@ const ServiceSection = ({
                               .delete()
                               .eq("id", data.id);
                             if (error) throw error;
-                            // Refresh replacement data
+
+                            // Refresh replacement data and update all related states
                             const {
                               data: replacementData,
                               error: replacementError,
@@ -474,8 +506,75 @@ const ServiceSection = ({
                               .from("job_replacements")
                               .select("*")
                               .eq("job_id", jobId);
-                            if (!replacementError)
-                              setReplacementData(replacementData || []);
+
+                            if (!replacementError) {
+                              console.log(
+                                "Replacement data after delete:",
+                                replacementData
+                              );
+                              // Process the updated replacement data
+                              if (
+                                replacementData &&
+                                replacementData.length > 0
+                              ) {
+                                const processedReplacements: any[] = [];
+                                const totalReplacementCostSum =
+                                  replacementData.reduce((sum, item) => {
+                                    return sum + Number(item.total_cost || 0);
+                                  }, 0);
+
+                                replacementData.forEach(
+                                  (item: any, index: number) => {
+                                    console.log(
+                                      "Processing replacement item:",
+                                      item
+                                    );
+                                    processedReplacements.push({
+                                      id: item.id,
+                                      needsCrane: item.needs_crane,
+                                      requiresPermit: item.requires_permit,
+                                      requiresBigLadder:
+                                        item.requires_big_ladder,
+                                      phase2: item.phase2,
+                                      labor: item.labor,
+                                      refrigerationRecovery:
+                                        item.refrigeration_recovery,
+                                      startUpCosts: item.start_up_costs,
+                                      accessories: item.accessories,
+                                      thermostatStartup:
+                                        item.thermostat_startup,
+                                      removalCost: item.removal_cost,
+                                      warranty: item.warranty,
+                                      additionalItems: item.additional_items,
+                                      permitCost: item.permit_cost,
+                                      selectedPhase: item.selected_phase,
+                                      totalCost: item.total_cost,
+                                      created_at: item.created_at,
+                                    });
+                                  }
+                                );
+
+                                setReplacementData(processedReplacements);
+                                setAllReplacementData(replacementData);
+                                setTotalReplacementCost(
+                                  totalReplacementCostSum
+                                );
+                                setHasReplacementData(true);
+                              } else {
+                                // No replacement data left
+                                setReplacementData([]);
+                                setAllReplacementData([]);
+                                setTotalReplacementCost(0);
+                                setHasReplacementData(false);
+                              }
+                            }
+
+                            // Notify parent components of the update
+                            onItemsUpdated();
+                            if (onQuoteStatusChange) onQuoteStatusChange();
+
+                            // Trigger a refresh to ensure all data is properly updated
+                            setRefreshTriggerState((prev) => prev + 1);
                           } catch (err) {
                             setDeleteError("Failed to delete replacement");
                           }
