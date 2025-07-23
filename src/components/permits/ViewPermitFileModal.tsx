@@ -117,77 +117,23 @@ const ViewPermitFileModal: React.FC<ViewPermitFileModalProps> = ({
   const handleDownload = async () => {
     if (fileUrl && fileName) {
       try {
-        // Fetch the file as a blob
+        // Simple download approach
         const response = await fetch(fileUrl);
         if (!response.ok) throw new Error("Failed to fetch file");
 
         const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = fileName;
+        link.style.display = "none";
 
-        // Check if we're on iOS and it's an image
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const isImage = fileType.includes("image");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
 
-        if (isIOS && isImage) {
-          // For iOS images, try to save to photos using canvas approach
-          try {
-            // Canvas approach for direct download
-            const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d");
-            const img = document.createElement("img") as HTMLImageElement;
-
-            img.onload = () => {
-              canvas.width = img.width;
-              canvas.height = img.height;
-              ctx?.drawImage(img, 0, 0);
-
-              // Convert to data URL
-              const dataUrl = canvas.toDataURL("image/png");
-
-              // Create a link with download attribute
-              const link = document.createElement("a");
-              link.href = dataUrl;
-              link.download = fileName;
-              link.style.display = "none";
-
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-            };
-
-            img.src = URL.createObjectURL(blob);
-          } catch (iosError) {
-            console.log(
-              "iOS photo save failed, falling back to regular download:",
-              iosError
-            );
-            // Fallback to regular download
-            const blobUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = blobUrl;
-            link.download = fileName;
-            link.style.display = "none";
-
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            window.URL.revokeObjectURL(blobUrl);
-          }
-        } else {
-          // Regular download for non-iOS or non-images
-          const blobUrl = window.URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = blobUrl;
-          link.download = fileName;
-          link.style.display = "none";
-
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-
-          // Clean up the blob URL
-          window.URL.revokeObjectURL(blobUrl);
-        }
+        // Clean up the blob URL
+        window.URL.revokeObjectURL(blobUrl);
       } catch (err) {
         console.error("Download error:", err);
         // Fallback to opening in new tab
@@ -339,77 +285,61 @@ const ViewPermitFileModal: React.FC<ViewPermitFileModalProps> = ({
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {fileType.includes("pdf") ? (
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+              {/* Download button - always visible */}
+              <button
+                onClick={handleDownload}
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                title="Download file"
+              >
+                <Download className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+
+              {/* Open in new tab button - always visible */}
+              <button
+                onClick={() => fileUrl && window.open(fileUrl, "_blank")}
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                title="Open in new tab"
+              >
+                <ExternalLink className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+
+              {/* Zoom controls - only for previewable files */}
+              {canPreview() && (
                 <>
                   <button
-                    onClick={handleDownload}
-                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                    title="Download file"
+                    onClick={handleZoomIn}
+                    disabled={zoom >= 3}
+                    className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Zoom in"
                   >
-                    <Download className="w-5 h-5" />
+                    <ZoomIn className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                   <button
-                    onClick={() => fileUrl && window.open(fileUrl, "_blank")}
-                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                    title="Open PDF in new tab"
+                    onClick={handleResetZoom}
+                    className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                    title="Reset zoom"
                   >
-                    <ExternalLink className="w-5 h-5" />
+                    <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
-                </>
-              ) : (
-                <>
-                  {canPreview() && (
-                    <>
-                      <button
-                        onClick={handleZoomIn}
-                        disabled={zoom >= 3}
-                        className="p-2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Zoom in"
-                      >
-                        <ZoomIn className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={handleResetZoom}
-                        className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                        title="Reset zoom"
-                      >
-                        <Maximize2 className="w-5 h-5" />
-                      </button>
-                      {fileType.includes("image") && (
-                        <button
-                          onClick={handleRotate}
-                          className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                          title="Rotate image"
-                        >
-                          <RotateCcw className="w-5 h-5" />
-                        </button>
-                      )}
-                    </>
+                  {fileType.includes("image") && (
+                    <button
+                      onClick={handleRotate}
+                      className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Rotate image"
+                    >
+                      <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
                   )}
-                  <button
-                    onClick={handleDownload}
-                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                    title="Download file"
-                  >
-                    <Download className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={handleOpenInNewTab}
-                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                    title={
-                      isFullscreen ? "Exit fullscreen" : "Enter fullscreen"
-                    }
-                  >
-                    <ExternalLink className="w-5 h-5" />
-                  </button>
                 </>
               )}
+
+              {/* Close button - always visible */}
               <button
                 onClick={onClose}
-                className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
           </div>
