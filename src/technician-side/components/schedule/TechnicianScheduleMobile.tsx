@@ -36,19 +36,19 @@ interface TechnicianScheduleMobileProps {
 const timeSlots = Array.from({ length: 13 }, (_, i) => i + 8); // 8 AM to 8 PM
 
 const getJobTypeColorClass = (type: string) => {
-  switch (type) {
+  switch (type?.toLowerCase()) {
     case "preventative maintenance":
-      return "bg-purple-100 border-purple-300 text-purple-800";
+      return "bg-purple-100 text-purple-800 border-purple-200";
     case "service call":
-      return "bg-cyan-100 border-cyan-300 text-cyan-800";
+      return "bg-cyan-100 text-cyan-800 border-cyan-200";
     case "repair":
-      return "bg-amber-100 border-amber-300 text-amber-800";
+      return "bg-amber-100 text-amber-800 border-amber-200";
     case "installation":
-      return "bg-emerald-100 border-emerald-300 text-emerald-800";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200";
     case "inspection":
-      return "bg-blue-100 border-blue-300 text-blue-800";
+      return "bg-blue-100 text-blue-800 border-blue-200";
     default:
-      return "bg-gray-100 border-gray-300 text-gray-800";
+      return "bg-gray-100 text-gray-800 border-gray-200";
   }
 };
 
@@ -91,6 +91,13 @@ const TechnicianScheduleMobile = ({
     h = h % 12;
     h = h ? h : 12;
     return `${h}:${m.toString().padStart(2, "0")} ${ampm}`;
+  };
+
+  const formatHour = (hour: number) => {
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const h = hour % 12;
+    const displayHour = h ? h : 12;
+    return `${displayHour}${ampm}`;
   };
   const getJobsForTech = (techId: string) => {
     return jobs
@@ -257,7 +264,7 @@ const TechnicianScheduleMobile = ({
                 key={hour}
                 className="flex-1 text-xs text-center text-gray-500 p-1 border-l border-gray-100 min-w-[56px]"
               >
-                {formatTime(hour)}
+                {formatHour(hour)}
               </div>
             ))}
           </div>

@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import TechnicianSchedule from "../components/dispatch/TechnicianSchedule";
 import JobDetailsModal from "../components/jobs/JobDetailsModal";
+import JobTypeLegend from "../components/dispatch/JobTypeLegend";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 
@@ -39,6 +40,7 @@ interface DashboardStats {
   scheduledJobs: number;
   completedJobs: number;
   overdueJobs: number;
+  unscheduledJobs: number;
   unsentInvoices: number;
   totalInvoiceValue: number;
   jobsToSchedule: number;
@@ -55,6 +57,12 @@ interface DashboardStats {
   confirmedQuotes: number;
   deniedQuotes: number;
   pendingQuotes: number;
+  // Invoice statistics
+  totalInvoices: number;
+  paidInvoices: number;
+  pendingInvoices: number;
+  totalPaidAmount: number;
+  totalPendingAmount: number;
 }
 
 interface RecentJob {
@@ -131,6 +139,7 @@ const Home = () => {
     scheduledJobs: 0,
     completedJobs: 0,
     overdueJobs: 0,
+    unscheduledJobs: 0,
     unsentInvoices: 0,
     totalInvoiceValue: 0,
     jobsToSchedule: 0,
@@ -147,6 +156,12 @@ const Home = () => {
     confirmedQuotes: 0,
     deniedQuotes: 0,
     pendingQuotes: 0,
+    // Invoice statistics
+    totalInvoices: 0,
+    paidInvoices: 0,
+    pendingInvoices: 0,
+    totalPaidAmount: 0,
+    totalPendingAmount: 0,
   });
   const [recentJobs, setRecentJobs] = useState<RecentJob[]>([]);
   const [scheduledJobs, setScheduledJobs] = useState<ScheduledJob[]>([]);
@@ -393,6 +408,7 @@ const Home = () => {
         { count: totalJobs, error: totalJobsError },
         { count: scheduledJobs, error: scheduledJobsError },
         { count: completedJobs, error: completedJobsError },
+        { count: unscheduledJobs, error: unscheduledJobsError },
         { count: unsentInvoices, error: unsentInvoicesError },
         { count: totalCompanies, error: totalCompaniesError },
         { count: totalLocations, error: totalLocationsError },
@@ -407,6 +423,10 @@ const Home = () => {
           .from("jobs")
           .select("*", { count: "exact", head: true })
           .eq("status", "completed"),
+        supabase
+          .from("jobs")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "unscheduled"),
         supabase
           .from("job_invoices")
           .select("*", { count: "exact", head: true })
@@ -423,6 +443,8 @@ const Home = () => {
         console.error("Error fetching scheduled jobs:", scheduledJobsError);
       if (completedJobsError)
         console.error("Error fetching completed jobs:", completedJobsError);
+      if (unscheduledJobsError)
+        console.error("Error fetching unscheduled jobs:", unscheduledJobsError);
       if (unsentInvoicesError)
         console.error("Error fetching unsent invoices:", unsentInvoicesError);
       if (totalCompaniesError)
@@ -462,19 +484,62 @@ const Home = () => {
         );
       }
 
-      // Fetch invoice values
-      const { data: invoiceData, error: invoiceError } = await supabase
-        .from("job_invoices")
-        .select("amount")
-        .eq("status", "draft");
+      // Fetch invoice statistics
+      const [
+        { count: totalInvoices, error: totalInvoicesError },
+        { count: paidInvoices, error: paidInvoicesError },
+        { count: pendingInvoices, error: pendingInvoicesError },
+        { data: draftInvoiceData, error: draftInvoiceError },
+        { data: paidInvoiceData, error: paidInvoiceError },
+        { data: pendingInvoiceData, error: pendingInvoiceError },
+      ] = await Promise.all([
+        supabase
+          .from("job_invoices")
+          .select("*", { count: "exact", head: true }),
+        supabase
+          .from("job_invoices")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "paid"),
+        supabase
+          .from("job_invoices")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "sent"),
+        supabase.from("job_invoices").select("amount").eq("status", "draft"),
+        supabase.from("job_invoices").select("amount").eq("status", "paid"),
+        supabase.from("job_invoices").select("amount").eq("status", "sent"),
+      ]);
 
-      if (invoiceError) {
-        console.error("Error fetching invoice data:", invoiceError);
-      }
+      if (totalInvoicesError)
+        console.error("Error fetching total invoices:", totalInvoicesError);
+      if (paidInvoicesError)
+        console.error("Error fetching paid invoices:", paidInvoicesError);
+      if (pendingInvoicesError)
+        console.error("Error fetching pending invoices:", pendingInvoicesError);
+      if (draftInvoiceError)
+        console.error("Error fetching draft invoice data:", draftInvoiceError);
+      if (paidInvoiceError)
+        console.error("Error fetching paid invoice data:", paidInvoiceError);
+      if (pendingInvoiceError)
+        console.error(
+          "Error fetching pending invoice data:",
+          pendingInvoiceError
+        );
 
       const totalInvoiceValue =
-        invoiceData?.reduce((sum, inv) => sum + Number(inv.amount || 0), 0) ||
-        0;
+        draftInvoiceData?.reduce(
+          (sum, inv) => sum + Number(inv.amount || 0),
+          0
+        ) || 0;
+      const totalPaidAmount =
+        paidInvoiceData?.reduce(
+          (sum, inv) => sum + Number(inv.amount || 0),
+          0
+        ) || 0;
+      const totalPendingAmount =
+        pendingInvoiceData?.reduce(
+          (sum, inv) => sum + Number(inv.amount || 0),
+          0
+        ) || 0;
 
       // Fetch quote statistics
       const { data: quotesData, error: quotesError } = await supabase
@@ -523,6 +588,7 @@ const Home = () => {
         scheduledJobs: scheduledJobs || 0,
         completedJobs: completedJobs || 0,
         overdueJobs: overdueJobs?.length || 0,
+        unscheduledJobs: unscheduledJobs || 0,
         unsentInvoices: unsentInvoices || 0,
         totalInvoiceValue,
         jobsToSchedule: 0, // Will be calculated
@@ -538,6 +604,11 @@ const Home = () => {
         confirmedQuotes,
         deniedQuotes,
         pendingQuotes,
+        totalInvoices: totalInvoices || 0,
+        paidInvoices: paidInvoices || 0,
+        pendingInvoices: pendingInvoices || 0,
+        totalPaidAmount,
+        totalPendingAmount,
       });
 
       console.log("Manual stats fetched successfully");
@@ -549,6 +620,7 @@ const Home = () => {
         scheduledJobs: 0,
         completedJobs: 0,
         overdueJobs: 0,
+        unscheduledJobs: 0,
         unsentInvoices: 0,
         totalInvoiceValue: 0,
         jobsToSchedule: 0,
@@ -564,6 +636,11 @@ const Home = () => {
         confirmedQuotes: 0,
         deniedQuotes: 0,
         pendingQuotes: 0,
+        totalInvoices: 0,
+        paidInvoices: 0,
+        pendingInvoices: 0,
+        totalPaidAmount: 0,
+        totalPendingAmount: 0,
       });
     }
   };
@@ -642,17 +719,17 @@ const Home = () => {
 
   // Helper functions for TechnicianSchedule component
   const getJobTypeColorClass = (type: string): string => {
-    switch (type.toLowerCase()) {
+    switch (type?.toLowerCase()) {
+      case "preventative maintenance":
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      case "service call":
+        return "bg-cyan-100 text-cyan-800 border-cyan-200";
+      case "repair":
+        return "bg-amber-100 text-amber-800 border-amber-200";
+      case "installation":
+        return "bg-emerald-100 text-emerald-800 border-emerald-200";
       case "inspection":
         return "bg-blue-100 text-blue-800 border-blue-200";
-      case "service call":
-        return "bg-orange-100 text-orange-800 border-orange-200";
-      case "preventative maintenance":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "repair":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "replacement":
-        return "bg-purple-100 text-purple-800 border-purple-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
@@ -910,139 +987,187 @@ const Home = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Link
           to="/jobs"
-          className="card dashboard-card metric-card dashboard-link bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200"
+          className="card dashboard-card metric-card dashboard-link bg-white border border-gray-200 hover:border-gray-300 transition-colors duration-200"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-600">Total Jobs</p>
-              <p className="text-2xl font-bold text-blue-900">
+              <p className="text-sm font-medium text-gray-500">Total Jobs</p>
+              <p className="text-3xl font-semibold text-gray-900">
                 {isLoading ? "..." : stats.totalJobs}
               </p>
             </div>
-            <div className="p-3 bg-blue-500 rounded-lg">
-              <ClipboardList size={20} className="text-white" />
+            <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <ClipboardList className="h-6 w-6 text-blue-600" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-sm text-blue-700">
-            <TrendingUp size={14} className="mr-1" />
-            <span>{stats.scheduledJobs} scheduled</span>
+          <div className="mt-4">
+            <Link
+              to="/jobs"
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              View all jobs →
+            </Link>
           </div>
         </Link>
 
         <Link
           to="/jobs?status=completed"
-          className="card dashboard-card metric-card dashboard-link bg-gradient-to-br from-green-50 to-green-100 border-green-200"
+          className="card dashboard-card metric-card dashboard-link bg-white border border-gray-200 hover:border-gray-300 transition-colors duration-200"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-green-600">Completed</p>
-              <p className="text-2xl font-bold text-green-900">
+              <p className="text-sm font-medium text-gray-500">Completed</p>
+              <p className="text-3xl font-semibold text-gray-900">
                 {isLoading ? "..." : stats.completedJobs}
               </p>
             </div>
-            <div className="p-3 bg-green-500 rounded-lg">
-              <CheckCircle size={20} className="text-white" />
+            <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-6 w-6 text-green-600" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-sm text-green-700">
-            <Calendar size={14} className="mr-1" />
-            <span>This month</span>
+          <div className="mt-4">
+            <Link
+              to="/jobs?status=completed"
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              View completed jobs →
+            </Link>
           </div>
         </Link>
 
         <Link
           to="/jobs?overdue=true"
-          className="card dashboard-card metric-card dashboard-link bg-gradient-to-br from-red-50 to-red-100 border-red-200"
+          className="card dashboard-card metric-card dashboard-link bg-white border border-gray-200 hover:border-gray-300 transition-colors duration-200"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-red-600">Overdue</p>
-              <p className="text-2xl font-bold text-red-900">
+              <p className="text-sm font-medium text-gray-500">Overdue</p>
+              <p className="text-3xl font-semibold text-gray-900">
                 {isLoading ? "..." : stats.overdueJobs}
               </p>
             </div>
-            <div className="p-3 bg-red-500 rounded-lg">
-              <AlertTriangle size={20} className="text-white" />
+            <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-sm text-red-700">
-            <Clock size={14} className="mr-1" />
-            <span>Past due date</span>
+          <div className="mt-4">
+            <Link
+              to="/jobs?overdue=true"
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              View overdue jobs →
+            </Link>
           </div>
         </Link>
 
         <Link
-          to="/invoices?status=draft"
-          className="card dashboard-card metric-card dashboard-link bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200"
+          to="/jobs?status=unscheduled"
+          className="card dashboard-card metric-card dashboard-link bg-white border border-gray-200 hover:border-gray-300 transition-colors duration-200"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-purple-600">Revenue</p>
-              <p className="text-2xl font-bold text-purple-900">
-                {isLoading ? "..." : formatCurrency(stats.totalInvoiceValue)}
+              <p className="text-sm font-medium text-gray-500">
+                Jobs Unscheduled
+              </p>
+              <p className="text-3xl font-semibold text-gray-900">
+                {isLoading ? "..." : stats.unscheduledJobs}
               </p>
             </div>
-            <div className="p-3 bg-purple-500 rounded-lg">
-              <DollarSign size={20} className="text-white" />
+            <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center">
+              <Clock className="h-6 w-6 text-orange-600" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-sm text-purple-700">
-            <FileInvoice size={14} className="mr-1" />
-            <span>{stats.unsentInvoices} unsent invoices</span>
+          <div className="mt-4">
+            <Link
+              to="/jobs?status=unscheduled"
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              View unscheduled jobs →
+            </Link>
           </div>
         </Link>
       </div>
 
       {/* Business Overview and Quote Statistics with Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Business Overview */}
+        {/* Revenue Statistics */}
         <div className="card dashboard-card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-primary-600" />
-              Business Overview
+              <DollarSign className="h-5 w-5 text-primary-600" />
+              Revenue Statistics
             </h3>
+            <Link
+              to="/invoices"
+              className="text-sm text-primary-600 hover:text-primary-800 flex items-center gap-1"
+            >
+              View All
+              <ArrowRight size={14} />
+            </Link>
           </div>
           <div className="space-y-4">
             <Link
-              to="/companies"
-              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Building2 size={16} className="text-blue-600" />
-                </div>
-                <span className="font-medium">Companies</span>
-              </div>
-              <span className="text-lg font-semibold">
-                {stats.totalCompanies}
-              </span>
-            </Link>
-            <Link
-              to="/locations"
-              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+              to="/invoices/paid"
+              className="flex items-center justify-between p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors duration-200 cursor-pointer border border-gray-200"
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 rounded-lg">
-                  <MapPin size={16} className="text-green-600" />
+                  <CheckCircle size={16} className="text-green-600" />
                 </div>
-                <span className="font-medium">Locations</span>
+                <div>
+                  <span className="font-medium text-gray-900">
+                    Paid Invoices
+                  </span>
+                  <p className="text-xs text-gray-500">
+                    {stats.paidInvoices} invoices
+                  </p>
+                </div>
               </div>
-              <span className="text-lg font-semibold">
-                {stats.totalLocations}
+              <span className="text-lg font-semibold text-gray-900">
+                {formatCurrency(stats.totalPaidAmount)}
               </span>
             </Link>
             <Link
-              to="/units"
-              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+              to="/invoices/pending"
+              className="flex items-center justify-between p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors duration-200 cursor-pointer border border-gray-200"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Users size={16} className="text-purple-600" />
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <Clock size={16} className="text-yellow-600" />
                 </div>
-                <span className="font-medium">Units</span>
+                <div>
+                  <span className="font-medium text-gray-900">
+                    Pending Invoices
+                  </span>
+                  <p className="text-xs text-gray-500">
+                    {stats.pendingInvoices} invoices
+                  </p>
+                </div>
               </div>
-              <span className="text-lg font-semibold">{stats.totalUnits}</span>
+              <span className="text-lg font-semibold text-gray-900">
+                {formatCurrency(stats.totalPendingAmount)}
+              </span>
+            </Link>
+            <Link
+              to="/invoices?status=draft"
+              className="flex items-center justify-between p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors duration-200 cursor-pointer border border-gray-200"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <FileInvoice size={16} className="text-blue-600" />
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">
+                    Draft Invoices
+                  </span>
+                  <p className="text-xs text-gray-500">
+                    {stats.unsentInvoices} invoices
+                  </p>
+                </div>
+              </div>
+              <span className="text-lg font-semibold text-gray-900">
+                {formatCurrency(stats.totalInvoiceValue)}
+              </span>
             </Link>
           </div>
         </div>
@@ -1063,30 +1188,30 @@ const Home = () => {
             </Link>
           </div>
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+            <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
               <div className="flex items-center gap-2">
                 <CheckCircle size={16} className="text-green-600" />
-                <span className="font-medium text-green-800">Confirmed</span>
+                <span className="font-medium text-gray-900">Confirmed</span>
               </div>
-              <span className="text-xl font-bold text-green-600">
+              <span className="text-xl font-bold text-gray-900">
                 {stats.confirmedQuotes}
               </span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+            <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
               <div className="flex items-center gap-2">
                 <XCircle size={16} className="text-red-600" />
-                <span className="font-medium text-red-800">Denied</span>
+                <span className="font-medium text-gray-900">Denied</span>
               </div>
-              <span className="text-xl font-bold text-red-600">
+              <span className="text-xl font-bold text-gray-900">
                 {stats.deniedQuotes}
               </span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+            <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
               <div className="flex items-center gap-2">
                 <Clock size={16} className="text-yellow-600" />
-                <span className="font-medium text-yellow-800">Pending</span>
+                <span className="font-medium text-gray-900">Pending</span>
               </div>
-              <span className="text-xl font-bold text-yellow-600">
+              <span className="text-xl font-bold text-gray-900">
                 {stats.pendingQuotes}
               </span>
             </div>
@@ -1270,6 +1395,9 @@ const Home = () => {
             onActivateDragMode={handleActivateDragMode}
           />
         </div>
+
+        {/* Job Type Legend */}
+        <JobTypeLegend />
       </div>
 
       {/* Recent Jobs */}

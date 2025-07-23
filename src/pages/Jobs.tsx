@@ -94,6 +94,13 @@ const Jobs = () => {
         status: "completed",
         showCompleted: true,
       }));
+    } else if (status === "unscheduled") {
+      console.log("🔍 Setting status filter to unscheduled");
+      setFilters((prev) => ({
+        ...prev,
+        status: "unscheduled",
+        showCompleted: false,
+      }));
     } else if (overdue === "true") {
       console.log("🔍 Setting overdue filter");
       setFilters((prev) => ({
@@ -189,6 +196,12 @@ const Jobs = () => {
           // URL parameter takes precedence over state
           query = query.eq("status", "completed");
           console.log("🔍 Applied URL status filter:", { status: "completed" });
+        } else if (urlStatus === "unscheduled") {
+          // URL parameter takes precedence over state
+          query = query.eq("status", "unscheduled");
+          console.log("🔍 Applied URL status filter:", {
+            status: "unscheduled",
+          });
         } else if (filters.status !== "All") {
           // Fall back to state-based filtering
           query = query.eq("status", filters.status.toLowerCase());
@@ -232,6 +245,8 @@ const Jobs = () => {
           queryApplied:
             urlStatus === "completed"
               ? "URL status filter"
+              : urlStatus === "unscheduled"
+              ? "URL unscheduled filter"
               : urlOverdue === "true"
               ? "URL overdue filter"
               : filters.status !== "All"
@@ -486,13 +501,19 @@ const Jobs = () => {
   };
 
   const getTypeBadgeClass = (type: string) => {
-    switch (type) {
+    switch (type?.toLowerCase()) {
       case "preventative maintenance":
-        return "bg-purple-100 text-purple-800";
+        return "bg-purple-100 text-purple-800 border-purple-200";
       case "service call":
-        return "bg-cyan-100 text-cyan-800";
+        return "bg-cyan-100 text-cyan-800 border-cyan-200";
+      case "repair":
+        return "bg-amber-100 text-amber-800 border-amber-200";
+      case "installation":
+        return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      case "inspection":
+        return "bg-blue-100 text-blue-800 border-blue-200";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
@@ -727,6 +748,7 @@ const Jobs = () => {
 
       {/* URL Parameter Filter Indicator */}
       {(searchParams.get("status") === "completed" ||
+        searchParams.get("status") === "unscheduled" ||
         searchParams.get("overdue") === "true") && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
           <div className="flex items-center gap-2">
@@ -734,6 +756,8 @@ const Jobs = () => {
             <span className="text-sm font-medium text-blue-800">
               {searchParams.get("status") === "completed"
                 ? "Showing completed jobs only"
+                : searchParams.get("status") === "unscheduled"
+                ? "Showing unscheduled jobs only"
                 : "Showing overdue jobs only"}
             </span>
             <button
