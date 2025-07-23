@@ -10,6 +10,9 @@ import {
   Tag,
   Plus,
   Package,
+  Users,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { useSupabase } from "../lib/supabase-context";
 import BackLink from "../components/ui/BackLink";
@@ -36,7 +39,47 @@ type Unit = Database["public"]["Tables"]["units"]["Row"] & {
   };
 };
 
-type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
+type Job = {
+  id: string;
+  number: string;
+  name: string;
+  status: string;
+  type: string;
+  service_line: string | null;
+  schedule_start: string | null;
+  schedule_duration: string | null;
+  time_period_start: string;
+  time_period_due: string;
+  updated_at: string;
+  created_at: string;
+  description: string | null;
+  problem_description: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  contact_type: string | null;
+  service_contract: string | null;
+  customer_po: string | null;
+  office: string | null;
+  is_training: boolean | null;
+  locations?: {
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    companies: {
+      name: string;
+    };
+  };
+  job_technicians?: {
+    users: {
+      first_name: string | null;
+      last_name: string | null;
+      email: string;
+      phone: string | null;
+    };
+  }[];
   job_items?: {
     total_cost: number;
   }[];
@@ -126,14 +169,74 @@ const UnitDetails = () => {
       if (!UUID_REGEX.test(id)) return;
 
       try {
-        // Fetch jobs for this unit via job_units join table
+        // Fetch job IDs for this unit via job_units join table
         const { data: jobUnitsData, error: jobUnitsError } = await supabase
           .from("job_units")
-          .select("job_id, jobs:job_id(*)")
+          .select("job_id")
           .eq("unit_id", id);
         if (jobUnitsError) throw jobUnitsError;
-        const jobs = (jobUnitsData || []).map((ju: any) => ju.jobs);
-        setJobs(jobs);
+
+        if (jobUnitsData && jobUnitsData.length > 0) {
+          const jobIds = jobUnitsData.map((ju: any) => ju.job_id);
+
+          // Fetch detailed job information directly from jobs table
+          const { data: jobsData, error: jobsError } = await supabase
+            .from("jobs")
+            .select(
+              `
+              id,
+              number,
+              name,
+              status,
+              type,
+              service_line,
+              schedule_start,
+              schedule_duration,
+              time_period_start,
+              time_period_due,
+              updated_at,
+              created_at,
+              description,
+              problem_description,
+              contact_name,
+              contact_phone,
+              contact_email,
+              contact_type,
+              service_contract,
+              customer_po,
+              office,
+              is_training,
+              locations (
+                name,
+                address,
+                city,
+                state,
+                zip,
+                companies (
+                  name
+                )
+              ),
+              job_technicians (
+                users (
+                  first_name,
+                  last_name,
+                  email,
+                  phone
+                )
+              ),
+              job_items (
+                total_cost
+              )
+            `
+            )
+            .in("id", jobIds)
+            .order("updated_at", { ascending: false });
+
+          if (jobsError) throw jobsError;
+          setJobs(jobsData || []);
+        } else {
+          setJobs([]);
+        }
       } catch (err) {
         console.error("Error fetching jobs for unit:", err);
       }
@@ -433,9 +536,10 @@ const UnitDetails = () => {
                     key={job.id}
                     className="border rounded-lg p-4 hover:bg-gray-50"
                   >
-                    <div className="flex justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        {/* Top row with job number and badges */}
+                        <div className="flex items-center gap-2 mb-2">
                           <span className="text-sm font-medium text-gray-500">
                             Job #{job.number}
                           </span>
@@ -453,48 +557,96 @@ const UnitDetails = () => {
                           >
                             {job.type}
                           </span>
+                          {job.service_contract && (
+                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
+                              {job.service_contract}
+                            </span>
+                          )}
+                          {job.job_items && job.job_items.length > 0 && (
+                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                              ${getJobTotalCost(job).toFixed(2)}
+                            </span>
+                          )}
                           {job.is_training && (
                             <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
                               training
                             </span>
                           )}
-                          {job.job_items && job.job_items.length > 0 && (
-                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
-                              ${getJobTotalCost(job).toFixed(2)}
-                            </span>
-                          )}
                         </div>
+
+                        {/* Job name */}
                         <Link
                           to={`/jobs/${job.id}`}
-                          className="text-lg font-medium text-primary-600 hover:text-primary-800"
+                          className="text-lg font-bold text-primary-600 hover:text-primary-800 mb-1 block"
                         >
                           {job.name}
                         </Link>
-                        <div className="text-sm text-gray-500 mt-1">
-                          {job.service_line && (
-                            <div className="flex items-center gap-1">
-                              <Tag size={14} />
-                              <span>{job.service_line}</span>
+
+                        {/* Client and location info */}
+                        {job.locations && (
+                          <div className="text-sm text-gray-600 mb-1">
+                            {job.locations.companies?.name && (
+                              <span>{job.locations.companies.name}</span>
+                            )}
+                            {job.locations.name && (
+                              <span> • {job.locations.name}</span>
+                            )}
+                            {job.locations.address && (
+                              <div className="text-gray-500">
+                                {job.locations.address} • {job.locations.city},{" "}
+                                {job.locations.state}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Technicians */}
+                        {job.job_technicians &&
+                          job.job_technicians.length > 0 && (
+                            <div className="text-sm text-gray-600 mb-1">
+                              Technicians:{" "}
+                              {job.job_technicians
+                                .map((jt, idx) => {
+                                  const fullName = `${
+                                    jt.users.first_name || ""
+                                  } ${jt.users.last_name || ""}`.trim();
+                                  return fullName;
+                                })
+                                .filter(Boolean)
+                                .join(", ")}
                             </div>
                           )}
-                          {job.description && (
-                            <p className="mt-1 line-clamp-2">
-                              {job.description}
-                            </p>
-                          )}
-                        </div>
+
+                        {/* Contact info */}
+                        {(job.contact_name || job.contact_email) && (
+                          <div className="text-sm text-gray-600">
+                            {job.contact_name && (
+                              <span>{job.contact_name}</span>
+                            )}
+                            {job.contact_email && (
+                              <span>
+                                {job.contact_name ? " • " : ""}
+                                {job.contact_email}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm font-medium">
+
+                      {/* Right side - dates and scheduling */}
+                      <div className="text-right text-sm">
+                        <div className="text-gray-500 mb-1">
                           Start: {job.time_period_start}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-gray-500 mb-1">
                           Due: {job.time_period_due}
                         </div>
                         {job.schedule_start && (
-                          <div className="text-sm text-gray-500 flex items-center justify-end gap-1 mt-1">
-                            <Clock size={14} />
-                            <span>{formatDateTime(job.schedule_start)}</span>
+                          <div className="text-gray-500">
+                            Schedule: {formatDateTime(job.schedule_start)}
+                            {job.schedule_duration && (
+                              <span> ({job.schedule_duration})</span>
+                            )}
                           </div>
                         )}
                       </div>

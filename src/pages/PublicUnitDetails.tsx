@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Package,
   Eye,
+  Users,
 } from "lucide-react";
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
@@ -35,9 +36,46 @@ type Unit = Database["public"]["Tables"]["units"]["Row"] & {
   primary_contact_type?: string | null;
 };
 
-type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
-  job_items?: {
-    total_cost: number;
+type Job = {
+  id: string;
+  number: string;
+  name: string;
+  status: string;
+  type: string;
+  service_line: string | null;
+  schedule_start: string | null;
+  schedule_duration: string | null;
+  time_period_start: string;
+  time_period_due: string;
+  updated_at: string;
+  created_at: string;
+  description: string | null;
+  problem_description: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  contact_type: string | null;
+  service_contract: string | null;
+  customer_po: string | null;
+  office: string | null;
+  is_training: boolean | null;
+  locations?: {
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    companies: {
+      name: string;
+    };
+  };
+  job_technicians?: {
+    users: {
+      first_name: string | null;
+      last_name: string | null;
+      email: string;
+      phone: string | null;
+    };
   }[];
 };
 
@@ -111,26 +149,73 @@ const PublicUnitDetails = () => {
         if (data) {
           const { data: jobUnitsData, error: jobUnitsError } = await supabase
             .from("job_units")
-            .select(
-              "job_id, jobs:job_id(id, number, name, status, type, service_line, schedule_start, updated_at, created_at, description, problem_description, contact_name, contact_phone, contact_email)"
-            )
+            .select("job_id")
             .eq("unit_id", id);
           if (jobUnitsError) throw jobUnitsError;
 
           console.log("Job units data:", jobUnitsData);
 
-          const jobs = (jobUnitsData || [])
-            .map((ju: any) => ju.jobs)
-            .filter((job: any) => job) // Show all jobs, including those without status
-            .sort(
-              (a: any, b: any) =>
-                new Date(b.updated_at).getTime() -
-                new Date(a.updated_at).getTime()
-            )
-            .slice(0, 10); // Show more jobs
+          if (jobUnitsData && jobUnitsData.length > 0) {
+            const jobIds = jobUnitsData.map((ju: any) => ju.job_id);
 
-          console.log("Filtered jobs:", jobs);
-          setRecentJobs(jobs);
+            // Fetch detailed job information directly from jobs table
+            const { data: jobsData, error: jobsError } = await supabase
+              .from("jobs")
+              .select(
+                `
+                id,
+                number,
+                name,
+                status,
+                type,
+                service_line,
+                schedule_start,
+                schedule_duration,
+                time_period_start,
+                time_period_due,
+                updated_at,
+                created_at,
+                description,
+                problem_description,
+                contact_name,
+                contact_phone,
+                contact_email,
+                contact_type,
+                service_contract,
+                customer_po,
+                office,
+                is_training,
+                locations (
+                  name,
+                  address,
+                  city,
+                  state,
+                  zip,
+                  companies (
+                    name
+                  )
+                ),
+                job_technicians (
+                  users (
+                    first_name,
+                    last_name,
+                    email,
+                    phone
+                  )
+                )
+              `
+              )
+              .in("id", jobIds)
+              .order("updated_at", { ascending: false })
+              .limit(10);
+
+            if (jobsError) throw jobsError;
+
+            console.log("Detailed jobs data:", jobsData);
+            setRecentJobs((jobsData as unknown as Job[]) || []);
+          } else {
+            setRecentJobs([]);
+          }
 
           // Fetch assets for this unit
           const { data: assetsData, error: assetsError } = await supabase
@@ -380,14 +465,15 @@ const PublicUnitDetails = () => {
             <div className="space-y-4">
               {recentJobs.map((job) => (
                 <div key={job.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      {/* Top row with job number and badges */}
+                      <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-medium text-gray-500">
                           Job #{job.number}
                         </span>
                         <span
-                          className={`badge ${
+                          className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
                             job.status === "completed"
                               ? "bg-green-100 text-green-800"
                               : job.status === "scheduled"
@@ -401,75 +487,93 @@ const PublicUnitDetails = () => {
                         >
                           {job.status || "unknown"}
                         </span>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-cyan-100 text-cyan-800">
                           {job.type}
                         </span>
+                        {job.service_contract && (
+                          <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
+                            {job.service_contract}
+                          </span>
+                        )}
+                        {job.is_training && (
+                          <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                            training
+                          </span>
+                        )}
                       </div>
-                      <p className="font-medium">{job.name}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm text-gray-500 flex items-center justify-end gap-1">
-                        <Clock size={14} />
-                        <span>{formatDate(job.updated_at)}</span>
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    {job.service_line && (
-                      <div className="flex items-center gap-1 text-gray-600">
-                        <Tag size={14} />
-                        <span className="font-semibold">Service:</span>
-                        <span>{job.service_line}</span>
-                      </div>
-                    )}
+                      {/* Job name */}
+                      <h3 className="text-lg font-bold text-primary-600 mb-1">
+                        {job.name}
+                      </h3>
 
-                    {job.schedule_start && (
-                      <div className="flex items-center gap-1 text-gray-600">
-                        <Calendar size={14} />
-                        <span className="font-semibold">Scheduled:</span>
-                        <span>{formatDate(job.schedule_start)}</span>
-                      </div>
-                    )}
-
-                    {job.contact_name && (
-                      <div className="flex items-center gap-1 text-gray-600">
-                        <span className="font-semibold">Contact:</span>
-                        <span>{job.contact_name}</span>
-                      </div>
-                    )}
-
-                    {job.contact_phone && (
-                      <div className="flex items-center gap-1 text-gray-600">
-                        <Phone size={14} />
-                        <span>{job.contact_phone}</span>
-                      </div>
-                    )}
-
-                    {job.contact_email && (
-                      <div className="flex items-center gap-1 text-gray-600">
-                        <Mail size={14} />
-                        <span>{job.contact_email}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {(job.description || job.problem_description) && (
-                    <div className="mt-3 pt-3 border-t border-gray-100">
-                      {job.description && (
-                        <div className="text-sm text-gray-600 mb-2">
-                          <span className="font-semibold">Description:</span>
-                          <p className="mt-1">{job.description}</p>
+                      {/* Client and location info */}
+                      {job.locations && (
+                        <div className="text-sm text-gray-600 mb-1">
+                          {job.locations.companies?.name && (
+                            <span>{job.locations.companies.name}</span>
+                          )}
+                          {job.locations.name && (
+                            <span> • {job.locations.name}</span>
+                          )}
+                          {job.locations.address && (
+                            <div className="text-gray-500">
+                              {job.locations.address} • {job.locations.city},{" "}
+                              {job.locations.state}
+                            </div>
+                          )}
                         </div>
                       )}
-                      {job.problem_description && (
+
+                      {/* Technicians */}
+                      {job.job_technicians &&
+                        job.job_technicians.length > 0 && (
+                          <div className="text-sm text-gray-600 mb-1">
+                            Technicians:{" "}
+                            {job.job_technicians
+                              .map((jt, idx) => {
+                                const fullName = `${
+                                  jt.users.first_name || ""
+                                } ${jt.users.last_name || ""}`.trim();
+                                return fullName;
+                              })
+                              .filter(Boolean)
+                              .join(", ")}
+                          </div>
+                        )}
+
+                      {/* Contact info */}
+                      {(job.contact_name || job.contact_email) && (
                         <div className="text-sm text-gray-600">
-                          <span className="font-semibold">Problem:</span>
-                          <p className="mt-1">{job.problem_description}</p>
+                          {job.contact_name && <span>{job.contact_name}</span>}
+                          {job.contact_email && (
+                            <span>
+                              {job.contact_name ? " • " : ""}
+                              {job.contact_email}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
+
+                    {/* Right side - dates and scheduling */}
+                    <div className="text-right text-sm">
+                      <div className="text-gray-500 mb-1">
+                        Start: {formatDate(job.time_period_start)}
+                      </div>
+                      <div className="text-gray-500 mb-1">
+                        Due: {formatDate(job.time_period_due)}
+                      </div>
+                      {job.schedule_start && (
+                        <div className="text-gray-500">
+                          Schedule: {formatDate(job.schedule_start)}
+                          {job.schedule_duration && (
+                            <span> ({job.schedule_duration})</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
