@@ -8,10 +8,12 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
+  MessageSquare,
 } from "lucide-react";
 import AddPermitModal from "./AddPermitModal";
 import EditPermitModal from "./EditPermitModal";
 import ViewPermitFileModal from "./ViewPermitFileModal";
+import LocationComments from "../locations/LocationComments";
 
 type Permit = Database["public"]["Tables"]["permits"]["Row"] & {
   locations?: {
@@ -34,7 +36,7 @@ interface PermitSectionMobileProps {
 const PermitSectionMobile: React.FC<PermitSectionMobileProps> = ({
   locationId,
   companyId,
-  title = "Permits",
+  title = "Location Permits and Comments",
 }) => {
   const { supabase } = useSupabase();
   const [permits, setPermits] = useState<Permit[]>([]);
@@ -46,10 +48,32 @@ const PermitSectionMobile: React.FC<PermitSectionMobileProps> = ({
   const [selectedPermit, setSelectedPermit] = useState<Permit | null>(null);
   const [deletingPermit, setDeletingPermit] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [activeTab, setActiveTab] = useState<"permits" | "comments">("permits");
+  const [commentsCount, setCommentsCount] = useState(0);
 
   useEffect(() => {
     fetchPermits();
   }, [locationId, companyId]);
+
+  useEffect(() => {
+    const fetchCommentsCount = async () => {
+      if (!supabase || !locationId) return;
+      try {
+        const { count, error } = await supabase
+          .from("location_comments")
+          .select("*", { count: "exact", head: true })
+          .eq("location_id", locationId);
+
+        if (error) throw error;
+        setCommentsCount(count || 0);
+      } catch (error) {
+        console.error("Error fetching comments count:", error);
+        setCommentsCount(0);
+      }
+    };
+
+    fetchCommentsCount();
+  }, [supabase, locationId]);
 
   const fetchPermits = async () => {
     if (!supabase) return;
@@ -189,16 +213,18 @@ const PermitSectionMobile: React.FC<PermitSectionMobileProps> = ({
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium flex items-center">
           <FileCheck className="h-4 w-4 text-green-600 mr-2" />
-          {title} ({permits.length})
+          {title}
         </h3>
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleAddPermit}
-            className="btn btn-primary btn-sm"
-            disabled={!locationId}
-          >
-            <Plus size={14} className="mr-1" /> Add
-          </button>
+          {activeTab === "permits" && (
+            <button
+              onClick={handleAddPermit}
+              className="btn btn-primary btn-sm"
+              disabled={!locationId}
+            >
+              <Plus size={14} className="mr-1" /> Add
+            </button>
+          )}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="p-1 text-gray-500 hover:text-gray-700"
@@ -212,132 +238,195 @@ const PermitSectionMobile: React.FC<PermitSectionMobileProps> = ({
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="mb-4 flex border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab("permits")}
+          className={`flex-1 px-3 py-2 text-sm font-medium ${
+            activeTab === "permits"
+              ? "text-gray-900 border-b-2 border-gray-900"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <div className="flex items-center justify-center">
+            <FileCheck size={14} className="mr-1" />
+            Permits ({permits.length})
+          </div>
+        </button>
+        <button
+          onClick={() => setActiveTab("comments")}
+          className={`flex-1 px-3 py-2 text-sm font-medium ${
+            activeTab === "comments"
+              ? "text-gray-900 border-b-2 border-gray-900"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <div className="flex items-center justify-center">
+            <MessageSquare size={14} className="mr-1" />
+            Comments ({commentsCount})
+          </div>
+        </button>
+      </div>
+
       {isExpanded && (
-        <div className="space-y-3">
-          {permits.length === 0 ? (
-            <div className="text-center py-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <FileCheck className="w-5 h-5 text-gray-400" />
-              </div>
-              <h4 className="text-sm font-medium text-gray-900 mb-1">
-                No permits found
-              </h4>
-              <p className="text-xs text-gray-500 mb-2">
-                {locationId
-                  ? "Add your first permit for this location"
-                  : "No location selected"}
-              </p>
-              <button
-                onClick={handleAddPermit}
-                className="btn btn-primary btn-sm mx-auto"
-                disabled={!locationId}
-              >
-                <Plus size={14} className="mr-1" />
-                Add Permit
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {permits.map((permit) => (
-                <div
-                  key={permit.id}
-                  className="border border-gray-200 rounded-lg p-3 space-y-2"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium text-gray-900 truncate">
-                          {permit.permit_number}
-                        </span>
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
-                            permit.status || "pending"
-                          )}`}
-                        >
-                          {permit.status || "pending"}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500 space-y-1">
-                        <div className="flex items-center gap-1">
-                          <span className="font-medium">
-                            {permit.locations?.companies?.name ||
-                              "Unknown Company"}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span>
-                            {permit.locations?.name} • {permit.locations?.city},{" "}
-                            {permit.locations?.state}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span>
-                            {permit.city}, {permit.county}
-                          </span>
-                        </div>
-                        {permit.mobile && (
-                          <div className="flex items-center gap-1">
-                            <span>{permit.mobile}</span>
-                          </div>
-                        )}
-                        {permit.created_at && (
-                          <div className="flex items-center gap-1">
-                            <span>{formatDate(permit.created_at)}</span>
-                          </div>
-                        )}
-                        {permit.file_name && (
-                          <div className="flex items-center gap-1">
-                            <FileCheck className="w-3 h-3 text-green-600" />
-                            <button
-                              onClick={() => handleViewPermit(permit)}
-                              className="text-blue-600"
-                            >
-                              View File
-                            </button>
-                          </div>
-                        )}
-                        {permit.notes && (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => {
-                                setSelectedPermit(permit);
-                                setShowNotesModal(true);
-                              }}
-                              className="text-blue-600"
-                            >
-                              View Notes
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 ml-2">
-                      <button
-                        onClick={() => handleEditPermit(permit)}
-                        className="p-1 text-indigo-600 hover:text-indigo-800"
-                        title="Edit permit"
-                      >
-                        <Edit className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => handleDeletePermit(permit.id)}
-                        disabled={deletingPermit === permit.id}
-                        className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
-                        title="Delete permit"
-                      >
-                        {deletingPermit === permit.id ? (
-                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600"></div>
-                        ) : (
-                          <Trash2 className="w-3 h-3" />
-                        )}
-                      </button>
-                    </div>
+        <>
+          {/* Content Based on Active Tab */}
+          {activeTab === "permits" && (
+            <div className="space-y-3">
+              {permits.length === 0 ? (
+                <div className="text-center py-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <FileCheck className="w-5 h-5 text-gray-400" />
                   </div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-1">
+                    No permits found
+                  </h4>
+                  <p className="text-xs text-gray-500 mb-2">
+                    {locationId
+                      ? "Add your first permit for this location"
+                      : "No location selected"}
+                  </p>
+                  <button
+                    onClick={handleAddPermit}
+                    className="btn btn-primary btn-sm mx-auto"
+                    disabled={!locationId}
+                  >
+                    <Plus size={14} className="mr-1" />
+                    Add Permit
+                  </button>
                 </div>
-              ))}
+              ) : (
+                <div className="space-y-2">
+                  {permits.map((permit) => (
+                    <div
+                      key={permit.id}
+                      className="border border-gray-200 rounded-lg p-3 space-y-2"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium text-gray-900 truncate">
+                              {permit.permit_number}
+                            </span>
+                            <span
+                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
+                                permit.status || "pending"
+                              )}`}
+                            >
+                              {permit.status || "pending"}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500 space-y-1">
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">
+                                {permit.locations?.companies?.name ||
+                                  "Unknown Company"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span>
+                                {permit.locations?.name} •{" "}
+                                {permit.locations?.city},{" "}
+                                {permit.locations?.state}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span>
+                                {permit.city}, {permit.county}
+                              </span>
+                            </div>
+                            {permit.mobile && (
+                              <div className="flex items-center gap-1">
+                                <span>{permit.mobile}</span>
+                              </div>
+                            )}
+                            {permit.created_at && (
+                              <div className="flex items-center gap-1">
+                                <span>{formatDate(permit.created_at)}</span>
+                              </div>
+                            )}
+                            {permit.file_name && (
+                              <div className="flex items-center gap-1">
+                                <FileCheck className="w-3 h-3 text-green-600" />
+                                <button
+                                  onClick={() => handleViewPermit(permit)}
+                                  className="text-blue-600"
+                                >
+                                  View File
+                                </button>
+                              </div>
+                            )}
+                            {permit.notes && (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    setSelectedPermit(permit);
+                                    setShowNotesModal(true);
+                                  }}
+                                  className="text-blue-600"
+                                >
+                                  View Notes
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={() => handleEditPermit(permit)}
+                            className="p-1 text-indigo-600 hover:text-indigo-800"
+                            title="Edit permit"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePermit(permit.id)}
+                            disabled={deletingPermit === permit.id}
+                            className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
+                            title="Delete permit"
+                          >
+                            {deletingPermit === permit.id ? (
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600"></div>
+                            ) : (
+                              <Trash2 className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
-        </div>
+
+          {/* Comments Tab Content */}
+          {activeTab === "comments" && (
+            <LocationComments
+              locationId={locationId}
+              title="Comments"
+              onCommentsChange={() => {
+                // Refresh comments count when comments change
+                const fetchCommentsCount = async () => {
+                  if (!supabase || !locationId) return;
+                  try {
+                    const { count, error } = await supabase
+                      .from("location_comments")
+                      .select("*", { count: "exact", head: true })
+                      .eq("location_id", locationId);
+
+                    if (error) throw error;
+                    setCommentsCount(count || 0);
+                  } catch (error) {
+                    console.error("Error fetching comments count:", error);
+                    setCommentsCount(0);
+                  }
+                };
+                fetchCommentsCount();
+              }}
+            />
+          )}
+        </>
       )}
 
       {/* Add Permit Modal */}

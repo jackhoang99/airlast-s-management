@@ -12,6 +12,7 @@ import AssetSummary from "../components/locations/AssetSummary";
 import { Dialog } from "@headlessui/react";
 import AddAssetForm from "../components/locations/AddAssetForm";
 import PermitSection from "../components/permits/PermitSection";
+import JobsSection from "../components/jobs/JobsSection";
 
 type Location = Database["public"]["Tables"]["locations"]["Row"] & {
   companies: {
@@ -284,11 +285,18 @@ const LocationDetails = () => {
             <UnitsList location={location} search={unitSearch} />
           </div>
 
-          {/* Permits Section */}
+          {/* Permits and Comments Section */}
           <PermitSection
             locationId={location.id}
             companyId={location.company_id}
-            title="Location Permits"
+            title="Location Permits and Comments"
+          />
+
+          {/* Jobs Section */}
+          <JobsSection
+            locationId={location.id}
+            title="Jobs"
+            createJobLink={`/jobs/create?locationId=${location.id}`}
           />
 
           {/* Asset Summary Section */}

@@ -22,6 +22,7 @@ import QuickAssetViewModal from "../components/locations/QuickAssetViewModal";
 import AssetSummary from "../components/locations/AssetSummary";
 import { Dialog } from "@headlessui/react";
 import AddAssetForm from "../components/locations/AddAssetForm";
+import JobsSection from "../components/jobs/JobsSection";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
 type Location = Database["public"]["Tables"]["locations"]["Row"];
@@ -407,6 +408,14 @@ const CompanyDetails = () => {
           ))
         )}
       </div>
+
+      {/* Jobs Section */}
+      <JobsSection
+        companyId={company.id}
+        title="Jobs"
+        createJobLink={`/jobs/create?companyId=${company.id}`}
+      />
+
       {/* Asset Summary Section */}
       <div className="card mt-6">
         <div className="flex justify-between items-center mb-4">

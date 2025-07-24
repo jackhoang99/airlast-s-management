@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useSupabase } from "../../lib/supabase-context";
 import { Database } from "../../types/supabase";
-import { FileCheck, Plus, Edit, Trash2, Download } from "lucide-react";
+import {
+  FileCheck,
+  Plus,
+  Edit,
+  Trash2,
+  Download,
+  MessageSquare,
+} from "lucide-react";
 import AddPermitModal from "./AddPermitModal";
 import EditPermitModal from "./EditPermitModal";
 import ViewPermitFileModal from "./ViewPermitFileModal";
+import LocationComments from "../locations/LocationComments";
 
 type Permit = Database["public"]["Tables"]["permits"]["Row"] & {
   locations?: {
@@ -27,7 +35,7 @@ interface PermitSectionProps {
 const PermitSection: React.FC<PermitSectionProps> = ({
   locationId,
   companyId,
-  title = "Permits",
+  title = "Location Permits and Comments",
 }) => {
   const { supabase } = useSupabase();
   const [permits, setPermits] = useState<Permit[]>([]);
@@ -38,10 +46,32 @@ const PermitSection: React.FC<PermitSectionProps> = ({
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [selectedPermit, setSelectedPermit] = useState<Permit | null>(null);
   const [deletingPermit, setDeletingPermit] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"permits" | "comments">("permits");
+  const [commentsCount, setCommentsCount] = useState(0);
 
   useEffect(() => {
     fetchPermits();
   }, [locationId, companyId]);
+
+  useEffect(() => {
+    const fetchCommentsCount = async () => {
+      if (!supabase || !locationId) return;
+      try {
+        const { count, error } = await supabase
+          .from("location_comments")
+          .select("*", { count: "exact", head: true })
+          .eq("location_id", locationId);
+
+        if (error) throw error;
+        setCommentsCount(count || 0);
+      } catch (error) {
+        console.error("Error fetching comments count:", error);
+        setCommentsCount(0);
+      }
+    };
+
+    fetchCommentsCount();
+  }, [supabase, locationId]);
 
   const fetchPermits = async () => {
     if (!supabase) return;
@@ -181,18 +211,53 @@ const PermitSection: React.FC<PermitSectionProps> = ({
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-base font-medium flex items-center gap-2">
           <FileCheck className="h-4 w-4 text-primary-600" />
-          {title} ({permits.length})
+          {title}
         </h2>
+        {activeTab === "permits" && (
+          <button
+            onClick={handleAddPermit}
+            className="btn btn-primary btn-xs"
+            disabled={!locationId}
+          >
+            <Plus size={14} className="mr-1" /> Add Permit
+          </button>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-6 flex flex-col sm:flex-row border-b border-gray-200 gap-2 sm:gap-0 overflow-x-auto">
         <button
-          onClick={handleAddPermit}
-          className="btn btn-primary btn-xs"
-          disabled={!locationId}
+          onClick={() => setActiveTab("permits")}
+          className={`w-full sm:w-auto px-4 py-2 font-medium text-sm whitespace-nowrap ${
+            activeTab === "permits"
+              ? "text-gray-900 border-b-2 border-gray-900"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
         >
-          <Plus size={14} className="mr-1" /> Add Permit
+          <div className="flex items-center">
+            <FileCheck size={16} className="mr-2" />
+            Permits ({permits.length})
+          </div>
+        </button>
+        <button
+          onClick={() => setActiveTab("comments")}
+          className={`w-full sm:w-auto px-4 py-2 font-medium text-sm whitespace-nowrap ${
+            activeTab === "comments"
+              ? "text-gray-900 border-b-2 border-gray-900"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <div className="flex items-center">
+            <MessageSquare size={16} className="mr-2" />
+            Comments ({commentsCount})
+          </div>
         </button>
       </div>
 
-      {permits.length === 0 ? (
+      {/* Content Based on Active Tab */}
+      {activeTab === "permits" && (
+        <>
+          {permits.length === 0 ? (
         <div className="text-center py-4">
           <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <FileCheck className="w-6 h-6 text-gray-400" />
@@ -347,6 +412,35 @@ const PermitSection: React.FC<PermitSectionProps> = ({
             </tbody>
           </table>
         </div>
+      )}
+        </>
+      )}
+
+      {/* Comments Tab Content */}
+      {activeTab === "comments" && (
+        <LocationComments 
+          locationId={locationId} 
+          title="Comments" 
+          onCommentsChange={() => {
+            // Refresh comments count when comments change
+            const fetchCommentsCount = async () => {
+              if (!supabase || !locationId) return;
+              try {
+                const { count, error } = await supabase
+                  .from("location_comments")
+                  .select("*", { count: "exact", head: true })
+                  .eq("location_id", locationId);
+
+                if (error) throw error;
+                setCommentsCount(count || 0);
+              } catch (error) {
+                console.error("Error fetching comments count:", error);
+                setCommentsCount(0);
+              }
+            };
+            fetchCommentsCount();
+          }}
+        />
       )}
 
       {/* Add Permit Modal */}

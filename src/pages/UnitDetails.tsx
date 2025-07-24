@@ -1,13 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   Building2,
   MapPin,
   Building,
-  Calendar,
-  Clock,
-  Tag,
   Plus,
   Package,
   Users,
@@ -22,6 +18,7 @@ import { Database } from "../types/supabase";
 import Map from "../components/ui/Map";
 import UnitQRCode from "../components/units/UnitQRCode";
 import AssetSummary from "../components/locations/AssetSummary";
+import JobsSection from "../components/jobs/JobsSection";
 import { Dialog } from "@headlessui/react";
 import AddAssetForm from "../components/locations/AddAssetForm";
 
@@ -37,52 +34,6 @@ type Unit = Database["public"]["Tables"]["units"]["Row"] & {
       name: string;
     };
   };
-};
-
-type Job = {
-  id: string;
-  number: string;
-  name: string;
-  status: string;
-  type: string;
-  service_line: string | null;
-  schedule_start: string | null;
-  schedule_duration: string | null;
-  time_period_start: string;
-  time_period_due: string;
-  updated_at: string;
-  created_at: string;
-  description: string | null;
-  problem_description: string | null;
-  contact_name: string | null;
-  contact_phone: string | null;
-  contact_email: string | null;
-  contact_type: string | null;
-  service_contract: string | null;
-  customer_po: string | null;
-  office: string | null;
-  is_training: boolean | null;
-  locations?: {
-    name: string;
-    address: string;
-    city: string;
-    state: string;
-    zip: string;
-    companies: {
-      name: string;
-    };
-  };
-  job_technicians?: {
-    users: {
-      first_name: string | null;
-      last_name: string | null;
-      email: string;
-      phone: string | null;
-    };
-  }[];
-  job_items?: {
-    total_cost: number;
-  }[];
 };
 
 type Asset = {
@@ -112,7 +63,6 @@ const UnitDetails = () => {
   const navigate = useNavigate();
   const { supabase } = useSupabase();
   const [unit, setUnit] = useState<Unit | null>(null);
-  const [jobs, setJobs] = useState<Job[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -162,86 +112,6 @@ const UnitDetails = () => {
       }
     };
 
-    const fetchJobs = async () => {
-      if (!supabase || !id) return;
-
-      // Don't fetch jobs if UUID is invalid
-      if (!UUID_REGEX.test(id)) return;
-
-      try {
-        // Fetch job IDs for this unit via job_units join table
-        const { data: jobUnitsData, error: jobUnitsError } = await supabase
-          .from("job_units")
-          .select("job_id")
-          .eq("unit_id", id);
-        if (jobUnitsError) throw jobUnitsError;
-
-        if (jobUnitsData && jobUnitsData.length > 0) {
-          const jobIds = jobUnitsData.map((ju: any) => ju.job_id);
-
-          // Fetch detailed job information directly from jobs table
-          const { data: jobsData, error: jobsError } = await supabase
-            .from("jobs")
-            .select(
-              `
-              id,
-              number,
-              name,
-              status,
-              type,
-              service_line,
-              schedule_start,
-              schedule_duration,
-              time_period_start,
-              time_period_due,
-              updated_at,
-              created_at,
-              description,
-              problem_description,
-              contact_name,
-              contact_phone,
-              contact_email,
-              contact_type,
-              service_contract,
-              customer_po,
-              office,
-              is_training,
-              locations (
-                name,
-                address,
-                city,
-                state,
-                zip,
-                companies (
-                  name
-                )
-              ),
-              job_technicians (
-                users (
-                  first_name,
-                  last_name,
-                  email,
-                  phone
-                )
-              ),
-              job_items (
-                total_cost
-              )
-            `
-            )
-            .in("id", jobIds)
-            .order("updated_at", { ascending: false });
-
-          if (jobsError) throw jobsError;
-          setJobs(jobsData || []);
-        } else {
-          setJobs([]);
-        }
-      } catch (err) {
-        console.error("Error fetching jobs for unit:", err);
-      }
-    };
-
     const fetchAssets = async () => {
       if (!supabase || !id) return;
 
@@ -265,64 +135,8 @@ const UnitDetails = () => {
     };
 
     fetchUnit();
-    fetchJobs();
     fetchAssets();
   }, [supabase, id, assetsRefreshKey]);
-
-  const formatDateTime = (dateString: string) => {
-    if (!dateString) return "Not scheduled";
-    const date = new Date(dateString);
-    return date.toLocaleString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
-
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case "scheduled":
-        return "bg-blue-100 text-blue-800";
-      case "unscheduled":
-        return "bg-yellow-100 text-yellow-800";
-      case "completed":
-        return "bg-green-100 text-green-800";
-      case "cancelled":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getTypeBadgeClass = (type: string) => {
-    switch (type?.toLowerCase()) {
-      case "maintenance":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      case "service call":
-        return "bg-cyan-100 text-cyan-800 border-cyan-200";
-      case "repair":
-        return "bg-amber-100 text-amber-800 border-amber-200";
-      case "installation":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200";
-      case "inspection":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
-
-  // Calculate total cost from job items
-  const getJobTotalCost = (job: Job) => {
-    if (!job.job_items || job.job_items.length === 0) return 0;
-    return job.job_items.reduce(
-      (sum, item) => sum + Number(item.total_cost),
-      0
-    );
-  };
 
   if (isLoading) {
     return (
@@ -511,171 +325,11 @@ const UnitDetails = () => {
           </div>
 
           {/* Jobs Section */}
-          <div className="card">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-gray-400" />
-                Jobs
-              </h2>
-              <div className="flex items-center gap-2">
-                <span className="badge">{jobs.length} Jobs</span>
-                <Link
-                  to={`/jobs/create?unitId=${unit.id}`}
-                  className="btn btn-primary btn-sm"
-                >
-                  <Plus size={14} className="mr-1" />
-                  Create Job
-                </Link>
-              </div>
-            </div>
-
-            {jobs.length > 0 ? (
-              <div className="space-y-4">
-                {jobs.map((job) => (
-                  <div
-                    key={job.id}
-                    className="border rounded-lg p-4 hover:bg-gray-50"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        {/* Top row with job number and badges */}
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-sm font-medium text-gray-500">
-                            Job #{job.number}
-                          </span>
-                          <span
-                            className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(
-                              job.status
-                            )}`}
-                          >
-                            {job.status}
-                          </span>
-                          <span
-                            className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getTypeBadgeClass(
-                              job.type
-                            )}`}
-                          >
-                            {job.type}
-                            {job.type === "maintenance" &&
-                              job.additional_type && (
-                                <span className="ml-1">
-                                  • {job.additional_type}
-                                </span>
-                              )}
-                          </span>
-                          {job.service_contract && (
-                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
-                              {job.service_contract}
-                            </span>
-                          )}
-                          {job.job_items && job.job_items.length > 0 && (
-                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                              ${getJobTotalCost(job).toFixed(2)}
-                            </span>
-                          )}
-                          {job.is_training && (
-                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                              training
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Job name */}
-                        <Link
-                          to={`/jobs/${job.id}`}
-                          className="text-lg font-bold text-primary-600 hover:text-primary-800 mb-1 block"
-                        >
-                          {job.name}
-                        </Link>
-
-                        {/* Client and location info */}
-                        {job.locations && (
-                          <div className="text-sm text-gray-600 mb-1">
-                            {job.locations.companies?.name && (
-                              <span>{job.locations.companies.name}</span>
-                            )}
-                            {job.locations.name && (
-                              <span> • {job.locations.name}</span>
-                            )}
-                            {job.locations.address && (
-                              <div className="text-gray-500">
-                                {job.locations.address} • {job.locations.city},{" "}
-                                {job.locations.state}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Technicians */}
-                        {job.job_technicians &&
-                          job.job_technicians.length > 0 && (
-                            <div className="text-sm text-gray-600 mb-1">
-                              Technicians:{" "}
-                              {job.job_technicians
-                                .map((jt, idx) => {
-                                  const fullName = `${
-                                    jt.users.first_name || ""
-                                  } ${jt.users.last_name || ""}`.trim();
-                                  return fullName;
-                                })
-                                .filter(Boolean)
-                                .join(", ")}
-                            </div>
-                          )}
-
-                        {/* Contact info */}
-                        {(job.contact_name || job.contact_email) && (
-                          <div className="text-sm text-gray-600">
-                            {job.contact_name && (
-                              <span>{job.contact_name}</span>
-                            )}
-                            {job.contact_email && (
-                              <span>
-                                {job.contact_name ? " • " : ""}
-                                {job.contact_email}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Right side - dates and scheduling */}
-                      <div className="text-right text-sm">
-                        <div className="text-gray-500 mb-1">
-                          Start: {job.time_period_start}
-                        </div>
-                        <div className="text-gray-500 mb-1">
-                          Due: {job.time_period_due}
-                        </div>
-                        {job.schedule_start && (
-                          <div className="text-gray-500">
-                            Schedule: {formatDateTime(job.schedule_start)}
-                            {job.schedule_duration && (
-                              <span> ({job.schedule_duration})</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 mb-4">
-                  No jobs found for this unit
-                </p>
-                <Link
-                  to={`/jobs/create?unitId=${unit.id}`}
-                  className="btn btn-primary"
-                >
-                  <Plus size={16} className="mr-2" />
-                  Create Job
-                </Link>
-              </div>
-            )}
-          </div>
+          <JobsSection
+            unitId={unit.id}
+            title="Jobs"
+            createJobLink={`/jobs/create?unitId=${unit.id}`}
+          />
 
           {/* Asset Summary Section */}
           <div className="card mt-6">
@@ -728,7 +382,7 @@ const UnitDetails = () => {
                 to={`/jobs/create?unitId=${unit.id}`}
                 className="btn btn-primary w-full justify-start"
               >
-                <Calendar size={16} className="mr-2" />
+                <Plus size={16} className="mr-2" />
                 Create Job
               </Link>
               <Link
@@ -750,45 +404,7 @@ const UnitDetails = () => {
           {/* QR Code Section */}
           <UnitQRCode unitId={unit.id} unitNumber={unit.unit_number} />
 
-          {/* Job Statistics */}
-          {jobs.length > 0 && (
-            <div className="card mt-6">
-              <h2 className="text-lg font-semibold mb-4">Job Statistics</h2>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Total Jobs</span>
-                  <span className="font-medium">{jobs.length}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Completed Jobs</span>
-                  <span className="font-medium">
-                    {jobs.filter((job) => job.status === "completed").length}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Scheduled Jobs</span>
-                  <span className="font-medium">
-                    {jobs.filter((job) => job.status === "scheduled").length}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Unscheduled Jobs</span>
-                  <span className="font-medium">
-                    {jobs.filter((job) => job.status === "unscheduled").length}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Total Cost</span>
-                  <span className="font-medium">
-                    $
-                    {jobs
-                      .reduce((sum, job) => sum + getJobTotalCost(job), 0)
-                      .toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
+
         </div>
       </div>
     </div>

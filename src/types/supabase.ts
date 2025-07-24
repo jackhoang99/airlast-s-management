@@ -783,6 +783,26 @@ export interface Database {
           company_id?: string | null;
         };
       };
+      location_comments: {
+        Row: {
+          id: string;
+          location_id: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          location_id: string;
+          content: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          location_id?: string;
+          content?: string;
+          created_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;
