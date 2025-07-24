@@ -853,43 +853,74 @@ const Home = () => {
         `Updating job ${jobId} schedule: technician ${technicianId}, time ${newScheduleTime}`
       );
 
-      // First, remove existing technician assignments for this job
-      const { error: deleteError } = await supabase
-        .from("job_technicians")
-        .delete()
-        .eq("job_id", jobId);
+      // Get the current job to check if it has multiple technicians assigned
+      const currentJob = scheduledJobs.find((j) => j.id === jobId);
+      const hasMultipleTechnicians =
+        currentJob?.job_technicians && currentJob.job_technicians.length > 1;
 
-      if (deleteError) {
-        console.error("Error removing existing assignments:", deleteError);
-        throw deleteError;
-      }
+      if (hasMultipleTechnicians) {
+        // If job has multiple technicians, just update the schedule time
+        // Keep all existing technician assignments
+        console.log(
+          "Job has multiple technicians - preserving all assignments"
+        );
 
-      // Add new technician assignment
-      const { error: insertError } = await supabase
-        .from("job_technicians")
-        .insert({
-          job_id: jobId,
-          technician_id: technicianId,
-          is_primary: true,
-        });
+        const { error: updateError } = await supabase
+          .from("jobs")
+          .update({
+            schedule_start: newScheduleTime,
+            status: "scheduled",
+          })
+          .eq("id", jobId);
 
-      if (insertError) {
-        console.error("Error assigning technician:", insertError);
-        throw insertError;
-      }
+        if (updateError) {
+          console.error("Error updating job schedule:", updateError);
+          throw updateError;
+        }
+      } else {
+        // If job has only one technician or no technicians, reassign to the target technician
+        console.log(
+          "Job has single technician - reassigning to target technician"
+        );
 
-      // Update job schedule time and status
-      const { error: updateError } = await supabase
-        .from("jobs")
-        .update({
-          schedule_start: newScheduleTime,
-          status: "scheduled",
-        })
-        .eq("id", jobId);
+        // First, remove existing technician assignments for this job
+        const { error: deleteError } = await supabase
+          .from("job_technicians")
+          .delete()
+          .eq("job_id", jobId);
 
-      if (updateError) {
-        console.error("Error updating job schedule:", updateError);
-        throw updateError;
+        if (deleteError) {
+          console.error("Error removing existing assignments:", deleteError);
+          throw deleteError;
+        }
+
+        // Add new technician assignment
+        const { error: insertError } = await supabase
+          .from("job_technicians")
+          .insert({
+            job_id: jobId,
+            technician_id: technicianId,
+            is_primary: true,
+          });
+
+        if (insertError) {
+          console.error("Error assigning technician:", insertError);
+          throw insertError;
+        }
+
+        // Update job schedule time and status
+        const { error: updateError } = await supabase
+          .from("jobs")
+          .update({
+            schedule_start: newScheduleTime,
+            status: "scheduled",
+          })
+          .eq("id", jobId);
+
+        if (updateError) {
+          console.error("Error updating job schedule:", updateError);
+          throw updateError;
+        }
       }
 
       console.log("Job schedule update successful");
@@ -975,6 +1006,102 @@ const Home = () => {
     } catch (err) {
       console.error("Error reassigning job:", err);
       alert("Failed to reassign job. Please try again.");
+    }
+  };
+
+  const handleAssignTechnicians = async (appointment: {
+    technicianIds: string[];
+  }) => {
+    if (!supabase || !selectedJobForModal) return;
+
+    try {
+      console.log(
+        `Assigning technicians to job ${selectedJobForModal.id}:`,
+        appointment.technicianIds
+      );
+
+      // First, remove any existing technicians
+      const { error: deleteError } = await supabase
+        .from("job_technicians")
+        .delete()
+        .eq("job_id", selectedJobForModal.id);
+
+      if (deleteError) throw deleteError;
+
+      // Then add the new technicians
+      const technicianEntries = appointment.technicianIds.map(
+        (techId, index) => ({
+          job_id: selectedJobForModal.id,
+          technician_id: techId,
+          is_primary: index === 0, // First technician is primary
+        })
+      );
+
+      const { error: insertError } = await supabase
+        .from("job_technicians")
+        .insert(technicianEntries);
+
+      if (insertError) throw insertError;
+
+      console.log("Technician assignment successful");
+
+      // Refresh the dashboard data to reflect changes
+      await fetchDashboardData();
+
+      // Update the selected job in the modal with the new technician data
+      // We need to fetch the updated job data specifically for the modal
+      const { data: updatedJobData, error: jobError } = await supabase
+        .from("jobs")
+        .select(
+          `
+          *,
+          locations (
+            id,
+            name,
+            address,
+            city,
+            state,
+            zip,
+            company_id,
+            companies (
+              id,
+              name
+            )
+          ),
+          job_units:job_units!inner (
+            unit_id,
+            units:unit_id (
+              id,
+              unit_number
+            )
+          ),
+          job_technicians (
+            technician_id,
+            is_primary,
+            users:technician_id (
+              first_name,
+              last_name
+            )
+          )
+        `
+        )
+        .eq("id", selectedJobForModal.id)
+        .single();
+
+      if (!jobError && updatedJobData) {
+        // Process the job data to match the expected format
+        const units = (updatedJobData.job_units || []).map(
+          (ju: any) => ju.units
+        );
+        const processedJob = {
+          ...updatedJobData,
+          units,
+        };
+        setSelectedJobForModal(processedJob);
+      }
+    } catch (err) {
+      console.error("Error assigning technicians:", err);
+      alert("Failed to assign technicians. Please try again.");
     }
   };
 
@@ -1510,6 +1637,7 @@ const Home = () => {
           }
         }
         showViewAssetsButton={true}
+        onAssignTechnicians={handleAssignTechnicians}
       />
     </div>
   );

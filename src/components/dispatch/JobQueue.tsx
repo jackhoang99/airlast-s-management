@@ -8,23 +8,42 @@ import {
   Clock,
 } from "lucide-react";
 import { useMediaQuery } from "react-responsive";
+import JobDetailsModal from "../jobs/JobDetailsModal";
 
 interface Job {
   id: string;
+  number: string;
   name: string;
   type: string;
   status: string;
   additional_type?: string;
+  schedule_start?: string;
+  description?: string;
   locations?: {
+    id?: string;
     name: string;
-    zip: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    companies?: {
+      id?: string;
+      name: string;
+    };
   };
   units?: Array<{
-    id: string;
+    id?: string;
     unit_number: string;
-    status: string;
+    status?: string;
   }>;
-  job_technicians?: any[];
+  job_technicians?: {
+    technician_id: string;
+    is_primary: boolean;
+    users: {
+      first_name: string;
+      last_name: string;
+    };
+  }[];
 }
 
 interface JobQueueProps {
@@ -49,6 +68,8 @@ interface JobQueueProps {
   dragModeActive?: boolean;
   selectedJobToDrag?: string | null;
   onSelectJobToDrag?: (jobId: string) => void;
+  onAssignTechnicians?: (appointment: { technicianIds: string[] }) => void;
+  onViewAssets?: (location: any, units: any[]) => void;
 }
 
 const getJobTypeColorClass = (type: string) => {
@@ -79,6 +100,8 @@ const JobQueue = ({
   dragModeActive,
   selectedJobToDrag,
   onSelectJobToDrag,
+  onAssignTechnicians,
+  onViewAssets,
   closeDrawer, // optional prop for mobile close
 }: JobQueueProps & { closeDrawer?: () => void }) => {
   const isMobile = useMediaQuery({ maxWidth: 767 });
@@ -88,6 +111,12 @@ const JobQueue = ({
   const [isDragging, setIsDragging] = useState(false);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
   const jobQueueRef = useRef<HTMLDivElement>(null);
+
+  // Modal state
+  const [showJobModal, setShowJobModal] = useState(false);
+  const [selectedJobForModal, setSelectedJobForModal] = useState<Job | null>(
+    null
+  );
 
   // Simplified drag state management
   useEffect(() => {
@@ -180,6 +209,10 @@ const JobQueue = ({
       }}
       onClick={() => {
         if (!dragModeActive) {
+          // Show the job details modal instead of just calling onJobClick
+          setSelectedJobForModal(job);
+          setShowJobModal(true);
+          // Also call the original onJobClick for backward compatibility
           onJobClick(job.id);
         }
       }}
@@ -419,6 +452,26 @@ const JobQueue = ({
           </>
         )}
       </div>
+
+      {/* Job Details Modal */}
+      <JobDetailsModal
+        isOpen={showJobModal}
+        onClose={() => setShowJobModal(false)}
+        job={
+          selectedJobForModal || {
+            id: "",
+            number: "",
+            name: "",
+            status: "",
+            type: "",
+            locations: { name: "" },
+            units: [],
+          }
+        }
+        onViewAssets={onViewAssets}
+        showViewAssetsButton={true}
+        onAssignTechnicians={onAssignTechnicians}
+      />
     </div>
   );
 };

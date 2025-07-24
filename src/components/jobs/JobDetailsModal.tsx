@@ -1,7 +1,16 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Building2, Calendar, User, ArrowRight, X } from "lucide-react";
+import {
+  MapPin,
+  Building2,
+  Calendar,
+  User,
+  ArrowRight,
+  X,
+  Plus,
+} from "lucide-react";
 import QuickAssetViewModal from "../locations/QuickAssetViewModal";
+import AppointmentModal from "./AppointmentModal";
 
 interface JobDetailsModalProps {
   isOpen: boolean;
@@ -41,6 +50,7 @@ interface JobDetailsModalProps {
   };
   onViewAssets?: (location: any, units: any[]) => void;
   showViewAssetsButton?: boolean;
+  onAssignTechnicians?: (appointment: { technicianIds: string[] }) => void;
 }
 
 const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
@@ -49,8 +59,11 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   job,
   onViewAssets,
   showViewAssetsButton = true,
+  onAssignTechnicians,
 }) => {
   const [showAssetsModal, setShowAssetsModal] = useState(false);
+  const [showAssignTechniciansModal, setShowAssignTechniciansModal] =
+    useState(false);
   const getJobTypeColorClass = (type: string): string => {
     const colorMap: { [key: string]: string } = {
       maintenance: "bg-purple-100 text-purple-800",
@@ -64,6 +77,15 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   };
 
   if (!isOpen) return null;
+
+  const handleAssignTechnicians = (appointment: {
+    technicianIds: string[];
+  }) => {
+    if (onAssignTechnicians) {
+      onAssignTechnicians(appointment);
+    }
+    setShowAssignTechniciansModal(false);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
@@ -229,9 +251,16 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
           )}
         </div>
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <button
+            className="btn btn-primary flex items-center justify-center"
+            onClick={() => setShowAssignTechniciansModal(true)}
+          >
+            <Plus size={16} className="mr-2" />
+            Assign Technicians
+          </button>
           <a
             href={`/jobs/${job.id}`}
-            className="btn btn-primary flex items-center justify-center"
+            className="btn btn-secondary flex items-center justify-center"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -264,6 +293,16 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
           units={job.units as any}
         />
       )}
+
+      {/* Assign Technicians Modal */}
+      <AppointmentModal
+        isOpen={showAssignTechniciansModal}
+        onClose={() => setShowAssignTechniciansModal(false)}
+        onSave={handleAssignTechnicians}
+        selectedTechnicianIds={
+          job.job_technicians?.map((jt) => jt.technician_id) || []
+        }
+      />
     </div>
   );
 };
