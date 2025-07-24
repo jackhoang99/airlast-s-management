@@ -666,7 +666,7 @@ const JobDetails = () => {
           <PermitSection
             locationId={job.location_id || ""}
             companyId={job.locations?.company_id || ""}
-            title="Location Permits"
+            title="Location Permits and Comments"
           />
 
           {/* Maintenance Checklist Section */}
