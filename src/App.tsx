@@ -48,6 +48,7 @@ import CustomerLogin from "./pages/CustomerLogin";
 import ServiceOpportunities from "./pages/ServiceOpportunities";
 import TechScorecard from "./pages/TechScorecard";
 import PMHistory from "./pages/PMHistory";
+import CreateInvoice from "./pages/CreateInvoice";
 
 function App() {
   const { supabase } = useSupabase();
@@ -127,6 +128,7 @@ function App() {
             <Route path="paid" element={<PaidInvoices />} />
             <Route path="reports" element={<InvoiceReports />} />
           </Route>
+          <Route path="create-invoice/:entityType/:entityId" element={<CreateInvoice />} />
           <Route path="quotes">
             <Route path="templates" element={<QuoteTemplates />} />
           </Route>

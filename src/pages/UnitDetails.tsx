@@ -9,6 +9,8 @@ import {
   Users,
   Mail,
   Phone,
+  Edit,
+  FileInput as FileInvoice,
 } from "lucide-react";
 import { useSupabase } from "../lib/supabase-context";
 import BackLink from "../components/ui/BackLink";
@@ -18,6 +20,7 @@ import { Database } from "../types/supabase";
 import Map from "../components/ui/Map";
 import UnitQRCode from "../components/units/UnitQRCode";
 import AssetSummary from "../components/locations/AssetSummary";
+import QuickAssetViewModal from "../components/locations/QuickAssetViewModal";
 import JobsSection from "../components/jobs/JobsSection";
 import { Dialog } from "@headlessui/react";
 import AddAssetForm from "../components/locations/AddAssetForm";
@@ -67,6 +70,7 @@ const UnitDetails = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddAssetModal, setShowAddAssetModal] = useState(false);
+  const [showUnitAssetsModal, setShowUnitAssetsModal] = useState(false);
   const [assetsRefreshKey, setAssetsRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -174,8 +178,23 @@ const UnitDetails = () => {
           </h1>
         </div>
         <div className="flex gap-2">
-          <Link to={`/units/${unit.id}/edit`} className="btn btn-primary">
-            Edit Unit
+          <Link
+            to={`/jobs/create?unitId=${unit.id}`}
+            className="btn btn-primary"
+          >
+            <Plus size={16} className="mr-2" />
+            Create Job
+          </Link>
+          <Link
+            to={`/create-invoice/unit/${unit.id}`}
+            className="btn btn-secondary"
+          >
+            <FileInvoice size={16} className="mr-2" />
+            Create Invoice
+          </Link>
+          <Link to={`/units/${unit.id}/edit`} className="btn btn-secondary">
+            <Edit size={16} className="mr-2" />
+            Edit
           </Link>
         </div>
       </div>
@@ -386,18 +405,19 @@ const UnitDetails = () => {
                 Create Job
               </Link>
               <Link
-                to={`/units/${unit.id}/edit`}
+                to={`/create-invoice/unit/${unit.id}`}
                 className="btn btn-secondary w-full justify-start"
               >
-                Edit Unit
+                <FileInvoice size={16} className="mr-2" />
+                Create Invoice
               </Link>
-              <Link
-                to={`/units/${unit.id}/assets`}
+              <button
+                onClick={() => setShowUnitAssetsModal(true)}
                 className="btn btn-secondary w-full justify-start"
               >
                 <Package size={16} className="mr-2" />
                 View Assets
-              </Link>
+              </button>
             </div>
           </div>
 
@@ -407,6 +427,16 @@ const UnitDetails = () => {
 
         </div>
       </div>
+
+      {/* Unit Assets Modal */}
+      {showUnitAssetsModal && unit && (
+        <QuickAssetViewModal
+          open={showUnitAssetsModal}
+          onClose={() => setShowUnitAssetsModal(false)}
+          location={unit.locations as any}
+          unit={unit}
+        />
+      )}
     </div>
   );
 };

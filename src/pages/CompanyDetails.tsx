@@ -15,6 +15,11 @@ import {
   MapPin,
   Trash2,
   AlertTriangle,
+  FileInput as FileInvoice,
+  X,
+  Check,
+  DollarSign,
+  Package,
 } from "lucide-react";
 import UnitsList from "../components/locations/UnitsList";
 import Map from "../components/ui/Map";
@@ -39,8 +44,6 @@ const CompanyDetails = () => {
   const [locations, setLocations] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [expandedLocationId, setExpandedLocationId] = useState<string | null>(
     null
   );
@@ -48,6 +51,7 @@ const CompanyDetails = () => {
   const [assetModalLocation, setAssetModalLocation] = useState<Location | null>(
     null
   );
+  const [showCompanyAssetsModal, setShowCompanyAssetsModal] = useState(false);
   const [companyAssets, setCompanyAssets] = useState<any[]>([]);
   const [showAddAssetModal, setShowAddAssetModal] = useState(false);
   const [assetsRefreshKey, setAssetsRefreshKey] = useState(0);
@@ -148,46 +152,14 @@ const CompanyDetails = () => {
     fetchCompanyAssets();
   }, [supabase, company, assetsRefreshKey]);
 
-  const handleDeleteCompany = async () => {
-    if (!supabase || !company) return;
-
-    setIsDeleting(true);
-    setError(null);
-
-    try {
-      // First, delete all locations associated with the company
-      // The cascade delete will handle the units automatically due to the ON DELETE CASCADE
-      const { error: locationsDeleteError } = await supabase
-        .from("locations")
-        .delete()
-        .eq("company_id", company.id);
-
-      if (locationsDeleteError) throw locationsDeleteError;
-
-      // Then delete the company
-      const { error: companyDeleteError } = await supabase
-        .from("companies")
-        .delete()
-        .eq("id", company.id);
-
-      if (companyDeleteError) throw companyDeleteError;
-
-      navigate("/companies");
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to delete company";
-      console.error("Error deleting company:", errorMessage);
-      setError(errorMessage);
-      setIsDeleteModalOpen(false);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const toggleLocation = (locationId: string) => {
     setExpandedLocationId(
       expandedLocationId === locationId ? null : locationId
     );
+  };
+
+  const handleShowAssets = (location: Location) => {
+    setAssetModalLocation(location);
   };
 
   // Filtered locations based on search
@@ -251,19 +223,33 @@ const CompanyDetails = () => {
         />
         <div className="flex space-x-2">
           <Link
+            to={`/companies/${company.id}/location/new`}
+            className="btn btn-primary"
+          >
+            <Plus size={16} className="mr-2" />
+            Add Location
+          </Link>
+          <Link
+            to={`/jobs/create?companyId=${company.id}`}
+            className="btn btn-primary"
+          >
+            <Plus size={16} className="mr-2" />
+            Create Job
+          </Link>
+          <Link
+            to={`/create-invoice/company/${company.id}`}
+            className="btn btn-secondary"
+          >
+            <FileInvoice size={16} className="mr-2" />
+            Create Invoice
+          </Link>
+          <Link
             to={`/companies/${company.id}/edit`}
             className="btn btn-secondary"
           >
             <Edit size={16} className="mr-2" />
             Edit
           </Link>
-          <button
-            onClick={() => setIsDeleteModalOpen(true)}
-            className="btn btn-error"
-          >
-            <Trash2 size={16} className="mr-2" />
-            Delete
-          </button>
         </div>
       </div>
 
@@ -294,10 +280,10 @@ const CompanyDetails = () => {
 
             <div className="mt-6">
               <Map
-                address={company.address}
-                city={company.city}
-                state={company.state}
-                zip={company.zip}
+                address={company.address || ""}
+                city={company.city || ""}
+                state={company.state || ""}
+                zip={company.zip || ""}
                 className="mt-4"
               />
             </div>
@@ -306,7 +292,7 @@ const CompanyDetails = () => {
 
         <div>
           <div className="card">
-            <h2 className="text-lg font-semibold mb-4">Actions</h2>
+            <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
             <div className="space-y-3">
               <Link
                 to={`/companies/${company.id}/location/new`}
@@ -316,15 +302,25 @@ const CompanyDetails = () => {
                 Add Location
               </Link>
               <Link
-                to={`/companies/${company.id}/report`}
+                to={`/jobs/create?companyId=${company.id}`}
+                className="btn btn-primary w-full justify-start"
+              >
+                <Plus size={16} className="mr-2" />
+                Create Job
+              </Link>
+              <Link
+                to={`/create-invoice/company/${company.id}`}
                 className="btn btn-secondary w-full justify-start"
               >
-                <FileText size={16} className="mr-2" />
-                Generate Report
+                <FileInvoice size={16} className="mr-2" />
+                Create Invoice
               </Link>
-              <button className="btn btn-secondary w-full justify-start">
-                <Tag size={16} className="mr-2" />
-                Manage Tags
+              <button
+                onClick={() => setShowCompanyAssetsModal(true)}
+                className="btn btn-secondary w-full justify-start"
+              >
+                <Package size={16} className="mr-2" />
+                View Assets
               </button>
             </div>
           </div>
@@ -375,7 +371,7 @@ const CompanyDetails = () => {
                         : "Show Units"}
                     </button>
                     <button
-                      onClick={() => setAssetModalLocation(location)}
+                      onClick={() => handleShowAssets(location)}
                       className="text-primary-600 hover:text-primary-800 text-sm font-medium"
                     >
                       Show Assets
@@ -455,53 +451,23 @@ const CompanyDetails = () => {
           </div>
         </div>
       </Dialog>
-      <QuickAssetViewModal
-        open={!!assetModalLocation}
-        onClose={() => setAssetModalLocation(null)}
-        location={assetModalLocation as Location}
-      />
 
-      {/* Delete Modal */}
-      {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-            <div className="flex items-center justify-center text-error-600 mb-4">
-              <AlertTriangle size={40} />
-            </div>
-            <h3 className="text-lg font-semibold text-center mb-4">
-              Delete Company
-            </h3>
-            <p className="text-center text-gray-600 mb-6">
-              Are you sure you want to delete <strong>{company.name}</strong>?
-              This will also delete all {locations.length} location
-              {locations.length !== 1 ? "s" : ""} and their units. This action
-              cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                className="btn btn-secondary"
-                onClick={() => setIsDeleteModalOpen(false)}
-                disabled={isDeleting}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-error"
-                onClick={handleDeleteCompany}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-                    Deleting...
-                  </>
-                ) : (
-                  "Delete"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Location Assets Modal */}
+      {assetModalLocation && (
+        <QuickAssetViewModal
+          open={!!assetModalLocation}
+          onClose={() => setAssetModalLocation(null)}
+          location={assetModalLocation}
+        />
+      )}
+
+      {/* Company Assets Modal */}
+      {showCompanyAssetsModal && company && (
+        <QuickAssetViewModal
+          open={showCompanyAssetsModal}
+          onClose={() => setShowCompanyAssetsModal(false)}
+          location={company as any}
+        />
       )}
     </div>
   );

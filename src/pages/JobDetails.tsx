@@ -507,8 +507,8 @@ const JobDetails = () => {
   };
 
   const handleInvoiceCreated = (invoiceId: string) => {
-    // Refresh the page to show the new invoice
-    window.location.reload();
+    // Increment refresh trigger to refresh the invoice section
+    setRefreshTrigger(prev => prev + 1);
   };
 
   if (isLoading) {

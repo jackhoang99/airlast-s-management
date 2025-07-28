@@ -17,6 +17,7 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [searchResults, setSearchResults] = useState<Company[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [existingCompany, setExistingCompany] = useState<Company | null>(null);
@@ -211,6 +212,8 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
+
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -492,6 +495,8 @@ const CompanyForm = ({ initialData, onSuccess }: CompanyFormProps) => {
 
       {/* Hidden div for PlacesService */}
       <div ref={dummyElement} style={{ display: "none" }}></div>
+
+
     </form>
   );
 };

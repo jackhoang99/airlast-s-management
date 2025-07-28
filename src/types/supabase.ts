@@ -700,6 +700,8 @@ export interface Database {
           payment_method: string | null;
           payment_reference: string | null;
           payment_notes: string | null;
+          type: string | null;
+          parent_invoice_id: string | null;
         };
         Insert: {
           id?: string;
@@ -714,6 +716,8 @@ export interface Database {
           payment_method?: string | null;
           payment_reference?: string | null;
           payment_notes?: string | null;
+          type?: string | null;
+          parent_invoice_id?: string | null;
         };
         Update: {
           id?: string;
@@ -728,6 +732,8 @@ export interface Database {
           payment_method?: string | null;
           payment_reference?: string | null;
           payment_notes?: string | null;
+          type?: string | null;
+          parent_invoice_id?: string | null;
         };
       };
       permits: {

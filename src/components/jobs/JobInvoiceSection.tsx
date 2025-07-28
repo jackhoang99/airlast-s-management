@@ -85,6 +85,14 @@ const JobInvoiceSection = ({
   const [selectedInvoiceType, setSelectedInvoiceType] = useState<
     "all" | "replacement" | "repair" | "inspection" | null
   >(null);
+  const [consolidatedJobDetails, setConsolidatedJobDetails] = useState<
+    Array<{
+      jobId: string;
+      jobNumber: string;
+      jobName: string;
+      amount: number;
+    }>
+  >([]);
   // Removed all preview-related state
 
   // Load invoices for this job
@@ -124,14 +132,15 @@ const JobInvoiceSection = ({
           }
         }
 
-        const { data, error: invoicesError } = await supabase
+        // Fetch invoices for this job
+        const { data: invoices, error: invoicesError } = await supabase
           .from("job_invoices")
           .select("*")
           .eq("job_id", job.id)
           .order("created_at", { ascending: false });
 
         if (invoicesError) throw invoicesError;
-        setInvoices(data || []);
+        setInvoices(invoices || []);
 
         // Set the most recent invoice as selected
         if (data && data.length > 0) {
@@ -696,6 +705,50 @@ const JobInvoiceSection = ({
                                 onClick={() => {
                                   setSelectedInvoice(invoice);
                                   setShowInvoicePDF(true);
+
+                                  // Check if this is a consolidated invoice and load job details
+                                  if (
+                                    invoice.invoice_number?.startsWith(
+                                      "COMPANY-"
+                                    )
+                                  ) {
+                                    const storedDetails = localStorage.getItem(
+                                      `consolidated_invoice_${invoice.id}`
+                                    );
+                                    console.log(
+                                      "Loading consolidated invoice details for:",
+                                      invoice.id
+                                    );
+                                    console.log(
+                                      "Stored details:",
+                                      storedDetails
+                                    );
+                                    if (storedDetails) {
+                                      try {
+                                        const jobDetails =
+                                          JSON.parse(storedDetails);
+                                        console.log(
+                                          "Parsed job details:",
+                                          jobDetails
+                                        );
+                                        setConsolidatedJobDetails(jobDetails);
+                                      } catch (err) {
+                                        console.error(
+                                          "Error parsing consolidated job details:",
+                                          err
+                                        );
+                                        setConsolidatedJobDetails([]);
+                                      }
+                                    } else {
+                                      console.log(
+                                        "No stored details found for invoice:",
+                                        invoice.id
+                                      );
+                                      setConsolidatedJobDetails([]);
+                                    }
+                                  } else {
+                                    setConsolidatedJobDetails([]);
+                                  }
                                 }}
                               >
                                 View
@@ -758,6 +811,7 @@ const JobInvoiceSection = ({
                     job={job}
                     jobItems={jobItems}
                     invoice={selectedInvoice}
+                    consolidatedJobDetails={consolidatedJobDetails}
                   />
                   <div className="flex justify-end mt-4">
                     <button

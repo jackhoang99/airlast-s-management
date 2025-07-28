@@ -45,6 +45,7 @@ const CreateJob = () => {
   const searchParams = new URLSearchParams(location.search);
   const unitIdFromUrl = searchParams.get("unitId");
   const locationIdFromUrl = searchParams.get("locationId");
+  const companyIdFromUrl = searchParams.get("companyId");
   const unitIdsFromUrl =
     searchParams.get("unitIds")?.split(",").filter(Boolean) || [];
   const [selectedUnitIds, setSelectedUnitIds] =
@@ -54,6 +55,7 @@ const CreateJob = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const [serviceLines, setServiceLines] = useState<any[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(
     null
@@ -121,6 +123,13 @@ const CreateJob = () => {
     status: "unscheduled",
   });
 
+  // Filter locations based on selected company
+  const filteredLocations = formData.company_id
+    ? locations.filter(
+        (location) => location.company_id === formData.company_id
+      )
+    : locations;
+
   useEffect(() => {
     const fetchData = async () => {
       if (!supabase) return;
@@ -150,6 +159,19 @@ const CreateJob = () => {
 
         if (locationsError) throw locationsError;
         setLocations(locationsData || []);
+
+        // Extract unique companies from locations
+        if (locationsData) {
+          const uniqueCompanies = Array.from(
+            new Map(
+              locationsData
+                .map((loc) => loc.companies)
+                .filter(Boolean)
+                .map((company) => [company.id, company])
+            ).values()
+          ).sort((a, b) => a.name.localeCompare(b.name));
+          setCompanies(uniqueCompanies);
+        }
 
         // Fetch service lines
         const { data: serviceLinesData, error: serviceLinesError } =
@@ -281,6 +303,24 @@ const CreateJob = () => {
     }
   }, [supabase, unitIdFromUrl, locations]);
 
+  // Pre-populate company when companyId is provided in URL
+  useEffect(() => {
+    if (companyIdFromUrl && locations.length > 0) {
+      // Find a location that belongs to the specified company
+      const companyLocation = locations.find(
+        (loc) => loc.company_id === companyIdFromUrl
+      );
+
+      if (companyLocation) {
+        setFormData((prev) => ({
+          ...prev,
+          company_id: companyLocation.company_id,
+          company_name: companyLocation.companies?.name || "",
+        }));
+      }
+    }
+  }, [companyIdFromUrl, locations]);
+
   // After locations are loaded and locationIdFromUrl is present, fetch units for that location
   useEffect(() => {
     if (locationIdFromUrl && locations.length > 0) {
@@ -319,8 +359,49 @@ const CreateJob = () => {
     }
   }, [locationIdFromUrl, locations]);
 
+  const clearValidationError = (fieldName: string) => {
+    if (validationErrors[fieldName]) {
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleCompanyChange = (companyId: string) => {
+    const company = companies.find((c) => c.id === companyId);
+    if (company) {
+      setFormData((prev) => ({
+        ...prev,
+        company_id: companyId,
+        company_name: company.name,
+        // Clear location if it doesn't belong to the selected company
+        ...(prev.location_id &&
+          !filteredLocations.find((l) => l.id === prev.location_id) && {
+            location_id: "",
+            location_name: "",
+            service_address: "",
+            service_city: "",
+            service_state: "",
+            service_zip: "",
+            unit_id: "",
+            unit_number: "",
+          }),
+      }));
+      setSelectedLocation(null);
+      // Clear related validation errors
+      clearValidationError("location_id");
+      clearValidationError("service_address");
+      clearValidationError("service_city");
+      clearValidationError("service_state");
+      clearValidationError("service_zip");
+      clearValidationError("units");
+    }
+  };
+
   const handleLocationChange = async (locationId: string) => {
-    const location = locations.find((l) => l.id === locationId);
+    const location = filteredLocations.find((l) => l.id === locationId);
     if (location) {
       setSelectedLocation(location);
       setFormData((prev) => ({
@@ -336,6 +417,12 @@ const CreateJob = () => {
         unit_id: "",
         unit_number: "",
       }));
+      // Clear related validation errors
+      clearValidationError("service_address");
+      clearValidationError("service_city");
+      clearValidationError("service_state");
+      clearValidationError("service_zip");
+      clearValidationError("units");
     }
   };
 
@@ -364,7 +451,9 @@ const CreateJob = () => {
     });
 
     if (preset.data.location_id) {
-      const location = locations.find((l) => l.id === preset.data.location_id);
+      const location = filteredLocations.find(
+        (l) => l.id === preset.data.location_id
+      );
       if (location) {
         setSelectedLocation(location);
       }
@@ -505,6 +594,12 @@ const CreateJob = () => {
     }
 
     setValidationErrors(errors);
+
+    // If there are errors, scroll to top to show validation summary
+    if (Object.keys(errors).length > 0) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
     return Object.keys(errors).length === 0;
   };
 
@@ -514,7 +609,7 @@ const CreateJob = () => {
 
     // Validate form
     if (!validateForm()) {
-      setError("Please fill in all required fields.");
+      // Don't set a generic error message, let the individual field errors show
       return;
     }
 
@@ -721,6 +816,91 @@ const CreateJob = () => {
           </div>
         )}
 
+        {/* Validation Summary */}
+        {Object.keys(validationErrors).length > 0 && (
+          <div className="bg-error-50 border border-error-200 rounded-lg p-4 relative">
+            <button
+              type="button"
+              onClick={() => setValidationErrors({})}
+              className="absolute top-2 right-2 text-error-400 hover:text-error-600"
+            >
+              <X size={16} />
+            </button>
+            <div className="flex items-center gap-2 mb-3 pr-6">
+              <AlertTriangle className="h-5 w-5 text-error-600" />
+              <h3 className="text-sm font-medium text-error-800">
+                Please complete the following required fields:
+              </h3>
+            </div>
+            <ul className="space-y-1">
+              {validationErrors.location_id && (
+                <li className="text-sm text-error-700 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-error-500 rounded-full"></span>
+                  <strong>Service Location:</strong>{" "}
+                  {validationErrors.location_id}
+                </li>
+              )}
+              {validationErrors.service_address && (
+                <li className="text-sm text-error-700 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-error-500 rounded-full"></span>
+                  <strong>Service Address:</strong>{" "}
+                  {validationErrors.service_address}
+                </li>
+              )}
+              {validationErrors.service_city && (
+                <li className="text-sm text-error-700 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-error-500 rounded-full"></span>
+                  <strong>Service City:</strong> {validationErrors.service_city}
+                </li>
+              )}
+              {validationErrors.service_state && (
+                <li className="text-sm text-error-700 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-error-500 rounded-full"></span>
+                  <strong>Service State:</strong>{" "}
+                  {validationErrors.service_state}
+                </li>
+              )}
+              {validationErrors.service_zip && (
+                <li className="text-sm text-error-700 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-error-500 rounded-full"></span>
+                  <strong>Service Zip:</strong> {validationErrors.service_zip}
+                </li>
+              )}
+              {validationErrors.service_line && (
+                <li className="text-sm text-error-700 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-error-500 rounded-full"></span>
+                  <strong>Service Line:</strong> {validationErrors.service_line}
+                </li>
+              )}
+              {validationErrors.description && (
+                <li className="text-sm text-error-700 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-error-500 rounded-full"></span>
+                  <strong>Description:</strong> {validationErrors.description}
+                </li>
+              )}
+              {validationErrors.contact_type && (
+                <li className="text-sm text-error-700 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-error-500 rounded-full"></span>
+                  <strong>Contact Type:</strong> {validationErrors.contact_type}
+                </li>
+              )}
+              {validationErrors.additional_type && (
+                <li className="text-sm text-error-700 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-error-500 rounded-full"></span>
+                  <strong>Maintenance Type:</strong>{" "}
+                  {validationErrors.additional_type}
+                </li>
+              )}
+              {validationErrors.units && (
+                <li className="text-sm text-error-700 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-error-500 rounded-full"></span>
+                  <strong>Units:</strong> {validationErrors.units}
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+
         {/* Customer Details */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-medium mb-6">Customer Details</h2>
@@ -728,16 +908,25 @@ const CreateJob = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Company Selection */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="company_id"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Company
               </label>
-              <input
-                type="text"
-                value={formData.company_name}
-                readOnly
-                className="input bg-gray-50"
-                placeholder="Select a location to set company"
-              />
+              <select
+                id="company_id"
+                value={formData.company_id}
+                onChange={(e) => handleCompanyChange(e.target.value)}
+                className="select"
+              >
+                <option value="">Select Company</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Location Selection */}
@@ -751,7 +940,10 @@ const CreateJob = () => {
               <select
                 id="location_id"
                 value={formData.location_id}
-                onChange={(e) => handleLocationChange(e.target.value)}
+                onChange={(e) => {
+                  handleLocationChange(e.target.value);
+                  clearValidationError("location_id");
+                }}
                 required
                 className={`select ${
                   validationErrors.location_id
@@ -761,9 +953,10 @@ const CreateJob = () => {
                 disabled={isLoadingUnitDetails}
               >
                 <option value="">Select Location</option>
-                {locations.map((location) => (
+                {filteredLocations.map((location) => (
                   <option key={location.id} value={location.id}>
-                    {location.name} ({location.companies?.name})
+                    {location.name}{" "}
+                    {formData.company_id ? "" : `(${location.companies?.name})`}
                   </option>
                 ))}
               </select>
@@ -794,6 +987,13 @@ const CreateJob = () => {
                               setSelectedUnitIds((ids) =>
                                 ids.filter((id) => id !== unit.id)
                               );
+                            }
+                            // Clear units validation error when any unit is selected/deselected
+                            if (
+                              selectedUnitIds.length > 0 ||
+                              e.target.checked
+                            ) {
+                              clearValidationError("units");
                             }
                           }}
                         />
@@ -827,12 +1027,13 @@ const CreateJob = () => {
                 id="service_address"
                 name="service_address"
                 value={formData.service_address}
-                onChange={(e) =>
+                onChange={(e) => {
                   setFormData((prev) => ({
                     ...prev,
                     service_address: e.target.value,
-                  }))
-                }
+                  }));
+                  clearValidationError("service_address");
+                }}
                 required
                 className={`input ${
                   validationErrors.service_address
@@ -859,12 +1060,13 @@ const CreateJob = () => {
                 id="service_city"
                 name="service_city"
                 value={formData.service_city}
-                onChange={(e) =>
+                onChange={(e) => {
                   setFormData((prev) => ({
                     ...prev,
                     service_city: e.target.value,
-                  }))
-                }
+                  }));
+                  clearValidationError("service_city");
+                }}
                 required
                 className={`input ${
                   validationErrors.service_city
@@ -891,12 +1093,13 @@ const CreateJob = () => {
                 id="service_state"
                 name="service_state"
                 value={formData.service_state}
-                onChange={(e) =>
+                onChange={(e) => {
                   setFormData((prev) => ({
                     ...prev,
                     service_state: e.target.value,
-                  }))
-                }
+                  }));
+                  clearValidationError("service_state");
+                }}
                 required
                 maxLength={2}
                 className={`input ${
@@ -924,12 +1127,13 @@ const CreateJob = () => {
                 id="service_zip"
                 name="service_zip"
                 value={formData.service_zip}
-                onChange={(e) =>
+                onChange={(e) => {
                   setFormData((prev) => ({
                     ...prev,
                     service_zip: e.target.value,
-                  }))
-                }
+                  }));
+                  clearValidationError("service_zip");
+                }}
                 required
                 className={`input ${
                   validationErrors.service_zip
@@ -1050,12 +1254,13 @@ const CreateJob = () => {
                 id="contact_type"
                 name="contact_type"
                 value={formData.contact_type}
-                onChange={(e) =>
+                onChange={(e) => {
                   setFormData((prev) => ({
                     ...prev,
                     contact_type: e.target.value,
-                  }))
-                }
+                  }));
+                  clearValidationError("contact_type");
+                }}
                 className={`input ${
                   validationErrors.contact_type
                     ? "border-error-500 ring-1 ring-error-500"
@@ -1266,12 +1471,13 @@ const CreateJob = () => {
                 id="service_line"
                 name="service_line"
                 value={formData.service_line}
-                onChange={(e) =>
+                onChange={(e) => {
                   setFormData((prev) => ({
                     ...prev,
                     service_line: e.target.value,
-                  }))
-                }
+                  }));
+                  clearValidationError("service_line");
+                }}
                 required
                 className={`select ${
                   validationErrors.service_line
@@ -1356,12 +1562,13 @@ const CreateJob = () => {
                     id="additional_type"
                     name="additional_type"
                     value={formData.additional_type}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData((prev) => ({
                         ...prev,
                         additional_type: e.target.value,
-                      }))
-                    }
+                      }));
+                      clearValidationError("additional_type");
+                    }}
                     required
                     className={`select ${
                       validationErrors.additional_type
@@ -1412,12 +1619,13 @@ const CreateJob = () => {
                 id="description"
                 name="description"
                 value={formData.description}
-                onChange={(e) =>
+                onChange={(e) => {
                   setFormData((prev) => ({
                     ...prev,
                     description: e.target.value,
-                  }))
-                }
+                  }));
+                  clearValidationError("description");
+                }}
                 required
                 rows={4}
                 className={`input ${

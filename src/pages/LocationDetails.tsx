@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Building, MapPin, Plus, Building2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Building,
+  MapPin,
+  Plus,
+  Building2,
+  FileInput as FileInvoice,
+  Package,
+  Edit,
+} from "lucide-react";
 import { useSupabase } from "../lib/supabase-context";
 import BackLink from "../components/ui/BackLink";
 import BackButton from "../components/ui/BackButton";
@@ -9,6 +18,7 @@ import { Database } from "../types/supabase";
 import Map from "../components/ui/Map";
 import UnitsList from "../components/locations/UnitsList";
 import AssetSummary from "../components/locations/AssetSummary";
+import QuickAssetViewModal from "../components/locations/QuickAssetViewModal";
 import { Dialog } from "@headlessui/react";
 import AddAssetForm from "../components/locations/AddAssetForm";
 import PermitSection from "../components/permits/PermitSection";
@@ -40,6 +50,7 @@ const LocationDetails = () => {
   const [unitSearch, setUnitSearch] = useState("");
   const [locationAssets, setLocationAssets] = useState<any[]>([]);
   const [showAddAssetModal, setShowAddAssetModal] = useState(false);
+  const [showLocationAssetsModal, setShowLocationAssetsModal] = useState(false);
   const [units, setUnits] = useState<any[]>([]);
   const [assetsRefreshKey, setAssetsRefreshKey] = useState(0);
 
@@ -187,10 +198,18 @@ const LocationDetails = () => {
             Create Job
           </Link>
           <Link
+            to={`/create-invoice/location/${location.id}`}
+            className="btn btn-secondary"
+          >
+            <FileInvoice size={16} className="mr-2" />
+            Create Invoice
+          </Link>
+          <Link
             to={`/locations/${location.id}/edit`}
             className="btn btn-secondary"
           >
-            Edit Location
+            <Edit size={16} className="mr-2" />
+            Edit
           </Link>
         </div>
       </div>
@@ -364,15 +383,32 @@ const LocationDetails = () => {
                 Create Job
               </Link>
               <Link
-                to={`/locations/${location.id}/edit`}
+                to={`/create-invoice/location/${location.id}`}
                 className="btn btn-secondary w-full justify-start"
               >
-                Edit Location
+                <FileInvoice size={16} className="mr-2" />
+                Create Invoice
               </Link>
+              <button
+                onClick={() => setShowLocationAssetsModal(true)}
+                className="btn btn-secondary w-full justify-start"
+              >
+                <Package size={16} className="mr-2" />
+                View Assets
+              </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Location Assets Modal */}
+      {showLocationAssetsModal && location && (
+        <QuickAssetViewModal
+          open={showLocationAssetsModal}
+          onClose={() => setShowLocationAssetsModal(false)}
+          location={location}
+        />
+      )}
     </div>
   );
 };

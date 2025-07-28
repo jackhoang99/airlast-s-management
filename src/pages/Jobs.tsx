@@ -47,6 +47,10 @@ type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
     id: string;
     total_cost: number;
   }[];
+  job_replacements?: {
+    id: string;
+    total_cost: number;
+  }[];
   units?: {
     id: string;
     unit_number: string;
@@ -162,6 +166,10 @@ const Jobs = () => {
               )
             ),
             job_items!job_items_job_id_fkey (
+              id,
+              total_cost
+            ),
+            job_replacements (
               id,
               total_cost
             ),
@@ -540,9 +548,15 @@ const Jobs = () => {
 
   // Calculate total cost from job items
   const getJobTotalCost = (job: Job) => {
-    if (!job.job_items || job.job_items.length === 0) return 0;
-    return job.job_items.reduce(
-      (sum, item) => sum + Number(item.total_cost),
+    return (job.job_items || []).reduce(
+      (total, item) => total + Number(item.total_cost),
+      0
+    );
+  };
+
+  const getJobReplacementTotal = (job: Job) => {
+    return (job.job_replacements || []).reduce(
+      (total, replacement) => total + Number(replacement.total_cost),
       0
     );
   };
@@ -687,6 +701,10 @@ const Jobs = () => {
             id,
             total_cost
           ),
+                      job_replacements (
+              id,
+              total_cost
+            ),
           job_units:job_units!inner (
             unit_id,
             units:unit_id (
@@ -1122,10 +1140,17 @@ const Jobs = () => {
                             </span>
                           )}
                           {job.job_items && job.job_items.length > 0 && (
-                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
-                              ${getJobTotalCost(job).toFixed(2)}
+                            <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800">
+                              Repair: ${getJobTotalCost(job).toFixed(2)}
                             </span>
                           )}
+                          {job.job_replacements &&
+                            job.job_replacements.length > 0 && (
+                              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800">
+                                Replacement: $
+                                {getJobReplacementTotal(job).toFixed(2)}
+                              </span>
+                            )}
                           {job.units && job.units.length > 0 && (
                             <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
                               Units:{" "}

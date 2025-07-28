@@ -145,15 +145,13 @@ const AssetSummary = ({
                   {asset.model?.serial_number ?? "-"}
                 </div>
                 <div className="col-span-2">
-                  <span className="font-semibold">Comment:</span>{" "}
-                  {asset.model?.comment ?? "-"}
+                  <span className="font-semibold">System:</span>{" "}
+                  {asset.model?.system_type ?? "-"}
                 </div>
               </div>
-              {asset.model?.system_type && (
-                <div className="text-xs text-gray-500 mt-1">
-                  System: {asset.model.system_type}
-                </div>
-              )}
+              <div className="text-xs text-gray-500 mt-1">
+                Comment: {asset.model?.comment || "-"}
+              </div>
               
               {/* Action Buttons */}
               <div className="flex justify-end gap-2 mt-3 pt-2 border-t border-gray-200">

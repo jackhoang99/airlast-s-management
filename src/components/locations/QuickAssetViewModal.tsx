@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Database } from "../../types/supabase";
 import { useSupabase } from "../../lib/supabase-context";
-import { X } from "lucide-react";
+import { X, Edit, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import EditAssetForm from "./EditAssetForm";
 
 interface QuickAssetViewModalProps {
   open: boolean;
@@ -23,6 +24,9 @@ const QuickAssetViewModal = ({
   const [assets, setAssets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!open || !location) return;
@@ -35,7 +39,7 @@ const QuickAssetViewModal = ({
           const { data: assetsData, error: assetsError } = await supabase
             .from("assets")
             .select(
-              `*, units(id, unit_number, locations(id, name, companies(name)))`
+              `*, units(id, unit_number, locations(id, name, companies(id, name)))`
             )
             .eq("unit_id", unit.id);
           if (assetsError) throw assetsError;
@@ -46,7 +50,7 @@ const QuickAssetViewModal = ({
           const { data: assetsData, error: assetsError } = await supabase
             .from("assets")
             .select(
-              `*, units(id, unit_number, locations(id, name, companies(name)))`
+              `*, units(id, unit_number, locations(id, name, companies(id, name)))`
             )
             .in("unit_id", unitIds);
           if (assetsError) throw assetsError;
@@ -67,7 +71,7 @@ const QuickAssetViewModal = ({
           const { data: assetsData, error: assetsError } = await supabase
             .from("assets")
             .select(
-              `*, units(id, unit_number, locations(id, name, companies(name)))`
+              `*, units(id, unit_number, locations(id, name, companies(id, name)))`
             )
             .in("unit_id", unitIds);
           if (assetsError) throw assetsError;
@@ -81,6 +85,28 @@ const QuickAssetViewModal = ({
     };
     fetchAssets();
   }, [open, location, supabase, unit, units]);
+
+  const handleEdit = (asset: any) => {
+    setEditingAsset(asset);
+    setShowEditModal(true);
+  };
+
+  const handleDelete = async (asset: any) => {
+    if (window.confirm("Are you sure you want to delete this asset?")) {
+      if (!supabase) return;
+      setIsDeleting(true);
+      try {
+        await supabase.from("assets").delete().eq("id", asset.id);
+        // Remove the asset from the local state
+        setAssets(assets.filter((a) => a.id !== asset.id));
+      } catch (error) {
+        console.error("Error deleting asset:", error);
+        alert("Failed to delete asset");
+      } finally {
+        setIsDeleting(false);
+      }
+    }
+  };
 
   if (!open) return null;
 
@@ -160,20 +186,117 @@ const QuickAssetViewModal = ({
                     {asset.model?.serial_number ?? "-"}
                   </div>
                   <div className="col-span-2">
-                    <span className="font-semibold">Comment:</span>{" "}
-                    {asset.model?.comment ?? "-"}
+                    <span className="font-semibold">System:</span>{" "}
+                    {asset.model?.system_type ?? "-"}
                   </div>
                 </div>
-                {asset.model?.system_type && (
-                  <div className="text-xs text-gray-500">
-                    System: {asset.model.system_type}
-                  </div>
-                )}
+                <div className="text-xs text-gray-500">
+                  Comment: {asset.model?.comment || "-"}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-2 mt-3 pt-2 border-t border-gray-200">
+                  <button
+                    onClick={() => handleEdit(asset)}
+                    className="text-primary-600 hover:text-primary-800 p-1"
+                    title="Edit Asset"
+                    disabled={isDeleting}
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(asset)}
+                    className="text-error-600 hover:text-error-800 p-1"
+                    title="Delete Asset"
+                    disabled={isDeleting}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Edit Asset Modal */}
+      {showEditModal && editingAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl relative">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowEditModal(false)}
+            >
+              <X size={24} />
+            </button>
+            <h2 className="text-lg font-semibold mb-4">Edit Asset</h2>
+            <EditAssetForm
+              asset={editingAsset}
+              onSuccess={() => {
+                setShowEditModal(false);
+                setEditingAsset(null);
+                // Refresh the assets list to show updated data
+                // We'll need to refetch the assets
+                const fetchAssets = async () => {
+                  if (!supabase || !location) return;
+                  setIsLoading(true);
+                  try {
+                    if (unit) {
+                      const { data: assetsData, error: assetsError } = await supabase
+                        .from("assets")
+                        .select(
+                          `*, units(id, unit_number, locations(id, name, companies(id, name)))`
+                        )
+                        .eq("unit_id", unit.id);
+                      if (assetsError) throw assetsError;
+                      setAssets(assetsData || []);
+                    } else if (units && Array.isArray(units) && units.length > 0) {
+                      const unitIds = units.map((u: any) => u.id);
+                      const { data: assetsData, error: assetsError } = await supabase
+                        .from("assets")
+                        .select(
+                          `*, units(id, unit_number, locations(id, name, companies(id, name)))`
+                        )
+                        .in("unit_id", unitIds);
+                      if (assetsError) throw assetsError;
+                      setAssets(assetsData || []);
+                    } else {
+                      const { data: unitsData, error: unitsError } = await supabase
+                        .from("units")
+                        .select("id")
+                        .eq("location_id", location.id);
+                      if (unitsError) throw unitsError;
+                      const unitIds = (unitsData || []).map((u: any) => u.id);
+                      if (unitIds.length === 0) {
+                        setAssets([]);
+                        setIsLoading(false);
+                        return;
+                      }
+                      const { data: assetsData, error: assetsError } = await supabase
+                        .from("assets")
+                        .select(
+                          `*, units(id, unit_number, locations(id, name, companies(id, name)))`
+                        )
+                        .in("unit_id", unitIds);
+                      if (assetsError) throw assetsError;
+                      setAssets(assetsData || []);
+                    }
+                  } catch (err) {
+                    setError("Failed to refresh assets");
+                  } finally {
+                    setIsLoading(false);
+                  }
+                };
+                fetchAssets();
+              }}
+              onCancel={() => {
+                setShowEditModal(false);
+                setEditingAsset(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

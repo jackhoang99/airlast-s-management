@@ -37,6 +37,12 @@ interface InvoicePDFTemplateProps {
   jobItems: JobItem[];
   invoice: JobInvoice;
   replacementData?: ReplacementData;
+  consolidatedJobDetails?: Array<{
+    jobId: string;
+    jobNumber: string;
+    jobName: string;
+    amount: number;
+  }>;
 }
 
 const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
@@ -44,6 +50,7 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
   jobItems,
   invoice,
   replacementData,
+  consolidatedJobDetails = [],
 }) => {
   // Determine invoice type based on amount and items
   const isInspectionInvoice =
@@ -294,59 +301,111 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td className="py-4 px-4 border-b">1.</td>
-            <td className="py-4 px-4 border-b">
-              {formatDate(invoice.issued_date)}
-            </td>
-            <td className="py-4 px-4 border-b">
-              {job.name}
-              {job.units && <span> - Unit {job.units.unit_number}</span>}
+          {(() => {
+            console.log(
+              "InvoicePDFTemplate - invoice number:",
+              invoice.invoice_number
+            );
+            console.log(
+              "InvoicePDFTemplate - consolidatedJobDetails:",
+              consolidatedJobDetails
+            );
+            console.log(
+              "InvoicePDFTemplate - is consolidated:",
+              invoice.invoice_number?.startsWith("COMPANY-")
+            );
+            console.log(
+              "InvoicePDFTemplate - has details:",
+              consolidatedJobDetails.length > 0
+            );
 
-              {invoice.type === "replacement" ? (
-                renderReplacementDetails()
-              ) : invoice.type === "inspection" ? (
-                <div className="text-sm text-gray-500 mt-2">
-                  <p>Inspection Fee</p>
-                  <ul className="list-disc pl-5 mt-1">
-                    {filteredItems.map((item, index) => (
-                      <li key={index}>
-                        {item.name} ({item.quantity} x $
-                        {Number(item.unit_cost).toFixed(2)})
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : invoice.type === "repair" ? (
-                <div className="text-sm text-gray-500 mt-2">
-                  <p>Repair Services & Parts:</p>
-                  <ul className="list-disc pl-5 mt-1">
-                    {filteredItems.map((item, index) => (
-                      <li key={index}>
-                        {item.name} ({item.quantity} x $
-                        {Number(item.unit_cost).toFixed(2)})
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : invoice.type === "all" ? (
-                <div className="text-sm text-gray-500 mt-2">
-                  <p>All Services & Parts:</p>
-                  <ul className="list-disc pl-5 mt-1">
-                    {filteredItems.map((item, index) => (
-                      <li key={index}>
-                        {item.name} ({item.quantity} x $
-                        {Number(item.unit_cost).toFixed(2)})
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </td>
-            <td className="py-4 px-4 border-b text-right font-medium">
-              ${Number(invoice.amount).toFixed(2)}
-            </td>
-          </tr>
+            return invoice.invoice_number?.startsWith("COMPANY-") &&
+              consolidatedJobDetails.length > 0 ? (
+              // Show multiple jobs for consolidated invoice
+              consolidatedJobDetails.map((jobDetail, index) => (
+                <tr key={jobDetail.jobId}>
+                  <td className="py-4 px-4 border-b">{index + 1}.</td>
+                  <td className="py-4 px-4 border-b">
+                    {formatDate(invoice.issued_date)}
+                  </td>
+                  <td className="py-4 px-4 border-b">
+                    <div>
+                      <div className="font-medium">
+                        Job #{jobDetail.jobNumber} - {jobDetail.jobName}
+                      </div>
+                      {jobDetail.jobType && (
+                        <div className="text-sm text-gray-500 mt-1">
+                          Invoice Type:{" "}
+                          {jobDetail.jobType.charAt(0).toUpperCase() +
+                            jobDetail.jobType.slice(1)}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-4 px-4 border-b text-right font-medium">
+                    ${jobDetail.amount.toFixed(2)}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              // Show single job for regular invoice
+              <tr>
+                <td className="py-4 px-4 border-b">1.</td>
+                <td className="py-4 px-4 border-b">
+                  {formatDate(invoice.issued_date)}
+                </td>
+                <td className="py-4 px-4 border-b">
+                  <div>
+                    {job.name}
+                    {job.units && <span> - Unit {job.units.unit_number}</span>}
+
+                    {invoice.type === "replacement" ? (
+                      renderReplacementDetails()
+                    ) : invoice.type === "inspection" ? (
+                      <div className="text-sm text-gray-500 mt-2">
+                        <p>Inspection Fee</p>
+                        <ul className="list-disc pl-5 mt-1">
+                          {filteredItems.map((item, index) => (
+                            <li key={index}>
+                              {item.name} ({item.quantity} x $
+                              {Number(item.unit_cost).toFixed(2)})
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : invoice.type === "repair" ? (
+                      <div className="text-sm text-gray-500 mt-2">
+                        <p>Repair Services & Parts:</p>
+                        <ul className="list-disc pl-5 mt-1">
+                          {filteredItems.map((item, index) => (
+                            <li key={index}>
+                              {item.name} ({item.quantity} x $
+                              {Number(item.unit_cost).toFixed(2)})
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : invoice.type === "all" ? (
+                      <div className="text-sm text-gray-500 mt-2">
+                        <p>All Services & Parts:</p>
+                        <ul className="list-disc pl-5 mt-1">
+                          {filteredItems.map((item, index) => (
+                            <li key={index}>
+                              {item.name} ({item.quantity} x $
+                              {Number(item.unit_cost).toFixed(2)})
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
+                </td>
+                <td className="py-4 px-4 border-b text-right font-medium">
+                  ${Number(invoice.amount).toFixed(2)}
+                </td>
+              </tr>
+            );
+          })()}
         </tbody>
         <tfoot>
           <tr className="bg-gray-50 font-bold">
