@@ -80,6 +80,14 @@ export interface Job {
       phone: string;
     };
   }[];
+  job_contacts?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    phone: string | null;
+    email: string | null;
+    type: string | null;
+  }[];
 }
 
 export interface JobItem {

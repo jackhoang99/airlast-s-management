@@ -90,6 +90,20 @@ const CreateInvoice = () => {
           locationIds = locations.map((loc: any) => loc.id);
         } else if (entityType === "location") {
           locationIds = [entityId];
+        } else if (entityType === "unit") {
+          // For unit, we'll get the location from the unit
+          const { data: unit, error: unitError } = await supabase
+            .from("units")
+            .select("location_id")
+            .eq("id", entityId)
+            .single();
+
+          if (unitError) throw unitError;
+          if (!unit) {
+            setError("Unit not found");
+            return;
+          }
+          locationIds = [unit.location_id];
         } else {
           setError("Invalid entity type");
           return;
@@ -104,7 +118,7 @@ const CreateInvoice = () => {
             .single();
           if (companyError) throw companyError;
           setEntityName(company.name);
-        } else {
+        } else if (entityType === "location") {
           const { data: location, error: locationError } = await supabase
             .from("locations")
             .select("name")
@@ -112,6 +126,14 @@ const CreateInvoice = () => {
             .single();
           if (locationError) throw locationError;
           setEntityName(location.name);
+        } else if (entityType === "unit") {
+          const { data: unit, error: unitError } = await supabase
+            .from("units")
+            .select("unit_number")
+            .eq("id", entityId)
+            .single();
+          if (unitError) throw unitError;
+          setEntityName(`Unit ${unit.unit_number}`);
         }
 
         // Fetch all jobs (we'll filter them based on entity type and user selections)
@@ -230,7 +252,72 @@ const CreateInvoice = () => {
     };
 
     fetchJobs();
+    fetchFilterOptions();
   }, [supabase, entityType, entityId]);
+
+  // Pre-populate filters based on entity type
+  useEffect(() => {
+    if (
+      !entityType ||
+      !entityId ||
+      companies.length === 0 ||
+      locations.length === 0 ||
+      units.length === 0
+    ) {
+      return;
+    }
+
+    const prePopulateFilters = async () => {
+      try {
+        if (entityType === "location") {
+          // Pre-populate company and location for location entity
+          const { data: location, error: locationError } = await supabase
+            .from("locations")
+            .select("id, name, company_id")
+            .eq("id", entityId)
+            .single();
+
+          if (locationError) throw locationError;
+          setSelectedCompany(location.company_id);
+          setSelectedLocation(location.id);
+        } else if (entityType === "unit") {
+          // Pre-populate company, location, and unit for unit entity
+          const { data: unit, error: unitError } = await supabase
+            .from("units")
+            .select(
+              `
+              id,
+              unit_number,
+              location_id,
+              locations (
+                id,
+                name,
+                company_id
+              )
+            `
+            )
+            .eq("id", entityId)
+            .single();
+
+          if (unitError) throw unitError;
+          setSelectedCompany(unit.locations.company_id);
+          setSelectedLocation(unit.location_id);
+          setSelectedUnit(unit.id);
+        }
+      } catch (err) {
+        console.error("Error pre-populating filters:", err);
+      }
+    };
+
+    prePopulateFilters();
+  }, [
+    supabase,
+    entityType,
+    entityId,
+    companies.length,
+    locations.length,
+    units.length,
+  ]);
 
   const handleCreateInvoicesForSelectedJobs = async () => {
     if (!supabase || selectedJobs.size === 0) {
@@ -438,7 +525,13 @@ const CreateInvoice = () => {
       <div className="text-center py-12">
         <p className="text-error-600 mb-4">{error}</p>
         <ArrowBack
-          fallbackRoute={entityType === "company" ? "/companies" : "/locations"}
+          fallbackRoute={
+            entityType === "company"
+              ? "/companies"
+              : entityType === "location"
+              ? "/locations"
+              : "/units"
+          }
           className="text-primary-600 hover:text-primary-800"
         />
       </div>
@@ -458,7 +551,11 @@ const CreateInvoice = () => {
           </div>
           <ArrowBack
             fallbackRoute={
-              entityType === "company" ? "/companies" : "/locations"
+              entityType === "company"
+                ? "/companies"
+                : entityType === "location"
+                ? "/locations"
+                : "/units"
             }
             className="text-primary-600 hover:text-primary-800"
           />

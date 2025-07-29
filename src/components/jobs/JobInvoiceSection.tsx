@@ -143,8 +143,8 @@ const JobInvoiceSection = ({
         setInvoices(invoices || []);
 
         // Set the most recent invoice as selected
-        if (data && data.length > 0) {
-          setSelectedInvoice(data[0]);
+        if (invoices && invoices.length > 0) {
+          setSelectedInvoice(invoices[0]);
         }
       } catch (err) {
         console.error("Error fetching invoices:", err);

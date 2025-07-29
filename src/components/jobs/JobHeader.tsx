@@ -1,4 +1,4 @@
-import { CheckCircle, Trash2 } from "lucide-react";
+import { CheckCircle, Trash2, Edit } from "lucide-react";
 import ArrowBack from "../ui/ArrowBack";
 import { Job } from "../../types/job";
 
@@ -6,6 +6,7 @@ type JobHeaderProps = {
   job: Job;
   onCompleteJob: () => void;
   onDeleteJob: () => void;
+  onEditJob: () => void;
   isMaintenanceChecklistComplete?: boolean;
 };
 
@@ -13,6 +14,7 @@ const JobHeader = ({
   job,
   onCompleteJob,
   onDeleteJob,
+  onEditJob,
   isMaintenanceChecklistComplete,
 }: JobHeaderProps) => {
   return (
@@ -25,6 +27,10 @@ const JobHeader = ({
         <h1>Job #{job.number}</h1>
       </div>
       <div className="flex gap-2">
+        <button onClick={onEditJob} className="btn btn-secondary">
+          <Edit size={16} className="mr-2" />
+          Edit Job
+        </button>
         {job.status !== "completed" && job.status !== "cancelled" && (
           <button
             onClick={onCompleteJob}

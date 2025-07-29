@@ -713,7 +713,9 @@ const TechnicianJobDetails = () => {
                   className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm break-words"
                 >
                   <User size={16} className="text-gray-400" />
-                  <span className="font-medium">{contact.name}</span>
+                  <span className="font-medium">
+                    {`${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "(No name)"}
+                  </span>
                   {contact.type && (
                     <span className="text-gray-500">({contact.type})</span>
                   )}

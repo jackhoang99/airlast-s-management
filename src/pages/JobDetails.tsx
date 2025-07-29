@@ -33,6 +33,7 @@ import JobComments from "../components/jobs/JobComments";
 import JobReminderList from "../components/jobs/JobReminderList";
 import PermitSection from "../components/permits/PermitSection";
 import MaintenanceChecklist from "../components/jobs/MaintenanceChecklist";
+import EditJobModal from "../components/jobs/EditJobModal";
 
 const JobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -49,6 +50,7 @@ const JobDetails = () => {
   const [isCompletingJob, setIsCompletingJob] = useState(false);
   const [showDeleteJobModal, setShowDeleteJobModal] = useState(false);
   const [isDeletingJob, setIsDeletingJob] = useState(false);
+  const [showEditJobModal, setShowEditJobModal] = useState(false);
   const [showQuotePDF, setShowQuotePDF] = useState(false);
   const [quoteNeedsUpdate, setQuoteNeedsUpdate] = useState(false);
   const [lastQuoteUpdateTime, setLastQuoteUpdateTime] = useState<string | null>(
@@ -232,13 +234,20 @@ const JobDetails = () => {
 
         // Fetch additional contacts
         if (supabase && id) {
-          supabase
+          const { data: contactsData, error: contactsError } = await supabase
             .from("job_contacts")
             .select("*")
-            .eq("job_id", id)
-            .then(({ data, error }) => {
-              if (!error && data) setAdditionalContacts(data);
-            });
+            .eq("job_id", id);
+
+          if (contactsError) {
+            console.error("Error fetching job contacts:", contactsError);
+          } else {
+            setAdditionalContacts(contactsData || []);
+            // Also merge contacts into the job object for EditJobModal
+            setJob((prevJob) =>
+              prevJob ? { ...prevJob, job_contacts: contactsData || [] } : null
+            );
+          }
         }
       } catch (err: any) {
         console.error("Error fetching job details:", err);
@@ -508,7 +517,54 @@ const JobDetails = () => {
 
   const handleInvoiceCreated = (invoiceId: string) => {
     // Increment refresh trigger to refresh the invoice section
-    setRefreshTrigger(prev => prev + 1);
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleEditJob = async () => {
+    // Ensure job_contacts are loaded before opening the modal
+    if (!job?.job_contacts && supabase && job?.id) {
+      console.log("Job contacts not loaded, fetching before opening modal");
+      const { data: contactsData, error: contactsError } = await supabase
+        .from("job_contacts")
+        .select("*")
+        .eq("job_id", job.id);
+
+      if (contactsError) {
+        console.error("Error fetching job contacts:", contactsError);
+      } else {
+        // Update the job object with contacts before opening modal
+        setJob((prevJob) =>
+          prevJob ? { ...prevJob, job_contacts: contactsData || [] } : null
+        );
+        setAdditionalContacts(contactsData || []);
+        // Small delay to ensure state update completes
+        setTimeout(() => setShowEditJobModal(true), 100);
+        return; // Don't open modal immediately
+      }
+    }
+
+    setShowEditJobModal(true);
+  };
+
+  const handleJobUpdated = (updatedJob: Job) => {
+    setJob(updatedJob);
+    setRefreshTrigger((prev) => prev + 1);
+
+    // Refresh additional contacts if they're included in the updated job
+    if (updatedJob.job_contacts !== undefined) {
+      setAdditionalContacts(updatedJob.job_contacts);
+    } else {
+      // If not included, fetch them separately
+      if (supabase && updatedJob.id) {
+        supabase
+          .from("job_contacts")
+          .select("*")
+          .eq("job_id", updatedJob.id)
+          .then(({ data, error }) => {
+            if (!error) setAdditionalContacts(data || []);
+          });
+      }
+    }
   };
 
   if (isLoading) {
@@ -549,6 +605,7 @@ const JobDetails = () => {
         job={job}
         onCompleteJob={() => setShowCompleteJobModal(true)}
         onDeleteJob={() => setShowDeleteJobModal(true)}
+        onEditJob={handleEditJob}
         isMaintenanceChecklistComplete={isMaintenanceChecklistComplete}
       />
 
@@ -598,7 +655,9 @@ const JobDetails = () => {
                           className="flex items-center gap-4 text-sm"
                         >
                           <User size={16} className="text-gray-400" />
-                          <span className="font-medium">{contact.name}</span>
+                          <span className="font-medium">
+                            {`${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "(No name)"}
+                          </span>
                           {contact.type && (
                             <span className="text-gray-500">
                               ({contact.type})
@@ -1009,6 +1068,16 @@ const JobDetails = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Job Modal */}
+      {showEditJobModal && job && (
+        <EditJobModal
+          open={showEditJobModal}
+          onClose={() => setShowEditJobModal(false)}
+          job={job}
+          onJobUpdated={handleJobUpdated}
+        />
       )}
     </div>
   );

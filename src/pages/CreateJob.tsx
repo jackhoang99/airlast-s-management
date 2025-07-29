@@ -178,7 +178,6 @@ const CreateJob = () => {
           await supabase
             .from("service_lines")
             .select("*")
-            .eq("is_active", true)
             .order("name");
 
         if (serviceLinesError) throw serviceLinesError;
@@ -188,7 +187,6 @@ const CreateJob = () => {
         const { data: jobTypesData, error: jobTypesError } = await supabase
           .from("job_types")
           .select("*")
-          .eq("is_active", true)
           .order("name");
 
         if (jobTypesError) throw jobTypesError;
@@ -685,7 +683,8 @@ const CreateJob = () => {
           .filter((c) => c.first_name || c.last_name || c.phone || c.email)
           .map((c) => ({
             job_id: jobData.id,
-            name: `${c.first_name} ${c.last_name}`.trim(),
+            first_name: c.first_name,
+            last_name: c.last_name,
             phone: c.phone,
             email: c.email,
             type: c.type,
