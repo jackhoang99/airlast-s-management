@@ -152,6 +152,84 @@ const Invoices = () => {
     setSearchTerm("");
   };
 
+  // Create Invoice Modal functions
+  const fetchAvailableJobs = async () => {
+    if (!supabase) return;
+
+    try {
+      setCreateInvoiceError(null);
+
+      // Fetch all jobs
+      const { data: jobsData, error: jobsError } = await supabase
+        .from("jobs")
+        .select(
+          `
+          id,
+          number,
+          name,
+          status,
+          type,
+          contact_name,
+          contact_email,
+          created_at,
+          location_id,
+          locations (
+            name,
+            address,
+            city,
+            state,
+            zip,
+            company_id,
+            companies (
+              id,
+              name
+            )
+          ),
+          job_units (
+            units (
+              id,
+              unit_number
+            )
+          )
+        `
+        );
+
+      if (jobsError) throw jobsError;
+
+      // Fetch jobs that already have invoices
+      const { data: jobsWithInvoices, error: invoicesError } = await supabase
+        .from("job_invoices")
+        .select("job_id");
+
+      if (invoicesError) throw invoicesError;
+
+      const jobsWithInvoiceIds = new Set(
+        (jobsWithInvoices || []).map((invoice: any) => invoice.job_id)
+      );
+
+      // Filter out jobs that already have invoices
+      const jobsWithoutInvoices = (jobsData || []).filter(
+        (job: any) => !jobsWithInvoiceIds.has(job.id)
+      );
+
+      // Transform the data to flatten units
+      const transformedJobs = jobsWithoutInvoices.map((job: any) => ({
+        ...job,
+        units: (job.job_units || []).map((ju: any) => ju.units).filter(Boolean),
+      }));
+
+      setAvailableJobs(transformedJobs);
+
+      // Fetch companies, locations, and units for filtering
+      await fetchFilterOptions();
+    } catch (err) {
+      console.error("Error fetching jobs:", err);
+      setCreateInvoiceError(
+        err instanceof Error ? err.message : "Failed to fetch jobs"
+      );
+    }
+  };
+
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case "draft":
@@ -207,8 +285,7 @@ const Invoices = () => {
           </h1>
         </div>
         <div className="flex gap-2">
-          <button className="btn btn-secondary">Export to Spreadsheet</button>
-          <Link to="/jobs" className="btn btn-primary">
+          <Link to="/create-invoice" className="btn btn-primary">
             <Plus size={16} className="mr-2" />
             Create Invoice
           </Link>

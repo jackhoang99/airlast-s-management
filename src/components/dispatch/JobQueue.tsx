@@ -6,6 +6,7 @@ import {
   Search,
   Calendar,
   Clock,
+  ChevronUp,
 } from "lucide-react";
 import { useMediaQuery } from "react-responsive";
 import JobDetailsModal from "../jobs/JobDetailsModal";
@@ -18,6 +19,7 @@ interface Job {
   status: string;
   additional_type?: string;
   schedule_start?: string;
+  time_period_due?: string;
   description?: string;
   locations?: {
     id?: string;
@@ -56,6 +58,8 @@ interface JobQueueProps {
   ) => void;
   onJobDragEnd: () => void;
   onJobClick: (jobId: string) => void;
+  onJobCardClick?: (jobId: string) => void;
+  onJobCardDoubleClick?: (jobId: string) => void;
   selectedJobId: string | null;
   getJobTypeColorClass: (type: string) => string;
   onJobReassign?: (
@@ -70,6 +74,7 @@ interface JobQueueProps {
   onSelectJobToDrag?: (jobId: string) => void;
   onAssignTechnicians?: (appointment: { technicianIds: string[] }) => void;
   onViewAssets?: (location: any, units: any[]) => void;
+  isJobPastDue?: (job: Job) => boolean;
 }
 
 const getJobTypeColorClass = (type: string) => {
@@ -93,6 +98,8 @@ const JobQueue = ({
   onJobDragStart,
   onJobDragEnd,
   onJobClick,
+  onJobCardClick,
+  onJobCardDoubleClick,
   selectedJobId,
   getJobTypeColorClass,
   onJobReassign,
@@ -102,6 +109,7 @@ const JobQueue = ({
   onSelectJobToDrag,
   onAssignTechnicians,
   onViewAssets,
+  isJobPastDue,
   closeDrawer, // optional prop for mobile close
 }: JobQueueProps & { closeDrawer?: () => void }) => {
   const isMobile = useMediaQuery({ maxWidth: 767 });
@@ -117,6 +125,13 @@ const JobQueue = ({
   const [selectedJobForModal, setSelectedJobForModal] = useState<Job | null>(
     null
   );
+
+  // Scroll state for Other Jobs to Schedule section
+  const [otherJobsScrollTop, setOtherJobsScrollTop] = useState(0);
+  const [otherJobsScrollHeight, setOtherJobsScrollHeight] = useState(0);
+  const [otherJobsClientHeight, setOtherJobsClientHeight] = useState(0);
+  const [otherJobsScrollRef, setOtherJobsScrollRef] =
+    useState<HTMLDivElement | null>(null);
 
   // Simplified drag state management
   useEffect(() => {
@@ -134,35 +149,52 @@ const JobQueue = ({
     };
   }, [isDragging]);
 
-  // Categorize jobs based on view mode
+  // Categorize jobs based on view mode - move past dates jobs to unassigned/schedule sections
   const unassignedJobs = jobs.filter(
     (job) =>
-      job.status === "unscheduled" &&
-      (!job.job_technicians || job.job_technicians.length === 0)
+      (job.status === "unscheduled" &&
+        (!job.job_technicians || job.job_technicians.length === 0)) ||
+      // Include past dates jobs that are assigned/scheduled but not completed
+      (isJobPastDue &&
+        isJobPastDue(job) &&
+        job.status !== "completed" &&
+        job.status !== "cancelled")
   );
 
   const partsOrderedJobs = jobs
     .filter(
       (job) =>
         job.status === "unscheduled" &&
-        (job.type === "repair" || job.name.toLowerCase().includes("parts"))
+        (job.type === "repair" || job.name.toLowerCase().includes("parts")) &&
+        // Exclude past dates jobs from parts ordered (they go to unassigned)
+        (!isJobPastDue || !isJobPastDue(job))
     )
     .slice(0, 10);
 
   const pmsToScheduleJobs = jobs.filter(
-    (job) => job.status === "unscheduled" && job.type === "maintenance"
+    (job) =>
+      job.status === "unscheduled" &&
+      job.type === "maintenance" &&
+      // Exclude past dates jobs from PMs to schedule (they go to unassigned)
+      (!isJobPastDue || !isJobPastDue(job))
   );
 
   const otherJobsToSchedule = jobs.filter(
-    (job) => job.status === "unscheduled" && job.type !== "maintenance"
+    (job) =>
+      job.status === "unscheduled" &&
+      job.type !== "maintenance" &&
+      // Exclude past dates jobs from other jobs to schedule (they go to unassigned)
+      (!isJobPastDue || !isJobPastDue(job))
   );
 
-  // For scheduled jobs view
+  // For scheduled jobs view - exclude past dates jobs
   const scheduledJobs = jobs.filter(
     (job) =>
       job.status === "scheduled" &&
       job.job_technicians &&
-      job.job_technicians.length > 0
+      job.job_technicians.length > 0 &&
+      // Exclude past dates jobs from scheduled view (they go to unassigned)
+      (!isJobPastDue || !isJobPastDue(job))
   );
 
   const renderJobCard = (
@@ -172,6 +204,9 @@ const JobQueue = ({
     <div
       key={job.id}
       draggable={!!dragModeActive}
+      title={`${job.name} - ${
+        job.locations?.name || ""
+      } (Click to pan to map, double-click for details)`}
       onDragStart={(e) => {
         if (dragModeActive) {
           e.dataTransfer.setData("application/json", JSON.stringify(job));
@@ -209,11 +244,28 @@ const JobQueue = ({
       }}
       onClick={() => {
         if (!dragModeActive) {
-          // Show the job details modal instead of just calling onJobClick
-          setSelectedJobForModal(job);
-          setShowJobModal(true);
-          // Also call the original onJobClick for backward compatibility
-          onJobClick(job.id);
+          // Single click - pan to map location
+          if (onJobCardClick) {
+            onJobCardClick(job.id);
+          } else {
+            // Fallback to original behavior
+            setSelectedJobForModal(job);
+            setShowJobModal(true);
+            onJobClick(job.id);
+          }
+        }
+      }}
+      onDoubleClick={() => {
+        if (!dragModeActive) {
+          // Double click - show job details modal
+          if (onJobCardDoubleClick) {
+            onJobCardDoubleClick(job.id);
+          } else {
+            // Fallback to original behavior
+            setSelectedJobForModal(job);
+            setShowJobModal(true);
+            onJobClick(job.id);
+          }
         }
       }}
       className={`p-2 mb-2 rounded border transition-all duration-200 text-base min-h-[44px] flex flex-col justify-center job-card-scale ${
@@ -250,7 +302,17 @@ const JobQueue = ({
           }),
       }}
     >
-      <div className="font-medium truncate text-lg">{job.name}</div>
+      <div className="flex items-center justify-between">
+        <div className="font-medium truncate text-lg">{job.name}</div>
+        {isJobPastDue && isJobPastDue(job) && (
+          <div className="flex-shrink-0 ml-2">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+              <AlertTriangle size={10} className="mr-1" />
+              Past Dates
+            </span>
+          </div>
+        )}
+      </div>
       <div className="text-gray-600 truncate">{job.locations?.name}</div>
       <div className="text-gray-500">{job.locations?.zip}</div>
       {/* Display unit information */}
@@ -265,12 +327,75 @@ const JobQueue = ({
       ) : (
         <div className="text-xs text-gray-400 mt-1">{job.type}</div>
       )}
+      {/* Display start and due dates */}
+      {(job.schedule_start || job.time_period_due) && (
+        <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+          {job.schedule_start && (
+            <div className="flex items-center">
+              <Calendar size={10} className="mr-1 text-gray-400" />
+              <span>
+                Start: {formatDate(job.schedule_start)}{" "}
+                {formatTime(job.schedule_start)}
+              </span>
+            </div>
+          )}
+          {job.time_period_due && (
+            <div className="flex items-center">
+              <Clock size={10} className="mr-1 text-gray-400" />
+              <span>Due: {formatDate(job.time_period_due)}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleOtherJobsScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    setOtherJobsScrollTop(target.scrollTop);
+    setOtherJobsScrollHeight(target.scrollHeight);
+    setOtherJobsClientHeight(target.clientHeight);
+  };
+
+  const scrollOtherJobsToTop = () => {
+    if (otherJobsScrollRef) {
+      otherJobsScrollRef.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // Helper function to format dates
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return "";
+    }
+  };
+
+  // Helper function to format time
+  const formatTime = (dateString?: string): string => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } catch {
+      return "";
+    }
   };
 
   const filteredJobs = (jobList: Job[]) =>
@@ -287,6 +412,13 @@ const JobQueue = ({
       className={`bg-white border-r border-gray-200 flex flex-col relative ${
         isMobile ? "w-full h-full" : "w-80"
       }${dragModeActive ? " ring-2 ring-blue-400 job-queue-drag-mode" : ""}`}
+      style={
+        {
+          // Custom scrollbar styles for better appearance
+          "--scrollbar-thumb": "#d1d5db",
+          "--scrollbar-track": "#f3f4f6",
+        } as React.CSSProperties
+      }
     >
       {/* Drag indicator */}
       {isDragging && (
@@ -342,6 +474,29 @@ const JobQueue = ({
       </div>
 
       <div className="flex-1 overflow-y-auto max-h-[calc(100vh-200px)]">
+        {/* Past Due Jobs Notice */}
+        {isJobPastDue && jobs.some((job) => isJobPastDue(job)) && (
+          <div className="mx-4 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center">
+              <AlertTriangle
+                size={16}
+                className="text-red-500 mr-2 flex-shrink-0"
+              />
+              <div className="text-sm">
+                <p className="font-medium text-red-800">
+                  Past Dates Jobs Detected
+                </p>
+                <p className="text-red-600">
+                  {jobs.filter((job) => isJobPastDue(job)).length} job(s) are
+                  past dates or scheduled time but haven't been completed. These
+                  jobs are marked with "Past Dates" indicators and need
+                  immediate attention.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showScheduledJobs ? (
           /* Scheduled Jobs View */
           <div className="p-4">
@@ -428,24 +583,57 @@ const JobQueue = ({
 
             {/* Other Jobs to Schedule */}
             <div className="p-4">
-              <h3 className="font-medium text-sm text-gray-700 mb-3 flex items-center">
-                <Calendar size={16} className="mr-2 text-green-500" />
-                Other Jobs to Schedule ({otherJobsToSchedule.length})
-              </h3>
-              <div
-                className="min-h-[120px] max-h-[300px] overflow-y-auto bg-gray-50 rounded-lg p-2"
-                onDragOver={handleDragOver}
-              >
-                {filteredJobs(otherJobsToSchedule).map((job) =>
-                  renderJobCard(job, {
-                    type: "column",
-                    id: "other_to_schedule",
-                  })
+              <h3 className="font-medium text-sm text-gray-700 mb-3 flex items-center justify-between">
+                <div className="flex items-center">
+                  <Calendar size={16} className="mr-2 text-green-500" />
+                  Other Jobs to Schedule ({otherJobsToSchedule.length})
+                </div>
+                {otherJobsScrollHeight > otherJobsClientHeight && (
+                  <span className="text-xs text-gray-500">
+                    {Math.ceil(
+                      (otherJobsScrollTop + otherJobsClientHeight) / 60
+                    )}{" "}
+                    of {otherJobsToSchedule.length}
+                  </span>
                 )}
-                {filteredJobs(otherJobsToSchedule).length === 0 && (
-                  <div className="text-center text-gray-500 text-sm py-8">
-                    No jobs to schedule
-                  </div>
+              </h3>
+              <div className="relative">
+                <div
+                  ref={setOtherJobsScrollRef}
+                  className="min-h-[120px] max-h-[400px] overflow-y-auto bg-gray-50 rounded-lg p-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400"
+                  onDragOver={handleDragOver}
+                  onScroll={handleOtherJobsScroll}
+                >
+                  {filteredJobs(otherJobsToSchedule).map((job) =>
+                    renderJobCard(job, {
+                      type: "column",
+                      id: "other_to_schedule",
+                    })
+                  )}
+                  {filteredJobs(otherJobsToSchedule).length === 0 && (
+                    <div className="text-center text-gray-500 text-sm py-8">
+                      No jobs to schedule
+                    </div>
+                  )}
+                </div>
+                {/* Top scroll indicator - shows when scrolled down */}
+                {otherJobsScrollTop > 0 && (
+                  <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-gray-50 to-transparent pointer-events-none rounded-t-lg"></div>
+                )}
+                {/* Bottom scroll indicator - shows when there are more jobs than can fit */}
+                {otherJobsScrollTop + otherJobsClientHeight <
+                  otherJobsScrollHeight && (
+                  <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none rounded-b-lg"></div>
+                )}
+                {/* Scroll to top button - shows when scrolled down */}
+                {otherJobsScrollTop > 100 && (
+                  <button
+                    onClick={scrollOtherJobsToTop}
+                    className="absolute bottom-2 right-2 p-2 bg-white border border-gray-300 rounded-full shadow-md hover:bg-gray-50 transition-colors duration-200 z-10"
+                    title="Scroll to top"
+                  >
+                    <ChevronUp size={12} className="text-gray-600" />
+                  </button>
                 )}
               </div>
             </div>

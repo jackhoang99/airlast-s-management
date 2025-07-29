@@ -128,7 +128,11 @@ function App() {
             <Route path="paid" element={<PaidInvoices />} />
             <Route path="reports" element={<InvoiceReports />} />
           </Route>
-          <Route path="create-invoice/:entityType/:entityId" element={<CreateInvoice />} />
+          <Route path="create-invoice" element={<CreateInvoice />} />
+          <Route
+            path="create-invoice/:entityType/:entityId"
+            element={<CreateInvoice />}
+          />
           <Route path="quotes">
             <Route path="templates" element={<QuoteTemplates />} />
           </Route>

@@ -15,9 +15,10 @@ interface MapProps {
   selectedCall?: Call | null;
   className?: string;
   onMarkerJobClick?: (jobIdOrLocationId: string) => void;
+  onMapReady?: (map: google.maps.Map) => void;
 }
 
-const Map = ({ selectedCall, className = "", onMarkerJobClick }: MapProps) => {
+const Map = ({ selectedCall, className = "", onMarkerJobClick, onMapReady }: MapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
@@ -47,6 +48,10 @@ const Map = ({ selectedCall, className = "", onMarkerJobClick }: MapProps) => {
             center: { lat: 33.749, lng: -84.388 }, // Default Atlanta
             zoom: 10,
           });
+          // Notify parent component that map is ready
+          if (onMapReady) {
+            onMapReady(mapInstanceRef.current);
+          }
         }
       } catch (error) {
         console.error("Error loading Google Maps:", error);

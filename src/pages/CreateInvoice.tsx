@@ -61,10 +61,13 @@ const CreateInvoice = () => {
   const [selectedCompany, setSelectedCompany] = useState<string>("");
   const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [selectedUnit, setSelectedUnit] = useState<string>("");
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   useEffect(() => {
+    // If no entity parameters, show selection mode
     if (!entityType || !entityId) {
-      setError("Invalid entity type or ID");
+      setIsSelectionMode(true);
+      fetchFilterOptions();
       return;
     }
 
@@ -248,6 +251,142 @@ const CreateInvoice = () => {
         setUnits(unitsData || []);
       } catch (err) {
         console.error("Error fetching filter options:", err);
+      }
+    };
+
+    const handleEntitySelection = async () => {
+      if (!selectedCompany && !selectedLocation && !selectedUnit) {
+        setError("Please select a company, location, or unit");
+        return;
+      }
+
+      setIsLoadingJobs(true);
+      setError(null);
+
+      try {
+        let locationIds: string[] = [];
+        let selectedEntityType = "";
+        let selectedEntityId = "";
+
+        if (selectedUnit) {
+          // Unit selected - get its location
+          const { data: unit, error: unitError } = await supabase
+            .from("units")
+            .select("location_id, unit_number")
+            .eq("id", selectedUnit)
+            .single();
+
+          if (unitError) throw unitError;
+          if (!unit) {
+            setError("Unit not found");
+            return;
+          }
+          locationIds = [unit.location_id];
+          selectedEntityType = "unit";
+          selectedEntityId = selectedUnit;
+          setEntityName(`Unit ${unit.unit_number}`);
+        } else if (selectedLocation) {
+          // Location selected
+          locationIds = [selectedLocation];
+          selectedEntityType = "location";
+          selectedEntityId = selectedLocation;
+
+          const { data: location, error: locationError } = await supabase
+            .from("locations")
+            .select("name")
+            .eq("id", selectedLocation)
+            .single();
+          if (locationError) throw locationError;
+          setEntityName(location.name);
+        } else if (selectedCompany) {
+          // Company selected - get all its locations
+          const { data: locations, error: locationsError } = await supabase
+            .from("locations")
+            .select("id")
+            .eq("company_id", selectedCompany);
+
+          if (locationsError) throw locationsError;
+          if (!locations || locations.length === 0) {
+            setError("No locations found for this company");
+            return;
+          }
+          locationIds = locations.map((loc: any) => loc.id);
+          selectedEntityType = "company";
+          selectedEntityId = selectedCompany;
+
+          const { data: company, error: companyError } = await supabase
+            .from("companies")
+            .select("name")
+            .eq("id", selectedCompany)
+            .single();
+          if (companyError) throw companyError;
+          setEntityName(company.name);
+        }
+
+        // Fetch all jobs for the selected locations
+        const { data: jobsData, error: jobsError } = await supabase
+          .from("jobs")
+          .select(
+            `
+          id,
+          number,
+          name,
+          status,
+          type,
+          contact_name,
+          contact_email,
+          created_at,
+          location_id,
+          locations (
+            name,
+            address,
+            city,
+            state,
+            zip
+          ),
+          job_units (
+            units (
+              id,
+              unit_number
+            )
+          )
+        `
+          )
+          .in("location_id", locationIds);
+
+        if (jobsError) throw jobsError;
+
+        // Fetch jobs that already have invoices
+        const { data: jobsWithInvoices, error: invoicesError } = await supabase
+          .from("job_invoices")
+          .select("job_id");
+
+        if (invoicesError) throw invoicesError;
+
+        const jobsWithInvoiceIds = new Set(
+          (jobsWithInvoices || []).map((invoice: any) => invoice.job_id)
+        );
+
+        // Filter out jobs that already have invoices
+        const jobsWithoutInvoices = (jobsData || []).filter(
+          (job: any) => !jobsWithInvoiceIds.has(job.id)
+        );
+
+        // Transform the data to flatten units
+        const transformedJobs = jobsWithoutInvoices.map((job: any) => ({
+          ...job,
+          units: (job.job_units || [])
+            .map((ju: any) => ju.units)
+            .filter(Boolean),
+        }));
+
+        setAvailableJobs(transformedJobs);
+        setIsSelectionMode(false);
+      } catch (err) {
+        console.error("Error fetching jobs:", err);
+        setError(err instanceof Error ? err.message : "Failed to fetch jobs");
+      } finally {
+        setIsLoadingJobs(false);
       }
     };
 
@@ -534,6 +673,126 @@ const CreateInvoice = () => {
           }
           className="text-primary-600 hover:text-primary-800"
         />
+      </div>
+    );
+  }
+
+  // Show entity selection interface when no entity is specified
+  if (isSelectionMode) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Create Invoice</h1>
+              <p className="text-gray-600">
+                Select a company, location, or unit to create an invoice
+              </p>
+            </div>
+            <ArrowBack
+              fallbackRoute="/invoices"
+              className="text-primary-600 hover:text-primary-800"
+            />
+          </div>
+
+          {/* Error Display */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+              {error}
+            </div>
+          )}
+
+          {/* Entity Selection */}
+          <div className="card">
+            <h2 className="text-lg font-semibold mb-4">Select Entity</h2>
+            <p className="text-gray-600 mb-6">
+              Choose a company, location, or unit to create an invoice for. You can only select one at a time.
+            </p>
+
+            <div className="space-y-6">
+              {/* Company Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Company
+                </label>
+                <select
+                  className="select w-full"
+                  value={selectedCompany}
+                  onChange={(e) => {
+                    setSelectedCompany(e.target.value);
+                    setSelectedLocation("");
+                    setSelectedUnit("");
+                  }}
+                >
+                  <option value="">Select a company</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Location Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Location
+                </label>
+                <select
+                  className="select w-full"
+                  value={selectedLocation}
+                  onChange={(e) => {
+                    setSelectedLocation(e.target.value);
+                    setSelectedCompany("");
+                    setSelectedUnit("");
+                  }}
+                >
+                  <option value="">Select a location</option>
+                  {locations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Unit Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Unit
+                </label>
+                <select
+                  className="select w-full"
+                  value={selectedUnit}
+                  onChange={(e) => {
+                    setSelectedUnit(e.target.value);
+                    setSelectedCompany("");
+                    setSelectedLocation("");
+                  }}
+                >
+                  <option value="">Select a unit</option>
+                  {units.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.unit_number}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Continue Button */}
+              <div className="pt-4">
+                <button
+                  className="btn btn-primary w-full"
+                  onClick={handleEntitySelection}
+                  disabled={!selectedCompany && !selectedLocation && !selectedUnit}
+                >
+                  Continue to Job Selection
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

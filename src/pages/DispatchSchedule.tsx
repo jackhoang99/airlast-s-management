@@ -87,6 +87,7 @@ const DispatchSchedule = () => {
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [arrivalTime, setArrivalTime] = useState<string | null>(null);
   const [googleMaps, setGoogleMaps] = useState<typeof google.maps | null>(null);
+  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
 
   // Job modal state
   const [showJobModal, setShowJobModal] = useState(false);
@@ -98,6 +99,48 @@ const DispatchSchedule = () => {
   );
 
   // Parse jobId from URL query parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const jobId = urlParams.get("jobId");
+    if (jobId) {
+      setSelectedJobId(jobId);
+    }
+  }, []);
+
+  // Function to check if a job is past dates
+  const isJobPastDue = (job: Job): boolean => {
+    const now = new Date();
+
+    // Check if job has a scheduled start time and it's in the past
+    if (job.schedule_start) {
+      const scheduledDate = new Date(job.schedule_start);
+      if (scheduledDate < now) {
+        return true;
+      }
+    }
+
+    // Check if job has a due date and it's past due
+    if (job.time_period_due) {
+      const dueDate = new Date(job.time_period_due);
+      if (dueDate < now) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  // Function to get past dates jobs count
+  const getPastDueJobsCount = (): number => {
+    return jobs.filter(
+      (job) =>
+        job.status !== "completed" &&
+        job.status !== "cancelled" &&
+        isJobPastDue(job)
+    ).length;
+  };
+
+  // Fetch data on component mount and when filters change
   useEffect(() => {
     const fetchData = async () => {
       if (!supabase) return;
@@ -705,7 +748,38 @@ const DispatchSchedule = () => {
     }
   };
 
-  const handleJobClick = (jobId: string) => {
+  // Function to pan map to job location
+  const panToJobLocation = (job: Job) => {
+    if (!mapInstance || !job.locations) return;
+
+    const address = `${job.locations.address || ""}${
+      job.locations.city ? ", " + job.locations.city : ""
+    }${job.locations.state ? ", " + job.locations.state : ""} ${
+      job.locations.zip || ""
+    }`.trim();
+
+    if (!address) return;
+
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({ address }, (results, status) => {
+      if (status === "OK" && results && results[0]) {
+        mapInstance.setCenter(results[0].geometry.location);
+        mapInstance.setZoom(16);
+      }
+    });
+  };
+
+  // Function to handle single click on job card (pan to map)
+  const handleJobCardClick = (jobId: string) => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (job) {
+      setSelectedJobId(jobId);
+      panToJobLocation(job);
+    }
+  };
+
+  // Function to handle double click on job card (show details)
+  const handleJobCardDoubleClick = (jobId: string) => {
     const job = jobs.find((j) => j.id === jobId);
     if (job) {
       // If the job has a schedule_start, move the calendar to that date
@@ -724,6 +798,11 @@ const DispatchSchedule = () => {
       setSelectedJobForModal(job);
       setShowJobModal(true);
     }
+  };
+
+  const handleJobClick = (jobId: string) => {
+    // This is now the same as handleJobCardDoubleClick for backward compatibility
+    handleJobCardDoubleClick(jobId);
   };
 
   const handleJobSelect = (jobId: string) => {
@@ -813,6 +892,8 @@ const DispatchSchedule = () => {
             onJobDragStart={handleJobDragStart}
             onJobDragEnd={handleJobDragEnd}
             onJobClick={handleJobClick}
+            onJobCardClick={handleJobCardClick}
+            onJobCardDoubleClick={handleJobCardDoubleClick}
             selectedJobId={selectedJobId}
             getJobTypeColorClass={getJobTypeColorClass}
             onJobReassign={handleJobReassign}
@@ -827,6 +908,7 @@ const DispatchSchedule = () => {
               setAssetModalUnits(units);
               setShowAssetModal(true);
             }}
+            isJobPastDue={isJobPastDue}
           />
         </div>
 
@@ -865,6 +947,7 @@ const DispatchSchedule = () => {
                 };
               })()}
               className="h-full w-full"
+              onMapReady={setMapInstance}
               onMarkerJobClick={(locationId) => {
                 console.log("Marker clicked, locationId:", locationId, jobs);
                 const job = jobs.find(
@@ -895,6 +978,8 @@ const DispatchSchedule = () => {
               onJobDragEnd={handleJobDragEnd}
               onJobScheduleUpdate={handleJobScheduleUpdate}
               onJobClick={handleJobClick}
+              onJobCardClick={handleJobCardClick}
+              onJobCardDoubleClick={handleJobCardDoubleClick}
               selectedJobId={selectedJobId}
               getJobTypeColorClass={getJobTypeColorClass}
               onJobReassign={handleJobReassign}
@@ -905,6 +990,7 @@ const DispatchSchedule = () => {
               dragModeActive={dragModeActive}
               selectedJobToDrag={selectedJobToDrag}
               highlightedJobId={highlightedJobId}
+              isJobPastDue={isJobPastDue}
             />
           </div>
         </div>

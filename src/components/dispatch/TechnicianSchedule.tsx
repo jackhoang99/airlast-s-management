@@ -52,6 +52,8 @@ interface TechnicianScheduleProps {
     newTime: string
   ) => void;
   onJobClick: (jobId: string) => void;
+  onJobCardClick?: (jobId: string) => void;
+  onJobCardDoubleClick?: (jobId: string) => void;
   selectedJobId: string | null;
   getJobTypeColorClass: (type: string) => string;
   onJobReassign: (
@@ -66,6 +68,7 @@ interface TechnicianScheduleProps {
   selectedJobToDrag?: string | null;
   highlightedJobId?: string | null;
   onActivateDragMode?: () => void;
+  isJobPastDue?: (job: Job) => boolean;
 }
 
 const TechnicianSchedule = ({
@@ -78,6 +81,8 @@ const TechnicianSchedule = ({
   onJobDragEnd,
   onJobScheduleUpdate,
   onJobClick,
+  onJobCardClick,
+  onJobCardDoubleClick,
   selectedJobId,
   getJobTypeColorClass,
   onJobReassign,
@@ -87,6 +92,7 @@ const TechnicianSchedule = ({
   selectedJobToDrag,
   highlightedJobId,
   onActivateDragMode,
+  isJobPastDue,
   ...rest
 }: TechnicianScheduleProps) => {
   // Time slots for the schedule (8 AM to 8 PM)
@@ -397,12 +403,30 @@ const TechnicianSchedule = ({
                           }}
                           onDragEnd={onJobDragEnd}
                           onClick={() => {
-                            if (
-                              !dragModeActive &&
-                              typeof onJobClick === "function"
-                            ) {
-                              console.log("Job clicked in schedule:", job.id);
-                              onJobClick(job.id);
+                            if (!dragModeActive) {
+                              // Single click - pan to map location
+                              if (onJobCardClick) {
+                                onJobCardClick(job.id);
+                              } else if (typeof onJobClick === "function") {
+                                // Fallback to original behavior
+                                console.log("Job clicked in schedule:", job.id);
+                                onJobClick(job.id);
+                              }
+                            }
+                          }}
+                          onDoubleClick={() => {
+                            if (!dragModeActive) {
+                              // Double click - show job details modal
+                              if (onJobCardDoubleClick) {
+                                onJobCardDoubleClick(job.id);
+                              } else if (typeof onJobClick === "function") {
+                                // Fallback to original behavior
+                                console.log(
+                                  "Job double-clicked in schedule:",
+                                  job.id
+                                );
+                                onJobClick(job.id);
+                              }
                             }
                           }}
                           onDrop={(e) => {
@@ -462,12 +486,17 @@ const TechnicianSchedule = ({
                             width: `${Math.max(8, Math.min(width, 30))}%`,
                             minHeight: 32,
                           }}
-                          title={`${job.name} - ${job.locations?.name || ""}`}
+                          title={`${job.name} - ${job.locations?.name || ""} (Click to pan to map, double-click for details)`}
                           data-job-id={job.id}
                         >
                           <div className="flex items-center justify-between">
                             <div className="font-medium truncate flex-1">
                               {job.name}
+                              {isJobPastDue && isJobPastDue(job) && (
+                                <span className="ml-1 text-red-600 font-bold">
+                                  ⚠
+                                </span>
+                              )}
                             </div>
                           </div>
                           {/* Show units if available */}

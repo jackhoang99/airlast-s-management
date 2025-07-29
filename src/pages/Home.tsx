@@ -204,6 +204,39 @@ const Home = () => {
   const [showCalendar, setShowCalendar] = useState(false);
   const [jobsByDate, setJobsByDate] = useState<Record<string, number>>({});
 
+  // Function to check if a job is past dates
+  const isJobPastDue = (job: ScheduledJob): boolean => {
+    const now = new Date();
+
+    // Check if job has a scheduled start time and it's in the past
+    if (job.schedule_start) {
+      const scheduledDate = new Date(job.schedule_start);
+      if (scheduledDate < now) {
+        return true;
+      }
+    }
+
+    // Check if job has a due date and it's past due
+    if (job.time_period_due) {
+      const dueDate = new Date(job.time_period_due);
+      if (dueDate < now) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  // Function to get past dates jobs count
+  const getPastDueJobsCount = (): number => {
+    return scheduledJobs.filter(
+      (job) =>
+        job.status !== "completed" &&
+        job.status !== "cancelled" &&
+        isJobPastDue(job)
+    ).length;
+  };
+
   // Close calendar when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -479,7 +512,7 @@ const Home = () => {
       if (totalUnitsError)
         console.error("Error fetching units:", totalUnitsError);
 
-      // Fetch overdue jobs (past due date) with better logic
+      // Fetch overdue jobs (past dates) with better logic
       const { data: overdueJobs, error: overdueJobsError } = await supabase
         .from("jobs")
         .select("*")
@@ -1521,6 +1554,23 @@ const Home = () => {
           </div>
         </div>
 
+        {/* Past Due Jobs Notice */}
+        {getPastDueJobsCount() > 0 && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center">
+              <AlertTriangle size={16} className="text-red-500 mr-2 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium text-red-800">
+                  Past Dates Jobs Detected
+                </p>
+                <p className="text-red-600">
+                  {getPastDueJobsCount()} job(s) are past dates or scheduled time but haven't been completed. These jobs are marked with "Past Dates" indicators and need immediate attention.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="h-64">
           <TechnicianSchedule
             technicians={technicians}
@@ -1543,6 +1593,7 @@ const Home = () => {
             selectedJobToDrag={selectedJobToDrag}
             highlightedJobId={null}
             onActivateDragMode={handleActivateDragMode}
+            isJobPastDue={isJobPastDue}
           />
         </div>
 
