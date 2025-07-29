@@ -253,9 +253,8 @@ const TechnicianJobs = () => {
 
         // Order by selected field
         if (sortBy === "date") {
-          query = query.order("schedule_start", {
-            ascending: sortDirection === "asc",
-          });
+          query = query.order("time_period_due", { ascending: sortDirection === "asc" })
+                      .order("time_period_start", { ascending: sortDirection === "asc" });
         } else if (sortBy === "name") {
           query = query.order("name", { ascending: sortDirection === "asc" });
         } else if (sortBy === "status") {

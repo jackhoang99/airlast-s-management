@@ -395,7 +395,8 @@ const TechnicianHome = () => {
           .lt("schedule_start", nextWeekStr)
           .neq("status", "completed")
           .neq("status", "cancelled")
-          .order("schedule_start")
+          .order("time_period_due", { ascending: false })
+          .order("time_period_start", { ascending: false })
           .limit(5);
 
         if (upcomingError) {

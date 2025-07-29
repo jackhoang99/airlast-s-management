@@ -1,13 +1,14 @@
-import { CheckCircle, Trash2, Edit } from "lucide-react";
+import { Edit, CheckCircle, Trash2 } from "lucide-react";
 import ArrowBack from "../ui/ArrowBack";
-import { Job } from "../../types/job";
+import { useSupabase } from "../../lib/supabase-context";
+import { useState, useEffect } from "react";
 
 type JobHeaderProps = {
-  job: Job;
+  job: any;
   onCompleteJob: () => void;
   onDeleteJob: () => void;
   onEditJob: () => void;
-  isMaintenanceChecklistComplete?: boolean;
+  isMaintenanceChecklistComplete: boolean;
 };
 
 const JobHeader = ({
@@ -17,6 +18,58 @@ const JobHeader = ({
   onEditJob,
   isMaintenanceChecklistComplete,
 }: JobHeaderProps) => {
+  const { supabase } = useSupabase();
+  const [isTechnician, setIsTechnician] = useState(false);
+  const [isLoadingRole, setIsLoadingRole] = useState(true);
+
+  // Check if current user is a technician
+  useEffect(() => {
+    const checkUserRole = async () => {
+      if (!supabase) return;
+
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          const { data: userData, error } = await supabase
+            .from("users")
+            .select("role")
+            .eq("email", user.email)
+            .maybeSingle();
+
+          if (!error && userData) {
+            setIsTechnician(userData.role === "technician");
+          }
+        }
+      } catch (err) {
+        console.error("Error checking user role:", err);
+      } finally {
+        setIsLoadingRole(false);
+      }
+    };
+
+    checkUserRole();
+  }, [supabase]);
+
+  // Determine if checklist is required based on user role and job type
+  const isChecklistRequired = () => {
+    if (isLoadingRole) return false; // Don't block while loading
+    if (!isTechnician) return false; // Only technicians need to complete checklist
+
+    return (
+      job.type === "maintenance" &&
+      (job.additional_type === "PM Cleaning AC" ||
+        job.additional_type === "ONE Cleaning AC" ||
+        job.additional_type === "PM Cleaning HEAT" ||
+        job.additional_type === "ONE Cleaning HEAT" ||
+        job.additional_type === "PM Filter Change" ||
+        job.additional_type === "ONE Filter Change")
+    );
+  };
+
+  const checklistRequired = isChecklistRequired();
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -34,38 +87,15 @@ const JobHeader = ({
         {job.status !== "completed" && job.status !== "cancelled" && (
           <button
             onClick={onCompleteJob}
-            disabled={
-              job.type === "maintenance" &&
-              (job.additional_type === "PM Cleaning AC" ||
-                job.additional_type === "ONE Cleaning AC" ||
-                job.additional_type === "PM Cleaning HEAT" ||
-                job.additional_type === "ONE Cleaning HEAT" ||
-                job.additional_type === "PM Filter Change" ||
-                job.additional_type === "ONE Filter Change") &&
-              !isMaintenanceChecklistComplete
-            }
+            disabled={checklistRequired && !isMaintenanceChecklistComplete}
             className={`btn ${
-              job.type === "maintenance" &&
-              (job.additional_type === "PM Cleaning AC" ||
-                job.additional_type === "ONE Cleaning AC" ||
-                job.additional_type === "PM Cleaning HEAT" ||
-                job.additional_type === "ONE Cleaning HEAT" ||
-                job.additional_type === "PM Filter Change" ||
-                job.additional_type === "ONE Filter Change") &&
-              !isMaintenanceChecklistComplete
+              checklistRequired && !isMaintenanceChecklistComplete
                 ? "btn-secondary cursor-not-allowed"
                 : "btn-success"
             }`}
             title={
-              job.type === "maintenance" &&
-              (job.additional_type === "PM Cleaning AC" ||
-                job.additional_type === "ONE Cleaning AC" ||
-                job.additional_type === "PM Cleaning HEAT" ||
-                job.additional_type === "ONE Cleaning HEAT" ||
-                job.additional_type === "PM Filter Change" ||
-                job.additional_type === "ONE Filter Change") &&
-              !isMaintenanceChecklistComplete
-                ? "PM Checklist must be completed first"
+              checklistRequired && !isMaintenanceChecklistComplete
+                ? "PM Checklist must be completed first (Technician requirement)"
                 : ""
             }
           >

@@ -996,9 +996,7 @@ const JobDetails = () => {
               !isMaintenanceChecklistComplete && (
                 <div className="bg-warning-50 border border-warning-200 rounded-md p-3 mb-6">
                   <p className="text-warning-700 text-sm text-center">
-                    ⚠️ PM Checklist is not complete. Please ensure all
-                    maintenance tasks are completed before marking this job as
-                    complete.
+                    ⚠️ PM Checklist is not complete. This is required for technicians but optional for administrators.
                   </p>
                 </div>
               )}

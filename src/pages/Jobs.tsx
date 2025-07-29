@@ -253,6 +253,10 @@ const Jobs = () => {
           query = query.neq("status", "completed");
         }
 
+        // Sort by due date and start date (newest first)
+        query = query.order("time_period_due", { ascending: false })
+                    .order("time_period_start", { ascending: false });
+
         const { data, error } = await query;
         if (error) throw error;
 
@@ -1212,6 +1216,11 @@ const Jobs = () => {
                               Technicians: {getTechnicianNames(job)}
                             </div>
                           )}
+                        {job.description && (
+                          <div className="text-sm text-gray-600 mt-2 line-clamp-2">
+                            {job.description}
+                          </div>
+                        )}
                       </div>
                       <div className="flex flex-col items-end">
                         <div className="text-right mr-6">

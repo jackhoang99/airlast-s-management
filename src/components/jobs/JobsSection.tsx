@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Calendar, Plus, User } from "lucide-react";
+import { Calendar, Plus, User, CheckCircle, Trash2 } from "lucide-react";
 import { useSupabase } from "../../lib/supabase-context";
+import {
+  getJobTypeBorderColor,
+  getJobTypeBackgroundColor,
+  getJobTypeHoverColor,
+} from "./JobTypeColors";
 
 type Job = {
   id: string;
@@ -28,12 +33,14 @@ type Job = {
   is_training: boolean | null;
   additional_type?: string;
   locations?: {
+    id: string;
     name: string;
     address: string;
     city: string;
     state: string;
     zip: string;
     companies: {
+      id: string;
       name: string;
     };
   };
@@ -52,6 +59,11 @@ type Job = {
     id?: string;
     unit_number: string;
   }>;
+  quote_sent?: boolean;
+  quote_confirmed?: boolean;
+  job_replacements?: {
+    total_cost: number;
+  }[];
 };
 
 interface JobsSectionProps {
@@ -106,6 +118,8 @@ const JobsSection: React.FC<JobsSectionProps> = ({
             office,
             is_training,
             additional_type,
+            quote_sent,
+            quote_confirmed,
             locations (
               id,
               name,
@@ -130,6 +144,9 @@ const JobsSection: React.FC<JobsSectionProps> = ({
             job_items (
               total_cost
             ),
+            job_replacements (
+              total_cost
+            ),
             job_units (
               units (
                 id,
@@ -138,7 +155,8 @@ const JobsSection: React.FC<JobsSectionProps> = ({
             )
           `
           )
-          .order("updated_at", { ascending: false });
+          .order("time_period_due", { ascending: false })
+          .order("time_period_start", { ascending: false });
 
         // Filter by location, company, or unit
         if (locationId) {
@@ -152,9 +170,9 @@ const JobsSection: React.FC<JobsSectionProps> = ({
             .from("job_units")
             .select("job_id")
             .eq("unit_id", unitId);
-          
+
           if (jobUnitsError) throw jobUnitsError;
-          
+
           if (jobUnitsData && jobUnitsData.length > 0) {
             const jobIds = jobUnitsData.map((ju: any) => ju.job_id);
             query = query.in("id", jobIds);
@@ -173,8 +191,10 @@ const JobsSection: React.FC<JobsSectionProps> = ({
         // Transform the data to flatten units
         const transformedJobs = (data || []).map((job: any) => ({
           ...job,
-          units: unitId 
-            ? job.job_units?.filter((ju: any) => ju.units?.id === unitId).map((ju: any) => ju.units) || []
+          units: unitId
+            ? job.job_units
+                ?.filter((ju: any) => ju.units?.id === unitId)
+                .map((ju: any) => ju.units) || []
             : job.job_units?.map((ju: any) => ju.units) || [],
         }));
 
@@ -216,8 +236,26 @@ const JobsSection: React.FC<JobsSectionProps> = ({
     return colorMap[type.toLowerCase()] || "bg-gray-500 text-white";
   };
 
+  const getContractBadgeClass = (isContract: boolean) => {
+    return isContract
+      ? "bg-green-100 text-green-800"
+      : "bg-orange-100 text-orange-800";
+  };
+
+  const getQuoteBadgeClass = (isConfirmed: boolean) => {
+    return isConfirmed
+      ? "bg-green-100 text-green-800"
+      : "bg-blue-100 text-blue-800";
+  };
+
   const getJobTotalCost = (job: Job) => {
     return job.job_items?.reduce((sum, item) => sum + item.total_cost, 0) || 0;
+  };
+
+  const getJobReplacementTotal = (job: Job) => {
+    return (
+      job.job_replacements?.reduce((sum, item) => sum + item.total_cost, 0) || 0
+    );
   };
 
   const formatDateTime = (dateString: string) => {
@@ -228,6 +266,22 @@ const JobsSection: React.FC<JobsSectionProps> = ({
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const getTechnicianNames = (job: Job) => {
+    return (
+      job.job_technicians
+        ?.filter((tech) => tech && tech.users)
+        .map((tech) =>
+          `${tech.users.first_name || ""} ${tech.users.last_name || ""}`.trim()
+        )
+        .filter(Boolean)
+        .join(", ") || ""
+    );
+  };
+
+  const isContractJob = (job: Job) => {
+    return !!job.service_contract;
   };
 
   if (loading) {
@@ -263,165 +317,167 @@ const JobsSection: React.FC<JobsSectionProps> = ({
           {jobs.map((job) => (
             <div
               key={job.id}
-              className="border rounded-lg p-4 hover:bg-gray-50"
+              className={`bg-white border rounded-lg shadow-sm relative border-l-4 ${getJobTypeBorderColor(
+                job.type
+              )} ${getJobTypeBackgroundColor(
+                job.type
+              )} transition-colors duration-200`}
             >
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  {/* Top row with job number and badges */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm font-medium text-gray-500">
-                      Job #{job.number}
-                    </span>
-                    <span
-                      className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(
-                        job.status
-                      )}`}
-                    >
-                      {job.status}
-                    </span>
-                    <span
-                      className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getTypeBadgeClass(
-                        job.type
-                      )}`}
-                    >
-                      {job.type}
-                      {job.type === "maintenance" && job.additional_type && (
-                        <span className="ml-1">• {job.additional_type}</span>
-                      )}
-                    </span>
-                    {job.service_contract && (
-                      <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
-                        {job.service_contract}
+              <div className="p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm font-medium text-gray-500">
+                        Job #{job.number}
                       </span>
-                    )}
-                    {job.job_items && job.job_items.length > 0 && (
-                      <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                        ${getJobTotalCost(job).toFixed(2)}
+                      <span
+                        className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(
+                          job.status
+                        )}`}
+                      >
+                        {job.status}
                       </span>
-                    )}
-                    {job.is_training && (
-                      <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                        training
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Job name */}
-                  <Link
-                    to={`/jobs/${job.id}`}
-                    className="text-lg font-bold text-primary-600 hover:text-primary-800 mb-1 block"
-                  >
-                    {job.name}
-                  </Link>
-
-                  {/* Client and location info */}
-                  {job.locations && (
-                    <div className="text-sm text-gray-600 mb-1">
-                      {job.locations.companies?.name &&
-                        job.locations.companies?.id && (
-                          <span>
-                            <Link
-                              to={`/companies/${job.locations.companies.id}`}
-                              className="text-primary-600 hover:text-primary-800"
-                            >
-                              {job.locations.companies.name}
-                            </Link>
-                          </span>
+                      <span
+                        className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getTypeBadgeClass(
+                          job.type
+                        )}`}
+                      >
+                        {job.type}
+                        {job.type === "maintenance" && job.additional_type && (
+                          <span className="ml-1">• {job.additional_type}</span>
                         )}
-                      {job.locations.name && job.locations.id && (
-                        <span>
-                          {job.locations.companies?.name &&
-                          job.locations.companies?.id
-                            ? " "
-                            : ""}
-                          •{" "}
-                          <Link
-                            to={`/locations/${job.locations.id}`}
-                            className="text-primary-600 hover:text-primary-800"
-                          >
-                            {job.locations.name}
-                          </Link>
+                      </span>
+                      <span
+                        className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getContractBadgeClass(
+                          isContractJob(job)
+                        )}`}
+                      >
+                        {isContractJob(job) ? "Contract" : "Non-Contract"}
+                      </span>
+                      {job.quote_sent && (
+                        <span
+                          className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getQuoteBadgeClass(
+                            job.quote_confirmed || false
+                          )}`}
+                        >
+                          {job.quote_confirmed
+                            ? "Quote Confirmed"
+                            : "Quote Sent"}
                         </span>
                       )}
-                      {job.locations.address && (
-                        <div className="text-gray-500">
+                      {job.is_training && (
+                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                          training
+                        </span>
+                      )}
+                      {job.job_items && job.job_items.length > 0 && (
+                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800">
+                          Repair: ${getJobTotalCost(job).toFixed(2)}
+                        </span>
+                      )}
+                      {job.job_replacements &&
+                        job.job_replacements.length > 0 && (
+                          <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800">
+                            Replacement: $
+                            {getJobReplacementTotal(job).toFixed(2)}
+                          </span>
+                        )}
+                      {job.units && job.units.length > 0 && (
+                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                          Units:{" "}
+                          {job.units.map((u) => u.unit_number).join(", ")}
+                        </span>
+                      )}
+                    </div>
+                    <Link
+                      to={`/jobs/${job.id}`}
+                      className="text-lg font-medium text-primary-600 hover:text-primary-800"
+                    >
+                      {job.name}
+                    </Link>
+                    {job.locations && (
+                      <div className="text-sm text-gray-500">
+                        <div className="font-medium text-gray-700">
+                          {job.locations.companies?.name &&
+                            job.locations.companies?.id && (
+                              <Link
+                                to={`/companies/${job.locations.companies.id}`}
+                                className="text-primary-600 hover:text-primary-800"
+                              >
+                                {job.locations.companies.name}
+                              </Link>
+                            )}
+                          {job.locations.name && job.locations.id && (
+                            <span>
+                              {job.locations.companies?.name &&
+                              job.locations.companies?.id
+                                ? " • "
+                                : ""}
+                              <Link
+                                to={`/locations/${job.locations.id}`}
+                                className="text-primary-600 hover:text-primary-800"
+                              >
+                                {job.locations.name}
+                              </Link>
+                            </span>
+                          )}
+                          {job.units && job.units.length > 0 && (
+                            <span>
+                              {" • Unit"}
+                              {job.units.length > 1 ? "s" : ""}:{" "}
+                              {job.units.map((u, idx) => (
+                                <span key={u.id || idx}>
+                                  {u.id ? (
+                                    <Link
+                                      to={`/units/${u.id}`}
+                                      className="text-primary-600 hover:text-primary-800"
+                                    >
+                                      {u.unit_number}
+                                    </Link>
+                                  ) : (
+                                    u.unit_number
+                                  )}
+                                  {idx < job.units!.length - 1 && ", "}
+                                </span>
+                              ))}
+                            </span>
+                          )}
+                        </div>
+                        <div>
                           {job.locations.address} • {job.locations.city},{" "}
                           {job.locations.state}
                         </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Units */}
-                  {job.units && job.units.length > 0 && (
-                    <div className="text-sm text-gray-600 mb-1">
-                      Unit{job.units.length > 1 ? "s" : ""}:{" "}
-                      {job.units
-                        .filter((unit) => unit && unit.unit_number)
-                        .map((unit, idx) => (
-                          <span key={unit?.id || idx}>
-                            {unit?.id ? (
-                              <Link
-                                to={`/units/${unit.id}`}
-                                className="text-primary-600 hover:text-primary-800"
-                              >
-                                {unit.unit_number}
-                              </Link>
-                            ) : (
-                              unit.unit_number
-                            )}
-                            {idx <
-                              job.units!.filter((u) => u && u.unit_number)
-                                .length -
-                                1 && ", "}
-                          </span>
-                        ))}
-                    </div>
-                  )}
-
-                  {/* Technicians */}
-                  {job.job_technicians && job.job_technicians.length > 0 && (
-                    <div className="text-sm text-gray-600 mb-1">
-                      <div className="flex items-center gap-1">
-                        <User size={12} className="text-gray-400" />
-                        <span>
-                          {job.job_technicians
-                            .filter((tech) => tech && tech.users)
-                            .map((tech) =>
-                              `${tech.users.first_name || ""} ${
-                                tech.users.last_name || ""
-                              }`.trim()
-                            )
-                            .filter(Boolean)
-                            .join(", ")}
-                        </span>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Description */}
-                  {job.description && (
-                    <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                      {job.description}
-                    </p>
-                  )}
-                </div>
-
-                <div className="text-right text-sm">
-                  <div className="text-gray-500 mb-1">
-                    Start: {job.time_period_start}
+                    )}
+                    {job.job_technicians && job.job_technicians.length > 0 && (
+                      <div className="text-sm text-gray-500 mt-1">
+                        Technicians: {getTechnicianNames(job)}
+                      </div>
+                    )}
+                    {job.description && (
+                      <div className="text-sm text-gray-600 mt-2 line-clamp-2">
+                        {job.description}
+                      </div>
+                    )}
                   </div>
-                  <div className="text-gray-500 mb-1">
-                    Due: {job.time_period_due}
-                  </div>
-                  {job.schedule_start && (
-                    <div className="text-gray-500">
-                      Schedule: {formatDateTime(job.schedule_start)}
-                      {job.schedule_duration && (
-                        <span> ({job.schedule_duration})</span>
+                  <div className="flex flex-col items-end">
+                    <div className="text-right mr-6">
+                      <div className="text-sm font-medium">
+                        Start: {job.time_period_start}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        Due: {job.time_period_due}
+                      </div>
+                      {job.schedule_start && (
+                        <div className="text-sm text-gray-500">
+                          Schedule: {formatDateTime(job.schedule_start)}
+                          {job.schedule_duration && (
+                            <span> ({job.schedule_duration})</span>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -434,6 +490,7 @@ const JobsSection: React.FC<JobsSectionProps> = ({
             No jobs found
             {locationId && " for this location"}
             {companyId && " for this company"}
+            {unitId && " for this unit"}
           </p>
           {createJobLink && (
             <Link to={createJobLink} className="btn btn-primary">
