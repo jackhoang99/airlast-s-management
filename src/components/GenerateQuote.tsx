@@ -39,14 +39,16 @@ interface GenerateQuoteProps {
   unitNumber?: string;
   // Callbacks
   onQuoteSent?: (quoteData: any) => void;
-  onPreviewQuote?: (quoteType: "replacement" | "repair" | "inspection") => void;
+  onPreviewQuote?: (
+    quoteType: "replacement" | "repair" | "inspection" | "pm"
+  ) => void;
   // UI customization
   title?: string;
   className?: string;
   // Default quote type
-  defaultQuoteType?: "replacement" | "repair" | "inspection";
+  defaultQuoteType?: "replacement" | "repair" | "inspection" | "pm";
   // Available quote types to show
-  availableQuoteTypes?: ("replacement" | "repair" | "inspection")[];
+  availableQuoteTypes?: ("replacement" | "repair" | "inspection" | "pm")[];
 }
 
 type InspectionData = {
@@ -106,7 +108,7 @@ const GenerateQuote = ({
   title = "Generate Quote",
   className = "",
   defaultQuoteType = "replacement",
-  availableQuoteTypes = ["replacement", "repair", "inspection"],
+  availableQuoteTypes = ["replacement", "repair", "inspection", "pm"],
 }: GenerateQuoteProps) => {
   const { supabase } = useSupabase();
   const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
@@ -133,7 +135,7 @@ const GenerateQuote = ({
   );
   const [selectedRepairItems, setSelectedRepairItems] = useState<string[]>([]);
   const [selectedQuoteType, setSelectedQuoteType] = useState<
-    "replacement" | "repair" | "inspection"
+    "replacement" | "repair" | "inspection" | "pm"
   >(defaultQuoteType);
 
   // Generated quote data
@@ -800,13 +802,39 @@ const GenerateQuote = ({
                   checked={selectedQuoteType === "inspection"}
                   onChange={(e) =>
                     setSelectedQuoteType(
-                      e.target.value as "replacement" | "repair" | "inspection"
+                      e.target.value as
+                        | "replacement"
+                        | "repair"
+                        | "inspection"
+                        | "pm"
                     )
                   }
                   className="mr-2"
                 />
                 <Clipboard className="h-4 w-4 mr-1 text-purple-600" />
                 Inspection Quote
+              </label>
+            )}
+            {availableQuoteTypes.includes("pm") && (
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="quoteType"
+                  value="pm"
+                  checked={selectedQuoteType === "pm"}
+                  onChange={(e) =>
+                    setSelectedQuoteType(
+                      e.target.value as
+                        | "replacement"
+                        | "repair"
+                        | "inspection"
+                        | "pm"
+                    )
+                  }
+                  className="mr-2"
+                />
+                <CheckSquare className="h-4 w-4 mr-1 text-blue-600" />
+                PM Quote
               </label>
             )}
           </div>
@@ -1077,13 +1105,41 @@ const GenerateQuote = ({
         </div>
       )}
 
+      {/* PM Quote Section */}
+      {selectedQuoteType === "pm" && (
+        <div className="mb-6">
+          <h3 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+            <CheckSquare className="h-4 w-4 mr-2 text-blue-600" />
+            PM Quote Configuration
+            <span className="ml-2 text-xs text-blue-600 font-normal">
+              (Configure preventive maintenance services)
+            </span>
+          </h3>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800 mb-4">
+              PM quotes are configured through the Quote Section. Please
+              navigate to the Quote Section and use the PM Quote tab to create
+              and manage preventive maintenance quotes.
+            </p>
+            <div className="flex items-center gap-2 text-sm text-blue-700">
+              <CheckSquare className="h-4 w-4" />
+              <span>
+                Use the PM Quote tab in the Quote Section to create detailed PM
+                quotes
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* No Data Available */}
       {((selectedQuoteType === "inspection" &&
         availableInspections.length === 0) ||
         (selectedQuoteType === "replacement" &&
           availableReplacements.length === 0) ||
         (selectedQuoteType === "repair" &&
-          jobItems.filter((item) => item.type === "part").length === 0)) && (
+          jobItems.filter((item) => item.type === "part").length === 0) ||
+        selectedQuoteType === "pm") && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
           <AlertTriangle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
           <p className="text-gray-500 mb-2">
@@ -1094,7 +1150,9 @@ const GenerateQuote = ({
               ? "Complete inspections first"
               : selectedQuoteType === "replacement"
               ? "Add replacement options first"
-              : "Add repair parts first"}
+              : selectedQuoteType === "repair"
+              ? "Add repair parts first"
+              : "Use the Quote Section PM tab to create PM quotes"}
           </p>
         </div>
       )}
@@ -1105,7 +1163,8 @@ const GenerateQuote = ({
         (selectedQuoteType === "replacement" &&
           availableReplacements.length > 0) ||
         (selectedQuoteType === "repair" &&
-          jobItems.filter((item) => item.type === "part").length > 0)) && (
+          jobItems.filter((item) => item.type === "part").length > 0) ||
+        selectedQuoteType === "pm") && (
         <div className="border-t pt-6">
           <button
             onClick={handleGenerateQuote}
@@ -1117,6 +1176,7 @@ const GenerateQuote = ({
                 selectedReplacements.length === 0) ||
               (selectedQuoteType === "repair" &&
                 selectedRepairItems.length === 0) ||
+              selectedQuoteType === "pm" ||
               isGeneratingPDF
             }
           >
@@ -1187,7 +1247,7 @@ const GenerateQuote = ({
           totalCost={totalCost}
           location={location}
           unit={unit}
-          quoteType={selectedQuoteType}
+          quoteType={selectedQuoteType === "pm" ? undefined : selectedQuoteType}
           onEmailSent={handleQuoteSent}
           emailTemplate={emailTemplate}
           replacementDataById={{}}

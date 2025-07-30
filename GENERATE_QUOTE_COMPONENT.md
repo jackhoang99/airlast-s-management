@@ -1,6 +1,6 @@
 # GenerateQuote Component
 
-A standalone component for generating and sending quotes that uses similar logic to the JobQuoteSection but can be used independently for manual inspection quotes.
+A standalone component for generating and sending quotes that uses similar logic to the JobQuoteHistorySection but can be used independently for manual inspection quotes.
 
 ## Overview
 
@@ -187,7 +187,7 @@ The component uses the `generate-quote-pdf` function for PDF generation:
 
 ## Styling
 
-The component uses the same styling as the JobQuoteSection:
+The component uses the same styling as the JobQuoteHistorySection:
 
 - **Card Layout**: Consistent card-based design
 - **Tab Navigation**: Clean tab interface

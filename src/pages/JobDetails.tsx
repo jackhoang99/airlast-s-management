@@ -20,8 +20,8 @@ import JobDetailsCard from "../components/jobs/JobDetailsCard";
 import JobLocationContact from "../components/jobs/JobLocationContact";
 import JobTechnicians from "../components/jobs/JobTechnicians";
 import InspectionSection from "../components/jobs/InspectionSection";
-import ServiceSection from "../components/jobs/ServiceSection";
-import JobQuoteSection from "../components/jobs/JobQuoteSection";
+import QuoteSection from "../components/jobs/QuoteSection";
+import JobQuoteHistorySection from "../components/jobs/JobQuoteHistorySection";
 import JobInvoiceSection from "../components/jobs/JobInvoiceSection";
 import JobSidebar from "../components/jobs/JobSidebar";
 import JobUnitSection from "../components/jobs/JobUnitSection";
@@ -65,8 +65,8 @@ const JobDetails = () => {
   const [additionalContacts, setAdditionalContacts] = useState<any[]>([]);
 
   // Collapsible section states - all set to true (expanded) by default
-  const [showServiceSection, setShowServiceSection] = useState(true);
   const [showQuoteSection, setShowQuoteSection] = useState(true);
+  const [showQuoteHistorySection, setShowQuoteHistorySection] = useState(true);
   const [showInvoiceSection, setShowInvoiceSection] = useState(true);
   const [showInspectionSection, setShowInspectionSection] = useState(true);
   const [inspectionData, setInspectionData] = useState<any[]>([]);
@@ -848,41 +848,6 @@ const JobDetails = () => {
             )}
           </div>
 
-          {/* Service Section - Collapsible */}
-          <div className="card">
-            <div
-              className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
-              onClick={() => setShowServiceSection(!showServiceSection)}
-            >
-              <h2 className="text-lg font-medium">Service</h2>
-              <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
-                {showServiceSection ? (
-                  <>
-                    Hide <ChevronUp size={16} className="ml-1" />
-                  </>
-                ) : (
-                  <>
-                    Show <ChevronDown size={16} className="ml-1" />
-                  </>
-                )}
-              </span>
-            </div>
-
-            {showServiceSection && (
-              <div className="mt-4">
-                <ServiceSection
-                  jobId={job.id}
-                  jobItems={jobItems}
-                  onItemsUpdated={handleItemsUpdated}
-                  onQuoteStatusChange={() =>
-                    job.quote_sent && setQuoteNeedsUpdate(true)
-                  }
-                  refreshTrigger={refreshTrigger}
-                />
-              </div>
-            )}
-          </div>
-
           {/* Quote Section - Collapsible */}
           <div className="card">
             <div
@@ -905,7 +870,42 @@ const JobDetails = () => {
 
             {showQuoteSection && (
               <div className="mt-4">
-                <JobQuoteSection
+                <QuoteSection
+                  jobId={job.id}
+                  jobItems={jobItems}
+                  onItemsUpdated={handleItemsUpdated}
+                  onQuoteStatusChange={() =>
+                    job.quote_sent && setQuoteNeedsUpdate(true)
+                  }
+                  refreshTrigger={refreshTrigger}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Quote History Section - Collapsible */}
+          <div className="card">
+            <div
+              className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
+              onClick={() => setShowQuoteHistorySection(!showQuoteHistorySection)}
+            >
+              <h2 className="text-lg font-medium">Quote History</h2>
+              <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
+                {showQuoteHistorySection ? (
+                  <>
+                    Hide <ChevronUp size={16} className="ml-1" />
+                  </>
+                ) : (
+                  <>
+                    Show <ChevronDown size={16} className="ml-1" />
+                  </>
+                )}
+              </span>
+            </div>
+
+            {showQuoteHistorySection && (
+              <div className="mt-4">
+                <JobQuoteHistorySection
                   job={job}
                   jobItems={jobItems}
                   onQuoteSent={handleQuoteSent}

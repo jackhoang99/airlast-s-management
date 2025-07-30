@@ -17,30 +17,32 @@ import {
   FileText,
   Plus,
   Trash2,
+  CheckSquare,
 } from "lucide-react";
 import SendEmailModal from "./SendEmailModal";
 import GenerateQuote from "../GenerateQuote";
+import { Job, JobItem } from "../../types/job";
 
-type JobQuoteSectionProps = {
+type JobQuoteHistorySectionProps = {
   job: Job;
   jobItems: JobItem[];
   onQuoteSent: (updatedJob: Job) => void;
   onPreviewQuote: (
-    quoteType: "replacement" | "repair" | "inspection",
+    quoteType: "replacement" | "repair" | "inspection" | "pm",
     quoteData?: any
   ) => void;
   quoteNeedsUpdate: boolean;
   refreshTrigger?: number;
 };
 
-const JobQuoteSection = ({
+const JobQuoteHistorySection = ({
   job,
   jobItems,
   onQuoteSent,
   onPreviewQuote,
   quoteNeedsUpdate,
   refreshTrigger = 0,
-}: JobQuoteSectionProps) => {
+}: JobQuoteHistorySectionProps) => {
   const { supabase } = useSupabase();
   const [selectedQuoteType, setSelectedQuoteType] = useState<
     "replacement" | "repair"
@@ -214,7 +216,7 @@ const JobQuoteSection = ({
 
   // Add state for quote filtering
   const [activeQuoteFilter, setActiveQuoteFilter] = useState<
-    "all" | "replacement" | "repair" | "inspection"
+    "all" | "replacement" | "repair" | "inspection" | "pm"
   >("all");
 
   // Check if job has replacement or repair data
@@ -540,6 +542,27 @@ const JobQuoteSection = ({
           </div>
         </div>
 
+        {/* PM Filter */}
+        <div className="flex-1">
+          <div
+            className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+              activeQuoteFilter === "pm"
+                ? "bg-blue-100 border-blue-300"
+                : "bg-blue-50 border-blue-200 hover:bg-blue-100"
+            }`}
+            onClick={() => setActiveQuoteFilter("pm")}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <CheckSquare size={20} className="text-blue-600 mr-2" />
+                <span className="font-medium text-blue-900">PM</span>
+              </div>
+              <span className="w-2 h-2 bg-success-500 rounded-full"></span>
+            </div>
+            <p className="text-sm text-blue-700 mt-1">PM quotes available</p>
+          </div>
+        </div>
+
         {/* Quotes Table */}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[800px]">
@@ -843,4 +866,4 @@ const JobQuoteSection = ({
   );
 };
 
-export default JobQuoteSection;
+export default JobQuoteHistorySection;

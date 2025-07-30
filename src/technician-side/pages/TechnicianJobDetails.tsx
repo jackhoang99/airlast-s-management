@@ -30,8 +30,8 @@ import {
   User,
 } from "lucide-react";
 import InspectionSection from "../../components/jobs/InspectionSection";
-import ServiceSection from "../../components/jobs/ServiceSection";
-import JobQuoteSection from "../../components/jobs/JobQuoteSection";
+import QuoteSection from "../../components/jobs/QuoteSection";
+import JobQuoteHistorySection from "../../components/jobs/JobQuoteHistorySection";
 import JobInvoiceSection from "../../components/jobs/JobInvoiceSection";
 import TechnicianNavigation from "../components/navigation/TechnicianNavigation";
 import JobTimeTracking from "../../components/jobs/JobTimeTracking";
@@ -71,8 +71,8 @@ const TechnicianJobDetails = () => {
   const [additionalContacts, setAdditionalContacts] = useState<any[]>([]);
 
   // Collapsible section states
-  const [showServiceSection, setShowServiceSection] = useState(false);
   const [showQuoteSection, setShowQuoteSection] = useState(false);
+  const [showQuoteHistorySection, setShowQuoteHistorySection] = useState(false);
   const [showInvoiceSection, setShowInvoiceSection] = useState(false);
   const [showInspectionSection, setShowInspectionSection] = useState(true);
   const [showMaintenanceChecklist, setShowMaintenanceChecklist] =
@@ -714,7 +714,9 @@ const TechnicianJobDetails = () => {
                 >
                   <User size={16} className="text-gray-400" />
                   <span className="font-medium">
-                    {`${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "(No name)"}
+                    {`${contact.first_name || ""} ${
+                      contact.last_name || ""
+                    }`.trim() || "(No name)"}
                   </span>
                   {contact.type && (
                     <span className="text-gray-500">({contact.type})</span>
@@ -936,29 +938,29 @@ const TechnicianJobDetails = () => {
           )}
         </div>
       </div>
-      {/* Service Section */}
+      {/* Quote Section */}
       <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
         <div className="border rounded-lg overflow-hidden">
           <button
-            onClick={() => setShowServiceSection(!showServiceSection)}
+            onClick={() => setShowQuoteSection(!showQuoteSection)}
             className="w-full flex justify-between items-center p-3 bg-blue-50 hover:bg-blue-100 transition-colors"
           >
             <h3 className="text-md font-medium flex items-center">
               <Wrench size={16} className="mr-2 text-blue-500" />
-              Service Details
+              Quote Details
             </h3>
-            {showServiceSection ? (
+            {showQuoteSection ? (
               <ChevronUp className="h-5 w-5 text-blue-500" />
             ) : (
               <ChevronDown className="h-5 w-5 text-blue-500" />
             )}
           </button>
-          {showServiceSection && (
+          {showQuoteSection && (
             <div className="p-3">
               <div className="text-sm text-gray-500 mb-2">
-                <p>Tap on sections below to expand service details</p>
+                <p>Tap on sections below to expand quote details</p>
               </div>
-              <ServiceSection
+              <QuoteSection
                 jobId={id || ""}
                 jobItems={jobItems}
                 onItemsUpdated={handleItemsUpdated}
@@ -970,29 +972,29 @@ const TechnicianJobDetails = () => {
           )}
         </div>
       </div>
-      {/* Quote Section */}
+      {/* Quote History Section */}
       <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
         <div className="border rounded-lg overflow-hidden">
           <button
-            onClick={() => setShowQuoteSection(!showQuoteSection)}
+            onClick={() => setShowQuoteHistorySection(!showQuoteHistorySection)}
             className="w-full flex justify-between items-center p-3 bg-green-50 hover:bg-green-100 transition-colors"
           >
             <h3 className="text-md font-medium flex items-center">
               <FileText size={16} className="mr-2 text-green-500" />
-              Quote Details
+              Quote History
             </h3>
-            {showQuoteSection ? (
+            {showQuoteHistorySection ? (
               <ChevronUp className="h-5 w-5 text-green-500" />
             ) : (
               <ChevronDown className="h-5 w-5 text-green-500" />
             )}
           </button>
-          {showQuoteSection && (
+          {showQuoteHistorySection && (
             <div className="p-3">
               <div className="text-sm text-gray-500 mb-2">
-                <p>Manage and send quotes to customers</p>
+                <p>View and manage quote history</p>
               </div>
-              <JobQuoteSection
+              <JobQuoteHistorySection
                 job={job}
                 jobItems={jobItems}
                 onQuoteSent={handleQuoteSent}

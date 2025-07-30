@@ -24,14 +24,16 @@ import {
   PenTool as Tool,
   Clock,
   FileText,
+  CheckSquare,
 } from "lucide-react";
 import AddJobPricingModal from "./AddJobPricingModal";
 import EditJobItemModal from "./EditJobItemModal";
 import RepairsForm from "./replacement/RepairsForm";
 import SendEmailModal from "./SendEmailModal";
 import GenerateQuote from "../GenerateQuote";
+import PMQuoteModal from "./PMQuoteModal";
 
-type JobServiceSectionProps = {
+type QuoteSectionProps = {
   jobId: string;
   jobItems: any[];
   onItemsUpdated: () => void;
@@ -39,13 +41,13 @@ type JobServiceSectionProps = {
   refreshTrigger?: number;
 };
 
-const ServiceSection = ({
+const QuoteSection = ({
   jobId,
   jobItems,
   onItemsUpdated,
   onQuoteStatusChange,
   refreshTrigger = 0,
-}: JobServiceSectionProps) => {
+}: QuoteSectionProps) => {
   const { supabase } = useSupabase();
   const [showAddPricingModal, setShowAddPricingModal] = useState(false);
   const [showEditItemModal, setShowEditItemModal] = useState(false);
@@ -55,7 +57,7 @@ const ServiceSection = ({
     any | null
   >(null);
   const [activeTab, setActiveTab] = useState<
-    "replacement" | "repair" | "inspection"
+    "replacement" | "repair" | "inspection" | "pm"
   >("replacement");
   const [jobDetails, setJobDetails] = useState<any>(null);
 
@@ -65,6 +67,7 @@ const ServiceSection = ({
 
   const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
   const [showGenerateQuoteModal, setShowGenerateQuoteModal] = useState(false);
+  const [showPMQuoteModal, setShowPMQuoteModal] = useState(false);
 
   // Add a state to track if replacement data exists
   const [hasReplacementData, setHasReplacementData] = useState(false);
@@ -72,7 +75,11 @@ const ServiceSection = ({
   // Add a refresh trigger
   const [refreshTriggerState, setRefreshTriggerState] = useState(0);
 
-  // Fetch job details
+  // PM Quote states
+  const [pmQuotes, setPmQuotes] = useState<any[]>([]);
+  const [selectedPMQuote, setSelectedPMQuote] = useState<any | null>(null);
+
+  // Fetch job details and PM quotes
   useEffect(() => {
     const fetchJobDetails = async () => {
       if (!supabase || !jobId) return;
@@ -242,6 +249,165 @@ const ServiceSection = ({
 
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Fetch PM quotes
+  useEffect(() => {
+    const fetchPMQuotes = async () => {
+      if (!supabase || !jobId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from("pm_quotes")
+          .select("*")
+          .eq("job_id", jobId)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        setPmQuotes(data || []);
+      } catch (err) {
+        console.error("Error fetching PM quotes:", err);
+      }
+    };
+
+    fetchPMQuotes();
+  }, [supabase, jobId, refreshTrigger]);
+
+  // Handle PM quote save
+  const handlePMSave = async (pmQuoteData: any) => {
+    if (!supabase) return;
+
+    try {
+      let result;
+      if (pmQuoteData.id) {
+        // Update existing quote
+        const { data, error } = await supabase
+          .from("pm_quotes")
+          .update({
+            checklist_types: pmQuoteData.checklist_types,
+            number_of_visits: pmQuoteData.number_of_visits,
+            cost_per_visit: pmQuoteData.cost_per_visit,
+            total_cost: pmQuoteData.total_cost,
+            notes: pmQuoteData.notes,
+            comprehensive_visit_cost: pmQuoteData.comprehensive_visit_cost,
+            filter_visit_cost: pmQuoteData.filter_visit_cost,
+            comprehensive_visit_description:
+              pmQuoteData.comprehensive_visit_description,
+            filter_visit_description: pmQuoteData.filter_visit_description,
+            unit_count: pmQuoteData.unit_count,
+            service_period: pmQuoteData.service_period,
+            filter_visit_period: pmQuoteData.filter_visit_period,
+            comprehensive_visits_count: pmQuoteData.comprehensive_visits_count,
+            filter_visits_count: pmQuoteData.filter_visits_count,
+            total_comprehensive_cost: pmQuoteData.total_comprehensive_cost,
+            total_filter_cost: pmQuoteData.total_filter_cost,
+            client_name: pmQuoteData.client_name,
+            property_address: pmQuoteData.property_address,
+            scope_of_work: pmQuoteData.scope_of_work,
+            service_breakdown: pmQuoteData.service_breakdown,
+            preventative_maintenance_services:
+              pmQuoteData.preventative_maintenance_services,
+            include_comprehensive_service:
+              pmQuoteData.include_comprehensive_service,
+            include_filter_change_service:
+              pmQuoteData.include_filter_change_service,
+          })
+          .eq("id", pmQuoteData.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        result = data;
+      } else {
+        // Create new quote
+        const { data, error } = await supabase
+          .from("pm_quotes")
+          .insert({
+            job_id: jobId,
+            checklist_types: pmQuoteData.checklist_types,
+            number_of_visits: pmQuoteData.number_of_visits,
+            cost_per_visit: pmQuoteData.cost_per_visit,
+            total_cost: pmQuoteData.total_cost,
+            notes: pmQuoteData.notes,
+            comprehensive_visit_cost: pmQuoteData.comprehensive_visit_cost,
+            filter_visit_cost: pmQuoteData.filter_visit_cost,
+            comprehensive_visit_description:
+              pmQuoteData.comprehensive_visit_description,
+            filter_visit_description: pmQuoteData.filter_visit_description,
+            unit_count: pmQuoteData.unit_count,
+            service_period: pmQuoteData.service_period,
+            filter_visit_period: pmQuoteData.filter_visit_period,
+            comprehensive_visits_count: pmQuoteData.comprehensive_visits_count,
+            filter_visits_count: pmQuoteData.filter_visits_count,
+            total_comprehensive_cost: pmQuoteData.total_comprehensive_cost,
+            total_filter_cost: pmQuoteData.total_filter_cost,
+            client_name: pmQuoteData.client_name,
+            property_address: pmQuoteData.property_address,
+            scope_of_work: pmQuoteData.scope_of_work,
+            service_breakdown: pmQuoteData.service_breakdown,
+            preventative_maintenance_services:
+              pmQuoteData.preventative_maintenance_services,
+            include_comprehensive_service:
+              pmQuoteData.include_comprehensive_service,
+            include_filter_change_service:
+              pmQuoteData.include_filter_change_service,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        result = data;
+      }
+
+      // Refresh PM quotes
+      const { data: updatedQuotes, error: fetchError } = await supabase
+        .from("pm_quotes")
+        .select("*")
+        .eq("job_id", jobId)
+        .order("created_at", { ascending: false });
+
+      if (fetchError) throw fetchError;
+      setPmQuotes(updatedQuotes || []);
+
+      if (onQuoteStatusChange) onQuoteStatusChange();
+    } catch (err) {
+      console.error("Error saving PM quote:", err);
+      throw err;
+    }
+  };
+
+  // Handle PM quote delete
+  const handlePMDelete = async (quoteId: string) => {
+    if (!supabase) return;
+
+    try {
+      const { error } = await supabase
+        .from("pm_quotes")
+        .delete()
+        .eq("id", quoteId);
+
+      if (error) throw error;
+
+      // Refresh PM quotes
+      const { data: updatedQuotes, error: fetchError } = await supabase
+        .from("pm_quotes")
+        .select("*")
+        .eq("job_id", jobId)
+        .order("created_at", { ascending: false });
+
+      if (fetchError) throw fetchError;
+      setPmQuotes(updatedQuotes || []);
+
+      if (onQuoteStatusChange) onQuoteStatusChange();
+    } catch (err) {
+      console.error("Error deleting PM quote:", err);
+    }
+  };
+
+  // Handle PM quote edit
+  const handlePMEdit = (quote: any) => {
+    setSelectedPMQuote(quote);
+    setShowPMQuoteModal(true);
+  };
+
   return (
     <div>
       {showEditItemModal && selectedItem && (
@@ -281,6 +447,19 @@ const ServiceSection = ({
           <div className="flex items-center">
             <Package size={16} className="mr-2" />
             Repair Quote
+          </div>
+        </button>
+        <button
+          onClick={() => setActiveTab("pm")}
+          className={`w-full sm:w-auto px-4 py-2 font-medium text-sm whitespace-nowrap ${
+            activeTab === "pm"
+              ? "text-gray-900 border-b-2 border-gray-900"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <div className="flex items-center">
+            <CheckSquare size={16} className="mr-2" />
+            PM Quote
           </div>
         </button>
       </div>
@@ -835,6 +1014,248 @@ const ServiceSection = ({
           </div>
         ))}
 
+      {/* PM Quote Section */}
+      {activeTab === "pm" && (
+        <>
+          <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-0">
+            <button
+              onClick={() => {
+                setSelectedPMQuote(null);
+                setShowPMQuoteModal(true);
+              }}
+              className="btn btn-primary btn-sm"
+            >
+              <Plus size={14} className="mr-1" />
+              Add PM Quote
+            </button>
+          </div>
+
+          {pmQuotes.length > 0 ? (
+            <div className="space-y-4">
+              {pmQuotes.map((quote, index) => (
+                <div
+                  key={quote.id}
+                  className="border rounded-lg overflow-hidden p-4 flex flex-col gap-3"
+                >
+                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 border-b border-blue-200">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="text-sm font-medium flex items-center">
+                          <CheckSquare
+                            size={14}
+                            className="mr-1 text-blue-500"
+                          />
+                          PM Quote {index + 1}
+                        </h4>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Created:{" "}
+                          {new Date(quote.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-lg">
+                          ${Number(quote.total_cost).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {quote.comprehensive_visits_count || 0} comprehensive
+                          + {quote.filter_visits_count || 0} filter visits
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {/* Service Schedule */}
+                    {(quote.service_period || quote.filter_visit_period) && (
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-700 mb-2">
+                          Service Schedule:
+                        </h5>
+                        <div className="space-y-2 text-sm">
+                          {quote.service_period && (
+                            <div className="bg-green-50 p-2 rounded">
+                              <div className="font-medium text-green-800">
+                                Comprehensive Service: {quote.service_period}
+                              </div>
+                              {quote.comprehensive_visit_description && (
+                                <div className="text-green-700 text-xs mt-1">
+                                  {quote.comprehensive_visit_description}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {quote.filter_visit_period && (
+                            <div className="bg-blue-50 p-2 rounded">
+                              <div className="font-medium text-blue-800">
+                                Filter Change: {quote.filter_visit_period}
+                              </div>
+                              {quote.filter_visit_description && (
+                                <div className="text-blue-700 text-xs mt-1">
+                                  {quote.filter_visit_description}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Cost Breakdown */}
+                    {(quote.comprehensive_visit_cost ||
+                      quote.filter_visit_cost) && (
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-700 mb-2">
+                          Cost Breakdown:
+                        </h5>
+                        <div className="space-y-1 text-sm">
+                          {quote.comprehensive_visit_cost && (
+                            <div className="flex justify-between">
+                              <span>
+                                Comprehensive Visits (
+                                {quote.comprehensive_visits_count || 0}):
+                              </span>
+                              <span className="font-medium">
+                                $
+                                {(
+                                  quote.comprehensive_visit_cost *
+                                  (quote.comprehensive_visits_count || 0)
+                                ).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {quote.filter_visit_cost && (
+                            <div className="flex justify-between">
+                              <span>
+                                Filter Change Visits (
+                                {quote.filter_visits_count || 0}):
+                              </span>
+                              <span className="font-medium">
+                                $
+                                {(
+                                  quote.filter_visit_cost *
+                                  (quote.filter_visits_count || 0)
+                                ).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          <div className="border-t pt-1 flex justify-between font-medium">
+                            <span>Total Annual:</span>
+                            <span className="text-primary-600">
+                              $
+                              {(
+                                (quote.comprehensive_visit_cost || 0) *
+                                  (quote.comprehensive_visits_count || 0) +
+                                (quote.filter_visit_cost || 0) *
+                                  (quote.filter_visits_count || 0)
+                              ).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Checklist Types */}
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">
+                        Selected Checklists:
+                      </h5>
+                      <div className="flex flex-wrap gap-2">
+                        {quote.checklist_types.map((type: string) => {
+                          const checklistNames: { [key: string]: string } = {
+                            pm_filter_change: "PM Filter Change",
+                            pm_cleaning_ac: "PM Cleaning AC",
+                            pm_cleaning_heat: "PM Cleaning HEAT",
+                          };
+                          return (
+                            <span
+                              key={type}
+                              className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
+                            >
+                              {checklistNames[type] || type}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    {quote.notes && (
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-700 mb-1">
+                          Notes:
+                        </h5>
+                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                          {quote.notes}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                      <button
+                        onClick={() => {
+                          import("./PMQuotePDFGenerator")
+                            .then(({ default: PMQuotePDFGenerator }) => {
+                              const doc = PMQuotePDFGenerator(quote);
+                              const fileName = `PM_HVAC_Quote_${
+                                new Date().toISOString().split("T")[0]
+                              }.pdf`;
+                              doc.save(fileName);
+                            })
+                            .catch((error) => {
+                              console.error("Error generating PDF:", error);
+                            });
+                        }}
+                        className="p-1 text-blue-600 hover:text-blue-800"
+                        title="Generate PDF"
+                      >
+                        <FileText size={16} />
+                      </button>
+                      <button
+                        onClick={() => handlePMEdit(quote)}
+                        className="p-1 text-primary-600 hover:text-primary-800"
+                        title="Edit PM Quote"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              "Are you sure you want to delete this PM quote?"
+                            )
+                          ) {
+                            handlePMDelete(quote.id);
+                          }
+                        }}
+                        className="p-1 text-error-600 hover:text-error-800"
+                        title="Delete PM Quote"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6 bg-gray-50 rounded-lg">
+              <p className="text-gray-500 mb-3">No PM quotes created yet</p>
+              <button
+                onClick={() => {
+                  setSelectedPMQuote(null);
+                  setShowPMQuoteModal(true);
+                }}
+                className="btn btn-primary btn-sm"
+              >
+                <Plus size={14} className="mr-1" />
+                Create First PM Quote
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Add Pricing Modal */}
       <AddJobPricingModal
         isOpen={showAddPricingModal}
@@ -905,7 +1326,7 @@ const ServiceSection = ({
                 }))
               : null
           }
-          quoteType={activeTab}
+          quoteType={activeTab === "pm" ? undefined : activeTab}
           onEmailSent={() => {
             window.location.reload();
           }}
@@ -947,8 +1368,23 @@ const ServiceSection = ({
           </div>
         </div>
       )}
+
+      {/* PM Quote Modal */}
+      {showPMQuoteModal && (
+        <PMQuoteModal
+          isOpen={showPMQuoteModal}
+          onClose={() => {
+            setShowPMQuoteModal(false);
+            setSelectedPMQuote(null);
+          }}
+          jobId={jobId}
+          onSave={handlePMSave}
+          existingQuote={selectedPMQuote}
+          jobDetails={jobDetails}
+        />
+      )}
     </div>
   );
 };
 
-export default ServiceSection;
+export default QuoteSection;
