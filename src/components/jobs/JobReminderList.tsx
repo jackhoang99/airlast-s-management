@@ -2,15 +2,11 @@ import { useState, useEffect } from "react";
 import { useSupabase } from "../../lib/supabase-context";
 import {
   Bell,
-  Calendar,
-  Clock,
-  CheckCircle,
   AlertTriangle,
   Mail,
   MessageSquare,
-  Plus,
 } from "lucide-react";
-import ReminderModal from "./ReminderModal";
+import AddReminderButton from "../AddReminderButton";
 
 interface JobReminderListProps {
   jobId: string;
@@ -32,7 +28,6 @@ const JobReminderList = ({ jobId, jobTechnicians }: JobReminderListProps) => {
   const [reminders, setReminders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showReminderModal, setShowReminderModal] = useState(false);
 
   useEffect(() => {
     const fetchReminders = async () => {
@@ -174,20 +169,46 @@ const JobReminderList = ({ jobId, jobTechnicians }: JobReminderListProps) => {
             <Bell className="h-5 w-5 mr-2 text-primary-600" />
             Reminders
           </h3>
-          <button
-            onClick={() => setShowReminderModal(true)}
-            className="btn btn-primary btn-sm flex items-center gap-1"
-          >
-            <Plus className="h-4 w-4" />
-            Add Reminder
-          </button>
+          <AddReminderButton
+            jobId={jobId}
+            jobTechnicians={jobTechnicians}
+            onReminderSent={() => {
+              // Refresh the reminders list
+              const fetchReminders = async () => {
+                if (!supabase || !jobId) return;
+                try {
+                  const { data, error } = await supabase
+                    .from("job_reminders")
+                    .select("*")
+                    .eq("job_id", jobId)
+                    .order("scheduled_for", { ascending: false });
+                  if (error) throw error;
+                  setReminders(data || []);
+                } catch (err) {
+                  console.error("Error fetching job reminders:", err);
+                }
+              };
+              fetchReminders();
+            }}
+            variant="primary"
+            size="sm"
+          />
         </div>
         <div className="text-center py-4 text-gray-500">
           No reminders have been scheduled for this job
         </div>
-        <ReminderModal
-          isOpen={showReminderModal}
-          onClose={() => setShowReminderModal(false)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-medium flex items-center">
+          <Bell className="h-5 w-5 mr-2 text-primary-600" />
+          Reminders
+        </h3>
+        <AddReminderButton
           jobId={jobId}
           jobTechnicians={jobTechnicians}
           onReminderSent={() => {
@@ -208,25 +229,9 @@ const JobReminderList = ({ jobId, jobTechnicians }: JobReminderListProps) => {
             };
             fetchReminders();
           }}
+          variant="primary"
+          size="sm"
         />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium flex items-center">
-          <Bell className="h-5 w-5 mr-2 text-primary-600" />
-          Reminders
-        </h3>
-        <button
-          onClick={() => setShowReminderModal(true)}
-          className="btn btn-primary btn-sm flex items-center gap-1"
-        >
-          <Plus className="h-4 w-4" />
-          Add Reminder
-        </button>
       </div>
 
       <div className="overflow-x-auto">
@@ -299,30 +304,6 @@ const JobReminderList = ({ jobId, jobTechnicians }: JobReminderListProps) => {
         </table>
       </div>
 
-      <ReminderModal
-        isOpen={showReminderModal}
-        onClose={() => setShowReminderModal(false)}
-        jobId={jobId}
-        jobTechnicians={jobTechnicians}
-        onReminderSent={() => {
-          // Refresh the reminders list
-          const fetchReminders = async () => {
-            if (!supabase || !jobId) return;
-            try {
-              const { data, error } = await supabase
-                .from("job_reminders")
-                .select("*")
-                .eq("job_id", jobId)
-                .order("scheduled_for", { ascending: false });
-              if (error) throw error;
-              setReminders(data || []);
-            } catch (err) {
-              console.error("Error fetching job reminders:", err);
-            }
-          };
-          fetchReminders();
-        }}
-      />
     </div>
   );
 };

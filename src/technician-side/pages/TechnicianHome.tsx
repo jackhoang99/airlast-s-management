@@ -20,6 +20,12 @@ import {
 } from "lucide-react";
 import TechnicianReminders from "../components/TechnicianReminders";
 
+// Import HVAC tool components
+import TemperatureConverter from "../components/hvac-tools/TemperatureConverter";
+import AirflowCalculator from "../components/hvac-tools/AirflowCalculator";
+import RefrigerantGuide from "../components/hvac-tools/RefrigerantGuide";
+import TroubleshootingGuide from "../components/hvac-tools/TroubleshootingGuide";
+
 const TechnicianHome = () => {
   const { supabase } = useSupabase();
   const [isLoading, setIsLoading] = useState(true);
@@ -52,6 +58,14 @@ const TechnicianHome = () => {
     "Test safety controls to ensure they're functioning properly.",
   ]);
   const [randomTip, setRandomTip] = useState<string>("");
+
+  // HVAC Tools state
+  const [showTemperatureConverter, setShowTemperatureConverter] =
+    useState(false);
+  const [showAirflowCalculator, setShowAirflowCalculator] = useState(false);
+  const [showRefrigerantGuide, setShowRefrigerantGuide] = useState(false);
+  const [showTroubleshootingGuide, setShowTroubleshootingGuide] =
+    useState(false);
 
   useEffect(() => {
     const fetchTechnicianInfo = async () => {
@@ -583,9 +597,7 @@ const TechnicianHome = () => {
       </div>
 
       {/* Reminders */}
-      {technicianId && (
-        <TechnicianReminders technicianId={technicianId} />
-      )}
+      {technicianId && <TechnicianReminders technicianId={technicianId} />}
 
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -699,21 +711,32 @@ const TechnicianHome = () => {
               HVAC Reference Tools
             </h2>
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-gray-50 rounded-lg flex items-center">
+              <button
+                onClick={() => setShowTemperatureConverter(true)}
+                className="p-3 bg-gray-50 rounded-lg flex items-center hover:bg-gray-100 transition-colors text-left"
+              >
                 <Thermometer className="h-8 w-8 text-primary-500 mr-3" />
                 <div>
                   <h3 className="font-medium">Temperature Converter</h3>
                   <p className="text-xs text-gray-500">F° to C° conversion</p>
                 </div>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-lg flex items-center">
+              </button>
+
+              <button
+                onClick={() => setShowAirflowCalculator(true)}
+                className="p-3 bg-gray-50 rounded-lg flex items-center hover:bg-gray-100 transition-colors text-left"
+              >
                 <Wind className="h-8 w-8 text-primary-500 mr-3" />
                 <div>
                   <h3 className="font-medium">Airflow Calculator</h3>
                   <p className="text-xs text-gray-500">CFM measurements</p>
                 </div>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-lg flex items-center">
+              </button>
+
+              <button
+                onClick={() => setShowRefrigerantGuide(true)}
+                className="p-3 bg-gray-50 rounded-lg flex items-center hover:bg-gray-100 transition-colors text-left"
+              >
                 <FileText className="h-8 w-8 text-primary-500 mr-3" />
                 <div>
                   <h3 className="font-medium">Refrigerant Guide</h3>
@@ -721,14 +744,18 @@ const TechnicianHome = () => {
                     Pressure-temperature charts
                   </p>
                 </div>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-lg flex items-center">
+              </button>
+
+              <button
+                onClick={() => setShowTroubleshootingGuide(true)}
+                className="p-3 bg-gray-50 rounded-lg flex items-center hover:bg-gray-100 transition-colors text-left"
+              >
                 <Wrench className="h-8 w-8 text-primary-500 mr-3" />
                 <div>
                   <h3 className="font-medium">Troubleshooting</h3>
                   <p className="text-xs text-gray-500">Common HVAC issues</p>
                 </div>
-              </div>
+              </button>
             </div>
           </div>
 
@@ -836,6 +863,27 @@ const TechnicianHome = () => {
             )}
           </div>
         </>
+      )}
+
+      {/* HVAC Tool Modals */}
+      {showTemperatureConverter && (
+        <TemperatureConverter
+          onClose={() => setShowTemperatureConverter(false)}
+        />
+      )}
+
+      {showAirflowCalculator && (
+        <AirflowCalculator onClose={() => setShowAirflowCalculator(false)} />
+      )}
+
+      {showRefrigerantGuide && (
+        <RefrigerantGuide onClose={() => setShowRefrigerantGuide(false)} />
+      )}
+
+      {showTroubleshootingGuide && (
+        <TroubleshootingGuide
+          onClose={() => setShowTroubleshootingGuide(false)}
+        />
       )}
     </div>
   );

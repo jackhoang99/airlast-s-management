@@ -48,28 +48,57 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
           {
             auth: {
               persistSession: true,
-              storageKey: "airlast-tech-auth",
+              storageKey: "supabase.auth.token",
               autoRefreshToken: true,
               detectSessionInUrl: true,
+              flowType: "pkce",
             },
           }
         );
 
         setSupabase(supabaseClient);
 
-        // Get initial session with better error handling
-        try {
-          const {
-            data: { session },
-            error: sessionError,
-          } = await supabaseClient.auth.getSession();
-          if (sessionError) {
-            console.error("Error getting initial session:", sessionError);
-            // Don't throw here, just continue without session
-          } else {
-            console.log("Initial session restored:", session ? "Yes" : "No");
-            setSession(session);
+        // Check what's in localStorage before getting session
+        const storedAuth = localStorage.getItem("supabase.auth.token");
+
+        // Get initial session with retry logic
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        const getInitialSession = async (): Promise<Session | null> => {
+          try {
+            const {
+              data: { session },
+              error: sessionError,
+            } = await supabaseClient.auth.getSession();
+
+            if (sessionError) {
+              console.error("Error getting initial session:", sessionError);
+              throw sessionError;
+            }
+
+            return session;
+          } catch (err) {
+            console.error(
+              `Session restoration attempt ${retryCount + 1} failed:`,
+              err
+            );
+            if (retryCount < maxRetries) {
+              retryCount++;
+              // Wait a bit before retrying
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+              return getInitialSession();
+            }
+            throw err;
           }
+        };
+
+        try {
+          const initialSession = await getInitialSession();
+          if (initialSession) {
+            console.log("Session restored for:", initialSession.user.email);
+          }
+          setSession(initialSession);
         } catch (sessionErr) {
           console.error("Error during session restoration:", sessionErr);
           // Continue without session
@@ -93,7 +122,6 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
               "username",
               session.user.email?.split("@")[0] || "user"
             );
-            console.log("Session established, user:", session.user.email);
           } else {
             // Only clear session storage on explicit logout, not on refresh
             if (event === "SIGNED_OUT") {

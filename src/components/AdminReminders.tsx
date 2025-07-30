@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSupabase } from "../lib/supabase-context";
 import { Bell, Mail, MessageSquare, X, CheckCircle } from "lucide-react";
 import { useUnreadAdminReminders } from "../hooks/useUnreadAdminReminders";
+import AdminAddReminderButton from "./AdminAddReminderButton";
 
 interface AdminRemindersProps {
   adminId: string;
@@ -98,10 +99,17 @@ const AdminReminders = ({ adminId }: AdminRemindersProps) => {
     return (
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-4 bg-blue-50 border-b border-blue-100">
-          <h2 className="text-lg font-semibold flex items-center">
-            <Bell className="h-5 w-5 text-blue-600 mr-2" />
-            Admin Reminders
-          </h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold flex items-center">
+              <Bell className="h-5 w-5 text-blue-600 mr-2" />
+              Admin Reminders
+            </h2>
+            <AdminAddReminderButton
+              onReminderSent={fetchReminders}
+              variant="primary"
+              size="sm"
+            />
+          </div>
         </div>
         <div className="p-4">
           <div className="animate-pulse">
@@ -117,10 +125,17 @@ const AdminReminders = ({ adminId }: AdminRemindersProps) => {
     return (
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-4 bg-red-50 border-b border-red-100">
-          <h2 className="text-lg font-semibold flex items-center">
-            <Bell className="h-5 w-5 text-red-600 mr-2" />
-            Admin Reminders
-          </h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold flex items-center">
+              <Bell className="h-5 w-5 text-red-600 mr-2" />
+              Admin Reminders
+            </h2>
+            <AdminAddReminderButton
+              onReminderSent={fetchReminders}
+              variant="primary"
+              size="sm"
+            />
+          </div>
         </div>
         <div className="p-4 text-red-600">{error}</div>
       </div>
@@ -131,10 +146,17 @@ const AdminReminders = ({ adminId }: AdminRemindersProps) => {
     return (
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-4 bg-blue-50 border-b border-blue-100">
-          <h2 className="text-lg font-semibold flex items-center">
-            <Bell className="h-5 w-5 text-blue-600 mr-2" />
-            Admin Reminders
-          </h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold flex items-center">
+              <Bell className="h-5 w-5 text-blue-600 mr-2" />
+              Admin Reminders
+            </h2>
+            <AdminAddReminderButton
+              onReminderSent={fetchReminders}
+              variant="primary"
+              size="sm"
+            />
+          </div>
         </div>
         <div className="p-4 text-center text-gray-500">No admin reminders</div>
       </div>
@@ -144,15 +166,22 @@ const AdminReminders = ({ adminId }: AdminRemindersProps) => {
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="p-4 bg-blue-50 border-b border-blue-100">
-        <h2 className="text-lg font-semibold flex items-center">
-          <Bell className="h-5 w-5 text-blue-600 mr-2" />
-          Admin Reminders
-          {unreadCount > 0 && (
-            <span className="ml-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-              {unreadCount}
-            </span>
-          )}
-        </h2>
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold flex items-center">
+            <Bell className="h-5 w-5 text-blue-600 mr-2" />
+            Admin Reminders
+            {unreadCount > 0 && (
+              <span className="ml-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                {unreadCount}
+              </span>
+            )}
+          </h2>
+          <AdminAddReminderButton
+            onReminderSent={fetchReminders}
+            variant="primary"
+            size="sm"
+          />
+        </div>
       </div>
       <div className="divide-y divide-gray-200">
         {reminders.map((reminder) => (

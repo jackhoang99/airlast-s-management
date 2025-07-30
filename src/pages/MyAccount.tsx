@@ -1,6 +1,15 @@
-import { useState, useEffect } from 'react';
-import { useSupabase } from '../lib/supabase-context';
-import { User, Mail, Phone, Shield, Key, Save, X, AlertTriangle } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useSupabase } from "../lib/supabase-context";
+import {
+  User,
+  Mail,
+  Phone,
+  Shield,
+  Key,
+  Save,
+  X,
+  AlertTriangle,
+} from "lucide-react";
 
 const MyAccount = () => {
   const { supabase, session } = useSupabase();
@@ -9,16 +18,16 @@ const MyAccount = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
-  
+
   const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone: '',
-    username: '',
-    current_password: '',
-    new_password: '',
-    confirm_password: ''
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    username: "",
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
   });
 
   useEffect(() => {
@@ -27,43 +36,44 @@ const MyAccount = () => {
 
       try {
         setIsLoading(true);
-        
-        // Get user profile from users table
+
+        // Get user profile from users table by email (matching technician auth logic)
         const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
+          .from("users")
+          .select("*")
+          .eq("email", session.user.email)
           .maybeSingle();
 
         if (error) throw error;
-        
+
         // If no user profile exists, create a default one with auth user data
         if (!data) {
           // Generate a unique username by combining email prefix with part of user ID
-          const emailPrefix = session.user.email?.split('@')[0] || 'user';
+          const emailPrefix = session.user.email?.split("@")[0] || "user";
           const userIdSuffix = session.user.id.substring(0, 8); // First 8 characters of UUID
           const uniqueUsername = `${emailPrefix}_${userIdSuffix}`;
 
           const defaultProfile = {
             id: session.user.id,
-            email: session.user.email || '',
+            email: session.user.email || "",
             username: uniqueUsername,
-            first_name: '',
-            last_name: '',
-            phone: '',
-            role: 'user',
-            status: 'active'
+            first_name: "",
+            last_name: "",
+            phone: "",
+            role: "technician",
+            status: "active",
+            auth_id: session.user.id,
           };
 
           // Try to create the user profile
           const { data: newProfile, error: createError } = await supabase
-            .from('users')
+            .from("users")
             .insert(defaultProfile)
             .select()
             .single();
 
           if (createError) {
-            console.error('Error creating user profile:', createError);
+            console.error("Error creating user profile:", createError);
             // If creation fails, use the default profile for display
             setUserProfile(defaultProfile);
             setFormData({
@@ -72,39 +82,39 @@ const MyAccount = () => {
               email: defaultProfile.email,
               phone: defaultProfile.phone,
               username: defaultProfile.username,
-              current_password: '',
-              new_password: '',
-              confirm_password: ''
+              current_password: "",
+              new_password: "",
+              confirm_password: "",
             });
           } else {
             setUserProfile(newProfile);
             setFormData({
-              first_name: newProfile.first_name || '',
-              last_name: newProfile.last_name || '',
-              email: newProfile.email || '',
-              phone: newProfile.phone || '',
-              username: newProfile.username || '',
-              current_password: '',
-              new_password: '',
-              confirm_password: ''
+              first_name: newProfile.first_name || "",
+              last_name: newProfile.last_name || "",
+              email: newProfile.email || "",
+              phone: newProfile.phone || "",
+              username: newProfile.username || "",
+              current_password: "",
+              new_password: "",
+              confirm_password: "",
             });
           }
         } else {
           setUserProfile(data);
           setFormData({
-            first_name: data.first_name || '',
-            last_name: data.last_name || '',
-            email: data.email || '',
-            phone: data.phone || '',
-            username: data.username || '',
-            current_password: '',
-            new_password: '',
-            confirm_password: ''
+            first_name: data.first_name || "",
+            last_name: data.last_name || "",
+            email: data.email || "",
+            phone: data.phone || "",
+            username: data.username || "",
+            current_password: "",
+            new_password: "",
+            confirm_password: "",
           });
         }
       } catch (err) {
-        console.error('Error fetching user profile:', err);
-        setError('Failed to load user profile');
+        console.error("Error fetching user profile:", err);
+        setError("Failed to load user profile");
       } finally {
         setIsLoading(false);
       }
@@ -115,7 +125,7 @@ const MyAccount = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,28 +138,31 @@ const MyAccount = () => {
 
     try {
       // Check if passwords match if changing password
-      if (formData.new_password && formData.new_password !== formData.confirm_password) {
-        throw new Error('New passwords do not match');
+      if (
+        formData.new_password &&
+        formData.new_password !== formData.confirm_password
+      ) {
+        throw new Error("New passwords do not match");
       }
 
-      // Update user profile in users table
+      // Update user profile in users table by email
       const { error: updateError } = await supabase
-        .from('users')
+        .from("users")
         .update({
           first_name: formData.first_name,
           last_name: formData.last_name,
           phone: formData.phone,
           // Don't update email or username here as they require special handling
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', session.user.id);
+        .eq("email", session.user.email);
 
       if (updateError) throw updateError;
 
       // Update password if provided
       if (formData.current_password && formData.new_password) {
         const { error: passwordError } = await supabase.auth.updateUser({
-          password: formData.new_password
+          password: formData.new_password,
         });
 
         if (passwordError) throw passwordError;
@@ -158,33 +171,33 @@ const MyAccount = () => {
       // Update email if changed
       if (formData.email !== userProfile.email) {
         const { error: emailError } = await supabase.auth.updateUser({
-          email: formData.email
+          email: formData.email,
         });
 
         if (emailError) throw emailError;
       }
 
-      setSuccess('Profile updated successfully');
+      setSuccess("Profile updated successfully");
       setIsEditing(false);
-      
+
       // Update local user profile
-      setUserProfile(prev => ({
+      setUserProfile((prev) => ({
         ...prev,
         first_name: formData.first_name,
         last_name: formData.last_name,
-        phone: formData.phone
+        phone: formData.phone,
       }));
-      
+
       // Clear password fields
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        current_password: '',
-        new_password: '',
-        confirm_password: ''
+        current_password: "",
+        new_password: "",
+        confirm_password: "",
       }));
     } catch (err) {
-      console.error('Error updating profile:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update profile');
+      console.error("Error updating profile:", err);
+      setError(err instanceof Error ? err.message : "Failed to update profile");
     } finally {
       setIsLoading(false);
     }
@@ -232,7 +245,7 @@ const MyAccount = () => {
             onClick={() => setIsEditing(!isEditing)}
             className="btn btn-secondary"
           >
-            {isEditing ? 'Cancel' : 'Edit Profile'}
+            {isEditing ? "Cancel" : "Edit Profile"}
           </button>
         </div>
 
@@ -240,7 +253,10 @@ const MyAccount = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="first_name"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   First Name
                 </label>
                 <div className="relative">
@@ -259,7 +275,10 @@ const MyAccount = () => {
               </div>
 
               <div>
-                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="last_name"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Last Name
                 </label>
                 <div className="relative">
@@ -278,7 +297,10 @@ const MyAccount = () => {
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Email
                 </label>
                 <div className="relative">
@@ -297,7 +319,10 @@ const MyAccount = () => {
               </div>
 
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="phone"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Phone
                 </label>
                 <div className="relative">
@@ -316,7 +341,10 @@ const MyAccount = () => {
               </div>
 
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="username"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Username
                 </label>
                 <div className="relative">
@@ -333,7 +361,9 @@ const MyAccount = () => {
                     disabled
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Username cannot be changed</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Username cannot be changed
+                </p>
               </div>
             </div>
 
@@ -341,7 +371,10 @@ const MyAccount = () => {
               <h3 className="text-md font-medium mb-4">Change Password</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="current_password" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="current_password"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Current Password
                   </label>
                   <div className="relative">
@@ -361,7 +394,10 @@ const MyAccount = () => {
 
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="new_password" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="new_password"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
                       New Password
                     </label>
                     <div className="relative">
@@ -380,7 +416,10 @@ const MyAccount = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="confirm_password"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
                       Confirm New Password
                     </label>
                     <div className="relative">
@@ -453,7 +492,7 @@ const MyAccount = () => {
                 <h3 className="text-sm font-medium text-gray-500">Phone</h3>
                 <p className="mt-1 flex items-center">
                   <Phone size={16} className="text-gray-400 mr-2" />
-                  {userProfile?.phone || 'Not provided'}
+                  {userProfile?.phone || "Not provided"}
                 </p>
               </div>
 
@@ -474,9 +513,13 @@ const MyAccount = () => {
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Account Created</h3>
+                <h3 className="text-sm font-medium text-gray-500">
+                  Account Created
+                </h3>
                 <p className="mt-1">
-                  {userProfile?.created_at ? new Date(userProfile.created_at).toLocaleDateString() : 'Unknown'}
+                  {userProfile?.created_at
+                    ? new Date(userProfile.created_at).toLocaleDateString()
+                    : "Unknown"}
                 </p>
               </div>
             </div>
@@ -504,20 +547,14 @@ const MyAccount = () => {
                 setIsEditing(true);
                 // Scroll to password section
                 setTimeout(() => {
-                  document.getElementById('current_password')?.scrollIntoView({ behavior: 'smooth' });
+                  document
+                    .getElementById("current_password")
+                    ?.scrollIntoView({ behavior: "smooth" });
                 }, 100);
               }}
               className="text-primary-600 hover:text-primary-800 text-sm mt-2"
             >
               Change password
-            </button>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Two-Factor Authentication</h3>
-            <p className="mt-1 text-gray-700">Not enabled</p>
-            <button className="text-primary-600 hover:text-primary-800 text-sm mt-2">
-              Enable two-factor authentication
             </button>
           </div>
         </div>
@@ -529,18 +566,21 @@ const MyAccount = () => {
           <div>
             <h3 className="text-sm font-medium text-gray-500">Last Login</h3>
             <p className="mt-1 text-gray-700">
-              {session?.user?.last_sign_in_at 
-                ? new Date(session.user.last_sign_in_at).toLocaleString() 
-                : 'Unknown'}
+              {session?.user?.last_sign_in_at
+                ? new Date(session.user.last_sign_in_at).toLocaleString()
+                : "Unknown"}
             </p>
           </div>
 
           <div>
-            <h3 className="text-sm font-medium text-gray-500">Current Session</h3>
+            <h3 className="text-sm font-medium text-gray-500">
+              Current Session
+            </h3>
             <p className="mt-1 text-gray-700">
-              Started: {session?.created_at 
-                ? new Date(session.created_at).toLocaleString() 
-                : 'Unknown'}
+              Started:{" "}
+              {session?.created_at
+                ? new Date(session.created_at).toLocaleString()
+                : "Unknown"}
             </p>
           </div>
         </div>

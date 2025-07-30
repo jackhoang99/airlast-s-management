@@ -16,7 +16,7 @@ import {
 type ReminderModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  jobId: string;
+  jobId?: string; // Made optional to support admin reminders
   jobTechnicians?: {
     id: string;
     technician_id: string;
@@ -92,6 +92,20 @@ const ReminderModal = ({
         } else if (assignedTechData) {
           techData = assignedTechData;
         }
+      } else if (!jobId) {
+        // For admin reminders, fetch all active technicians
+        const { data: allTechData, error: allTechError } = await supabase
+          .from("users")
+          .select("id, first_name, last_name, email, phone, role")
+          .eq("role", "technician")
+          .eq("status", "active")
+          .order("first_name");
+
+        if (allTechError) {
+          console.error("Error fetching all technicians:", allTechError);
+        } else if (allTechData) {
+          techData = allTechData;
+        }
       }
 
       setAvailableTechnicians(techData);
@@ -118,7 +132,7 @@ const ReminderModal = ({
   const getDefaultSubject = () => {
     switch (reminderType) {
       case "email":
-        return "Job Reminder";
+        return jobId ? "Job Reminder" : "Admin Reminder";
       case "in_app":
         return "In-App Notification";
       default:
@@ -135,9 +149,13 @@ const ReminderModal = ({
 
     switch (reminderType) {
       case "email":
-        return `This is a reminder about your upcoming job. Please ensure you are prepared and on time.`;
+        return jobId
+          ? `This is a reminder about your upcoming job. Please ensure you are prepared and on time.`
+          : `This is an admin reminder. Please check your dashboard for important updates.`;
       case "in_app":
-        return `You have a job reminder. Please check your schedule.`;
+        return jobId
+          ? `You have a job reminder. Please check your schedule.`
+          : `You have an admin reminder. Please check your dashboard.`;
       default:
         return "";
     }
@@ -247,7 +265,7 @@ const ReminderModal = ({
       const { data: insertData, error: insertError } = await supabase
         .from("job_reminders")
         .insert({
-          job_id: jobId,
+          job_id: jobId || null, // Use null for admin reminders
           reminder_type: reminderType,
           recipient: recipientValue,
           subject: subject,
@@ -282,7 +300,7 @@ const ReminderModal = ({
                 subject: subject,
                 message: message,
                 reminderType: reminderType,
-                jobId: jobId,
+                jobId: jobId || null,
               }),
             }
           );
@@ -347,7 +365,7 @@ const ReminderModal = ({
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-xl font-semibold flex items-center">
             <Bell className="h-5 w-5 mr-2 text-primary-600" />
-            Send Reminder
+            {jobId ? "Send Reminder" : "Send Admin Reminder"}
           </h2>
           <button
             onClick={onClose}
