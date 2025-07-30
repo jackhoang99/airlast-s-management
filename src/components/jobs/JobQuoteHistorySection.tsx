@@ -107,10 +107,11 @@ const JobQuoteHistorySection = ({
   // Calculate quote counts by type
   const getQuoteCounts = () => {
     const counts = {
-      all: allQuotes.length,
+      all: (allQuotes?.length || 0) + (pmQuotes?.length || 0),
       replacement: Object.keys(replacementDataById).length, // Count available replacement options
       repair: hasRepairData ? 1 : 0, // Count if repair data is available
       inspection: inspectionData.length, // Count available inspections
+      pm: pmQuotes?.length || 0, // Count PM quotes
     };
     return counts;
   };
@@ -118,9 +119,11 @@ const JobQuoteHistorySection = ({
   // Filter quotes based on active filter
   const getFilteredQuotes = () => {
     if (activeQuoteFilter === "all") {
-      return allQuotes;
+      return allQuotes || [];
+    } else if (activeQuoteFilter === "pm") {
+      return pmQuotes || [];
     }
-    return allQuotes.filter((q) => q.quote_type === activeQuoteFilter);
+    return (allQuotes || []).filter((q) => q.quote_type === activeQuoteFilter);
   };
 
   // Check if there's available data for the selected filter
@@ -132,6 +135,8 @@ const JobQuoteHistorySection = ({
         return hasRepairData;
       case "inspection":
         return inspectionData.length > 0;
+      case "pm":
+        return (pmQuotes?.length || 0) > 0;
       default:
         return true;
     }
@@ -163,6 +168,19 @@ const JobQuoteHistorySection = ({
         });
       } else if (quotesError) {
         console.error("Error fetching quotes:", quotesError);
+      }
+
+      // Fetch PM quotes
+      const { data: pmQuotesData, error: pmQuotesError } = await supabase
+        .from("pm_quotes")
+        .select("*")
+        .eq("job_id", job.id)
+        .order("created_at", { ascending: false });
+
+      if (!pmQuotesError && pmQuotesData) {
+        setPmQuotes(pmQuotesData);
+      } else if (pmQuotesError) {
+        console.error("Error fetching PM quotes:", pmQuotesError);
       }
     } catch (err) {
       console.error("Error fetching quotes:", err);
@@ -218,6 +236,9 @@ const JobQuoteHistorySection = ({
   const [activeQuoteFilter, setActiveQuoteFilter] = useState<
     "all" | "replacement" | "repair" | "inspection" | "pm"
   >("all");
+
+  // Add state for PM quotes
+  const [pmQuotes, setPmQuotes] = useState<any[]>([]);
 
   // Check if job has replacement or repair data
   useEffect(() => {
@@ -437,129 +458,133 @@ const JobQuoteHistorySection = ({
   }, [selectedQuoteType, defaultTemplates]);
 
   return (
-    <div className="card">
-      {/* All Quotes Table */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-          <h3 className="text-lg font-medium text-gray-900">All Quotes</h3>
-        </div>
-
-        {/* Available Quote Types Summary */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-          <div
-            className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-              activeQuoteFilter === "all"
-                ? "bg-gray-100 border-gray-300"
-                : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-            }`}
-            onClick={() => setActiveQuoteFilter("all")}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <FileText size={20} className="text-gray-600 mr-2" />
-                <span className="font-medium text-gray-900">All quotes</span>
-              </div>
-            </div>
-            <p className="text-sm text-gray-700 mt-1">
-              {getQuoteCounts().all} quote(s)
-            </p>
+    <>
+      <div className="card">
+        {/* All Quotes Table */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
+            <h3 className="text-lg font-medium text-gray-900">All Quotes</h3>
           </div>
 
-          <div
-            className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-              activeQuoteFilter === "replacement"
-                ? "bg-blue-100 border-blue-300"
-                : "bg-blue-50 border-blue-200 hover:bg-blue-100"
-            }`}
-            onClick={() => setActiveQuoteFilter("replacement")}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Home size={20} className="text-blue-600 mr-2" />
-                <span className="font-medium text-blue-900">Replacement</span>
+          {/* All Quotes - Large Full Width Card */}
+          <div className="mb-6">
+            <div
+              className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                activeQuoteFilter === "all"
+                  ? "bg-gray-100 border-gray-300"
+                  : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+              }`}
+              onClick={() => setActiveQuoteFilter("all")}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <FileText size={20} className="text-gray-600 mr-2" />
+                  <span className="font-medium text-gray-900">All quotes</span>
+                </div>
               </div>
-              {sentQuoteTypes.replacement && (
+              <p className="text-sm text-gray-700 mt-1">
+                {getQuoteCounts().all} quote(s)
+              </p>
+            </div>
+          </div>
+
+          {/* Quote Type Cards - 4 Column Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+            <div
+              className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                activeQuoteFilter === "replacement"
+                  ? "bg-blue-100 border-blue-300"
+                  : "bg-blue-50 border-blue-200 hover:bg-blue-100"
+              }`}
+              onClick={() => setActiveQuoteFilter("replacement")}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Home size={20} className="text-blue-600 mr-2" />
+                  <span className="font-medium text-blue-900">Replacement</span>
+                </div>
+                {sentQuoteTypes.replacement && (
+                  <span className="w-2 h-2 bg-success-500 rounded-full"></span>
+                )}
+              </div>
+              <p className="text-sm text-blue-700 mt-1">
+                {hasReplacementData
+                  ? `${
+                      getQuoteCounts().replacement
+                    } replacement(s) - $${calculateTotalReplacementCost().toLocaleString()}`
+                  : "No data available"}
+              </p>
+            </div>
+
+            <div
+              className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                activeQuoteFilter === "repair"
+                  ? "bg-green-100 border-green-300"
+                  : "bg-green-50 border-green-200 hover:bg-green-100"
+              }`}
+              onClick={() => setActiveQuoteFilter("repair")}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Package size={20} className="text-green-600 mr-2" />
+                  <span className="font-medium text-green-900">Repair</span>
+                </div>
+                {sentQuoteTypes.repair && (
+                  <span className="w-2 h-2 bg-success-500 rounded-full"></span>
+                )}
+              </div>
+              <p className="text-sm text-green-700 mt-1">
+                {hasRepairData
+                  ? `${
+                      getQuoteCounts().repair
+                    } repair(s) - $${totalRepairCost.toLocaleString()}`
+                  : "No data available"}
+              </p>
+            </div>
+
+            <div
+              className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                activeQuoteFilter === "inspection"
+                  ? "bg-purple-100 border-purple-300"
+                  : "bg-purple-50 border-purple-200 hover:bg-purple-100"
+              }`}
+              onClick={() => setActiveQuoteFilter("inspection")}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <FileText size={20} className="text-purple-600 mr-2" />
+                  <span className="font-medium text-purple-900">
+                    Inspection
+                  </span>
+                </div>
+                {inspectionData && inspectionData.length > 0 && (
+                  <span className="w-2 h-2 bg-success-500 rounded-full"></span>
+                )}
+              </div>
+              <p className="text-sm text-purple-700 mt-1">
+                {inspectionData && inspectionData.length > 0
+                  ? `${getQuoteCounts().inspection} inspection(s)`
+                  : "No data available"}
+              </p>
+            </div>
+
+            <div
+              className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                activeQuoteFilter === "pm"
+                  ? "bg-blue-100 border-blue-300"
+                  : "bg-blue-50 border-blue-200 hover:bg-blue-100"
+              }`}
+              onClick={() => setActiveQuoteFilter("pm")}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <CheckSquare size={20} className="text-blue-600 mr-2" />
+                  <span className="font-medium text-blue-900">PM</span>
+                </div>
                 <span className="w-2 h-2 bg-success-500 rounded-full"></span>
-              )}
-            </div>
-            <p className="text-sm text-blue-700 mt-1">
-              {hasReplacementData
-                ? `${
-                    getQuoteCounts().replacement
-                  } replacement(s) - $${calculateTotalReplacementCost().toLocaleString()}`
-                : "No data available"}
-            </p>
-          </div>
-
-          <div
-            className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-              activeQuoteFilter === "repair"
-                ? "bg-green-100 border-green-300"
-                : "bg-green-50 border-green-200 hover:bg-green-100"
-            }`}
-            onClick={() => setActiveQuoteFilter("repair")}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Package size={20} className="text-green-600 mr-2" />
-                <span className="font-medium text-green-900">Repair</span>
               </div>
-              {sentQuoteTypes.repair && (
-                <span className="w-2 h-2 bg-success-500 rounded-full"></span>
-              )}
+              <p className="text-sm text-blue-700 mt-1">PM quotes available</p>
             </div>
-            <p className="text-sm text-green-700 mt-1">
-              {hasRepairData
-                ? `${
-                    getQuoteCounts().repair
-                  } repair(s) - $${totalRepairCost.toLocaleString()}`
-                : "No data available"}
-            </p>
-          </div>
-
-          <div
-            className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-              activeQuoteFilter === "inspection"
-                ? "bg-purple-100 border-purple-300"
-                : "bg-purple-50 border-purple-200 hover:bg-purple-100"
-            }`}
-            onClick={() => setActiveQuoteFilter("inspection")}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <FileText size={20} className="text-purple-600 mr-2" />
-                <span className="font-medium text-purple-900">Inspection</span>
-              </div>
-              {inspectionData && inspectionData.length > 0 && (
-                <span className="w-2 h-2 bg-success-500 rounded-full"></span>
-              )}
-            </div>
-            <p className="text-sm text-purple-700 mt-1">
-              {inspectionData && inspectionData.length > 0
-                ? `${getQuoteCounts().inspection} inspection(s)`
-                : "No data available"}
-            </p>
-          </div>
-        </div>
-
-        {/* PM Filter */}
-        <div className="flex-1">
-          <div
-            className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-              activeQuoteFilter === "pm"
-                ? "bg-blue-100 border-blue-300"
-                : "bg-blue-50 border-blue-200 hover:bg-blue-100"
-            }`}
-            onClick={() => setActiveQuoteFilter("pm")}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <CheckSquare size={20} className="text-blue-600 mr-2" />
-                <span className="font-medium text-blue-900">PM</span>
-              </div>
-              <span className="w-2 h-2 bg-success-500 rounded-full"></span>
-            </div>
-            <p className="text-sm text-blue-700 mt-1">PM quotes available</p>
           </div>
         </div>
 
@@ -593,40 +618,53 @@ const JobQuoteHistorySection = ({
             </thead>
             <tbody>
               {/* Historical Quotes */}
-              {getFilteredQuotes().map((quote, index) => (
+              {(getFilteredQuotes() || []).map((quote, index) => (
                 <tr
-                  key={quote.id}
+                  key={quote?.id || index}
                   className={`border-b hover:bg-primary-50 transition-colors ${
                     index % 2 === 0 ? "bg-white" : "bg-gray-50"
                   }`}
                 >
                   <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
-                    {quote.quote_number}
+                    {activeQuoteFilter === "pm"
+                      ? `PM-${(quote.id || "").slice(0, 8)}`
+                      : quote.quote_number || "-"}
                   </td>
                   <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
                     <span
                       className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
-                        quote.quote_type === "replacement"
+                        activeQuoteFilter === "pm"
+                          ? "bg-blue-100 text-blue-800"
+                          : quote.quote_type === "replacement"
                           ? "bg-blue-100 text-blue-800"
                           : quote.quote_type === "repair"
                           ? "bg-green-100 text-green-800"
                           : "bg-purple-100 text-purple-800"
                       }`}
                     >
-                      {quote.quote_type.charAt(0).toUpperCase() +
-                        quote.quote_type.slice(1)}
+                      {activeQuoteFilter === "pm"
+                        ? "PM"
+                        : quote.quote_type.charAt(0).toUpperCase() +
+                          quote.quote_type.slice(1)}
                     </span>
                   </td>
                   <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
-                    {new Date(quote.created_at).toLocaleDateString()}
+                    {quote.created_at
+                      ? new Date(quote.created_at).toLocaleDateString()
+                      : "-"}
                   </td>
                   <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
-                    ${Number(quote.amount).toFixed(2)}
+                    $
+                    {activeQuoteFilter === "pm"
+                      ? Number(quote.total_cost || 0).toFixed(2)
+                      : Number(quote.amount).toFixed(2)}
                   </td>
                   <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        quote.confirmed
+                        activeQuoteFilter === "pm"
+                          ? "bg-blue-100 text-blue-800"
+                          : quote.confirmed
                           ? quote.approved
                             ? "bg-success-100 text-success-800"
                             : "bg-error-100 text-error-800"
@@ -635,7 +673,9 @@ const JobQuoteHistorySection = ({
                           : "bg-yellow-100 text-yellow-800"
                       }`}
                     >
-                      {quote.confirmed
+                      {activeQuoteFilter === "pm"
+                        ? "Available"
+                        : quote.confirmed
                         ? quote.approved
                           ? "Approved"
                           : "Declined"
@@ -645,7 +685,9 @@ const JobQuoteHistorySection = ({
                     </span>
                   </td>
                   <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
-                    {quote.confirmed_at
+                    {activeQuoteFilter === "pm"
+                      ? "-"
+                      : quote.confirmed_at
                       ? new Date(quote.confirmed_at).toLocaleDateString()
                       : "-"}
                   </td>
@@ -655,10 +697,12 @@ const JobQuoteHistorySection = ({
                         className="btn btn-secondary btn-xs w-full sm:w-auto"
                         onClick={() =>
                           onPreviewQuote(
-                            quote.quote_type as
-                              | "replacement"
-                              | "repair"
-                              | "inspection",
+                            activeQuoteFilter === "pm"
+                              ? "pm"
+                              : (quote.quote_type as
+                                  | "replacement"
+                                  | "repair"
+                                  | "inspection"),
                             quote
                           )
                         }
@@ -666,7 +710,18 @@ const JobQuoteHistorySection = ({
                         <Eye size={16} className="mr-2" />
                         Preview
                       </button>
-                      {!quote.email_sent_at ? (
+                      {activeQuoteFilter === "pm" ? (
+                        <button
+                          className="btn btn-primary btn-xs w-full sm:w-auto"
+                          onClick={() => {
+                            setSelectedQuoteForSending(quote);
+                            setShowIndividualQuoteModal(true);
+                          }}
+                        >
+                          <Send size={16} className="mr-2" />
+                          Send
+                        </button>
+                      ) : !quote.email_sent_at ? (
                         <button
                           className="btn btn-primary btn-xs w-full sm:w-auto"
                           onClick={() => {
@@ -862,7 +917,7 @@ const JobQuoteHistorySection = ({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

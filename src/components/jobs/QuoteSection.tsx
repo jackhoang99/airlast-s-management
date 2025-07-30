@@ -262,7 +262,12 @@ const QuoteSection = ({
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        setPmQuotes(data || []);
+        // Ensure checklist_types is always an array, even if it comes back as null
+        const processedData = (data || []).map((quote) => ({
+          ...quote,
+          checklist_types: quote.checklist_types || [],
+        }));
+        setPmQuotes(processedData);
       } catch (err) {
         console.error("Error fetching PM quotes:", err);
       }
@@ -1155,28 +1160,32 @@ const QuoteSection = ({
                     )}
 
                     {/* Checklist Types */}
-                    <div>
-                      <h5 className="text-sm font-medium text-gray-700 mb-2">
-                        Selected Checklists:
-                      </h5>
-                      <div className="flex flex-wrap gap-2">
-                        {quote.checklist_types.map((type: string) => {
-                          const checklistNames: { [key: string]: string } = {
-                            pm_filter_change: "PM Filter Change",
-                            pm_cleaning_ac: "PM Cleaning AC",
-                            pm_cleaning_heat: "PM Cleaning HEAT",
-                          };
-                          return (
-                            <span
-                              key={type}
-                              className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
-                            >
-                              {checklistNames[type] || type}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    {quote.checklist_types &&
+                      quote.checklist_types.length > 0 && (
+                        <div>
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">
+                            Selected Checklists:
+                          </h5>
+                          <div className="flex flex-wrap gap-2">
+                            {quote.checklist_types.map((type: string) => {
+                              const checklistNames: { [key: string]: string } =
+                                {
+                                  pm_filter_change: "PM Filter Change",
+                                  pm_cleaning_ac: "PM Cleaning AC",
+                                  pm_cleaning_heat: "PM Cleaning HEAT",
+                                };
+                              return (
+                                <span
+                                  key={type}
+                                  className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
+                                >
+                                  {checklistNames[type] || type}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                     {/* Notes */}
                     {quote.notes && (

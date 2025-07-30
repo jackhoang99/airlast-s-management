@@ -123,6 +123,7 @@ const GenerateQuote = ({
   const [availableReplacements, setAvailableReplacements] = useState<
     ReplacementData[]
   >([]);
+  const [availablePMQuotes, setAvailablePMQuotes] = useState<any[]>([]);
   const [job, setJob] = useState<any | null>(null);
   const [location, setLocation] = useState<any | null>(null);
   const [unit, setUnit] = useState<any | null>(null);
@@ -134,6 +135,7 @@ const GenerateQuote = ({
     []
   );
   const [selectedRepairItems, setSelectedRepairItems] = useState<string[]>([]);
+  const [selectedPMQuotes, setSelectedPMQuotes] = useState<string[]>([]);
   const [selectedQuoteType, setSelectedQuoteType] = useState<
     "replacement" | "repair" | "inspection" | "pm"
   >(defaultQuoteType);
@@ -230,6 +232,15 @@ const GenerateQuote = ({
 
         if (quotesError) throw quotesError;
         setExistingQuotes(quotesData || []);
+
+        // Fetch available PM quotes
+        const { data: pmQuotesData, error: pmQuotesError } = await supabase
+          .from("pm_quotes")
+          .select("*")
+          .eq("job_id", jobId);
+
+        if (pmQuotesError) throw pmQuotesError;
+        setAvailablePMQuotes(pmQuotesData || []);
       } catch (err: any) {
         console.error("Error loading available data:", err);
         setQuoteError(err.message || "Failed to load available data");
@@ -264,6 +275,14 @@ const GenerateQuote = ({
       prev.includes(itemId)
         ? prev.filter((id) => id !== itemId)
         : [...prev, itemId]
+    );
+  };
+
+  const handlePMQuoteToggle = (pmQuoteId: string) => {
+    setSelectedPMQuotes((prev) =>
+      prev.includes(pmQuoteId)
+        ? prev.filter((id) => id !== pmQuoteId)
+        : [...prev, pmQuoteId]
     );
   };
 
@@ -343,6 +362,13 @@ const GenerateQuote = ({
         );
         return;
       }
+    } else if (selectedQuoteType === "pm") {
+      if (selectedPMQuotes.length === 0) {
+        setQuoteError(
+          "Please select at least one PM quote for PM quote generation"
+        );
+        return;
+      }
     }
 
     // Calculate total cost
@@ -371,6 +397,14 @@ const GenerateQuote = ({
           );
         }
       });
+    } else if (selectedQuoteType === "pm") {
+      // For PM quotes, use selected PM quotes costs
+      selectedPMQuotes.forEach((pmQuoteId) => {
+        const pmQuote = availablePMQuotes.find((pq) => pq.id === pmQuoteId);
+        if (pmQuote && pmQuote.total_cost) {
+          calculatedTotalCost += Number(pmQuote.total_cost);
+        }
+      });
     }
 
     setTotalCost(calculatedTotalCost);
@@ -383,6 +417,9 @@ const GenerateQuote = ({
         .filter(Boolean),
       selectedReplacements: selectedReplacements
         .map((id) => availableReplacements.find((rep) => rep.id === id))
+        .filter(Boolean),
+      selectedPMQuotes: selectedPMQuotes
+        .map((id) => availablePMQuotes.find((pq) => pq.id === id))
         .filter(Boolean),
       totalCost: calculatedTotalCost,
       quoteType: selectedQuoteType,
@@ -1105,32 +1142,64 @@ const GenerateQuote = ({
         </div>
       )}
 
-      {/* PM Quote Section */}
-      {selectedQuoteType === "pm" && (
-        <div className="mb-6">
-          <h3 className="text-md font-medium text-gray-900 mb-3 flex items-center">
-            <CheckSquare className="h-4 w-4 mr-2 text-blue-600" />
-            PM Quote Configuration
-            <span className="ml-2 text-xs text-blue-600 font-normal">
-              (Configure preventive maintenance services)
-            </span>
-          </h3>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800 mb-4">
-              PM quotes are configured through the Quote Section. Please
-              navigate to the Quote Section and use the PM Quote tab to create
-              and manage preventive maintenance quotes.
-            </p>
-            <div className="flex items-center gap-2 text-sm text-blue-700">
-              <CheckSquare className="h-4 w-4" />
-              <span>
-                Use the PM Quote tab in the Quote Section to create detailed PM
-                quotes
+      {/* Available PM Quotes */}
+      {selectedQuoteType === "pm" &&
+        availablePMQuotes &&
+        availablePMQuotes.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+              <CheckSquare className="h-4 w-4 mr-2 text-blue-600" />
+              Select PM Quotes to Include
+              <span className="ml-2 text-xs text-blue-600 font-normal">
+                (Required for PM quotes)
               </span>
+            </h3>
+            <div className="space-y-2">
+              {availablePMQuotes.map((pmQuote, index) => (
+                <label
+                  key={pmQuote.id}
+                  className="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedPMQuotes.includes(pmQuote.id)}
+                    onChange={() => handlePMQuoteToggle(pmQuote.id)}
+                    className="mr-3"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">PM Quote {index + 1}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-blue-600">
+                          ${Number(pmQuote.total_cost || 0).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Units: {pmQuote.unit_count || 0} •
+                      {pmQuote.include_comprehensive_service && (
+                        <span className="ml-2">
+                          Comprehensive:{" "}
+                          {pmQuote.comprehensive_visits_count || 0} visits
+                        </span>
+                      )}
+                      {pmQuote.include_filter_change_service && (
+                        <span className="ml-2">
+                          Filter: {pmQuote.filter_visits_count || 0} visits
+                        </span>
+                      )}
+                    </div>
+                    {pmQuote.scope_of_work && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {pmQuote.scope_of_work.substring(0, 100)}...
+                      </div>
+                    )}
+                  </div>
+                </label>
+              ))}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* No Data Available */}
       {((selectedQuoteType === "inspection" &&
@@ -1139,7 +1208,7 @@ const GenerateQuote = ({
           availableReplacements.length === 0) ||
         (selectedQuoteType === "repair" &&
           jobItems.filter((item) => item.type === "part").length === 0) ||
-        selectedQuoteType === "pm") && (
+        (selectedQuoteType === "pm" && availablePMQuotes.length === 0)) && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
           <AlertTriangle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
           <p className="text-gray-500 mb-2">
@@ -1164,7 +1233,7 @@ const GenerateQuote = ({
           availableReplacements.length > 0) ||
         (selectedQuoteType === "repair" &&
           jobItems.filter((item) => item.type === "part").length > 0) ||
-        selectedQuoteType === "pm") && (
+        (selectedQuoteType === "pm" && availablePMQuotes.length > 0)) && (
         <div className="border-t pt-6">
           <button
             onClick={handleGenerateQuote}
@@ -1176,7 +1245,7 @@ const GenerateQuote = ({
                 selectedReplacements.length === 0) ||
               (selectedQuoteType === "repair" &&
                 selectedRepairItems.length === 0) ||
-              selectedQuoteType === "pm" ||
+              (selectedQuoteType === "pm" && selectedPMQuotes.length === 0) ||
               isGeneratingPDF
             }
           >
@@ -1221,6 +1290,9 @@ const GenerateQuote = ({
             <div>
               <strong>Selected Repair Items:</strong>{" "}
               {selectedRepairItems.length}
+            </div>
+            <div>
+              <strong>Selected PM Quotes:</strong> {selectedPMQuotes.length}
             </div>
             <div>
               <strong>Total Cost:</strong> ${totalCost.toLocaleString()}
