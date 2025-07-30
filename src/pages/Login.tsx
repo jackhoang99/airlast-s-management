@@ -76,7 +76,7 @@ const Login = () => {
       // Check if the username exists in our users table
       const { data: userData, error: userError } = await supabase
         .from("users")
-        .select("username, email, role")
+        .select("username, email, role, auth_id")
         .eq("username", credentials.username)
         .maybeSingle();
 
@@ -87,6 +87,10 @@ const Login = () => {
       ) {
         console.error("User lookup error:", userError);
         throw new Error("Error checking user credentials");
+      }
+
+      if (!userData) {
+        throw new Error("User not found. Please contact your administrator.");
       }
 
       // Check if this is a technician trying to log in to the admin portal
@@ -100,7 +104,72 @@ const Login = () => {
       const email =
         userData?.email || `${credentials.username}@airlast-demo.com`;
 
-      // Try to sign in with Supabase Auth
+      // Handle different scenarios based on auth_id
+      if (!userData.auth_id) {
+        // User exists but has no auth_id - create auth account
+        console.log(
+          "User exists but has no auth_id, creating Supabase auth user..."
+        );
+
+        try {
+          // Call the edge function to create auth user
+          const functionUrl = `${
+            import.meta.env.VITE_SUPABASE_URL
+          }/functions/v1/create-auth-user`;
+
+          const response = await fetch(functionUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              username: credentials.username,
+              password: credentials.password,
+              email: email,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(
+              errorData.error || "Failed to create authentication account"
+            );
+          }
+
+          const result = await response.json();
+          console.log("Auth account created successfully:", result);
+
+          // Now try to sign in with the newly created auth account
+          const { data, error: signInError } =
+            await supabase.auth.signInWithPassword({
+              email: email,
+              password: credentials.password,
+            });
+
+          if (signInError) {
+            console.error("Sign in error after auth creation:", signInError);
+            throw new Error(
+              "Authentication account created but sign-in failed. Please try again."
+            );
+          }
+
+          // Successfully signed in
+          sessionStorage.setItem("isAuthenticated", "true");
+          sessionStorage.setItem("username", credentials.username);
+          navigate(from, { replace: true });
+          return;
+        } catch (authErr) {
+          console.error("Error creating auth account:", authErr);
+          throw new Error(
+            authErr instanceof Error
+              ? authErr.message
+              : "Failed to create authentication account"
+          );
+        }
+      } else {
+        // User exists and has auth_id - normal sign in
+        console.log("User exists with auth_id, attempting normal sign in");
       const { data, error: signInError } =
         await supabase.auth.signInWithPassword({
           email: email,
@@ -108,9 +177,9 @@ const Login = () => {
         });
 
       if (signInError) {
-        // If sign-in fails with invalid credentials, show error
         console.error("Sign in error:", signInError);
         throw new Error("Invalid username or password");
+        }
       }
 
       // If we get here, login is successful

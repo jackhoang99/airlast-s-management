@@ -18,6 +18,7 @@ import {
   Wrench,
   FileText,
 } from "lucide-react";
+import TechnicianReminders from "../components/TechnicianReminders";
 
 const TechnicianHome = () => {
   const { supabase } = useSupabase();
@@ -580,6 +581,11 @@ const TechnicianHome = () => {
         </h2>
         <p className="mt-2 text-gray-700">{randomTip}</p>
       </div>
+
+      {/* Reminders */}
+      {technicianId && (
+        <TechnicianReminders technicianId={technicianId} />
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-12">

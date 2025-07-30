@@ -540,6 +540,24 @@ const Home = () => {
             due: job.time_period_due,
           }))
         );
+
+        // Debug: Check specific counts
+        const completedCount =
+          allJobs?.filter((job) => job.status === "completed").length || 0;
+        const unscheduledCount =
+          allJobs?.filter((job) => job.status === "unscheduled").length || 0;
+        console.log(
+          "Debug counts - Completed:",
+          completedCount,
+          "Unscheduled:",
+          unscheduledCount
+        );
+        console.log(
+          "Database query results - Completed:",
+          completedJobs,
+          "Unscheduled:",
+          unscheduledJobs
+        );
       }
 
       // Fetch invoice statistics

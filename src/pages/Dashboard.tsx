@@ -1,12 +1,32 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useSupabase } from '../lib/supabase-context';
-import { Database } from '../types/supabase';
-import { Building, Users, Briefcase, Tag, Plus, Filter, Building2, Home, Users as UsersIcon, Calendar, Clock, ClipboardList, AlertTriangle, FileCheck2, Bell, FileInput as FileInvoice, CalendarClock, Send } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useSupabase } from "../lib/supabase-context";
+import { Database } from "../types/supabase";
+import {
+  Building,
+  Users,
+  Briefcase,
+  Tag,
+  Plus,
+  Filter,
+  Building2,
+  Home,
+  Users as UsersIcon,
+  Calendar,
+  Clock,
+  ClipboardList,
+  AlertTriangle,
+  FileCheck2,
+  Bell,
+  FileInput as FileInvoice,
+  CalendarClock,
+  Send,
+} from "lucide-react";
 import UpcomingReminders from "../components/dashboard/UpcomingReminders";
+import AdminReminders from "../components/AdminReminders";
 
 const Dashboard = () => {
-  const { supabase } = useSupabase();
+  const { supabase, session } = useSupabase();
   const [stats, setStats] = useState({
     totalCompanies: null,
     totalLocations: null,
@@ -20,46 +40,54 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       if (!supabase) return;
-      
+
       setIsLoading(true);
-      
+
       try {
         // Fetch companies count
         const { count: companiesCount, error: companiesError } = await supabase
-          .from('companies')
-          .select('*', { count: 'exact', head: true });
-        
+          .from("companies")
+          .select("*", { count: "exact", head: true });
+
         // Fetch locations count
         const { count: locationsCount, error: locationsError } = await supabase
-          .from('locations')
-          .select('*', { count: 'exact', head: true });
-        
+          .from("locations")
+          .select("*", { count: "exact", head: true });
+
         // Fetch units count
         const { count: unitsCount, error: unitsError } = await supabase
-          .from('units')
-          .select('*', { count: 'exact', head: true });
-        
+          .from("units")
+          .select("*", { count: "exact", head: true });
+
         // Fetch active units count
-        const { count: activeUnitsCount, error: activeUnitsError } = await supabase
-          .from('units')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'active');
-        
+        const { count: activeUnitsCount, error: activeUnitsError } =
+          await supabase
+            .from("units")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "active");
+
         // Fetch inactive units count
-        const { count: inactiveUnitsCount, error: inactiveUnitsError } = await supabase
-          .from('units')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'inactive');
-        
+        const { count: inactiveUnitsCount, error: inactiveUnitsError } =
+          await supabase
+            .from("units")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "inactive");
+
         // Fetch recent companies
-        const { data: recentCompaniesData, error: recentCompaniesError } = await supabase
-          .from('companies')
-          .select('id, name, city, state')
-          .order('created_at', { ascending: false })
-          .limit(5);
-        
-        if (!companiesError && !locationsError && !unitsError && 
-            !activeUnitsError && !inactiveUnitsError) {
+        const { data: recentCompaniesData, error: recentCompaniesError } =
+          await supabase
+            .from("companies")
+            .select("id, name, city, state")
+            .order("created_at", { ascending: false })
+            .limit(5);
+
+        if (
+          !companiesError &&
+          !locationsError &&
+          !unitsError &&
+          !activeUnitsError &&
+          !inactiveUnitsError
+        ) {
           setStats({
             totalCompanies: companiesCount || 0,
             totalLocations: locationsCount || 0,
@@ -68,17 +96,17 @@ const Dashboard = () => {
             inactiveUnits: inactiveUnitsCount || 0,
           });
         }
-        
+
         if (!recentCompaniesError && recentCompaniesData) {
           setRecentCompanies(recentCompaniesData);
         }
       } catch (err) {
-        console.error('Error fetching dashboard stats:', err);
+        console.error("Error fetching dashboard stats:", err);
       } finally {
         setIsLoading(false);
       }
     };
-    
+
     fetchStats();
   }, [supabase]);
 
@@ -96,13 +124,17 @@ const Dashboard = () => {
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Total Companies</p>
+              <p className="text-sm font-medium text-gray-500">
+                Total Companies
+              </p>
               {isLoading ? (
                 <div className="flex items-center h-9 mt-1">
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary-600"></div>
                 </div>
               ) : (
-                <p className="text-3xl font-semibold mt-1">{stats.totalCompanies}</p>
+                <p className="text-3xl font-semibold mt-1">
+                  {stats.totalCompanies}
+                </p>
               )}
             </div>
             <div className="h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center">
@@ -110,7 +142,10 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="mt-4">
-            <Link to="/companies" className="text-sm text-primary-600 hover:text-primary-800">
+            <Link
+              to="/companies"
+              className="text-sm text-primary-600 hover:text-primary-800"
+            >
               View all companies →
             </Link>
           </div>
@@ -119,13 +154,17 @@ const Dashboard = () => {
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Total Locations</p>
+              <p className="text-sm font-medium text-gray-500">
+                Total Locations
+              </p>
               {isLoading ? (
                 <div className="flex items-center h-9 mt-1">
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-secondary-600"></div>
                 </div>
               ) : (
-                <p className="text-3xl font-semibold mt-1">{stats.totalLocations}</p>
+                <p className="text-3xl font-semibold mt-1">
+                  {stats.totalLocations}
+                </p>
               )}
             </div>
             <div className="h-12 w-12 bg-secondary-100 rounded-full flex items-center justify-center">
@@ -133,7 +172,10 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="mt-4">
-            <Link to="/locations" className="text-sm text-primary-600 hover:text-primary-800">
+            <Link
+              to="/locations"
+              className="text-sm text-primary-600 hover:text-primary-800"
+            >
               View all locations →
             </Link>
           </div>
@@ -148,7 +190,9 @@ const Dashboard = () => {
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-accent-600"></div>
                 </div>
               ) : (
-                <p className="text-3xl font-semibold mt-1">{stats.totalUnits}</p>
+                <p className="text-3xl font-semibold mt-1">
+                  {stats.totalUnits}
+                </p>
               )}
             </div>
             <div className="h-12 w-12 bg-accent-100 rounded-full flex items-center justify-center">
@@ -156,7 +200,10 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="mt-4">
-            <Link to="/units" className="text-sm text-primary-600 hover:text-primary-800">
+            <Link
+              to="/units"
+              className="text-sm text-primary-600 hover:text-primary-800"
+            >
               View all units →
             </Link>
           </div>
@@ -171,7 +218,9 @@ const Dashboard = () => {
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-success-600"></div>
                 </div>
               ) : (
-                <p className="text-3xl font-semibold mt-1">{stats.activeUnits}</p>
+                <p className="text-3xl font-semibold mt-1">
+                  {stats.activeUnits}
+                </p>
               )}
             </div>
             <div className="h-12 w-12 bg-success-100 rounded-full flex items-center justify-center">
@@ -180,16 +229,22 @@ const Dashboard = () => {
           </div>
           <div className="mt-4">
             <div className="h-1 w-full bg-gray-200 rounded">
-              <div 
-                className="h-1 bg-success-500 rounded" 
-                style={{ 
-                  width: `${stats.totalUnits ? (stats.activeUnits / stats.totalUnits) * 100 : 0}%` 
+              <div
+                className="h-1 bg-success-500 rounded"
+                style={{
+                  width: `${
+                    stats.totalUnits
+                      ? (stats.activeUnits / stats.totalUnits) * 100
+                      : 0
+                  }%`,
                 }}
               ></div>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {stats.totalUnits ? 
-                Math.round((stats.activeUnits / stats.totalUnits) * 100) : 0}% of total
+              {stats.totalUnits
+                ? Math.round((stats.activeUnits / stats.totalUnits) * 100)
+                : 0}
+              % of total
             </p>
           </div>
         </div>
@@ -197,13 +252,17 @@ const Dashboard = () => {
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Inactive Units</p>
+              <p className="text-sm font-medium text-gray-500">
+                Inactive Units
+              </p>
               {isLoading ? (
                 <div className="flex items-center h-9 mt-1">
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-error-600"></div>
                 </div>
               ) : (
-                <p className="text-3xl font-semibold mt-1">{stats.inactiveUnits}</p>
+                <p className="text-3xl font-semibold mt-1">
+                  {stats.inactiveUnits}
+                </p>
               )}
             </div>
             <div className="h-12 w-12 bg-error-100 rounded-full flex items-center justify-center">
@@ -212,21 +271,27 @@ const Dashboard = () => {
           </div>
           <div className="mt-4">
             <div className="h-1 w-full bg-gray-200 rounded">
-              <div 
-                className="h-1 bg-error-500 rounded" 
-                style={{ 
-                  width: `${stats.totalUnits ? (stats.inactiveUnits / stats.totalUnits) * 100 : 0}%` 
+              <div
+                className="h-1 bg-error-500 rounded"
+                style={{
+                  width: `${
+                    stats.totalUnits
+                      ? (stats.inactiveUnits / stats.totalUnits) * 100
+                      : 0
+                  }%`,
                 }}
               ></div>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {stats.totalUnits ? 
-                Math.round((stats.inactiveUnits / stats.totalUnits) * 100) : 0}% of total
+              {stats.totalUnits
+                ? Math.round((stats.inactiveUnits / stats.totalUnits) * 100)
+                : 0}
+              % of total
             </p>
           </div>
         </div>
       </div>
-      
+
       {/* Reminders Section */}
       <div className="card">
         <div className="flex justify-between items-center mb-6">
@@ -234,13 +299,19 @@ const Dashboard = () => {
             <Bell className="h-5 w-5 text-gray-500" />
             <h2 className="text-lg font-semibold">Upcoming Reminders</h2>
           </div>
-          <Link to="/settings" className="text-sm text-primary-600 hover:text-primary-800">
+          <Link
+            to="/settings"
+            className="text-sm text-primary-600 hover:text-primary-800"
+          >
             Manage Reminders
           </Link>
         </div>
-        
+
         <UpcomingReminders />
       </div>
+
+      {/* Admin Reminders Section */}
+      {session?.user && <AdminReminders adminId={session.user.id} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card">
@@ -252,8 +323,8 @@ const Dashboard = () => {
           ) : recentCompanies.length > 0 ? (
             <div className="space-y-3">
               {recentCompanies.map((company) => (
-                <Link 
-                  key={company.id} 
+                <Link
+                  key={company.id}
                   to={`/companies/${company.id}`}
                   className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-md transition-colors duration-150"
                 >
@@ -273,24 +344,36 @@ const Dashboard = () => {
             </div>
           )}
           <div className="mt-4 pt-4 border-t">
-            <Link to="/companies" className="text-sm text-primary-600 hover:text-primary-800">
+            <Link
+              to="/companies"
+              className="text-sm text-primary-600 hover:text-primary-800"
+            >
               View all companies →
             </Link>
           </div>
         </div>
-        
+
         <div className="card">
           <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
           <div className="space-y-4">
-            <Link to="/companies/create" className="btn btn-primary w-full justify-start">
+            <Link
+              to="/companies/create"
+              className="btn btn-primary w-full justify-start"
+            >
               <Briefcase className="h-4 w-4 mr-2" />
               Create Customer Company
             </Link>
-            <Link to="/locations" className="btn btn-secondary w-full justify-start">
+            <Link
+              to="/locations"
+              className="btn btn-secondary w-full justify-start"
+            >
               <Building className="h-4 w-4 mr-2" />
               Manage Locations
             </Link>
-            <Link to="/units" className="btn btn-secondary w-full justify-start">
+            <Link
+              to="/units"
+              className="btn btn-secondary w-full justify-start"
+            >
               <Building2 className="h-4 w-4 mr-2" />
               Manage Units
             </Link>

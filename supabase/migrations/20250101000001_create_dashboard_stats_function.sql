@@ -9,12 +9,11 @@ RETURNS JSON AS $$
 DECLARE
   result JSON;
 BEGIN
-  WITH stats AS (
+  WITH filtered_stats AS (
     SELECT
-      -- Job counts
+      -- Job counts (excluding completed jobs for date filtering)
       COUNT(*) as total_jobs,
       COUNT(*) FILTER (WHERE status = 'scheduled') as scheduled_jobs,
-      COUNT(*) FILTER (WHERE status = 'completed') as completed_jobs,
       COUNT(*) FILTER (WHERE time_period_due < NOW() AND status != 'completed') as overdue_jobs,
       
       -- Date-based counts
@@ -33,6 +32,18 @@ BEGIN
       ))
       AND (period_start IS NULL OR created_at >= period_start)
       AND (period_end IS NULL OR created_at <= period_end)
+  ),
+  completed_stats AS (
+    SELECT
+      COUNT(*) as completed_jobs
+    FROM jobs
+    WHERE 1=1
+      AND status = 'completed'
+      AND (office_filter = '' OR office = office_filter)
+      AND (technician_filter = '' OR id IN (
+        SELECT job_id FROM job_technicians 
+        WHERE technician_id = technician_filter
+      ))
   ),
   invoice_stats AS (
     SELECT
@@ -57,7 +68,7 @@ BEGIN
   SELECT json_build_object(
     'totalJobs', s.total_jobs,
     'scheduledJobs', s.scheduled_jobs,
-    'completedJobs', s.completed_jobs,
+    'completedJobs', c.completed_jobs,
     'overdueJobs', s.overdue_jobs,
     'unsentInvoices', i.unsent_invoices,
     'totalInvoiceValue', i.total_invoice_value,
@@ -75,7 +86,7 @@ BEGIN
     'deniedQuotes', q.denied_quotes,
     'pendingQuotes', q.pending_quotes
   ) INTO result
-  FROM stats s, invoice_stats i, business_stats b, quote_stats q;
+  FROM filtered_stats s, completed_stats c, invoice_stats i, business_stats b, quote_stats q;
 
   RETURN result;
 END;

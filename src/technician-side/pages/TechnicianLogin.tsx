@@ -55,49 +55,56 @@ const TechnicianLogin = () => {
       const email =
         userData?.email || `${credentials.username}@airlast-demo.com`;
 
-      // Handle different scenarios
+      // Handle different scenarios based on auth_id
       if (userData && !userData.auth_id) {
-        // User exists in users table but has no auth_id - create auth user
+        // User exists but has no auth_id - create auth account
         console.log("User exists but has no auth_id, creating Supabase auth user...");
         
         try {
-          // Try to sign in first (in case auth user already exists)
-          console.log("Trying to sign in first...");
-          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          // Call the edge function to create auth user
+          const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-auth-user`;
+          
+          const response = await fetch(functionUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+              username: credentials.username,
+              password: credentials.password,
+              email: email
+            })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to create authentication account");
+          }
+
+          const result = await response.json();
+          console.log("Auth account created successfully:", result);
+
+          // Now try to sign in with the newly created auth account
+          const { data, error: signInError } = await supabase.auth.signInWithPassword({
             email: email,
             password: credentials.password,
           });
-          
-          if (signInData?.user) {
-            console.log("Successfully signed in with existing auth user");
-            
-            // Update the users table with the auth_id
-            const { error: updateError } = await supabase
-              .from("users")
-              .update({ auth_id: signInData.user.id })
-              .eq("id", userData.id);
 
-            if (updateError) {
-              console.warn("Could not update auth_id:", updateError);
-            } else {
-              console.log("Successfully linked existing auth user to public user");
-            }
-            
-            // Continue with successful login
-            sessionStorage.setItem("isTechAuthenticated", "true");
-            sessionStorage.setItem("techUsername", credentials.username);
-            navigate(from, { replace: true });
-            return;
+          if (signInError) {
+            console.error("Sign in error after auth creation:", signInError);
+            throw new Error("Authentication account created but sign-in failed. Please try again.");
           }
-          
-          // If sign in failed, the auth user doesn't exist
-          // We need to create it manually through the admin API or handle this differently
-          console.log("Auth user doesn't exist. This requires manual setup.");
-          throw new Error("Authentication account not found. Please contact your administrator to set up your account.");
-          
+
+          // Successfully signed in
+          sessionStorage.setItem("isTechAuthenticated", "true");
+          sessionStorage.setItem("techUsername", credentials.username);
+          navigate(from, { replace: true });
+          return;
+
         } catch (authErr) {
-          console.error("Error with auth user:", authErr);
-          throw new Error("Failed to authenticate. Please contact your administrator.");
+          console.error("Error creating auth account:", authErr);
+          throw new Error(authErr instanceof Error ? authErr.message : "Failed to create authentication account");
         }
       } else if (userData && userData.auth_id) {
         // User exists and has auth_id - normal sign in

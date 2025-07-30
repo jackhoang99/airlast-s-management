@@ -955,11 +955,7 @@ const JobDetails = () => {
 
           {/* Reminders */}
           <div className="card">
-            <h3 className="text-lg font-medium flex items-center mb-4">
-              <Bell className="h-5 w-5 mr-2 text-primary-600" />
-              Reminders
-            </h3>
-            <JobReminderList jobId={job.id} />
+            <JobReminderList jobId={job.id} jobTechnicians={job.job_technicians} />
           </div>
         </div>
 
