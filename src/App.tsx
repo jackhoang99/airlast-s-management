@@ -134,9 +134,10 @@ function App() {
             element={<CreateInvoice />}
           />
           <Route path="quotes">
+            <Route index element={<AllQuotes />} />
             <Route path="templates" element={<QuoteTemplates />} />
           </Route>
-          <Route path="all-quotes" element={<AllQuotes />} />
+
           <Route path="permits" element={<Permits />} />
           <Route path="technicians">
             <Route path="add" element={<AddTechnician />} />

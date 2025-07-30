@@ -1,121 +1,263 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useSupabase } from "../lib/supabase-context";
 import { Link } from "react-router-dom";
 import {
-  FileSpreadsheet,
-  FileText,
   Eye,
+  Send,
+  FileCheck2,
+  AlertTriangle,
+  Package,
+  Home,
+  Check,
+  X,
+  Clipboard,
+  Edit,
+  List,
+  Calculator,
+  FileText,
+  Plus,
   Trash2,
-  ExternalLink,
 } from "lucide-react";
 import ArrowBack from "../components/ui/ArrowBack";
 import QuotePDFViewer from "../components/quotes/QuotePDFViewer";
+import SendEmailModal from "../components/jobs/SendEmailModal";
 
-const TABS = [
-  { key: "all", label: "All Quotes" },
-  { key: "replacement", label: "Replacement Quotes" },
-  { key: "repair", label: "Repair Quotes" },
-  { key: "inspection", label: "Inspection Quotes" },
-  { key: "pm", label: "PM Quotes" },
-];
-
-const statusColor = (status: string) => {
-  switch (status) {
-    case "Approved":
-      return "text-success-700 bg-success-100";
-    case "Declined":
-      return "text-error-700 bg-error-100";
-    case "Pending":
-    default:
-      return "text-gray-700 bg-gray-100";
-  }
+type Quote = {
+  id: string;
+  quote_number: string;
+  quote_type: "replacement" | "repair" | "inspection";
+  amount: number;
+  status: string;
+  confirmed: boolean;
+  approved: boolean;
+  confirmed_at: string | null;
+  email_sent_at: string | null;
+  created_at: string;
+  job_id: string;
+  quote_data: any;
+  jobs: {
+    number: string;
+    name: string;
+    contact_name: string;
+    contact_email: string;
+    locations: {
+      name: string;
+      companies: {
+        name: string;
+      };
+    };
+    job_units: {
+      unit_id: string;
+      units: {
+        id: string;
+        unit_number: string;
+      };
+    }[];
+  };
 };
 
 export default function AllQuotes() {
   const { supabase } = useSupabase();
-  const [quotes, setQuotes] = useState<any[]>([]);
-  const [jobs, setJobs] = useState<any>({});
-  const [activeTab, setActiveTab] = useState<
-    "all" | "replacement" | "repair" | "inspection" | "pm"
-  >("all");
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [sortField, setSortField] = useState<string>("created_at");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(false);
-  const [previewing, setPreviewing] = useState<null | {
-    jobId: string;
-    quoteType: "replacement" | "repair" | "inspection" | "pm";
-    quoteId: string;
-  }>(null);
+  const [activeQuoteFilter, setActiveQuoteFilter] = useState<
+    "all" | "replacement" | "repair" | "inspection"
+  >("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "created" | "sent" | "approved" | "declined"
+  >("all");
+  const [sentQuoteTypes, setSentQuoteTypes] = useState<{
+    replacement: boolean;
+    repair: boolean;
+    inspection: boolean;
+  }>({
+    replacement: false,
+    repair: false,
+    inspection: false,
+  });
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeletingQuote, setIsDeletingQuote] = useState<string | null>(null);
+  const [showQuotePDF, setShowQuotePDF] = useState(false);
+  const [activeQuoteType, setActiveQuoteType] = useState<
+    "replacement" | "repair" | "inspection"
+  >("replacement");
+  const [activeQuoteData, setActiveQuoteData] = useState<any>(null);
+  const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
+  const [selectedQuoteForSending, setSelectedQuoteForSending] = useState<
+    any | null
+  >(null);
 
-  useEffect(() => {
-    const fetchQuotes = async () => {
-      setLoading(true);
+  // Calculate quote counts by type (total counts, not filtered)
+  const getQuoteCounts = () => {
+    const all = quotes.length;
+    const replacement = quotes.filter(
+      (q) => q.quote_type === "replacement"
+    ).length;
+    const repair = quotes.filter((q) => q.quote_type === "repair").length;
+    const inspection = quotes.filter(
+      (q) => q.quote_type === "inspection"
+    ).length;
+
+    return { all, replacement, repair, inspection };
+  };
+
+  // Filter quotes based on active filter and status
+  const getFilteredQuotes = () => {
+    let filtered = quotes;
+
+    // Filter by quote type
+    if (activeQuoteFilter !== "all") {
+      filtered = filtered.filter((q) => q.quote_type === activeQuoteFilter);
+    }
+
+    // Filter by status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((q) => {
+        if (statusFilter === "created") {
+          return !q.email_sent_at;
+        } else if (statusFilter === "sent") {
+          return q.email_sent_at && !q.confirmed;
+        } else if (statusFilter === "approved") {
+          return q.confirmed && q.approved;
+        } else if (statusFilter === "declined") {
+          return q.confirmed && !q.approved;
+        }
+        return true;
+      });
+    }
+
+    return filtered;
+  };
+
+  // Check if we have available data for the current filter
+  const hasAvailableDataForFilter = () => {
+    switch (activeQuoteFilter) {
+      case "replacement":
+        return sentQuoteTypes.replacement;
+      case "repair":
+        return sentQuoteTypes.repair;
+      case "inspection":
+        return sentQuoteTypes.inspection;
+      default:
+        return true;
+    }
+  };
+
+  // Fetch all quotes
+  const fetchQuotes = async () => {
+    if (!supabase) return;
+
+    setLoading(true);
+    try {
       const { data: quotesData, error } = await supabase
         .from("job_quotes")
         .select(
-          "*, jobs:job_id(number, name, contact_name, contact_email, locations(name, companies(name)), job_units:job_units!inner(unit_id, units:unit_id(id, unit_number)))"
+          `
+          *,
+          jobs:job_id (
+            number,
+            name,
+            contact_name,
+            contact_email,
+            locations (
+              name,
+              companies (
+                name
+              )
+            ),
+            job_units:job_units!inner (
+              unit_id,
+              units:unit_id (
+                id,
+                unit_number
+              )
+            )
+          )
+        `
         )
         .order("created_at", { ascending: false });
-      if (!error && quotesData) {
-        setQuotes(quotesData);
-        // Build a job lookup for quick access
-        const jobMap: any = {};
-        quotesData.forEach((q: any) => {
-          if (q.jobs) jobMap[q.job_id] = q.jobs;
-        });
-        setJobs(jobMap);
-      }
+
+      if (error) throw error;
+
+      setQuotes(quotesData || []);
+
+      // Determine which quote types have been sent
+      const quoteTypes = new Set(quotesData?.map((q) => q.quote_type) || []);
+      setSentQuoteTypes({
+        replacement: quoteTypes.has("replacement"),
+        repair: quoteTypes.has("repair"),
+        inspection: quoteTypes.has("inspection"),
+      });
+    } catch (err) {
+      console.error("Error fetching quotes:", err);
+    } finally {
       setLoading(false);
-    };
+    }
+  };
+
+  // Handle quote deletion
+  const handleDeleteQuote = async (quoteId: string) => {
+    if (!supabase) return;
+
+    if (!window.confirm("Are you sure you want to delete this quote?")) {
+      return;
+    }
+
+    setIsDeletingQuote(quoteId);
+    setDeleteError(null);
+
+    try {
+      const { error } = await supabase
+        .from("job_quotes")
+        .delete()
+        .eq("id", quoteId);
+
+      if (error) throw error;
+
+      // Refresh quotes
+      await fetchQuotes();
+    } catch (err) {
+      console.error("Error deleting quote:", err);
+      setDeleteError("Failed to delete quote");
+    } finally {
+      setIsDeletingQuote(null);
+    }
+  };
+
+  // Handle preview quote
+  const handlePreviewQuote = (
+    quoteType: "replacement" | "repair" | "inspection",
+    quoteData?: any
+  ) => {
+    setActiveQuoteType(quoteType);
+    if (quoteData) {
+      setActiveQuoteData(quoteData);
+    }
+    setShowQuotePDF(true);
+  };
+
+  // Handle quote sent
+  const handleQuoteSent = () => {
+    setShowSendQuoteModal(false);
+    setSelectedQuoteForSending(null);
+    // Refresh quotes
+    fetchQuotes();
+  };
+
+  useEffect(() => {
     fetchQuotes();
   }, [supabase]);
 
-  // Filter and sort quotes
-  const filteredQuotes = quotes
-    .filter((q) => activeTab === "all" || q.quote_type === activeTab)
-    .filter((q) => {
-      if (!search) return true;
-      const job = jobs[q.job_id] || {};
-      return (
-        (q.quote_number &&
-          q.quote_number.toLowerCase().includes(search.toLowerCase())) ||
-        (job.name && job.name.toLowerCase().includes(search.toLowerCase())) ||
-        (job.number &&
-          job.number.toLowerCase().includes(search.toLowerCase())) ||
-        (job.contact_name &&
-          job.contact_name.toLowerCase().includes(search.toLowerCase())) ||
-        (job.contact_email &&
-          job.contact_email.toLowerCase().includes(search.toLowerCase()))
-      );
-    })
-    .filter((q) => {
-      if (!statusFilter) return true;
-      if (statusFilter === "Approved") return q.confirmed && q.approved;
-      if (statusFilter === "Declined") return q.confirmed && !q.approved;
-      if (statusFilter === "Pending") return !q.confirmed;
-      return true;
-    })
-    .sort((a, b) => {
-      let aVal = a[sortField];
-      let bVal = b[sortField];
-      if (sortField === "amount") {
-        aVal = Number(aVal);
-        bVal = Number(bVal);
-      }
-      if (sortDir === "asc") return aVal > bVal ? 1 : -1;
-      return aVal < bVal ? 1 : -1;
-    });
-
-  if (previewing) {
+  if (showQuotePDF) {
     return (
       <QuotePDFViewer
-        jobId={previewing.jobId}
-        quoteType={previewing.quoteType}
-        existingQuoteId={previewing.quoteId}
-        onBack={() => setPreviewing(null)}
+        jobId={activeQuoteData?.job_id || ""}
+        quoteType={activeQuoteType}
+        quoteData={activeQuoteData}
+        onBack={() => {
+          setShowQuotePDF(false);
+          setActiveQuoteData(null);
+        }}
         backLabel="Back to All Quotes"
       />
     );
@@ -123,256 +265,417 @@ export default function AllQuotes() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <ArrowBack
-            fallbackRoute="/"
-            className="text-gray-500 hover:text-gray-700"
-          />
-          <div className="flex items-center gap-2">
-            <FileSpreadsheet className="h-6 w-6 text-primary-600" />
-            <h1 className="text-2xl font-bold">All Quotes</h1>
-          </div>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="flex gap-2">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                className={`px-4 py-2 rounded-md font-medium border-b-2 transition-colors ${
-                  activeTab === tab.key
-                    ? "border-primary-600 text-primary-700 bg-primary-50"
-                    : "border-transparent text-gray-600 bg-white hover:bg-gray-50"
-                }`}
-                onClick={() => setActiveTab(tab.key as any)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <input
-            type="text"
-            className="input input-bordered w-full sm:w-64"
-            placeholder="Search quotes, jobs, customer..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <select
-            className="input input-bordered w-full sm:w-40"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="">All Statuses</option>
-            <option value="Approved">Approved</option>
-            <option value="Declined">Declined</option>
-            <option value="Pending">Pending</option>
-          </select>
+      <div className="flex items-center gap-4">
+        <ArrowBack
+          fallbackRoute="/"
+          className="text-gray-500 hover:text-gray-700"
+        />
+        <div className="flex items-center gap-2">
+          <FileText className="h-6 w-6 text-primary-600" />
+          <h1 className="text-2xl font-bold">All Quotes</h1>
         </div>
       </div>
+
       <div className="card">
+        {/* Available Quote Types Summary */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+          <div
+            className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+              activeQuoteFilter === "all"
+                ? "bg-gray-100 border-gray-300"
+                : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+            }`}
+            onClick={() => setActiveQuoteFilter("all")}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <FileText size={20} className="text-gray-600 mr-2" />
+                <span className="font-medium text-gray-900">All quotes</span>
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 mt-1">
+              {getQuoteCounts().all} quote(s)
+            </p>
+          </div>
+
+          <div
+            className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+              activeQuoteFilter === "replacement"
+                ? "bg-blue-100 border-blue-300"
+                : "bg-blue-50 border-blue-200 hover:bg-blue-100"
+            }`}
+            onClick={() => setActiveQuoteFilter("replacement")}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Home size={20} className="text-blue-600 mr-2" />
+                <span className="font-medium text-blue-900">Replacement</span>
+              </div>
+              {sentQuoteTypes.replacement && (
+                <span className="w-2 h-2 bg-success-500 rounded-full"></span>
+              )}
+            </div>
+            <p className="text-sm text-blue-700 mt-1">
+              {getQuoteCounts().replacement} quote(s)
+            </p>
+          </div>
+
+          <div
+            className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+              activeQuoteFilter === "repair"
+                ? "bg-green-100 border-green-300"
+                : "bg-green-50 border-green-200 hover:bg-green-100"
+            }`}
+            onClick={() => setActiveQuoteFilter("repair")}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Package size={20} className="text-green-600 mr-2" />
+                <span className="font-medium text-green-900">Repair</span>
+              </div>
+              {sentQuoteTypes.repair && (
+                <span className="w-2 h-2 bg-success-500 rounded-full"></span>
+              )}
+            </div>
+            <p className="text-sm text-green-700 mt-1">
+              {getQuoteCounts().repair} quote(s)
+            </p>
+          </div>
+
+          <div
+            className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+              activeQuoteFilter === "inspection"
+                ? "bg-purple-100 border-purple-300"
+                : "bg-purple-50 border-purple-200 hover:bg-purple-100"
+            }`}
+            onClick={() => setActiveQuoteFilter("inspection")}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <FileCheck2 size={20} className="text-purple-600 mr-2" />
+                <span className="font-medium text-purple-900">Inspection</span>
+              </div>
+              {sentQuoteTypes.inspection && (
+                <span className="w-2 h-2 bg-success-500 rounded-full"></span>
+              )}
+            </div>
+            <p className="text-sm text-purple-700 mt-1">
+              {getQuoteCounts().inspection} quote(s)
+            </p>
+          </div>
+        </div>
+
+        {/* Status Filter */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium text-gray-700">
+              Filter by Status
+            </h4>
+            <div className="flex items-center gap-4">
+              {(activeQuoteFilter !== "all" || statusFilter !== "all") && (
+                <button
+                  onClick={() => {
+                    setActiveQuoteFilter("all");
+                    setStatusFilter("all");
+                  }}
+                  className="text-sm text-primary-600 hover:text-primary-800 font-medium"
+                >
+                  Clear All Filters
+                </button>
+              )}
+              <div className="text-sm text-gray-500">
+                Showing {getFilteredQuotes().length} of {quotes.length} quotes
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setStatusFilter("all")}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                statusFilter === "all"
+                  ? "bg-gray-800 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              All Statuses
+            </button>
+            <button
+              onClick={() => setStatusFilter("created")}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                statusFilter === "created"
+                  ? "bg-yellow-600 text-white"
+                  : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+              }`}
+            >
+              Created
+            </button>
+            <button
+              onClick={() => setStatusFilter("sent")}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                statusFilter === "sent"
+                  ? "bg-blue-600 text-white"
+                  : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+              }`}
+            >
+              Sent
+            </button>
+            <button
+              onClick={() => setStatusFilter("approved")}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                statusFilter === "approved"
+                  ? "bg-green-600 text-white"
+                  : "bg-green-100 text-green-700 hover:bg-green-200"
+              }`}
+            >
+              Approved
+            </button>
+            <button
+              onClick={() => setStatusFilter("declined")}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                statusFilter === "declined"
+                  ? "bg-red-600 text-white"
+                  : "bg-red-100 text-red-700 hover:bg-red-200"
+              }`}
+            >
+              Declined
+            </button>
+          </div>
+        </div>
+
+        {/* Quotes Table */}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th
-                  className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
-                  onClick={() => setSortField("quote_number")}
-                >
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Quote #
                 </th>
-                <th
-                  className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
-                  onClick={() => setSortField("job_id")}
-                >
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Job
                 </th>
-                <th
-                  className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
-                  onClick={() => setSortField("amount")}
-                >
-                  Amount
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Type
                 </th>
-                <th
-                  className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
-                  onClick={() => setSortField("created_at")}
-                >
-                  Sent
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date
                 </th>
-                <th
-                  className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
-                  onClick={() => setSortField("confirmed_at")}
-                >
-                  Confirmed
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Amount
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Customer
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Confirmed
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Company
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Email
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Details
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="text-center py-8 text-gray-400">
-                    Loading quotes...
-                  </td>
-                </tr>
-              ) : filteredQuotes.length === 0 ? (
-                <tr>
-                  <td colSpan={11} className="text-center py-8 text-gray-400">
-                    No quotes found.
+                  <td
+                    colSpan={8}
+                    className="px-3 py-2 sm:px-6 sm:py-3 text-center"
+                  >
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
                   </td>
                 </tr>
               ) : (
-                filteredQuotes.map((q) => {
-                  const job = jobs[q.job_id] || {};
-                  let status = "Pending";
-                  if (q.confirmed && q.approved) status = "Approved";
-                  else if (q.confirmed && !q.approved) status = "Declined";
-                  return (
-                    <tr key={q.id}>
-                      <td className="px-4 py-2 whitespace-nowrap font-mono">
-                        {q.quote_number}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <Link
-                          to={`/jobs/${q.job_id}`}
-                          className="text-primary-600 hover:underline"
-                        >
-                          {job.number || q.job_id} - {job.name || "(No Name)"}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        ${Number(q.amount).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            q.quote_type === "replacement"
-                              ? "bg-blue-100 text-blue-800"
-                              : q.quote_type === "repair"
-                              ? "bg-green-100 text-green-800"
-                              : q.quote_type === "inspection"
-                              ? "bg-purple-100 text-purple-800"
-                              : q.quote_type === "pm"
-                              ? "bg-orange-100 text-orange-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {q.quote_type.charAt(0).toUpperCase() +
-                            q.quote_type.slice(1)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {q.created_at
-                          ? new Date(q.created_at).toLocaleString()
-                          : "N/A"}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {q.confirmed_at
-                          ? new Date(q.confirmed_at).toLocaleString()
-                          : "-"}
-                      </td>
-                      <td
-                        className={`px-4 py-2 whitespace-nowrap font-semibold rounded ${statusColor(
-                          status
-                        )}`}
+                getFilteredQuotes().map((quote, index) => (
+                  <tr
+                    key={quote.id}
+                    className={`border-b hover:bg-primary-50 transition-colors ${
+                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    }`}
+                  >
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
+                      {quote.quote_number}
+                    </td>
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                      <Link
+                        to={`/jobs/${quote.job_id}`}
+                        className="block hover:bg-gray-50 rounded p-1 -m-1 transition-colors"
                       >
-                        {status}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {job.contact_name || "-"}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {job.locations?.companies?.name || "-"}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {job.contact_email || q.email || "-"}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap flex gap-2">
-                        <Link
-                          to={`/jobs/${q.job_id}`}
-                          className="btn btn-xs btn-success flex items-center gap-1"
-                        >
-                          <ExternalLink size={14} />
-                          View Job
-                        </Link>
+                        <div>
+                          <div className="font-medium text-primary-600 hover:text-primary-800 transition-colors">
+                            {quote.jobs?.number || quote.job_id} -{" "}
+                            {quote.jobs?.name || "(No Name)"}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {quote.jobs?.locations?.companies?.name || ""} -{" "}
+                            {quote.jobs?.locations?.name || ""}
+                            {quote.jobs?.job_units?.[0]?.units?.unit_number && (
+                              <span className="ml-1 text-gray-400">
+                                (Unit{" "}
+                                {quote.jobs.job_units[0].units.unit_number})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                          quote.quote_type === "replacement"
+                            ? "bg-blue-100 text-blue-800"
+                            : quote.quote_type === "repair"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-purple-100 text-purple-800"
+                        }`}
+                      >
+                        {quote.quote_type.charAt(0).toUpperCase() +
+                          quote.quote_type.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                      {new Date(quote.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
+                      ${Number(quote.amount).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                          quote.confirmed
+                            ? quote.approved
+                              ? "bg-success-100 text-success-800"
+                              : "bg-error-100 text-error-800"
+                            : quote.email_sent_at
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {quote.confirmed
+                          ? quote.approved
+                            ? "Approved"
+                            : "Declined"
+                          : quote.email_sent_at
+                          ? "Sent"
+                          : "Created"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                      {quote.confirmed_at
+                        ? new Date(quote.confirmed_at).toLocaleDateString()
+                        : "-"}
+                    </td>
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                      <div className="flex flex-wrap gap-2 items-center">
                         <button
-                          className="btn btn-xs btn-primary flex items-center gap-1"
+                          className="btn btn-secondary btn-xs w-full sm:w-auto"
                           onClick={() =>
-                            setPreviewing({
-                              jobId: q.job_id,
-                              quoteType: q.quote_type,
-                              quoteId: q.id,
-                            })
+                            handlePreviewQuote(
+                              quote.quote_type as
+                                | "replacement"
+                                | "repair"
+                                | "inspection",
+                              quote
+                            )
                           }
                         >
-                          <Eye size={14} />
-                          View PDF
+                          <Eye size={16} className="mr-2" />
+                          Preview
                         </button>
+                        {!quote.email_sent_at ? (
+                          <button
+                            className="btn btn-primary btn-xs w-full sm:w-auto"
+                            onClick={() => {
+                              setSelectedQuoteForSending(quote);
+                              setShowSendQuoteModal(true);
+                            }}
+                          >
+                            <Send size={16} className="mr-2" />
+                            Send
+                          </button>
+                        ) : (
+                          <button
+                            className="btn btn-secondary btn-xs w-full sm:w-auto"
+                            onClick={() => {
+                              setSelectedQuoteForSending(quote);
+                              setShowSendQuoteModal(true);
+                            }}
+                          >
+                            <Send size={16} className="mr-2" />
+                            Resend
+                          </button>
+                        )}
                         <button
-                          className="btn btn-xs btn-error flex items-center gap-1"
-                          onClick={async () => {
-                            if (!supabase) return;
-                            if (
-                              window.confirm(
-                                "Are you sure you want to delete this quote?"
-                              )
-                            ) {
-                              setDeleteError(null);
-                              try {
-                                const { error } = await supabase
-                                  .from("job_quotes")
-                                  .delete()
-                                  .eq("id", q.id);
-                                if (error) throw error;
-                                // Refresh quotes
-                                const { data: quotesData, error: fetchError } =
-                                  await supabase
-                                    .from("job_quotes")
-                                    .select(
-                                      "*, jobs:job_id(number, name, contact_name, contact_email, locations(name, companies(name)), job_units:job_units!inner(unit_id, units:unit_id(id, unit_number)))"
-                                    )
-                                    .order("created_at", { ascending: false });
-                                if (!fetchError && quotesData)
-                                  setQuotes(quotesData);
-                              } catch (err) {
-                                setDeleteError("Failed to delete quote");
-                              }
-                            }
-                          }}
+                          className="btn btn-error btn-xs w-full sm:w-auto"
+                          onClick={() => handleDeleteQuote(quote.id)}
+                          disabled={isDeletingQuote === quote.id}
                           title="Delete Quote"
                         >
-                          <Trash2 size={14} />
+                          {isDeletingQuote === quote.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                          ) : (
+                            <Trash2 size={16} className="mr-2" />
+                          )}
                           Delete
                         </button>
-                      </td>
-                    </tr>
-                  );
-                })
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
+
+        {/* No Data Message */}
+        {getFilteredQuotes().length === 0 && !loading && (
+          <div className="text-center py-8 text-gray-500">
+            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 mb-2">
+              {activeQuoteFilter === "all"
+                ? "No quotes available"
+                : `No ${activeQuoteFilter} quotes available`}
+            </p>
+            <p className="text-sm text-gray-400">
+              {activeQuoteFilter === "all"
+                ? "Quotes will appear here once they are generated from jobs"
+                : `No ${activeQuoteFilter} quotes have been generated yet`}
+            </p>
+          </div>
+        )}
+
+        {/* Delete Error Message */}
+        {deleteError && (
+          <div className="bg-error-50 text-error-700 p-2 rounded mb-2">
+            {deleteError}
+          </div>
+        )}
       </div>
-      {deleteError && (
-        <div className="bg-error-50 text-error-700 p-2 rounded mb-2">
-          {deleteError}
-        </div>
+
+      {/* Send Quote Modal */}
+      {showSendQuoteModal && selectedQuoteForSending && (
+        <SendEmailModal
+          isOpen={showSendQuoteModal}
+          onClose={() => {
+            setShowSendQuoteModal(false);
+            setSelectedQuoteForSending(null);
+          }}
+          jobId={selectedQuoteForSending.job_id}
+          jobNumber={selectedQuoteForSending.jobs?.number || ""}
+          jobName={selectedQuoteForSending.jobs?.name || ""}
+          customerName={selectedQuoteForSending.jobs?.contact_name || undefined}
+          initialEmail={selectedQuoteForSending.jobs?.contact_email || ""}
+          replacementData={
+            selectedQuoteForSending.quote_data?.replacementData || null
+          }
+          selectedPhase={
+            selectedQuoteForSending.quote_data?.selectedPhase || undefined
+          }
+          totalCost={selectedQuoteForSending.amount}
+          location={selectedQuoteForSending.quote_data?.location || null}
+          unit={selectedQuoteForSending.quote_data?.unit || null}
+          quoteType={selectedQuoteForSending.quote_type}
+          onEmailSent={handleQuoteSent}
+          existingQuote={selectedQuoteForSending}
+        />
       )}
     </div>
   );

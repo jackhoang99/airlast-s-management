@@ -607,14 +607,18 @@ const JobQuoteSection = ({
                           ? quote.approved
                             ? "bg-success-100 text-success-800"
                             : "bg-error-100 text-error-800"
-                          : "bg-blue-100 text-blue-800"
+                          : quote.email_sent_at
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-yellow-100 text-yellow-800"
                       }`}
                     >
                       {quote.confirmed
                         ? quote.approved
                           ? "Approved"
                           : "Declined"
-                        : "Sent"}
+                        : quote.email_sent_at
+                        ? "Sent"
+                        : "Created"}
                     </span>
                   </td>
                   <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
@@ -639,16 +643,29 @@ const JobQuoteSection = ({
                         <Eye size={16} className="mr-2" />
                         Preview
                       </button>
-                      <button
-                        className="btn btn-primary btn-xs w-full sm:w-auto"
-                        onClick={() => {
-                          setSelectedQuoteForSending(quote);
-                          setShowIndividualQuoteModal(true);
-                        }}
-                      >
-                        <Send size={16} className="mr-2" />
-                        Send
-                      </button>
+                      {!quote.email_sent_at ? (
+                        <button
+                          className="btn btn-primary btn-xs w-full sm:w-auto"
+                          onClick={() => {
+                            setSelectedQuoteForSending(quote);
+                            setShowIndividualQuoteModal(true);
+                          }}
+                        >
+                          <Send size={16} className="mr-2" />
+                          Send
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-secondary btn-xs w-full sm:w-auto"
+                          onClick={() => {
+                            setSelectedQuoteForSending(quote);
+                            setShowIndividualQuoteModal(true);
+                          }}
+                        >
+                          <Send size={16} className="mr-2" />
+                          Resend
+                        </button>
+                      )}
                       <button
                         className="btn btn-error btn-xs w-full sm:w-auto"
                         onClick={() => handleDeleteQuote(quote.id)}
@@ -785,6 +802,7 @@ const JobQuoteSection = ({
           selectedInspectionOptions={
             selectedQuoteForSending.selected_inspection_options || []
           }
+          existingQuote={selectedQuoteForSending}
         />
       )}
 
@@ -807,6 +825,7 @@ const JobQuoteSection = ({
             <div className="p-6">
               <GenerateQuote
                 jobId={job.id}
+                jobItems={jobItems}
                 onQuoteSent={() => {
                   setShowGenerateQuoteModal(false);
                   // Refresh quotes

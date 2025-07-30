@@ -47,8 +47,32 @@ serve(async (req) => {
       hasReplacementDataById:
         !!replacementDataById &&
         Object.keys(replacementDataById || {}).length > 0,
+      hasJobItems: !!jobItems,
+      jobItemsCount: Array.isArray(jobItems) ? jobItems.length : 0,
+      jobItemsData: Array.isArray(jobItems)
+        ? jobItems.map((item) => ({
+            id: item.id,
+            name: item.name,
+            type: item.type,
+            cost: item.total_cost,
+          }))
+        : null,
     });
+    // Debug the repair condition
+    console.log("Repair condition check:", {
+      quoteType,
+      isRepair: quoteType === "repair",
+      jobItemsType: typeof jobItems,
+      isArray: Array.isArray(jobItems),
+      jobItemsLength: Array.isArray(jobItems) ? jobItems.length : "not array",
+      conditionMet:
+        quoteType === "repair" &&
+        Array.isArray(jobItems) &&
+        jobItems.length > 0,
+    });
+    console.log("=== AFTER CONDITION CHECK - BEFORE VALIDATION ===");
     if (!jobId || !quoteType) {
+      console.log("=== EXITING DUE TO MISSING FIELDS ===");
       return new Response(
         JSON.stringify({
           error: "Missing required fields: jobId and quoteType",
@@ -62,6 +86,7 @@ serve(async (req) => {
         }
       );
     }
+    console.log("=== AFTER VALIDATION - BEFORE TEMPLATE FETCH ===");
     // Fetch template if templateId is provided
     let templateData = null;
     if (templateId) {
@@ -76,14 +101,13 @@ serve(async (req) => {
         templateData = fetchedTemplate;
       }
     }
-
     // Use default template if no template found
     if (!templateData || !templateData.template_data?.fileUrl) {
       console.log("Using default template for quote generation");
       // Create a simple default template structure
       templateData = {
         template_data: {
-          fileUrl: "https://example.com/default-template.pdf", // This will be ignored
+          fileUrl: "https://example.com/default-template.pdf",
           preservedPages: [1],
         },
       };
@@ -111,7 +135,6 @@ serve(async (req) => {
     // Get preserved pages if template exists
     const preserved = templateData?.template_data?.preservedPages || [1];
     const sorted = [...preserved].sort((a, b) => a - b);
-
     // Find insertion point
     let insertPos = sorted.length;
     for (let i = 0; i < sorted.length - 1; i++) {
@@ -120,7 +143,6 @@ serve(async (req) => {
         break;
       }
     }
-
     // Only copy preserved pages if we have a template with pages
     if (pdfDoc.getPageCount() > 0) {
       // Copy first set of preserved pages
@@ -151,9 +173,7 @@ serve(async (req) => {
     } catch (error) {
       console.log("Error loading background image:", error);
     }
-
     const { width, height } = dynamicPage.getSize();
-
     // Draw background image if available
     if (bgImage) {
       dynamicPage.drawImage(bgImage, {
@@ -258,9 +278,11 @@ serve(async (req) => {
       y -= lineHeight * 2;
     }
     // Note: Inspection Results section removed as requested - only Inspection Summary will be shown
+    console.log("=== BEFORE REPLACEMENT CONDITION ===");
     // Process replacement data
     let replacementsToProcess = [];
     if (quoteType === "replacement") {
+      console.log("=== REPLACEMENT QUOTE SECTION ENTERED ===");
       // Check if replacementDataById is provided in the request (this is the new format with multiple replacements)
       if (replacementDataById && Object.keys(replacementDataById).length > 0) {
         console.log(
@@ -314,11 +336,14 @@ serve(async (req) => {
         }
       }
     } else if (quoteType === "repair") {
+      console.log("=== REPAIR CONDITION IN REPLACEMENT SECTION ===");
       // Use job items for repair quotes
       if (Array.isArray(jobItems) && jobItems.length > 0) {
+        console.log("=== REPAIR JOB ITEMS CHECK PASSED ===");
         // We'll handle this separately below
       }
     }
+    console.log("=== AFTER REPLACEMENT SECTION - BEFORE MAIN CONDITIONS ===");
     // Check if we need a new page
     if (y < 200) {
       dynamicPage = newPdfDoc.addPage();
@@ -343,14 +368,14 @@ serve(async (req) => {
       });
       y -= lineHeight * 2;
     }
-
+    console.log("=== BEFORE REPLACEMENT PROCESSING SECTION ===");
     // Process each replacement entry
     let combinedTotal = 0;
     if (quoteType === "replacement" && replacementsToProcess.length > 0) {
+      console.log("=== REPLACEMENT PROCESSING SECTION ENTERED ===");
       console.log(
         `Processing ${replacementsToProcess.length} replacement options`
       );
-
       // If multiple replacements, show them as a consolidated list
       if (replacementsToProcess.length > 1) {
         // Draw consolidated header
@@ -361,13 +386,11 @@ serve(async (req) => {
           font: bold,
         });
         y -= lineHeight * 1.5;
-
         // Show each replacement as a numbered option
         for (let i = 0; i < replacementsToProcess.length; i++) {
           let entry = replacementsToProcess[i];
           const totalCost = Number(entry.totalCost || entry.total_cost || 0);
           combinedTotal += totalCost;
-
           // Draw replacement option header
           dynamicPage.drawText(
             `Option ${entry.replacementNumber}: $${totalCost.toLocaleString()}`,
@@ -379,7 +402,6 @@ serve(async (req) => {
             }
           );
           y -= lineHeight;
-
           // Show key components for this option
           const components = [];
           if (entry.labor && Number(entry.labor) > 0) {
@@ -415,7 +437,6 @@ serve(async (req) => {
               `Permit: $${Number(entry.permitCost).toLocaleString()}`
             );
           }
-
           // Display components in a compact format
           if (components.length > 0) {
             const componentsText = components.join(" • ");
@@ -427,7 +448,6 @@ serve(async (req) => {
             });
             y -= lineHeight;
           }
-
           // Add requirements if any
           const requirements = [];
           if (entry.needsCrane || entry.needs_crane) {
@@ -439,7 +459,6 @@ serve(async (req) => {
           if (entry.requiresBigLadder || entry.requires_big_ladder) {
             requirements.push("Big Ladder Required");
           }
-
           if (requirements.length > 0) {
             dynamicPage.drawText(`Requirements: ${requirements.join(", ")}`, {
               x: margin + 20,
@@ -450,20 +469,23 @@ serve(async (req) => {
             });
             y -= lineHeight;
           }
-
           y -= lineHeight * 0.5; // Small spacing between options
         }
-
         // Draw total line
         y -= lineHeight;
         dynamicPage.drawLine({
-          start: { x: margin, y: y + 5 },
-          end: { x: width - margin, y: y + 5 },
+          start: {
+            x: margin,
+            y: y + 5,
+          },
+          end: {
+            x: width - margin,
+            y: y + 5,
+          },
           thickness: 1,
           color: rgb(0.8, 0.8, 0.8),
         });
         y -= lineHeight;
-
         dynamicPage.drawText("Total Replacement Cost:", {
           x: margin,
           y,
@@ -482,7 +504,6 @@ serve(async (req) => {
         let entry = replacementsToProcess[0];
         const totalCost = Number(entry.totalCost || entry.total_cost || 0);
         combinedTotal = totalCost;
-
         // Draw replacement header
         dynamicPage.drawText("Replacement Details:", {
           x: margin,
@@ -497,7 +518,6 @@ serve(async (req) => {
           font: bold,
         });
         y -= lineHeight;
-
         // For single replacement, show detailed breakdown
         const components = [];
         if (entry.labor && Number(entry.labor) > 0) {
@@ -535,7 +555,6 @@ serve(async (req) => {
             `Permit Cost: $${Number(entry.permitCost).toLocaleString()}`
           );
         }
-
         // Display components
         if (components.length > 0) {
           for (const component of components) {
@@ -548,7 +567,6 @@ serve(async (req) => {
             y -= lineHeight;
           }
         }
-
         // Add requirements if any
         const requirements = [];
         if (entry.needsCrane || entry.needs_crane) {
@@ -560,7 +578,6 @@ serve(async (req) => {
         if (entry.requiresBigLadder || entry.requires_big_ladder) {
           requirements.push("Big Ladder Required");
         }
-
         if (requirements.length > 0) {
           dynamicPage.drawText(`Requirements: ${requirements.join(", ")}`, {
             x: margin + 20,
@@ -571,13 +588,13 @@ serve(async (req) => {
           });
           y -= lineHeight;
         }
-
         y -= lineHeight;
       }
     }
-
+    console.log("=== BEFORE INSPECTION RESULTS SECTION ===");
     // Add inspection results to all quote types
     if (Array.isArray(inspectionData) && inspectionData.length > 0) {
+      console.log("=== INSPECTION RESULTS SECTION ENTERED ===");
       // Check if we need a new page
       if (y < 200) {
         dynamicPage = newPdfDoc.addPage();
@@ -592,7 +609,6 @@ serve(async (req) => {
           });
         }
       }
-
       // Draw inspection results header
       dynamicPage.drawText("Inspection Results:", {
         x: margin,
@@ -601,11 +617,9 @@ serve(async (req) => {
         font: bold,
       });
       y -= lineHeight * 2;
-
       // List each inspection with comments
       for (let i = 0; i < inspectionData.length; i++) {
         const insp = inspectionData[i];
-
         // Check if we need a new page
         if (y < 200) {
           dynamicPage = newPdfDoc.addPage();
@@ -620,7 +634,6 @@ serve(async (req) => {
             });
           }
         }
-
         // Draw inspection number
         dynamicPage.drawText(`${i + 1})`, {
           x: margin,
@@ -629,7 +642,6 @@ serve(async (req) => {
           font: bold,
         });
         y -= lineHeight;
-
         // Draw unit information header
         console.log("Checking unit data:", {
           hasJobData: !!jobData,
@@ -637,7 +649,6 @@ serve(async (req) => {
           unitNumber: jobData?.unit?.unit_number,
           fullUnitData: jobData?.unit,
         });
-
         if (jobData?.unit?.unit_number) {
           console.log("Drawing unit number:", jobData.unit.unit_number);
           dynamicPage.drawText(`Unit: ${jobData.unit.unit_number}`, {
@@ -650,22 +661,18 @@ serve(async (req) => {
         } else {
           console.log("No unit number found, skipping unit display");
         }
-
         // Draw inspection details in two-column format like the image
         const leftColumn = [];
         const rightColumn = [];
-
         if (insp.model_number)
           leftColumn.push(`Model Number: ${insp.model_number}`);
         if (insp.age) leftColumn.push(`Age: ${insp.age} years`);
         if (insp.unit_type) leftColumn.push(`Unit Type: ${insp.unit_type}`);
-
         if (insp.serial_number)
           rightColumn.push(`Serial Number: ${insp.serial_number}`);
         if (insp.tonnage) rightColumn.push(`Tonnage: ${insp.tonnage}`);
         if (insp.system_type)
           rightColumn.push(`System Type: ${insp.system_type}`);
-
         // Draw left column
         let leftY = y;
         for (const detail of leftColumn) {
@@ -677,22 +684,19 @@ serve(async (req) => {
           });
           leftY -= lineHeight;
         }
-
         // Draw right column
         let rightY = y;
         for (const detail of rightColumn) {
           dynamicPage.drawText(detail, {
-            x: margin + 250, // Position right column
+            x: margin + 250,
             y: rightY,
             size: fontSize,
             font,
           });
           rightY -= lineHeight;
         }
-
         // Move Y to the lowest point of either column
         y = Math.min(leftY, rightY);
-
         // Show inspection comment if available
         if (insp.comment && insp.comment.trim()) {
           y -= lineHeight * 0.5; // Small spacing before comment
@@ -705,12 +709,9 @@ serve(async (req) => {
           });
           y -= lineHeight * 1.2;
         }
-
         y -= lineHeight; // Spacing between inspections
       }
-
       y -= lineHeight; // Final spacing after inspections
-
       // Add summary comment section if available
       if (
         jobData &&
@@ -731,7 +732,6 @@ serve(async (req) => {
             });
           }
         }
-
         dynamicPage.drawText("Summary Comment:", {
           x: margin,
           y,
@@ -739,17 +739,14 @@ serve(async (req) => {
           font: bold,
         });
         y -= lineHeight * 1.5;
-
         // Split comment into lines if it's too long
         const commentText = jobData.inspection_summary_comment;
         const maxWidth = width - margin * 2;
         const words = commentText.split(" ");
         let currentLine = "";
-
         for (const word of words) {
           const testLine = currentLine ? `${currentLine} ${word}` : word;
           const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
-
           if (testWidth > maxWidth && currentLine) {
             // Draw current line and start new line
             dynamicPage.drawText(currentLine, {
@@ -764,7 +761,6 @@ serve(async (req) => {
             currentLine = testLine;
           }
         }
-
         // Draw the last line
         if (currentLine) {
           dynamicPage.drawText(currentLine, {
@@ -776,10 +772,12 @@ serve(async (req) => {
           y -= lineHeight * 2;
         }
       }
-    } else if (quoteType === "inspection") {
+    }
+    console.log("=== BEFORE MAIN IF/ELSE CONDITIONS ===");
+    if (quoteType === "inspection") {
       // Handle inspection quotes
+      console.log("=== INSPECTION QUOTE SECTION ENTERED ===");
       console.log("Processing inspection quote");
-
       // Check if we need a new page
       if (y < 200) {
         dynamicPage = newPdfDoc.addPage();
@@ -794,7 +792,6 @@ serve(async (req) => {
           });
         }
       }
-
       // Draw inspection details header
       dynamicPage.drawText("Inspection Details:", {
         x: margin,
@@ -803,17 +800,14 @@ serve(async (req) => {
         font: bold,
       });
       y -= lineHeight * 2;
-
       // Show inspection details
       const inspectionCount = Array.isArray(inspectionData)
         ? inspectionData.length
         : 0;
-
       if (inspectionCount > 0) {
         // List each inspection with comments
         for (let i = 0; i < inspectionData.length; i++) {
           const insp = inspectionData[i];
-
           // Check if we need a new page
           if (y < 200) {
             dynamicPage = newPdfDoc.addPage();
@@ -828,7 +822,6 @@ serve(async (req) => {
               });
             }
           }
-
           // Draw inspection number
           dynamicPage.drawText(`${i + 1})`, {
             x: margin,
@@ -837,7 +830,6 @@ serve(async (req) => {
             font: bold,
           });
           y -= lineHeight;
-
           // Draw unit information header
           if (jobData?.unit?.unit_number) {
             dynamicPage.drawText(`Unit: ${jobData.unit.unit_number}`, {
@@ -848,22 +840,18 @@ serve(async (req) => {
             });
             y -= lineHeight;
           }
-
           // Draw inspection details in two-column format like the image
           const leftColumn = [];
           const rightColumn = [];
-
           if (insp.model_number)
             leftColumn.push(`Model Number: ${insp.model_number}`);
           if (insp.age) leftColumn.push(`Age: ${insp.age} years`);
           if (insp.unit_type) leftColumn.push(`Unit Type: ${insp.unit_type}`);
-
           if (insp.serial_number)
             rightColumn.push(`Serial Number: ${insp.serial_number}`);
           if (insp.tonnage) rightColumn.push(`Tonnage: ${insp.tonnage}`);
           if (insp.system_type)
             rightColumn.push(`System Type: ${insp.system_type}`);
-
           // Draw left column
           let leftY = y;
           for (const detail of leftColumn) {
@@ -875,22 +863,19 @@ serve(async (req) => {
             });
             leftY -= lineHeight;
           }
-
           // Draw right column
           let rightY = y;
           for (const detail of rightColumn) {
             dynamicPage.drawText(detail, {
-              x: margin + 250, // Position right column
+              x: margin + 250,
               y: rightY,
               size: fontSize,
               font,
             });
             rightY -= lineHeight;
           }
-
           // Move Y to the lowest point of either column
           y = Math.min(leftY, rightY);
-
           // Show inspection comment if available
           if (insp.comment && insp.comment.trim()) {
             y -= lineHeight * 0.5; // Small spacing before comment
@@ -903,12 +888,9 @@ serve(async (req) => {
             });
             y -= lineHeight * 1.2;
           }
-
           y -= lineHeight; // Spacing between inspections
         }
-
         y -= lineHeight; // Final spacing after inspections
-
         // Add summary comment section if available
         if (
           jobData &&
@@ -929,7 +911,6 @@ serve(async (req) => {
               });
             }
           }
-
           dynamicPage.drawText("Summary Comment:", {
             x: margin,
             y,
@@ -937,17 +918,14 @@ serve(async (req) => {
             font: bold,
           });
           y -= lineHeight * 1.5;
-
           // Split comment into lines if it's too long
           const commentText = jobData.inspection_summary_comment;
           const maxWidth = width - margin * 2;
           const words = commentText.split(" ");
           let currentLine = "";
-
           for (const word of words) {
             const testLine = currentLine ? `${currentLine} ${word}` : word;
             const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
-
             if (testWidth > maxWidth && currentLine) {
               // Draw current line and start new line
               dynamicPage.drawText(currentLine, {
@@ -962,7 +940,6 @@ serve(async (req) => {
               currentLine = testLine;
             }
           }
-
           // Draw the last line
           if (currentLine) {
             dynamicPage.drawText(currentLine, {
@@ -988,7 +965,6 @@ serve(async (req) => {
     } else if (quoteType === "pm") {
       // Handle PM quotes
       console.log("Processing PM quote");
-
       // Check if we need a new page
       if (y < 200) {
         dynamicPage = newPdfDoc.addPage();
@@ -1003,7 +979,6 @@ serve(async (req) => {
           });
         }
       }
-
       // Draw PM summary header
       dynamicPage.drawText("Preventive Maintenance Summary:", {
         x: margin,
@@ -1012,13 +987,11 @@ serve(async (req) => {
         font: bold,
       });
       y -= lineHeight * 2;
-
       // Calculate PM total
       let pmTotal = 0;
       const pmCount = Array.isArray(jobItems) ? jobItems.length : 0;
       const basePMCost = 150; // $150 per PM service
       pmTotal = pmCount > 0 ? pmCount * basePMCost : basePMCost;
-
       // Show PM details
       dynamicPage.drawText(`Number of PM Services: ${pmCount || 1}`, {
         x: margin,
@@ -1033,7 +1006,6 @@ serve(async (req) => {
         font: bold,
       });
       y -= lineHeight;
-
       // Show cost breakdown
       dynamicPage.drawText(`Cost per PM Service: $${basePMCost}`, {
         x: margin + 20,
@@ -1042,7 +1014,6 @@ serve(async (req) => {
         font,
       });
       y -= lineHeight;
-
       // Show PM details
       dynamicPage.drawText("PM Service Details:", {
         x: margin,
@@ -1051,7 +1022,6 @@ serve(async (req) => {
         font: bold,
       });
       y -= lineHeight;
-
       // List PM services
       const pmServices = [
         "Filter replacement and cleaning",
@@ -1060,7 +1030,6 @@ serve(async (req) => {
         "Safety checks and maintenance",
         "Documentation and reporting",
       ];
-
       pmServices.forEach((service, index) => {
         dynamicPage.drawText(`• ${service}`, {
           x: margin + 20,
@@ -1070,17 +1039,21 @@ serve(async (req) => {
         });
         y -= lineHeight;
       });
-
       // Show total
       y -= lineHeight;
       dynamicPage.drawLine({
-        start: { x: margin, y: y + 5 },
-        end: { x: width - margin, y: y + 5 },
+        start: {
+          x: margin,
+          y: y + 5,
+        },
+        end: {
+          x: width - margin,
+          y: y + 5,
+        },
         thickness: 1,
         color: rgb(0.8, 0.8, 0.8),
       });
       y -= lineHeight;
-
       dynamicPage.drawText("Total PM Cost:", {
         x: margin,
         y,
@@ -1099,11 +1072,16 @@ serve(async (req) => {
       Array.isArray(jobItems) &&
       jobItems.length > 0
     ) {
+      console.log("=== REPAIR QUOTE SECTION ENTERED ===");
       console.log(`Processing repair quote with ${jobItems.length} items`);
+      console.log("Current y position:", y);
+      console.log("minY value:", minY);
       // Check if we need a new page
       if (y < 200) {
+        console.log("Creating new page for repair items - y was:", y);
         dynamicPage = newPdfDoc.addPage();
         y = height - margin;
+        console.log("New page created, y is now:", y);
         // Add background to new page if available
         if (bgImage) {
           dynamicPage.drawImage(bgImage, {
@@ -1113,7 +1091,10 @@ serve(async (req) => {
             height,
           });
         }
+      } else {
+        console.log("Using existing page for repair items - y is:", y);
       }
+      console.log("Drawing 'Items:' header at y position:", y);
       dynamicPage.drawText("Items:", {
         x: margin,
         y,
@@ -1143,8 +1124,23 @@ serve(async (req) => {
       y -= lineHeight;
       let totalAmount = 0;
       // Filter items for repair job (only parts)
-      const repairItems = jobItems.filter((item) => item.type === "part");
+      const repairItems = jobItems.filter(
+        (item) => item.type?.trim() === "part"
+      );
       console.log(`Found ${repairItems.length} part items for repair quote`);
+      console.log(
+        "Repair items details:",
+        repairItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          type: item.type,
+          cost: item.total_cost || item.cost,
+        }))
+      );
+      console.log(
+        "Total PDF pages before adding repair items:",
+        newPdfDoc.getPageCount()
+      );
       for (const item of repairItems) {
         // Check if we need a new page
         if (y < minY) {
@@ -1180,9 +1176,10 @@ serve(async (req) => {
           });
           y -= lineHeight;
         }
-        const name = item.name || "Unknown";
+        const name = (item.name || "Unknown").trim();
         const quantity = item.quantity || 1;
-        const cost = Number(item.total_cost || 0);
+        const cost = Number(item.total_cost || item.cost || 0);
+        console.log(`Drawing repair item: ${name} at y position: ${y}`);
         dynamicPage.drawText(name, {
           x: margin,
           y,

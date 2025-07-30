@@ -931,6 +931,7 @@ const ServiceSection = ({
             <div className="p-6">
               <GenerateQuote
                 jobId={jobId}
+                jobItems={jobItems}
                 onQuoteSent={() => {
                   setShowGenerateQuoteModal(false);
                   // Refresh data

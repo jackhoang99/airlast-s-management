@@ -48,6 +48,8 @@ type SendEmailModalProps = {
   inspectionData?: any[];
   selectedReplacementOptions?: string[];
   selectedInspectionOptions?: string[];
+  selectedRepairOptions?: string[];
+  existingQuote?: any; // Add prop for existing quote when resending
 };
 
 const SendEmailModal = ({
@@ -72,6 +74,8 @@ const SendEmailModal = ({
   inspectionData = [],
   selectedReplacementOptions = [],
   selectedInspectionOptions = [],
+  selectedRepairOptions = [],
+  existingQuote,
 }: SendEmailModalProps) => {
   const { supabase } = useSupabase();
   const [customerEmail, setCustomerEmail] = useState(initialEmail);
@@ -79,9 +83,10 @@ const SendEmailModal = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [quoteNumber, setQuoteNumber] = useState(
-    `QT-${jobNumber}-${Math.floor(Math.random() * 10000)
-      .toString()
-      .padStart(4, "0")}`
+    existingQuote?.quote_number ||
+      `QT-${jobNumber}-${Math.floor(Math.random() * 10000)
+        .toString()
+        .padStart(4, "0")}`
   );
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [jobItems, setJobItems] = useState<any[]>([]);
@@ -140,6 +145,11 @@ const SendEmailModal = ({
 
   // Calculate the actual total cost from all replacement data
   const calculateActualTotalCost = () => {
+    // If we have an existing quote, use its amount
+    if (existingQuote) {
+      return Number(existingQuote.amount) || 0;
+    }
+
     // For inspection quotes, always use $180 regardless of number of inspections
     if (quoteType === "inspection") {
       return 180;
@@ -482,55 +492,163 @@ const SendEmailModal = ({
       }
       setPdfUrl(generateResult.pdfUrl);
 
-      // Create quote record
-      const { error: quoteError } = await supabase.from("job_quotes").insert({
-        job_id: jobId,
-        quote_number: quoteNumber,
-        quote_type: quoteType,
-        amount: actualTotalCost,
-        token: token,
-        confirmed: false,
-        approved: false,
-        email: customerEmail,
-        selected_replacement_options:
-          quoteType === "replacement" ? Object.keys(replacementDataById) : null,
-        selected_inspection_options:
-          quoteType === "inspection"
-            ? inspectionData.map((insp: any) => insp.id)
-            : null,
-        quote_data: {
-          // Store complete quote data for preview functionality
-          quoteType,
-          quoteNumber,
-          totalCost: actualTotalCost,
-          selectedReplacementOptions:
-            quoteType === "replacement"
-              ? Object.keys(replacementDataById)
-              : null,
-          selectedInspectionOptions:
-            quoteType === "inspection"
-              ? inspectionData.map((insp: any) => insp.id)
-              : null,
-          replacementDataById:
-            quoteType === "replacement"
-              ? sanitizeReplacementDataById(replacementDataById)
-              : {},
-          inspectionData: quoteType === "inspection" ? inspectionData : [],
-          repairItems:
-            quoteType === "repair"
-              ? allJobItems.filter((item) => item.type === "part")
-              : [],
-          jobItems: allJobItems,
-          location: sanitizeLocationData(location),
-          unit: sanitizeUnitData(unit),
-          selectedPhase,
-          emailTemplate,
-          generatedAt: new Date().toISOString(),
-        },
-      });
+      let quoteData;
+      let quoteError;
+
+      if (existingQuote && existingQuote.email_sent_at) {
+        // Update existing quote that has already been sent (resend)
+        const { data: updatedQuote, error: updateError } = await supabase
+          .from("job_quotes")
+          .update({
+            token: token,
+            email: customerEmail,
+            quote_data: {
+              // Update quote data with current information
+              quoteType,
+              quoteNumber,
+              totalCost: existingQuote.amount, // Use existing quote's amount
+              selectedReplacementOptions:
+                quoteType === "replacement"
+                  ? Object.keys(replacementDataById)
+                  : null,
+              selectedInspectionOptions:
+                quoteType === "inspection"
+                  ? inspectionData.map((insp: any) => insp.id)
+                  : null,
+              selectedRepairOptions:
+                quoteType === "repair" ? selectedRepairOptions : null,
+              replacementDataById:
+                quoteType === "replacement"
+                  ? sanitizeReplacementDataById(replacementDataById)
+                  : {},
+              inspectionData: quoteType === "inspection" ? inspectionData : [],
+              repairItems:
+                quoteType === "repair"
+                  ? allJobItems.filter((item) => item.type === "part")
+                  : [],
+              jobItems: allJobItems,
+              location: sanitizeLocationData(location),
+              unit: sanitizeUnitData(unit),
+              selectedPhase,
+              emailTemplate,
+              generatedAt: new Date().toISOString(),
+            },
+          })
+          .eq("id", existingQuote.id)
+          .select()
+          .single();
+
+        quoteData = updatedQuote;
+        quoteError = updateError;
+      } else if (existingQuote && !existingQuote.email_sent_at) {
+        // Update existing quote that hasn't been sent yet (first time sending)
+        const { data: updatedQuote, error: updateError } = await supabase
+          .from("job_quotes")
+          .update({
+            token: token,
+            email: customerEmail,
+            quote_data: {
+              // Update quote data with current information
+              quoteType,
+              quoteNumber,
+              totalCost: existingQuote.amount, // Use existing quote's amount
+              selectedReplacementOptions:
+                quoteType === "replacement"
+                  ? Object.keys(replacementDataById)
+                  : null,
+              selectedInspectionOptions:
+                quoteType === "inspection"
+                  ? inspectionData.map((insp: any) => insp.id)
+                  : null,
+              selectedRepairOptions:
+                quoteType === "repair" ? selectedRepairOptions : null,
+              replacementDataById:
+                quoteType === "replacement"
+                  ? sanitizeReplacementDataById(replacementDataById)
+                  : {},
+              inspectionData: quoteType === "inspection" ? inspectionData : [],
+              repairItems:
+                quoteType === "repair"
+                  ? allJobItems.filter((item) => item.type === "part")
+                  : [],
+              jobItems: allJobItems,
+              location: sanitizeLocationData(location),
+              unit: sanitizeUnitData(unit),
+              selectedPhase,
+              emailTemplate,
+              generatedAt: new Date().toISOString(),
+            },
+          })
+          .eq("id", existingQuote.id)
+          .select()
+          .single();
+
+        quoteData = updatedQuote;
+        quoteError = updateError;
+      } else {
+        // Create new quote record
+        const { data: newQuote, error: insertError } = await supabase
+          .from("job_quotes")
+          .insert({
+            job_id: jobId,
+            quote_number: quoteNumber,
+            quote_type: quoteType,
+            amount: actualTotalCost,
+            token: token,
+            confirmed: false,
+            approved: false,
+            email: customerEmail,
+            selected_replacement_options:
+              quoteType === "replacement"
+                ? Object.keys(replacementDataById)
+                : null,
+            selected_repair_options:
+              quoteType === "repair" ? selectedRepairOptions : null,
+            selected_inspection_options:
+              quoteType === "inspection"
+                ? inspectionData.map((insp: any) => insp.id)
+                : null,
+            quote_data: {
+              // Store complete quote data for preview functionality
+              quoteType,
+              quoteNumber,
+              totalCost: actualTotalCost,
+              selectedReplacementOptions:
+                quoteType === "replacement"
+                  ? Object.keys(replacementDataById)
+                  : null,
+              selectedInspectionOptions:
+                quoteType === "inspection"
+                  ? inspectionData.map((insp: any) => insp.id)
+                  : null,
+              selectedRepairOptions:
+                quoteType === "repair" ? selectedRepairOptions : null,
+              replacementDataById:
+                quoteType === "replacement"
+                  ? sanitizeReplacementDataById(replacementDataById)
+                  : {},
+              inspectionData: quoteType === "inspection" ? inspectionData : [],
+              repairItems:
+                quoteType === "repair"
+                  ? allJobItems.filter((item) => item.type === "part")
+                  : [],
+              jobItems: allJobItems,
+              location: sanitizeLocationData(location),
+              unit: sanitizeUnitData(unit),
+              selectedPhase,
+              emailTemplate,
+              generatedAt: new Date().toISOString(),
+            },
+          })
+          .select()
+          .single();
+
+        quoteData = newQuote;
+        quoteError = insertError;
+      }
 
       if (quoteError) {
-        console.error("Error creating quote record:", quoteError);
+        console.error("Error saving quote record:", quoteError);
       }
 
       // Prepare and send email based on quote type
@@ -625,6 +743,18 @@ const SendEmailModal = ({
         throw new Error(errorData.error || "Failed to send quote email");
       }
 
+      // Update quote record to mark email as sent
+      if (quoteData) {
+        const { error: updateError } = await supabase
+          .from("job_quotes")
+          .update({ email_sent_at: new Date().toISOString() })
+          .eq("id", quoteData.id);
+
+        if (updateError) {
+          console.error("Error updating quote email_sent_at:", updateError);
+        }
+      }
+
       setSuccess(true);
 
       if (onEmailSent) {
@@ -651,7 +781,13 @@ const SendEmailModal = ({
           <Send size={40} />
         </div>
         <h3 className="text-lg font-semibold text-center mb-4">
-          {quoteType === "replacement"
+          {existingQuote && existingQuote.email_sent_at
+            ? quoteType === "replacement"
+              ? "Resend Replacement Quote"
+              : quoteType === "repair"
+              ? "Resend Repair Quote"
+              : "Resend Inspection Quote"
+            : quoteType === "replacement"
             ? "Send Replacement Quote"
             : quoteType === "repair"
             ? "Send Repair Quote"
@@ -666,7 +802,11 @@ const SendEmailModal = ({
 
         {success ? (
           <div className="bg-success-50 text-success-700 p-4 rounded-md text-center">
-            <p className="font-medium">Quote sent successfully!</p>
+            <p className="font-medium">
+              {existingQuote && existingQuote.email_sent_at
+                ? "Quote resent successfully!"
+                : "Quote sent successfully!"}
+            </p>
             <p className="text-sm mt-2">
               The customer will receive an email with the quote details.
             </p>
@@ -675,9 +815,13 @@ const SendEmailModal = ({
           <>
             <div className="mb-6">
               <p className="text-gray-600 mb-4">
-                This will send a {quoteType} quote for Job #{jobNumber} to the
-                customer via email. The quote will include all relevant
-                information based on the selected quote type.
+                This will{" "}
+                {existingQuote && existingQuote.email_sent_at
+                  ? "resend"
+                  : "send"}{" "}
+                a {quoteType} quote for Job #{jobNumber} to the customer via
+                email. The quote will include all relevant information based on
+                the selected quote type.
               </p>
 
               <div className="space-y-4">
@@ -693,8 +837,14 @@ const SendEmailModal = ({
                     id="quoteNumber"
                     value={quoteNumber}
                     onChange={(e) => setQuoteNumber(e.target.value)}
-                    className="input"
+                    className={`input ${
+                      existingQuote
+                        ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                        : ""
+                    }`}
                     required
+                    readOnly={!!existingQuote}
+                    disabled={!!existingQuote}
                   />
                 </div>
 
@@ -763,6 +913,14 @@ const SendEmailModal = ({
                       </div>
                     </>
                   )}
+                  {quoteType === "inspection" && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Amount:</span>
+                      <span className="font-medium">
+                        ${actualTotalCost.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -788,7 +946,9 @@ const SendEmailModal = ({
                 ) : (
                   <>
                     <Send size={16} className="mr-2" />
-                    Send Quote
+                    {existingQuote && existingQuote.email_sent_at
+                      ? "Resend Quote"
+                      : "Send Quote"}
                   </>
                 )}
               </button>

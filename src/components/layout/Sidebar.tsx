@@ -380,9 +380,9 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                 <ul className="space-y-1 pl-7">
                   <li>
                     <Link
-                      to="/all-quotes"
+                      to="/quotes"
                       className={`flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                        location.pathname === "/all-quotes"
+                        location.pathname === "/quotes"
                           ? "bg-primary-50 text-primary-700"
                           : "text-gray-700 hover:bg-gray-100"
                       }`}

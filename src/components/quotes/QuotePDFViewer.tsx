@@ -71,6 +71,30 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
           const storedLocation = storedQuoteData.location;
           const storedUnit = storedQuoteData.unit;
 
+          // Filter job items based on quote type and selected options
+          let filteredJobItems = storedJobItems;
+          if (quoteType === "repair" && storedQuoteData.selectedRepairOptions) {
+            filteredJobItems = storedJobItems.filter((item: any) =>
+              storedQuoteData.selectedRepairOptions.includes(item.id)
+            );
+            console.log("QuotePDFViewer - Repair quote filtering:", {
+              allJobItems: storedJobItems.length,
+              selectedRepairOptions: storedQuoteData.selectedRepairOptions,
+              filteredJobItems: filteredJobItems.length,
+              filteredItems: filteredJobItems.map((item: any) => ({
+                id: item.id,
+                name: item.name,
+                type: item.type,
+              })),
+            });
+          } else if (
+            quoteType === "replacement" &&
+            storedQuoteData.selectedReplacementOptions
+          ) {
+            // For replacement quotes, we don't filter jobItems as they're not used
+            filteredJobItems = [];
+          }
+
           // Fetch job details (still needed for PDF generation)
           const { data: jobData, error: jobError } = await supabase
             .from("jobs")
@@ -152,7 +176,7 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
               jobData,
               inspectionData: storedInspectionData,
               replacementData: null, // Use replacementDataById instead
-              jobItems: storedJobItems,
+              jobItems: filteredJobItems,
               replacementDataById: storedReplacementDataById,
             }),
           });

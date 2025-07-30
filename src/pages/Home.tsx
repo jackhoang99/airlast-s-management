@@ -1385,7 +1385,7 @@ const Home = () => {
               Quote Statistics
             </h3>
             <Link
-              to="/all-quotes"
+              to="/quotes"
               className="text-sm text-primary-600 hover:text-primary-800 flex items-center gap-1"
             >
               View All
@@ -1465,13 +1465,14 @@ const Home = () => {
               <p className="text-xs text-gray-600">Billing</p>
             </Link>
             <Link
-              to="/all-quotes"
+              to="/quotes"
               className="p-3 border rounded-lg hover:bg-gray-50 text-center transition-colors duration-200"
             >
               <FileText className="h-6 w-6 mx-auto mb-2 text-primary-600" />
               <p className="font-medium text-sm">Quotes</p>
               <p className="text-xs text-gray-600">Manage quotes</p>
             </Link>
+
             <Link
               to="/jobs/dispatch"
               className="p-3 border rounded-lg hover:bg-gray-50 text-center transition-colors duration-200"

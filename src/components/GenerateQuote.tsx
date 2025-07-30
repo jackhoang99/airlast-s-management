@@ -43,6 +43,10 @@ interface GenerateQuoteProps {
   // UI customization
   title?: string;
   className?: string;
+  // Default quote type
+  defaultQuoteType?: "replacement" | "repair" | "inspection";
+  // Available quote types to show
+  availableQuoteTypes?: ("replacement" | "repair" | "inspection")[];
 }
 
 type InspectionData = {
@@ -101,6 +105,8 @@ const GenerateQuote = ({
   onPreviewQuote,
   title = "Generate Quote",
   className = "",
+  defaultQuoteType = "replacement",
+  availableQuoteTypes = ["replacement", "repair", "inspection"],
 }: GenerateQuoteProps) => {
   const { supabase } = useSupabase();
   const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
@@ -125,9 +131,10 @@ const GenerateQuote = ({
   const [selectedReplacements, setSelectedReplacements] = useState<string[]>(
     []
   );
+  const [selectedRepairItems, setSelectedRepairItems] = useState<string[]>([]);
   const [selectedQuoteType, setSelectedQuoteType] = useState<
     "replacement" | "repair" | "inspection"
-  >("replacement");
+  >(defaultQuoteType);
 
   // Generated quote data
   const [generatedQuoteData, setGeneratedQuoteData] = useState<any>(null);
@@ -250,6 +257,14 @@ const GenerateQuote = ({
     );
   };
 
+  const handleRepairItemToggle = (itemId: string) => {
+    setSelectedRepairItems((prev) =>
+      prev.includes(itemId)
+        ? prev.filter((id) => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
   // Check if inspection has been used in previous quotes
   const isInspectionUsedInQuotes = (inspectionId: string) => {
     return existingQuotes.some(
@@ -262,10 +277,12 @@ const GenerateQuote = ({
 
   // Check if replacement has been used in previous quotes
   const isReplacementUsedInQuotes = (replacementId: string) => {
-    return existingQuotes.some(
-      (quote) =>
-        quote.quote_type === "replacement" || quote.quote_type === "repair"
-    );
+    return existingQuotes.some((quote) => quote.quote_type === "replacement");
+  };
+
+  // Check if repair item has been used in previous repair quotes
+  const isRepairItemUsedInQuotes = (itemId: string) => {
+    return existingQuotes.some((quote) => quote.quote_type === "repair");
   };
 
   // Get the most recent quote that used this item
@@ -281,9 +298,7 @@ const GenerateQuote = ({
           quote.quote_type === "repair"
         );
       } else {
-        return (
-          quote.quote_type === "replacement" || quote.quote_type === "repair"
-        );
+        return quote.quote_type === "replacement";
       }
     });
 
@@ -320,9 +335,9 @@ const GenerateQuote = ({
         return;
       }
     } else if (selectedQuoteType === "repair") {
-      if (selectedReplacements.length === 0) {
+      if (selectedRepairItems.length === 0) {
         setQuoteError(
-          "Please select at least one replacement option for repair quotes"
+          "Please select at least one repair option for repair quotes"
         );
         return;
       }
@@ -345,10 +360,15 @@ const GenerateQuote = ({
         }
       });
     } else if (selectedQuoteType === "repair") {
-      // For repair quotes, use job items costs
-      calculatedTotalCost = jobItems.reduce((total, item) => {
-        return total + Number(item.total_cost || 0);
-      }, 0);
+      // For repair quotes, use selected repair items costs
+      selectedRepairItems.forEach((itemId) => {
+        const repairItem = jobItems.find((item) => item.id === itemId);
+        if (repairItem) {
+          calculatedTotalCost += Number(
+            repairItem.total_cost || repairItem.cost || 0
+          );
+        }
+      });
     }
 
     setTotalCost(calculatedTotalCost);
@@ -508,6 +528,22 @@ const GenerateQuote = ({
         };
       });
 
+      // Debug logging for repair quotes
+      if (selectedQuoteType === "repair") {
+        console.log("Repair quote debug:", {
+          allJobItems: jobItems,
+          selectedRepairItems,
+          filteredJobItems: jobItems.filter((item) =>
+            selectedRepairItems.includes(item.id)
+          ),
+          jobItemsWithType: jobItems.map((item) => ({
+            id: item.id,
+            name: item.name,
+            type: item.type,
+          })),
+        });
+      }
+
       // Call generate-quote-pdf function
       const apiUrl = `${
         import.meta.env.VITE_SUPABASE_URL
@@ -525,9 +561,14 @@ const GenerateQuote = ({
           templateId: template.id || undefined,
           jobData: jobDataForPDF,
           inspectionData,
-          replacementData,
-          jobItems: [],
-          replacementDataById: replacementDataById,
+          replacementData:
+            selectedQuoteType === "replacement" ? replacementData : null,
+          jobItems:
+            selectedQuoteType === "repair"
+              ? jobItems.filter((item) => selectedRepairItems.includes(item.id))
+              : [],
+          replacementDataById:
+            selectedQuoteType === "replacement" ? replacementDataById : {},
         }),
       });
 
@@ -558,6 +599,8 @@ const GenerateQuote = ({
                   selectedQuoteType === "replacement"
                     ? selectedReplacements
                     : null,
+                selected_repair_options:
+                  selectedQuoteType === "repair" ? selectedRepairItems : null,
                 selected_inspection_options:
                   selectedQuoteType === "inspection"
                     ? selectedInspections
@@ -575,6 +618,8 @@ const GenerateQuote = ({
                     selectedQuoteType === "inspection"
                       ? selectedInspections
                       : null,
+                  selectedRepairOptions:
+                    selectedQuoteType === "repair" ? selectedRepairItems : null,
                   replacementDataById:
                     selectedQuoteType === "replacement"
                       ? Object.fromEntries(
@@ -590,7 +635,12 @@ const GenerateQuote = ({
                           selectedInspections.includes(insp.id)
                         )
                       : [],
-                  repairItems: selectedQuoteType === "repair" ? jobItems : [],
+                  repairItems:
+                    selectedQuoteType === "repair"
+                      ? jobItems.filter((item) =>
+                          selectedRepairItems.includes(item.id)
+                        )
+                      : [],
                   jobItems,
                   location: location || {
                     name: locationName,
@@ -699,61 +749,69 @@ const GenerateQuote = ({
       )}
 
       {/* Quote Type Selection */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Quote Type
-        </label>
-        <div className="flex gap-4">
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="quoteType"
-              value="replacement"
-              checked={selectedQuoteType === "replacement"}
-              onChange={(e) =>
-                setSelectedQuoteType(
-                  e.target.value as "replacement" | "repair" | "inspection"
-                )
-              }
-              className="mr-2"
-            />
-            <Home className="h-4 w-4 mr-1 text-blue-600" />
-            Replacement Quote
+      {availableQuoteTypes.length > 1 && (
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Quote Type
           </label>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="quoteType"
-              value="repair"
-              checked={selectedQuoteType === "repair"}
-              onChange={(e) =>
-                setSelectedQuoteType(
-                  e.target.value as "replacement" | "repair" | "inspection"
-                )
-              }
-              className="mr-2"
-            />
-            <Package className="h-4 w-4 mr-1 text-green-600" />
-            Repair Quote
-          </label>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="quoteType"
-              value="inspection"
-              checked={selectedQuoteType === "inspection"}
-              onChange={(e) =>
-                setSelectedQuoteType(
-                  e.target.value as "replacement" | "repair" | "inspection"
-                )
-              }
-              className="mr-2"
-            />
-            <Clipboard className="h-4 w-4 mr-1 text-purple-600" />
-            Inspection Quote
-          </label>
+          <div className="flex gap-4">
+            {availableQuoteTypes.includes("replacement") && (
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="quoteType"
+                  value="replacement"
+                  checked={selectedQuoteType === "replacement"}
+                  onChange={(e) =>
+                    setSelectedQuoteType(
+                      e.target.value as "replacement" | "repair" | "inspection"
+                    )
+                  }
+                  className="mr-2"
+                />
+                <Home className="h-4 w-4 mr-1 text-blue-600" />
+                Replacement Quote
+              </label>
+            )}
+            {availableQuoteTypes.includes("repair") && (
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="quoteType"
+                  value="repair"
+                  checked={selectedQuoteType === "repair"}
+                  onChange={(e) =>
+                    setSelectedQuoteType(
+                      e.target.value as "replacement" | "repair" | "inspection"
+                    )
+                  }
+                  className="mr-2"
+                />
+                <Package className="h-4 w-4 mr-1 text-green-600" />
+                Repair Quote
+              </label>
+            )}
+            {availableQuoteTypes.includes("inspection") && (
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="quoteType"
+                  value="inspection"
+                  checked={selectedQuoteType === "inspection"}
+                  onChange={(e) =>
+                    setSelectedQuoteType(
+                      e.target.value as "replacement" | "repair" | "inspection"
+                    )
+                  }
+                  className="mr-2"
+                />
+                <Clipboard className="h-4 w-4 mr-1 text-purple-600" />
+                Inspection Quote
+              </label>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Available Inspections */}
       {(selectedQuoteType === "inspection" ||
@@ -833,15 +891,14 @@ const GenerateQuote = ({
         )}
 
       {/* Available Replacement Options */}
-      {(selectedQuoteType === "replacement" ||
-        selectedQuoteType === "repair") &&
+      {selectedQuoteType === "replacement" &&
         availableReplacements.length > 0 && (
           <div className="mb-6">
             <h3 className="text-md font-medium text-gray-900 mb-3 flex items-center">
               <Home className="h-4 w-4 mr-2 text-blue-600" />
               Select Replacement Options to Include
               <span className="ml-2 text-xs text-blue-600 font-normal">
-                (Required for replacement/repair quotes)
+                (Required for replacement quotes)
               </span>
             </h3>
             <div className="space-y-2">
@@ -962,47 +1019,59 @@ const GenerateQuote = ({
           </div>
         )}
 
-      {/* Available Job Items for Repair Quotes */}
+      {/* Available Repair Options */}
       {selectedQuoteType === "repair" && jobItems && jobItems.length > 0 && (
         <div className="mb-6">
           <h3 className="text-md font-medium text-gray-900 mb-3 flex items-center">
             <Package className="h-4 w-4 mr-2 text-green-600" />
-            Available Parts for Repair
+            Select Repair Options to Include
             <span className="ml-2 text-xs text-green-600 font-normal">
-              (Parts that can be included in repair quotes)
+              (Required for repair quotes)
             </span>
           </h3>
           <div className="space-y-2">
             {jobItems
               .filter((item) => item.type === "part")
               .map((item, index) => (
-                <div key={index} className="p-3 border rounded-lg bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">
-                      {item.name || "Unnamed Part"}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {existingQuotes.some(
-                        (quote) => quote.quote_type === "repair"
-                      ) && (
-                        <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
-                          Used in previous quote
-                        </span>
-                      )}
-                      <span className="font-medium text-green-600">
-                        ${Number(item.cost || 0).toLocaleString()}
+                <label
+                  key={index}
+                  className="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedRepairItems.includes(item.id)}
+                    onChange={() => handleRepairItemToggle(item.id)}
+                    className="mr-3"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">
+                        {item.name || "Unnamed Part"}
                       </span>
+                      <div className="flex items-center gap-2">
+                        {isRepairItemUsedInQuotes(item.id) && (
+                          <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
+                            Used in previous quote
+                          </span>
+                        )}
+                        <span className="font-medium text-green-600">
+                          $
+                          {Number(
+                            item.total_cost || item.cost || 0
+                          ).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Quantity: {item.quantity || 1} • Type: {item.type}
-                  </div>
-                  {item.description && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      {item.description}
+                    <div className="text-sm text-gray-600">
+                      Quantity: {item.quantity || 1} • Type: {item.type}
                     </div>
-                  )}
-                </div>
+                    {item.description && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {item.description}
+                      </div>
+                    )}
+                  </div>
+                </label>
               ))}
           </div>
         </div>
@@ -1011,9 +1080,10 @@ const GenerateQuote = ({
       {/* No Data Available */}
       {((selectedQuoteType === "inspection" &&
         availableInspections.length === 0) ||
-        ((selectedQuoteType === "replacement" ||
-          selectedQuoteType === "repair") &&
-          availableReplacements.length === 0)) && (
+        (selectedQuoteType === "replacement" &&
+          availableReplacements.length === 0) ||
+        (selectedQuoteType === "repair" &&
+          jobItems.filter((item) => item.type === "part").length === 0)) && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
           <AlertTriangle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
           <p className="text-gray-500 mb-2">
@@ -1022,7 +1092,9 @@ const GenerateQuote = ({
           <p className="text-sm text-gray-400">
             {selectedQuoteType === "inspection"
               ? "Complete inspections first"
-              : "Add replacement options first"}
+              : selectedQuoteType === "replacement"
+              ? "Add replacement options first"
+              : "Add repair parts first"}
           </p>
         </div>
       )}
@@ -1030,9 +1102,10 @@ const GenerateQuote = ({
       {/* Generate Quote Button */}
       {((selectedQuoteType === "inspection" &&
         availableInspections.length > 0) ||
-        ((selectedQuoteType === "replacement" ||
-          selectedQuoteType === "repair") &&
-          availableReplacements.length > 0)) && (
+        (selectedQuoteType === "replacement" &&
+          availableReplacements.length > 0) ||
+        (selectedQuoteType === "repair" &&
+          jobItems.filter((item) => item.type === "part").length > 0)) && (
         <div className="border-t pt-6">
           <button
             onClick={handleGenerateQuote}
@@ -1040,9 +1113,10 @@ const GenerateQuote = ({
             disabled={
               (selectedQuoteType === "inspection" &&
                 selectedInspections.length === 0) ||
-              ((selectedQuoteType === "replacement" ||
-                selectedQuoteType === "repair") &&
+              (selectedQuoteType === "replacement" &&
                 selectedReplacements.length === 0) ||
+              (selectedQuoteType === "repair" &&
+                selectedRepairItems.length === 0) ||
               isGeneratingPDF
             }
           >
@@ -1085,6 +1159,10 @@ const GenerateQuote = ({
               {selectedReplacements.length}
             </div>
             <div>
+              <strong>Selected Repair Items:</strong>{" "}
+              {selectedRepairItems.length}
+            </div>
+            <div>
               <strong>Total Cost:</strong> ${totalCost.toLocaleString()}
             </div>
           </div>
@@ -1114,6 +1192,9 @@ const GenerateQuote = ({
           emailTemplate={emailTemplate}
           replacementDataById={{}}
           inspectionData={generatedQuoteData.selectedInspections}
+          selectedRepairOptions={
+            selectedQuoteType === "repair" ? selectedRepairItems : []
+          }
         />
       )}
     </div>

@@ -467,6 +467,8 @@ const InspectionSection = ({
             <div className="p-6">
               <GenerateQuote
                 jobId={jobId}
+                defaultQuoteType="inspection"
+                availableQuoteTypes={["inspection"]}
                 onQuoteSent={() => {
                   setShowGenerateQuoteModal(false);
                   // Refresh data
