@@ -809,6 +809,56 @@ export interface Database {
           created_at?: string;
         };
       };
+      job_quotes: {
+        Row: {
+          id: string;
+          job_id: string;
+          quote_number: string;
+          quote_type: string;
+          amount: number;
+          token: string | null;
+          confirmed: boolean | null;
+          confirmed_at: string | null;
+          approved: boolean | null;
+          email: string | null;
+          selected_replacement_options: string[] | null;
+          selected_inspection_options: string[] | null;
+          quote_data: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          quote_number: string;
+          quote_type: string;
+          amount: number;
+          token?: string | null;
+          confirmed?: boolean | null;
+          confirmed_at?: string | null;
+          approved?: boolean | null;
+          email?: string | null;
+          selected_replacement_options?: string[] | null;
+          selected_inspection_options?: string[] | null;
+          quote_data?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          quote_number?: string;
+          quote_type?: string;
+          amount?: number;
+          token?: string | null;
+          confirmed?: boolean | null;
+          confirmed_at?: string | null;
+          approved?: boolean | null;
+          email?: string | null;
+          selected_replacement_options?: string[] | null;
+          selected_inspection_options?: string[] | null;
+          quote_data?: Json;
+          created_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;

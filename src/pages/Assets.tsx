@@ -12,6 +12,7 @@ import {
   Edit,
   Trash2,
   X,
+  Eye,
 } from "lucide-react";
 import InspectionForm from "../components/jobs/inspection/InspectionForm";
 import AddAssetForm from "../components/locations/AddAssetForm";
@@ -552,8 +553,9 @@ const Assets = () => {
                           setViewingAsset(asset);
                           setShowViewAssetModal(true);
                         }}
-                        className="text-primary-600 hover:text-primary-800"
+                        className="text-primary-600 hover:text-primary-800 flex items-center gap-1"
                       >
+                        <Eye size={16} />
                         View Details
                       </button>
                       <button

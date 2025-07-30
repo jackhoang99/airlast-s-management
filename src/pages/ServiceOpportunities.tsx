@@ -13,6 +13,7 @@ import {
   MapPin,
   TrendingUp,
   Target,
+  ExternalLink,
 } from "lucide-react";
 
 const ServiceOpportunities = () => {
@@ -425,8 +426,9 @@ const ServiceOpportunities = () => {
                     <div className="text-sm text-gray-500">Est. Value</div>
                     <Link
                       to={`/jobs/${opportunity.id}`}
-                      className="btn btn-primary btn-sm mt-2"
+                      className="btn btn-primary btn-sm mt-2 flex items-center gap-1"
                     >
+                      <ExternalLink size={16} />
                       View Job
                     </Link>
                   </div>

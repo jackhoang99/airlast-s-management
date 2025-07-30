@@ -23,11 +23,13 @@ import {
   CheckCircle,
   PenTool as Tool,
   Clock,
+  FileText,
 } from "lucide-react";
 import AddJobPricingModal from "./AddJobPricingModal";
 import EditJobItemModal from "./EditJobItemModal";
 import RepairsForm from "./replacement/RepairsForm";
 import SendEmailModal from "./SendEmailModal";
+import GenerateQuote from "../GenerateQuote";
 
 type JobServiceSectionProps = {
   jobId: string;
@@ -52,9 +54,9 @@ const ServiceSection = ({
   const [currentReplacementData, setCurrentReplacementData] = useState<
     any | null
   >(null);
-  const [activeTab, setActiveTab] = useState<"replacement" | "repair">(
-    "replacement"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "replacement" | "repair" | "inspection"
+  >("replacement");
   const [jobDetails, setJobDetails] = useState<any>(null);
 
   // Hold all replacement data
@@ -62,6 +64,7 @@ const ServiceSection = ({
   const [allReplacementData, setAllReplacementData] = useState<any[]>([]);
 
   const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
+  const [showGenerateQuoteModal, setShowGenerateQuoteModal] = useState(false);
 
   // Add a state to track if replacement data exists
   const [hasReplacementData, setHasReplacementData] = useState(false);
@@ -297,11 +300,17 @@ const ServiceSection = ({
                 <Plus size={14} className="mr-1" />
                 Add Replacement
               </button>
+              <button
+                onClick={() => setShowGenerateQuoteModal(true)}
+                className="btn btn-secondary btn-sm"
+              >
+                <FileText size={14} className="mr-1" />
+                Generate Quote
+              </button>
             </div>
           ) : null}
 
           {replacementData.map((data, index) => {
-            console.log("Rendering replacement data:", data);
             const selectedPhase = data.selectedPhase || "phase2";
             const optionType =
               selectedPhase === "phase1"
@@ -367,7 +376,7 @@ const ServiceSection = ({
                       </span>
                     </div>
                   )}
-                  {data.phase2 && console.log("Phase2 data:", data.phase2)}
+
                   {data.labor > 0 && (
                     <div className="flex justify-between items-center p-3 border-b border-gray-100">
                       <span>Labor:</span>
@@ -642,6 +651,13 @@ const ServiceSection = ({
                 <Plus size={14} className="mr-1" />
                 Add Repair
               </button>
+              <button
+                onClick={() => setShowGenerateQuoteModal(true)}
+                className="btn btn-secondary btn-sm"
+              >
+                <FileText size={14} className="mr-1" />
+                Generate Quote
+              </button>
             </div>
 
             {/* Parts Section */}
@@ -894,6 +910,41 @@ const ServiceSection = ({
             window.location.reload();
           }}
         />
+      )}
+
+      {/* Generate Quote Modal */}
+      {showGenerateQuoteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-xl font-semibold flex items-center">
+                <FileText className="h-5 w-5 mr-2 text-primary-600" />
+                Generate Quote
+              </h2>
+              <button
+                onClick={() => setShowGenerateQuoteModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <GenerateQuote
+                jobId={jobId}
+                onQuoteSent={() => {
+                  setShowGenerateQuoteModal(false);
+                  // Refresh data
+                  onItemsUpdated();
+                  if (onQuoteStatusChange) onQuoteStatusChange();
+                }}
+                onPreviewQuote={(quoteType) => {
+                  // Handle preview - could open PDF or navigate
+                  // Preview functionality handled by parent component
+                }}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

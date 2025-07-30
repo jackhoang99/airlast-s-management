@@ -25,11 +25,11 @@ const QuoteConfirmation = () => {
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
   const [invoiceCreated, setInvoiceCreated] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
-  const [quoteType, setQuoteType] = useState<"replacement" | "repair">(
-    "replacement"
-  );
+  const [quoteType, setQuoteType] = useState<
+    "replacement" | "repair" | "inspection"
+  >("replacement");
   const [intendedQuoteType, setIntendedQuoteType] = useState<
-    "replacement" | "repair"
+    "replacement" | "repair" | "inspection"
   >("replacement");
 
   // Get the approval status from URL query parameters
@@ -63,7 +63,9 @@ const QuoteConfirmation = () => {
 
           if (!quoteError && quoteData) {
             setQuoteDetails(quoteData);
-            setQuoteType(quoteData.quote_type as "replacement" | "repair");
+            setQuoteType(
+              quoteData.quote_type as "replacement" | "repair" | "inspection"
+            );
 
             // If already confirmed, just return success
             if (quoteData.confirmed) {
@@ -201,7 +203,10 @@ const QuoteConfirmation = () => {
               // Set quote type from the quote record
               if (quoteDetails.quote_type) {
                 setQuoteType(
-                  quoteDetails.quote_type as "replacement" | "repair"
+                  quoteDetails.quote_type as
+                    | "replacement"
+                    | "repair"
+                    | "inspection"
                 );
               }
             }
@@ -239,7 +244,12 @@ const QuoteConfirmation = () => {
 
             const responseData = await response.json();
             if (responseData.quoteType) {
-              setQuoteType(responseData.quoteType as "replacement" | "repair");
+              setQuoteType(
+                responseData.quoteType as
+                  | "replacement"
+                  | "repair"
+                  | "inspection"
+              );
             }
 
             setSuccess(true);

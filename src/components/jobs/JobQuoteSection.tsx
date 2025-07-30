@@ -15,14 +15,20 @@ import {
   List,
   Calculator,
   FileText,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import SendEmailModal from "./SendEmailModal";
+import GenerateQuote from "../GenerateQuote";
 
 type JobQuoteSectionProps = {
   job: Job;
   jobItems: JobItem[];
   onQuoteSent: (updatedJob: Job) => void;
-  onPreviewQuote: (quoteType: "replacement" | "repair") => void;
+  onPreviewQuote: (
+    quoteType: "replacement" | "repair" | "inspection",
+    quoteData?: any
+  ) => void;
   quoteNeedsUpdate: boolean;
   refreshTrigger?: number;
 };
@@ -36,10 +42,16 @@ const JobQuoteSection = ({
   refreshTrigger = 0,
 }: JobQuoteSectionProps) => {
   const { supabase } = useSupabase();
-  const [activeTab, setActiveTab] = useState<"replacement" | "repair" | "all">(
-    "replacement"
-  );
+  const [selectedQuoteType, setSelectedQuoteType] = useState<
+    "replacement" | "repair"
+  >("replacement");
   const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
+  const [showGenerateQuoteModal, setShowGenerateQuoteModal] = useState(false);
+  const [showIndividualQuoteModal, setShowIndividualQuoteModal] =
+    useState(false);
+  const [selectedQuoteForSending, setSelectedQuoteForSending] = useState<
+    any | null
+  >(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [hasReplacementData, setHasReplacementData] = useState(false);
   const [hasRepairData, setHasRepairData] = useState(false);
@@ -78,6 +90,8 @@ const JobQuoteSection = ({
   }>({});
   const [totalReplacementCost, setTotalReplacementCost] = useState<number>(0);
   const [inspectionData, setInspectionData] = useState<any[]>([]);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeletingQuote, setIsDeletingQuote] = useState<string | null>(null);
 
   // Calculate total replacement cost from all replacement data
   const calculateTotalReplacementCost = () => {
@@ -86,6 +100,100 @@ const JobQuoteSection = ({
     return Object.values(replacementDataById).reduce((sum, data: any) => {
       return sum + Number(data.totalCost || 0);
     }, 0);
+  };
+
+  // Calculate quote counts by type
+  const getQuoteCounts = () => {
+    const counts = {
+      all: allQuotes.length,
+      replacement: Object.keys(replacementDataById).length, // Count available replacement options
+      repair: hasRepairData ? 1 : 0, // Count if repair data is available
+      inspection: inspectionData.length, // Count available inspections
+    };
+    return counts;
+  };
+
+  // Filter quotes based on active filter
+  const getFilteredQuotes = () => {
+    if (activeQuoteFilter === "all") {
+      return allQuotes;
+    }
+    return allQuotes.filter((q) => q.quote_type === activeQuoteFilter);
+  };
+
+  // Check if there's available data for the selected filter
+  const hasAvailableDataForFilter = () => {
+    switch (activeQuoteFilter) {
+      case "replacement":
+        return Object.keys(replacementDataById).length > 0;
+      case "repair":
+        return hasRepairData;
+      case "inspection":
+        return inspectionData.length > 0;
+      default:
+        return true;
+    }
+  };
+
+  // Function to fetch quotes for this job
+  const fetchQuotes = async () => {
+    if (!supabase || !job) return;
+
+    try {
+      const { data: quotesData, error: quotesError } = await supabase
+        .from("job_quotes")
+        .select("*")
+        .eq("job_id", job.id)
+        .order("created_at", { ascending: false });
+
+      if (!quotesError && quotesData) {
+        setAllQuotes(quotesData);
+
+        // Check if we have sent quotes by type
+        const sentReplacement = quotesData.some(
+          (q) => q.quote_type === "replacement"
+        );
+        const sentRepair = quotesData.some((q) => q.quote_type === "repair");
+
+        setSentQuoteTypes({
+          replacement: sentReplacement,
+          repair: sentRepair,
+        });
+      } else if (quotesError) {
+        console.error("Error fetching quotes:", quotesError);
+      }
+    } catch (err) {
+      console.error("Error fetching quotes:", err);
+    }
+  };
+
+  // Function to delete a quote
+  const handleDeleteQuote = async (quoteId: string) => {
+    if (!supabase || !job) return;
+
+    if (!window.confirm("Are you sure you want to delete this quote?")) {
+      return;
+    }
+
+    setIsDeletingQuote(quoteId);
+    setDeleteError(null);
+
+    try {
+      const { error: deleteError } = await supabase
+        .from("job_quotes")
+        .delete()
+        .eq("id", quoteId);
+
+      if (deleteError) throw deleteError;
+
+      // Refresh quotes after deletion
+      await fetchQuotes();
+    } catch (err) {
+      console.error("Error deleting quote:", err);
+      setDeleteError("Failed to delete quote. Please try again.");
+    } finally {
+      setIsDeletingQuote(null);
+    }
   };
 
   // New state for repair data
@@ -103,6 +211,11 @@ const JobQuoteSection = ({
     replacement: false,
     repair: false,
   });
+
+  // Add state for quote filtering
+  const [activeQuoteFilter, setActiveQuoteFilter] = useState<
+    "all" | "replacement" | "repair" | "inspection"
+  >("all");
 
   // Check if job has replacement or repair data
   useEffect(() => {
@@ -132,8 +245,6 @@ const JobQuoteSection = ({
           replacementData &&
           replacementData.length > 0
         ) {
-          console.log("Found replacement/repair data:", replacementData);
-
           // Store the first replacement data for sending quotes
           if (replacementData[0]) {
             setReplacementData(replacementData[0]);
@@ -186,7 +297,6 @@ const JobQuoteSection = ({
           setHasReplacementData(replacementData.length > 0);
           setHasRepairData(hasPartItems);
         } else {
-          console.log("No replacement/repair data found");
           if (replacementError) {
             console.error("Error fetching replacement data:", replacementError);
           }
@@ -216,28 +326,7 @@ const JobQuoteSection = ({
         }
 
         // Fetch all quotes for this job
-        const { data: quotesData, error: quotesError } = await supabase
-          .from("job_quotes")
-          .select("*")
-          .eq("job_id", job.id)
-          .order("created_at", { ascending: false });
-
-        if (!quotesError && quotesData) {
-          setAllQuotes(quotesData);
-
-          // Check if we have sent quotes by type
-          const sentReplacement = quotesData.some(
-            (q) => q.quote_type === "replacement"
-          );
-          const sentRepair = quotesData.some((q) => q.quote_type === "repair");
-
-          setSentQuoteTypes({
-            replacement: sentReplacement,
-            repair: sentRepair,
-          });
-        } else if (quotesError) {
-          console.error("Error fetching quotes:", quotesError);
-        }
+        await fetchQuotes();
 
         // Fetch default templates
         const { data: defaultEmailTemplates, error: templatesError } =
@@ -261,38 +350,38 @@ const JobQuoteSection = ({
 
           setDefaultTemplates(templates);
 
-          // Set the active template based on the current tab
-          if (templates[activeTab]) {
+          // Set the active template based on the selected quote type
+          if (templates[selectedQuoteType]) {
             setEmailTemplate({
               subject:
-                templates[activeTab].template_data.subject ||
+                templates[selectedQuoteType].template_data.subject ||
                 emailTemplate.subject,
               greeting:
-                templates[activeTab].template_data.greeting ||
+                templates[selectedQuoteType].template_data.greeting ||
                 emailTemplate.greeting,
               introText:
-                templates[activeTab].template_data.introText ||
+                templates[selectedQuoteType].template_data.introText ||
                 emailTemplate.introText,
               approvalText:
-                templates[activeTab].template_data.approvalText ||
+                templates[selectedQuoteType].template_data.approvalText ||
                 emailTemplate.approvalText,
               approveButtonText:
-                templates[activeTab].template_data.approveButtonText ||
+                templates[selectedQuoteType].template_data.approveButtonText ||
                 emailTemplate.approveButtonText,
               denyButtonText:
-                templates[activeTab].template_data.denyButtonText ||
+                templates[selectedQuoteType].template_data.denyButtonText ||
                 emailTemplate.denyButtonText,
               approvalNote:
-                templates[activeTab].template_data.approvalNote ||
+                templates[selectedQuoteType].template_data.approvalNote ||
                 emailTemplate.approvalNote,
               denialNote:
-                templates[activeTab].template_data.denialNote ||
+                templates[selectedQuoteType].template_data.denialNote ||
                 emailTemplate.denialNote,
               closingText:
-                templates[activeTab].template_data.closingText ||
+                templates[selectedQuoteType].template_data.closingText ||
                 emailTemplate.closingText,
               signature:
-                templates[activeTab].template_data.signature ||
+                templates[selectedQuoteType].template_data.signature ||
                 emailTemplate.signature,
             });
           }
@@ -303,7 +392,7 @@ const JobQuoteSection = ({
     };
 
     checkJobData();
-  }, [supabase, job, activeTab, jobItems, refreshTrigger]);
+  }, [supabase, job, selectedQuoteType, jobItems, refreshTrigger]);
 
   // Calculate repair cost from part items
   useEffect(() => {
@@ -319,10 +408,10 @@ const JobQuoteSection = ({
     }
   }, [jobItems]);
 
-  // Update email template when tab changes
+  // Update email template when selected quote type changes
   useEffect(() => {
-    if (activeTab !== "all" && defaultTemplates[activeTab]) {
-      const template = defaultTemplates[activeTab];
+    if (defaultTemplates[selectedQuoteType]) {
+      const template = defaultTemplates[selectedQuoteType];
       setEmailTemplate({
         subject: template.template_data.subject || emailTemplate.subject,
         greeting: template.template_data.greeting || emailTemplate.greeting,
@@ -343,444 +432,270 @@ const JobQuoteSection = ({
         signature: template.template_data.signature || emailTemplate.signature,
       });
     }
-  }, [activeTab, defaultTemplates]);
+  }, [selectedQuoteType, defaultTemplates]);
 
   return (
     <div className="card">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-        <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
-          <button
-            onClick={() =>
-              onPreviewQuote(activeTab === "all" ? "replacement" : activeTab)
-            }
-            className="btn btn-secondary btn-sm w-full sm:w-auto"
-          >
-            <Eye size={16} className="mr-2" />
-            Preview Quote
-          </button>
-          {!job.quote_sent ||
-          (activeTab === "replacement" && !sentQuoteTypes.replacement) ||
-          (activeTab === "repair" && !sentQuoteTypes.repair) ? (
-            <button
-              onClick={() => {
-                setShowSendQuoteModal(true);
-              }}
-              className="btn btn-primary btn-sm w-full sm:w-auto"
-              disabled={
-                (activeTab === "replacement" && !hasReplacementData) ||
-                (activeTab === "repair" && !hasRepairData) ||
-                activeTab === "all"
-              }
-            >
-              <Send size={16} className="mr-2" />
-              Send Quote
-            </button>
-          ) : (
-            <button
-              className={`btn btn-sm w-full sm:w-auto ${
-                quoteNeedsUpdate ? "btn-warning" : "btn-success"
-              }`}
-              onClick={() => {
-                setShowSendQuoteModal(true);
-              }}
-              disabled={activeTab === "all"}
-            >
-              <FileCheck2 size={16} className="mr-2" />
-              {quoteNeedsUpdate ? "Update Quote" : "Resend Quote"}
-            </button>
-          )}
+      {/* All Quotes Table */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
+          <h3 className="text-lg font-medium text-gray-900">All Quotes</h3>
         </div>
-      </div>
 
-      {/* Quote Type Tabs */}
-      <div className="mb-6 flex flex-col sm:flex-row border-b border-gray-200 gap-2 sm:gap-0 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab("replacement")}
-          className={`w-full sm:w-auto px-4 py-2 font-medium text-sm whitespace-nowrap ${
-            activeTab === "replacement"
-              ? "text-gray-900 border-b-2 border-gray-900"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          <div className="flex items-center">
-            <Home size={16} className="mr-2" />
-            Replacement Quote
-            {sentQuoteTypes.replacement && (
-              <span className="ml-2 w-2 h-2 bg-success-500 rounded-full"></span>
-            )}
-          </div>
-        </button>
-        <button
-          onClick={() => setActiveTab("repair")}
-          className={`w-full sm:w-auto px-4 py-2 font-medium text-sm whitespace-nowrap ${
-            activeTab === "repair"
-              ? "text-gray-900 border-b-2 border-gray-900"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          <div className="flex items-center">
-            <Package size={16} className="mr-2" />
-            Repair Quote
-            {sentQuoteTypes.repair && (
-              <span className="ml-2 w-2 h-2 bg-success-500 rounded-full"></span>
-            )}
-          </div>
-        </button>
-        <button
-          onClick={() => setActiveTab("all")}
-          className={`w-full sm:w-auto px-4 py-2 font-medium text-sm whitespace-nowrap ${
-            activeTab === "all"
-              ? "text-gray-900 border-b-2 border-gray-900"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          <div className="flex items-center">
-            <List size={16} className="mr-2" />
-            All Quotes
-          </div>
-        </button>
-      </div>
-
-      {/* Quote Content Based on Active Tab */}
-      <div className="space-y-4">
-        {activeTab === "replacement" && (
-          <div>
-            {hasReplacementData ? (
-              <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-md">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <Home className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-blue-800">
-                      Replacement Data Available
-                    </h3>
-                    <div className="mt-2 text-sm text-blue-700">
-                      <p>
-                        Replacement data is available for this job. You can send
-                        a replacement quote to the customer.
-                      </p>
-                      <p className="mt-2 flex items-center font-medium">
-                        <Calculator className="h-4 w-4 mr-1" />
-                        <span>
-                          Total Replacement Cost: $
-                          {calculateTotalReplacementCost().toLocaleString()}
-                        </span>
-                        <span className="text-xs ml-2">
-                          (Includes 40% gross margin)
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-gray-50 p-4 rounded-md">
-                <p className="text-gray-600 text-center">
-                  No replacement data available. Complete a replacement
-                  assessment first before sending a replacement quote.
-                </p>
-              </div>
-            )}
-
-            {allQuotes.some(
-              (q) => q.quote_type === "replacement" && q.confirmed
-            ) &&
-              activeTab === "replacement" && (
-                <div className="mt-4 bg-success-50 border-l-4 border-success-500 p-4 rounded-md">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <Check className="h-5 w-5 text-success-500" />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-success-800">
-                        Quote Confirmed
-                      </h3>
-                      <div className="mt-2 text-sm text-success-700">
-                        <p>
-                          <span className="font-medium">
-                            Quote was confirmed
-                          </span>{" "}
-                          on{" "}
-                          {(() => {
-                            const replacementQuote = allQuotes.find(
-                              (q) =>
-                                q.quote_type === "replacement" && q.confirmed
-                            );
-                            return replacementQuote &&
-                              replacementQuote.confirmed_at
-                              ? new Date(
-                                  replacementQuote.confirmed_at
-                                ).toLocaleString()
-                              : "N/A";
-                          })()}
-                          .
-                        </p>
-                        <p className="mt-1">
-                          <span className="font-medium">
-                            Customer{" "}
-                            {(() => {
-                              const replacementQuote = allQuotes.find(
-                                (q) =>
-                                  q.quote_type === "replacement" && q.confirmed
-                              );
-                              return replacementQuote &&
-                                replacementQuote.approved ? (
-                                <span className="text-success-700">
-                                  approved replacements
-                                </span>
-                              ) : (
-                                <span className="text-error-700">
-                                  declined replacements
-                                </span>
-                              );
-                            })()}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-          </div>
-        )}
-
-        {activeTab === "repair" && (
-          <div>
-            {hasRepairData ? (
-              <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-md">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <Package className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-blue-800">
-                      Repair Data Available
-                    </h3>
-                    <div className="mt-2 text-sm text-blue-700">
-                      <p>
-                        {hasPartItems
-                          ? "Repair parts have been added to this job. You can send a repair quote to the customer."
-                          : "Repair data is available for this job. You can send a repair quote to the customer."}
-                      </p>
-                      <p className="mt-2 flex items-center">
-                        <Calculator className="h-4 w-4 mr-1" />
-                        <span className="font-medium">
-                          Total Repair Cost: ${totalRepairCost.toLocaleString()}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-gray-50 p-4 rounded-md">
-                <p className="text-gray-600 text-center">
-                  No repair data available. Complete a repair assessment first
-                  before sending a repair quote.
-                </p>
-              </div>
-            )}
-
-            {/* Only show repair approval status if a repair quote was confirmed */}
-            {allQuotes.some((q) => q.quote_type === "repair" && q.confirmed) &&
-              activeTab === "repair" && (
-                <div className="mt-4 bg-success-50 border-l-4 border-success-500 p-4 rounded-md">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <Check className="h-5 w-5 text-success-500" />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-success-800">
-                        Repair Quote Confirmed
-                      </h3>
-                      <div className="mt-2 text-sm text-success-700">
-                        <p>
-                          <span className="font-medium">
-                            Repair quote was confirmed
-                          </span>{" "}
-                          on{" "}
-                          {(() => {
-                            const repairQuote = allQuotes.find(
-                              (q) => q.quote_type === "repair" && q.confirmed
-                            );
-                            return repairQuote && repairQuote.confirmed_at
-                              ? new Date(
-                                  repairQuote.confirmed_at
-                                ).toLocaleString()
-                              : "N/A";
-                          })()}
-                          .
-                        </p>
-                        <p className="mt-1">
-                          <span className="font-medium">
-                            Customer{" "}
-                            {(() => {
-                              const repairQuote = allQuotes.find(
-                                (q) => q.quote_type === "repair" && q.confirmed
-                              );
-                              return repairQuote && repairQuote.approved ? (
-                                <span className="text-success-700">
-                                  approved repairs
-                                </span>
-                              ) : (
-                                <span className="text-error-700">
-                                  declined repairs
-                                </span>
-                              );
-                            })()}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-          </div>
-        )}
-
-        {activeTab === "all" && (
-          <div>
-            <h3 className="text-md font-medium mb-3">Quote History</h3>
-            {allQuotes.length > 0 ? (
-              <div className="space-y-4">
-                {allQuotes.map((quote, index) => (
-                  <div
-                    key={quote.id}
-                    className="border rounded-lg p-4 hover:bg-gray-50"
-                  >
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <FileText size={16} className="text-gray-500" />
-                          <span className="font-medium">
-                            Quote #{quote.quote_number}
-                          </span>
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${
-                              quote.confirmed
-                                ? "bg-success-100 text-success-800"
-                                : "bg-blue-100 text-blue-800"
-                            }`}
-                          >
-                            {quote.confirmed ? "Confirmed" : "Sent"}
-                          </span>
-                          {quote.confirmed && (
-                            <span
-                              className={`text-xs px-2 py-0.5 rounded-full ${
-                                quote.approved
-                                  ? "bg-success-100 text-success-800"
-                                  : "bg-error-100 text-error-800"
-                              }`}
-                            >
-                              {quote.approved ? "Approved" : "Declined"}
-                            </span>
-                          )}
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-800`}
-                          >
-                            {quote.quote_type.charAt(0).toUpperCase() +
-                              quote.quote_type.slice(1)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          {quote.quote_type.charAt(0).toUpperCase() +
-                            quote.quote_type.slice(1)}{" "}
-                          Quote
-                        </p>
-                        <p className="text-sm text-gray-500 mt-1">
-                          Sent on{" "}
-                          {new Date(quote.created_at).toLocaleDateString()}
-                        </p>
-                        {quote.confirmed_at && (
-                          <p className="text-sm text-gray-500">
-                            Confirmed on{" "}
-                            {new Date(quote.confirmed_at).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">
-                          ${Number(quote.amount).toFixed(2)}
-                        </p>
-                        <button
-                          onClick={() => {
-                            // View quote details
-                          }}
-                          className="text-sm text-primary-600 hover:text-primary-800 mt-2"
-                        >
-                          View Details
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-gray-50 p-4 rounded-md text-center">
-                <p className="text-gray-600">
-                  No quotes have been sent for this job yet.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* General Quote Status */}
-        {sentQuoteTypes[activeTab] &&
-          !job.quote_confirmed &&
-          activeTab !== "all" && (
-            <div
-              className={`${
-                quoteNeedsUpdate
-                  ? "bg-warning-50 border-warning-500"
-                  : "bg-blue-50 border-blue-500"
-              } border-l-4 p-4 rounded-md`}
-            >
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <FileCheck2
-                    className={`h-5 w-5 ${
-                      quoteNeedsUpdate ? "text-warning-500" : "text-blue-500"
-                    }`}
-                  />
-                </div>
-                <div className="ml-3">
-                  <h3
-                    className={`text-sm font-medium ${
-                      quoteNeedsUpdate ? "text-warning-800" : "text-blue-800"
-                    }`}
-                  >
-                    {quoteNeedsUpdate ? "Quote Needs Update" : "Quote Sent"}
-                  </h3>
-                  <div
-                    className={`mt-2 text-sm ${
-                      quoteNeedsUpdate ? "text-warning-700" : "text-blue-700"
-                    }`}
-                  >
-                    <p>Quote was sent to {job.contact_email}.</p>
-                    {quoteNeedsUpdate && (
-                      <p className="mt-1 font-medium">
-                        Items have been modified since the quote was sent.
-                        Consider sending an updated quote.
-                      </p>
-                    )}
-                    {!quoteNeedsUpdate && (
-                      <p className="mt-1">Waiting for customer confirmation.</p>
-                    )}
-                  </div>
-                </div>
+        {/* Available Quote Types Summary */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+          <div
+            className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+              activeQuoteFilter === "all"
+                ? "bg-gray-100 border-gray-300"
+                : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+            }`}
+            onClick={() => setActiveQuoteFilter("all")}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <FileText size={20} className="text-gray-600 mr-2" />
+                <span className="font-medium text-gray-900">All quotes</span>
               </div>
             </div>
-          )}
-
-        {!sentQuoteTypes[activeTab] && activeTab !== "all" && (
-          <div className="bg-gray-50 p-4 rounded-md">
-            <p className="text-gray-600">
-              {jobItems.length === 0
-                ? "Add service before sending a quote."
-                : "Ready to send quote to customer."}
+            <p className="text-sm text-gray-700 mt-1">
+              {getQuoteCounts().all} quote(s)
             </p>
+          </div>
+
+          <div
+            className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+              activeQuoteFilter === "replacement"
+                ? "bg-blue-100 border-blue-300"
+                : "bg-blue-50 border-blue-200 hover:bg-blue-100"
+            }`}
+            onClick={() => setActiveQuoteFilter("replacement")}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Home size={20} className="text-blue-600 mr-2" />
+                <span className="font-medium text-blue-900">Replacement</span>
+              </div>
+              {sentQuoteTypes.replacement && (
+                <span className="w-2 h-2 bg-success-500 rounded-full"></span>
+              )}
+            </div>
+            <p className="text-sm text-blue-700 mt-1">
+              {hasReplacementData
+                ? `${
+                    getQuoteCounts().replacement
+                  } replacement(s) - $${calculateTotalReplacementCost().toLocaleString()}`
+                : "No data available"}
+            </p>
+          </div>
+
+          <div
+            className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+              activeQuoteFilter === "repair"
+                ? "bg-green-100 border-green-300"
+                : "bg-green-50 border-green-200 hover:bg-green-100"
+            }`}
+            onClick={() => setActiveQuoteFilter("repair")}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Package size={20} className="text-green-600 mr-2" />
+                <span className="font-medium text-green-900">Repair</span>
+              </div>
+              {sentQuoteTypes.repair && (
+                <span className="w-2 h-2 bg-success-500 rounded-full"></span>
+              )}
+            </div>
+            <p className="text-sm text-green-700 mt-1">
+              {hasRepairData
+                ? `${
+                    getQuoteCounts().repair
+                  } repair(s) - $${totalRepairCost.toLocaleString()}`
+                : "No data available"}
+            </p>
+          </div>
+
+          <div
+            className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+              activeQuoteFilter === "inspection"
+                ? "bg-purple-100 border-purple-300"
+                : "bg-purple-50 border-purple-200 hover:bg-purple-100"
+            }`}
+            onClick={() => setActiveQuoteFilter("inspection")}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <FileText size={20} className="text-purple-600 mr-2" />
+                <span className="font-medium text-purple-900">Inspection</span>
+              </div>
+              {inspectionData && inspectionData.length > 0 && (
+                <span className="w-2 h-2 bg-success-500 rounded-full"></span>
+              )}
+            </div>
+            <p className="text-sm text-purple-700 mt-1">
+              {inspectionData && inspectionData.length > 0
+                ? `${getQuoteCounts().inspection} inspection(s)`
+                : "No data available"}
+            </p>
+          </div>
+        </div>
+
+        {/* Quotes Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[800px]">
+            <thead className="bg-gray-50 text-left">
+              <tr>
+                <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                  QUOTE #
+                </th>
+                <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                  TYPE
+                </th>
+                <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                  DATE
+                </th>
+                <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                  AMOUNT
+                </th>
+                <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                  STATUS
+                </th>
+                <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                  CONFIRMED
+                </th>
+                <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                  ACTIONS
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Historical Quotes */}
+              {getFilteredQuotes().map((quote, index) => (
+                <tr
+                  key={quote.id}
+                  className={`border-b hover:bg-primary-50 transition-colors ${
+                    index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                  }`}
+                >
+                  <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
+                    {quote.quote_number}
+                  </td>
+                  <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                        quote.quote_type === "replacement"
+                          ? "bg-blue-100 text-blue-800"
+                          : quote.quote_type === "repair"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-purple-100 text-purple-800"
+                      }`}
+                    >
+                      {quote.quote_type.charAt(0).toUpperCase() +
+                        quote.quote_type.slice(1)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                    {new Date(quote.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
+                    ${Number(quote.amount).toFixed(2)}
+                  </td>
+                  <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        quote.confirmed
+                          ? quote.approved
+                            ? "bg-success-100 text-success-800"
+                            : "bg-error-100 text-error-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
+                      {quote.confirmed
+                        ? quote.approved
+                          ? "Approved"
+                          : "Declined"
+                        : "Sent"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                    {quote.confirmed_at
+                      ? new Date(quote.confirmed_at).toLocaleDateString()
+                      : "-"}
+                  </td>
+                  <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <button
+                        className="btn btn-secondary btn-xs w-full sm:w-auto"
+                        onClick={() =>
+                          onPreviewQuote(
+                            quote.quote_type as
+                              | "replacement"
+                              | "repair"
+                              | "inspection",
+                            quote
+                          )
+                        }
+                      >
+                        <Eye size={16} className="mr-2" />
+                        Preview
+                      </button>
+                      <button
+                        className="btn btn-primary btn-xs w-full sm:w-auto"
+                        onClick={() => {
+                          setSelectedQuoteForSending(quote);
+                          setShowIndividualQuoteModal(true);
+                        }}
+                      >
+                        <Send size={16} className="mr-2" />
+                        Send
+                      </button>
+                      <button
+                        className="btn btn-error btn-xs w-full sm:w-auto"
+                        onClick={() => handleDeleteQuote(quote.id)}
+                        disabled={isDeletingQuote === quote.id}
+                        title="Delete Quote"
+                      >
+                        {isDeletingQuote === quote.id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                        ) : (
+                          <Trash2 size={16} className="mr-2" />
+                        )}
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* No Data Message */}
+        {getFilteredQuotes().length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 mb-2">
+              {activeQuoteFilter === "all"
+                ? "No quotes available"
+                : `No ${activeQuoteFilter} quotes available`}
+            </p>
+            <p className="text-sm text-gray-400">
+              {activeQuoteFilter === "all"
+                ? "Use the Generate Quote component to create a new quote"
+                : hasAvailableDataForFilter()
+                ? `${
+                    activeQuoteFilter.charAt(0).toUpperCase() +
+                    activeQuoteFilter.slice(1)
+                  } data is available but no quotes have been sent yet`
+                : `No ${activeQuoteFilter} data available`}
+            </p>
+          </div>
+        )}
+
+        {/* Delete Error Message */}
+        {deleteError && (
+          <div className="bg-error-50 text-error-700 p-2 rounded mb-2">
+            {deleteError}
           </div>
         )}
       </div>
@@ -797,17 +712,19 @@ const JobQuoteSection = ({
         replacementData={replacementData}
         selectedPhase={selectedPhase || undefined}
         totalCost={
-          activeTab === "replacement" ? totalReplacementCost : totalRepairCost
+          selectedQuoteType === "replacement"
+            ? totalReplacementCost
+            : totalRepairCost
         }
         location={location}
         unit={unit}
-        quoteType={activeTab === "all" ? "replacement" : activeTab}
+        quoteType={selectedQuoteType}
         onEmailSent={(updatedJob) => {
           if (job) {
             // Update sent quote types
             setSentQuoteTypes((prev) => ({
               ...prev,
-              [activeTab]: true,
+              [selectedQuoteType]: true,
             }));
 
             onQuoteSent({
@@ -819,10 +736,90 @@ const JobQuoteSection = ({
         }}
         emailTemplate={emailTemplate}
         replacementDataById={
-          activeTab === "replacement" ? replacementDataById : {}
+          selectedQuoteType === "replacement" ? replacementDataById : {}
         }
         inspectionData={inspectionData}
       />
+
+      {/* Individual Quote Send Modal */}
+      {selectedQuoteForSending && (
+        <SendEmailModal
+          isOpen={showIndividualQuoteModal}
+          onClose={() => {
+            setShowIndividualQuoteModal(false);
+            setSelectedQuoteForSending(null);
+          }}
+          jobId={job.id}
+          jobNumber={job.number}
+          jobName={job.name}
+          customerName={job.contact_name || undefined}
+          initialEmail={job.contact_email || ""}
+          replacementData={replacementData}
+          selectedPhase={selectedPhase || undefined}
+          totalCost={Number(selectedQuoteForSending.amount)}
+          location={location}
+          unit={unit}
+          quoteType={selectedQuoteForSending.quote_type}
+          onEmailSent={(updatedJob) => {
+            if (job) {
+              // Refresh quotes to update status
+              fetchQuotes();
+
+              onQuoteSent({
+                ...job,
+                quote_sent: true,
+                quote_sent_at: new Date().toISOString(),
+              });
+            }
+          }}
+          emailTemplate={emailTemplate}
+          replacementDataById={
+            selectedQuoteForSending.quote_type === "replacement"
+              ? replacementDataById
+              : {}
+          }
+          inspectionData={inspectionData}
+          selectedReplacementOptions={
+            selectedQuoteForSending.selected_replacement_options || []
+          }
+          selectedInspectionOptions={
+            selectedQuoteForSending.selected_inspection_options || []
+          }
+        />
+      )}
+
+      {/* Generate Quote Modal */}
+      {showGenerateQuoteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-xl font-semibold flex items-center">
+                <FileText className="h-5 w-5 mr-2 text-primary-600" />
+                Generate Quote
+              </h2>
+              <button
+                onClick={() => setShowGenerateQuoteModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <GenerateQuote
+                jobId={job.id}
+                onQuoteSent={() => {
+                  setShowGenerateQuoteModal(false);
+                  // Refresh quotes
+                  fetchQuotes();
+                }}
+                onPreviewQuote={(quoteType) => {
+                  onPreviewQuote(quoteType);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

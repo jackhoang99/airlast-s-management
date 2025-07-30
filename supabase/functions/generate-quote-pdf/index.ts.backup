@@ -37,9 +37,6 @@ serve(async (req) => {
       quoteNumber,
       templateId,
       hasJobData: !!jobData,
-      jobDataStructure: jobData ? Object.keys(jobData) : null,
-      unitData: jobData?.unit,
-      unitNumber: jobData?.unit?.unit_number,
       inspectionCount: Array.isArray(inspectionData)
         ? inspectionData.length
         : 0,
@@ -576,8 +573,12 @@ serve(async (req) => {
       }
     }
 
-    // Add inspection results to all quote types
-    if (Array.isArray(inspectionData) && inspectionData.length > 0) {
+    // Add inspection results to replacement and repair quotes
+    if (
+      (quoteType === "replacement" || quoteType === "repair") &&
+      Array.isArray(inspectionData) &&
+      inspectionData.length > 0
+    ) {
       // Check if we need a new page
       if (y < 200) {
         dynamicPage = newPdfDoc.addPage();
@@ -621,83 +622,38 @@ serve(async (req) => {
           }
         }
 
-        // Draw inspection number
-        dynamicPage.drawText(`${i + 1})`, {
+        dynamicPage.drawText(`Inspection ${i + 1}:`, {
           x: margin,
           y,
-          size: fontSize,
+          size: fontSize + 1,
           font: bold,
         });
-        y -= lineHeight;
+        y -= lineHeight * 1.5;
 
-        // Draw unit information header
-        console.log("Checking unit data:", {
-          hasJobData: !!jobData,
-          hasUnit: !!jobData?.unit,
-          unitNumber: jobData?.unit?.unit_number,
-          fullUnitData: jobData?.unit,
-        });
+        // Show inspection details in a structured format
+        const details = [];
+        if (insp.model_number) details.push(`Model: ${insp.model_number}`);
+        if (insp.serial_number) details.push(`Serial: ${insp.serial_number}`);
+        if (insp.age) details.push(`Age: ${insp.age} years`);
+        if (insp.tonnage) details.push(`Tonnage: ${insp.tonnage}`);
+        if (insp.unit_type) details.push(`Type: ${insp.unit_type}`);
+        if (insp.system_type) details.push(`System: ${insp.system_type}`);
 
-        if (jobData?.unit?.unit_number) {
-          console.log("Drawing unit number:", jobData.unit.unit_number);
-          dynamicPage.drawText(`Unit: ${jobData.unit.unit_number}`, {
-            x: margin,
+        if (details.length > 0) {
+          const detailsText = details.join(" • ");
+          dynamicPage.drawText(detailsText, {
+            x: margin + 20,
             y,
             size: fontSize,
             font,
           });
-          y -= lineHeight;
-        } else {
-          console.log("No unit number found, skipping unit display");
+          y -= lineHeight * 1.2;
         }
-
-        // Draw inspection details in two-column format like the image
-        const leftColumn = [];
-        const rightColumn = [];
-
-        if (insp.model_number)
-          leftColumn.push(`Model Number: ${insp.model_number}`);
-        if (insp.age) leftColumn.push(`Age: ${insp.age} years`);
-        if (insp.unit_type) leftColumn.push(`Unit Type: ${insp.unit_type}`);
-
-        if (insp.serial_number)
-          rightColumn.push(`Serial Number: ${insp.serial_number}`);
-        if (insp.tonnage) rightColumn.push(`Tonnage: ${insp.tonnage}`);
-        if (insp.system_type)
-          rightColumn.push(`System Type: ${insp.system_type}`);
-
-        // Draw left column
-        let leftY = y;
-        for (const detail of leftColumn) {
-          dynamicPage.drawText(detail, {
-            x: margin,
-            y: leftY,
-            size: fontSize,
-            font,
-          });
-          leftY -= lineHeight;
-        }
-
-        // Draw right column
-        let rightY = y;
-        for (const detail of rightColumn) {
-          dynamicPage.drawText(detail, {
-            x: margin + 250, // Position right column
-            y: rightY,
-            size: fontSize,
-            font,
-          });
-          rightY -= lineHeight;
-        }
-
-        // Move Y to the lowest point of either column
-        y = Math.min(leftY, rightY);
 
         // Show inspection comment if available
         if (insp.comment && insp.comment.trim()) {
-          y -= lineHeight * 0.5; // Small spacing before comment
           dynamicPage.drawText(`Comment: ${insp.comment}`, {
-            x: margin,
+            x: margin + 20,
             y,
             size: fontSize,
             font,
@@ -829,73 +785,38 @@ serve(async (req) => {
             }
           }
 
-          // Draw inspection number
-          dynamicPage.drawText(`${i + 1})`, {
+          dynamicPage.drawText(`Inspection ${i + 1}:`, {
             x: margin,
             y,
-            size: fontSize,
+            size: fontSize + 1,
             font: bold,
           });
-          y -= lineHeight;
+          y -= lineHeight * 1.5;
 
-          // Draw unit information header
-          if (jobData?.unit?.unit_number) {
-            dynamicPage.drawText(`Unit: ${jobData.unit.unit_number}`, {
-              x: margin,
+          // Show inspection details in a structured format
+          const details = [];
+          if (insp.model_number) details.push(`Model: ${insp.model_number}`);
+          if (insp.serial_number) details.push(`Serial: ${insp.serial_number}`);
+          if (insp.age) details.push(`Age: ${insp.age} years`);
+          if (insp.tonnage) details.push(`Tonnage: ${insp.tonnage}`);
+          if (insp.unit_type) details.push(`Type: ${insp.unit_type}`);
+          if (insp.system_type) details.push(`System: ${insp.system_type}`);
+
+          if (details.length > 0) {
+            const detailsText = details.join(" • ");
+            dynamicPage.drawText(detailsText, {
+              x: margin + 20,
               y,
               size: fontSize,
               font,
             });
-            y -= lineHeight;
+            y -= lineHeight * 1.2;
           }
-
-          // Draw inspection details in two-column format like the image
-          const leftColumn = [];
-          const rightColumn = [];
-
-          if (insp.model_number)
-            leftColumn.push(`Model Number: ${insp.model_number}`);
-          if (insp.age) leftColumn.push(`Age: ${insp.age} years`);
-          if (insp.unit_type) leftColumn.push(`Unit Type: ${insp.unit_type}`);
-
-          if (insp.serial_number)
-            rightColumn.push(`Serial Number: ${insp.serial_number}`);
-          if (insp.tonnage) rightColumn.push(`Tonnage: ${insp.tonnage}`);
-          if (insp.system_type)
-            rightColumn.push(`System Type: ${insp.system_type}`);
-
-          // Draw left column
-          let leftY = y;
-          for (const detail of leftColumn) {
-            dynamicPage.drawText(detail, {
-              x: margin,
-              y: leftY,
-              size: fontSize,
-              font,
-            });
-            leftY -= lineHeight;
-          }
-
-          // Draw right column
-          let rightY = y;
-          for (const detail of rightColumn) {
-            dynamicPage.drawText(detail, {
-              x: margin + 250, // Position right column
-              y: rightY,
-              size: fontSize,
-              font,
-            });
-            rightY -= lineHeight;
-          }
-
-          // Move Y to the lowest point of either column
-          y = Math.min(leftY, rightY);
 
           // Show inspection comment if available
           if (insp.comment && insp.comment.trim()) {
-            y -= lineHeight * 0.5; // Small spacing before comment
             dynamicPage.drawText(`Comment: ${insp.comment}`, {
-              x: margin,
+              x: margin + 20,
               y,
               size: fontSize,
               font,

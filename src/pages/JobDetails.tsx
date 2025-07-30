@@ -57,8 +57,9 @@ const JobDetails = () => {
     null
   );
   const [activeQuoteType, setActiveQuoteType] = useState<
-    "repair" | "replacement"
+    "repair" | "replacement" | "inspection"
   >("repair");
+  const [activeQuoteData, setActiveQuoteData] = useState<any>(null);
   const [repairData, setRepairData] = useState<any | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [additionalContacts, setAdditionalContacts] = useState<any[]>([]);
@@ -510,8 +511,12 @@ const JobDetails = () => {
     setQuoteNeedsUpdate(false);
   };
 
-  const handlePreviewQuote = (quoteType: "repair" | "replacement") => {
+  const handlePreviewQuote = (quoteType: "repair" | "replacement" | "inspection", quoteData?: any) => {
     setActiveQuoteType(quoteType);
+    // Store the specific quote data for the PDF viewer
+    if (quoteData) {
+      setActiveQuoteData(quoteData);
+    }
     setShowQuotePDF(true);
   };
 
@@ -594,7 +599,11 @@ const JobDetails = () => {
       <QuotePDFViewer
         jobId={job.id}
         quoteType={activeQuoteType}
-        onBack={() => setShowQuotePDF(false)}
+        quoteData={activeQuoteData}
+        onBack={() => {
+          setShowQuotePDF(false);
+          setActiveQuoteData(null);
+        }}
       />
     );
   }

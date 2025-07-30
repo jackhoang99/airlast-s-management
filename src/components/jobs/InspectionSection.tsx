@@ -1,7 +1,16 @@
 import { useState, useEffect } from "react";
 import { useSupabase } from "../../lib/supabase-context";
-import { Plus, Edit, Trash2, Clipboard, AlertTriangle } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Clipboard,
+  AlertTriangle,
+  FileText,
+  X,
+} from "lucide-react";
 import InspectionForm from "./inspection/InspectionForm";
+import GenerateQuote from "../GenerateQuote";
 
 type InspectionSectionProps = {
   jobId: string;
@@ -20,13 +29,43 @@ const InspectionSection = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showInspectionForm, setShowInspectionForm] = useState(false);
+  const [showGenerateQuoteModal, setShowGenerateQuoteModal] = useState(false);
+  const [showSummaryCommentModal, setShowSummaryCommentModal] = useState(false);
   const [inspectionToEdit, setInspectionToEdit] = useState<any>(null);
   const [localInspectionData, setLocalInspectionData] =
     useState<any[]>(inspectionData);
+  const [summaryComment, setSummaryComment] = useState<string>("");
+  const [currentSummaryComment, setCurrentSummaryComment] =
+    useState<string>("");
 
   useEffect(() => {
     setLocalInspectionData(inspectionData);
   }, [inspectionData]);
+
+  // Fetch current summary comment
+  useEffect(() => {
+    const fetchSummaryComment = async () => {
+      if (!supabase || !jobId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from("jobs")
+          .select("inspection_summary_comment")
+          .eq("id", jobId)
+          .single();
+
+        if (error) {
+          console.error("Error fetching summary comment:", error);
+        } else if (data) {
+          setCurrentSummaryComment(data.inspection_summary_comment || "");
+        }
+      } catch (err) {
+        console.error("Error fetching summary comment:", err);
+      }
+    };
+
+    fetchSummaryComment();
+  }, [supabase, jobId]);
 
   const handleAddInspection = () => {
     setInspectionToEdit(null);
@@ -43,6 +82,38 @@ const InspectionSection = ({
     setInspectionToEdit(null);
     if (onInspectionUpdated) {
       onInspectionUpdated();
+    }
+  };
+
+  const handleSaveSummaryComment = async () => {
+    if (!supabase || !summaryComment.trim()) return;
+
+    try {
+      setIsLoading(true);
+
+      // Save the summary comment to the job record
+      const { error } = await supabase
+        .from("jobs")
+        .update({
+          inspection_summary_comment: summaryComment.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", jobId);
+
+      if (error) throw error;
+
+      setShowSummaryCommentModal(false);
+      setSummaryComment("");
+      setCurrentSummaryComment(summaryComment.trim());
+
+      if (onInspectionUpdated) {
+        onInspectionUpdated();
+      }
+    } catch (err: any) {
+      console.error("Error saving summary comment:", err);
+      setError(err.message || "Failed to save summary comment");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -218,6 +289,18 @@ const InspectionSection = ({
                 >
                   <Plus size={14} className="mr-1" /> Add Inspection
                 </button>
+                <button
+                  onClick={() => setShowGenerateQuoteModal(true)}
+                  className="btn btn-secondary btn-sm w-full sm:w-auto"
+                >
+                  <FileText size={14} className="mr-1" /> Generate Quote
+                </button>
+                <button
+                  onClick={() => setShowSummaryCommentModal(true)}
+                  className="btn btn-info btn-sm w-full sm:w-auto"
+                >
+                  <Clipboard size={14} className="mr-1" /> Summary Comment
+                </button>
                 {localInspectionData.length > 0 &&
                   !localInspectionData.every((insp) => insp.completed) && (
                     <button
@@ -334,7 +417,121 @@ const InspectionSection = ({
               </button>
             </div>
           )}
+
+          {/* Summary Comment Section */}
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="text-sm font-medium text-blue-800 flex items-center">
+                <Clipboard size={16} className="mr-2" />
+                Summary Comment
+              </h3>
+              <button
+                onClick={() => {
+                  setSummaryComment(currentSummaryComment);
+                  setShowSummaryCommentModal(true);
+                }}
+                className="text-blue-600 hover:text-blue-800 text-sm"
+              >
+                {currentSummaryComment ? <Edit size={14} /> : <Plus size={14} />}
+              </button>
+            </div>
+            {currentSummaryComment ? (
+              <p className="text-sm text-blue-700 whitespace-pre-wrap">
+                {currentSummaryComment}
+              </p>
+            ) : (
+              <p className="text-sm text-blue-600 italic">
+                No summary comment added yet. Click the + button to add one.
+              </p>
+            )}
+          </div>
         </>
+      )}
+
+      {/* Generate Quote Modal */}
+      {showGenerateQuoteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-xl font-semibold flex items-center">
+                <FileText className="h-5 w-5 mr-2 text-primary-600" />
+                Generate Quote
+              </h2>
+              <button
+                onClick={() => setShowGenerateQuoteModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <GenerateQuote
+                jobId={jobId}
+                onQuoteSent={() => {
+                  setShowGenerateQuoteModal(false);
+                  // Refresh data
+                  if (onInspectionUpdated) onInspectionUpdated();
+                }}
+                onPreviewQuote={(quoteType) => {
+                  // Handle preview - could open PDF or navigate
+                  // Preview functionality handled by parent component
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Summary Comment Modal */}
+      {showSummaryCommentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full shadow-xl">
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-xl font-semibold flex items-center">
+                <Clipboard className="h-5 w-5 mr-2 text-primary-600" />
+                Inspection Summary Comment
+              </h2>
+              <button
+                onClick={() => setShowSummaryCommentModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Summary Comment for All Inspections
+                </label>
+                <textarea
+                  value={summaryComment}
+                  onChange={(e) => setSummaryComment(e.target.value)}
+                  placeholder="Enter a summary comment for all inspection results..."
+                  className="w-full h-32 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This comment will be saved to the job record and can be used
+                  in quotes and reports.
+                </p>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowSummaryCommentModal(false)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveSummaryComment}
+                  disabled={isLoading || !summaryComment.trim()}
+                  className="btn btn-primary"
+                >
+                  {isLoading ? "Saving..." : "Save Summary Comment"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

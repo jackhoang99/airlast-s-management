@@ -5,7 +5,9 @@ import { ArrowLeft, Printer, Download, AlertTriangle } from "lucide-react";
 
 interface QuotePDFViewerProps {
   jobId: string;
-  quoteType: "replacement" | "repair";
+  quoteType: "replacement" | "repair" | "inspection";
+  quoteData?: any; // Specific quote data with selected options
+  existingQuoteId?: string; // ID of existing quote to preview
   onBack: () => void;
   backLabel?: string;
 }
@@ -13,6 +15,8 @@ interface QuotePDFViewerProps {
 const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
   jobId,
   quoteType,
+  quoteData,
+  existingQuoteId,
   onBack,
   backLabel = "Back to Job Details",
 }) => {
@@ -33,6 +37,144 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
         setIsLoading(true);
         setError(null);
 
+        // If we have an existing quote ID, fetch the quote data first
+        let existingQuote = null;
+        let quoteNumber = null;
+        let storedQuoteData = null;
+
+        if (existingQuoteId) {
+          const { data: quoteData, error: quoteError } = await supabase
+            .from("job_quotes")
+            .select("*")
+            .eq("id", existingQuoteId)
+            .single();
+
+          if (quoteError) {
+            console.warn("Could not fetch existing quote:", quoteError);
+          } else {
+            existingQuote = quoteData;
+            quoteNumber = quoteData.quote_number;
+            storedQuoteData = quoteData.quote_data;
+          }
+        }
+
+        // If we have stored quote data, use it directly
+        if (storedQuoteData && Object.keys(storedQuoteData).length > 0) {
+          console.log("Using stored quote data for preview:", storedQuoteData);
+
+          // Use stored data directly
+          const finalQuoteNumber = quoteNumber;
+          const storedInspectionData = storedQuoteData.inspectionData || [];
+          const storedReplacementDataById =
+            storedQuoteData.replacementDataById || {};
+          const storedJobItems = storedQuoteData.jobItems || [];
+          const storedLocation = storedQuoteData.location;
+          const storedUnit = storedQuoteData.unit;
+
+          // Fetch job details (still needed for PDF generation)
+          const { data: jobData, error: jobError } = await supabase
+            .from("jobs")
+            .select(
+              `
+              *,
+              locations (
+                name,
+                address,
+                city,
+                state,
+                zip,
+                companies (
+                  name
+                )
+              ),
+              job_units:job_units!inner (
+                unit_id,
+                units:unit_id (
+                  id,
+                  unit_number
+                )
+              )
+            `
+            )
+            .eq("id", jobId)
+            .single();
+          if (jobError) throw jobError;
+
+          // Try to fetch default template
+          const { data: templateData, error: templateError } = await supabase
+            .from("quote_templates")
+            .select("*")
+            .eq("template_data->>type", "pdf")
+            .eq("template_data->>templateType", quoteType)
+            .eq("template_data->>isDefault", "true")
+            .limit(1);
+          if (templateError) throw templateError;
+
+          let templateToUse =
+            templateData && templateData.length > 0 ? templateData[0] : null;
+
+          // Fallback to any template
+          if (!templateToUse) {
+            const { data: fallback, error: fallbackError } = await supabase
+              .from("quote_templates")
+              .select("*")
+              .eq("template_data->>type", "pdf")
+              .eq("template_data->>templateType", quoteType)
+              .limit(1);
+            if (fallbackError) throw fallbackError;
+
+            if (fallback && fallback.length > 0) {
+              templateToUse = fallback[0];
+            }
+          }
+
+          if (!templateToUse) {
+            throw new Error(
+              `No PDF template found for ${quoteType} quotes. Please upload a template and set it as default.`
+            );
+          }
+
+          const apiUrl = `${
+            import.meta.env.VITE_SUPABASE_URL
+          }/functions/v1/generate-quote-pdf`;
+
+          const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              jobId,
+              quoteType,
+              quoteNumber: finalQuoteNumber,
+              templateId: templateToUse.id,
+              jobData,
+              inspectionData: storedInspectionData,
+              replacementData: null, // Use replacementDataById instead
+              jobItems: storedJobItems,
+              replacementDataById: storedReplacementDataById,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(
+              errorData.message || errorData.error || "Failed to generate PDF"
+            );
+          }
+
+          const result = await response.json();
+          if (result.pdfUrl) {
+            setPdfUrl(result.pdfUrl);
+          } else {
+            throw new Error("No PDF URL returned from the server");
+          }
+
+          return; // Exit early since we used stored data
+        }
+
+        // Original logic for generating new quotes (when no stored data exists)
         // Fetch job details with locations and all units via job_units
         const { data: jobData, error: jobError } = await supabase
           .from("jobs")
@@ -72,6 +214,15 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
           .eq("completed", true);
         if (inspectionError) throw inspectionError;
 
+        // Filter inspection data based on specific quote if provided
+        let filteredInspectionData = inspectionData || [];
+        if (quoteData && quoteData.selected_inspection_options) {
+          filteredInspectionData = (inspectionData || []).filter(
+            (inspection: any) =>
+              quoteData.selected_inspection_options.includes(inspection.id)
+          );
+        }
+
         // Fetch replacement data
         const { data: replacementData, error: replacementError } =
           await supabase
@@ -92,7 +243,7 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
         if (itemsError) throw itemsError;
 
         // Organize replacement data by inspection_id
-        const replacementDataById: { [key: string]: any } = {};
+        let replacementDataById: { [key: string]: any } = {};
         if (replacementData && replacementData.length > 0) {
           replacementData.forEach((item) => {
             replacementDataById[item.id] = {
@@ -116,6 +267,17 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
               created_at: item.created_at || "",
             };
           });
+        }
+
+        // Filter replacement data based on specific quote if provided
+        if (quoteData && quoteData.selected_replacement_options) {
+          const filteredReplacementData: { [key: string]: any } = {};
+          quoteData.selected_replacement_options.forEach((optionId: string) => {
+            if (replacementDataById[optionId]) {
+              filteredReplacementData[optionId] = replacementDataById[optionId];
+            }
+          });
+          replacementDataById = filteredReplacementData;
         }
 
         // Try to fetch default template
@@ -163,11 +325,12 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
           );
         }
 
-        const quoteNumber = `QT-${jobData.number}-${Math.floor(
-          Math.random() * 10000
-        )
-          .toString()
-          .padStart(4, "0")}`;
+        // Use existing quote number if available, otherwise generate a new one
+        const finalQuoteNumber =
+          quoteNumber ||
+          `QT-${jobData.number}-${Math.floor(Math.random() * 10000)
+            .toString()
+            .padStart(4, "0")}`;
 
         const apiUrl = `${
           import.meta.env.VITE_SUPABASE_URL
@@ -182,10 +345,10 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
           body: JSON.stringify({
             jobId,
             quoteType,
-            quoteNumber,
+            quoteNumber: finalQuoteNumber,
             templateId: templateToUse.id,
             jobData,
-            inspectionData,
+            inspectionData: filteredInspectionData,
             replacementData:
               replacementData && replacementData.length > 0
                 ? replacementData[0]
@@ -217,7 +380,7 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
     };
 
     generatePDF();
-  }, [supabase, jobId, quoteType]);
+  }, [supabase, jobId, quoteType, existingQuoteId]);
 
   const handlePrint = () => {
     if (pdfUrl) {
@@ -242,8 +405,9 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
   };
 
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-6">
+    <div className="h-screen flex flex-col">
+      {/* Header with minimal padding */}
+      <div className="flex justify-between items-center p-4 bg-white border-b border-gray-200 flex-shrink-0">
         <button
           onClick={onBack}
           className="flex items-center text-gray-600 hover:text-gray-900"
@@ -268,46 +432,49 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
         </div>
       </div>
 
-      {error ? (
-        <div className="bg-error-50 border-l-4 border-error-500 p-4 rounded-md">
-          <div className="flex">
-            <AlertTriangle className="h-5 w-5 text-error-500" />
-            <div className="ml-3">
-              <p className="text-sm text-error-700">{error}</p>
-              <p className="text-sm text-error-700 mt-2">
-                Please make sure you have uploaded a valid PDF template and set
-                it as the default template for {quoteType} quotes.
-              </p>
-              <Link
-                to="/template-debug"
-                className="text-sm text-primary-600 hover:text-primary-800 mt-2 inline-block"
-              >
-                Go to Template Diagnostics
-              </Link>
+      {/* Main content area - takes remaining height */}
+      <div className="flex-1 overflow-hidden">
+        {error ? (
+          <div className="bg-error-50 border-l-4 border-error-500 p-4 m-4 rounded-md">
+            <div className="flex">
+              <AlertTriangle className="h-5 w-5 text-error-500" />
+              <div className="ml-3">
+                <p className="text-sm text-error-700">{error}</p>
+                <p className="text-sm text-error-700 mt-2">
+                  Please make sure you have uploaded a valid PDF template and
+                  set it as the default template for {quoteType} quotes.
+                </p>
+                <Link
+                  to="/template-debug"
+                  className="text-sm text-primary-600 hover:text-primary-800 mt-2 inline-block"
+                >
+                  Go to Template Diagnostics
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
-      ) : isLoading ? (
-        <div className="flex flex-col justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mb-4"></div>
-          <p className="text-gray-600 text-lg">Generating PDF...</p>
-          <p className="text-gray-500 text-sm mt-2">
-            This may take a moment while we process your template.
-          </p>
-        </div>
-      ) : pdfUrl ? (
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <iframe
-            src={pdfUrl}
-            className="w-full h-[800px] border-0"
-            title="Quote PDF"
-          />
-        </div>
-      ) : (
-        <div className="text-center py-12 text-gray-500">
-          No PDF could be generated. Please try again.
-        </div>
-      )}
+        ) : isLoading ? (
+          <div className="flex flex-col justify-center items-center h-full">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mb-4"></div>
+            <p className="text-gray-600 text-lg">Opening PDF...</p>
+            <p className="text-gray-500 text-sm mt-2">
+              This may take a moment while we load your quote.
+            </p>
+          </div>
+        ) : pdfUrl ? (
+          <div className="h-full w-full">
+            <iframe
+              src={pdfUrl}
+              className="w-full h-full border-0"
+              title="Quote PDF"
+            />
+          </div>
+        ) : (
+          <div className="text-center py-12 text-gray-500">
+            No PDF could be generated. Please try again.
+          </div>
+        )}
+      </div>
     </div>
   );
 };

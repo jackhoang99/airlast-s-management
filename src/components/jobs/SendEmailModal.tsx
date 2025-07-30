@@ -29,7 +29,7 @@ type SendEmailModalProps = {
   totalCost?: number;
   location?: any;
   unit?: any;
-  quoteType?: "replacement" | "repair";
+  quoteType?: "replacement" | "repair" | "inspection";
   onEmailSent?: (updatedJob: any) => void;
   emailTemplate?: {
     subject: string;
@@ -46,6 +46,8 @@ type SendEmailModalProps = {
   replacementDataById?: { [key: string]: any };
   repairItems?: any[];
   inspectionData?: any[];
+  selectedReplacementOptions?: string[];
+  selectedInspectionOptions?: string[];
 };
 
 const SendEmailModal = ({
@@ -68,6 +70,8 @@ const SendEmailModal = ({
   replacementDataById = {},
   repairItems = [],
   inspectionData = [],
+  selectedReplacementOptions = [],
+  selectedInspectionOptions = [],
 }: SendEmailModalProps) => {
   const { supabase } = useSupabase();
   const [customerEmail, setCustomerEmail] = useState(initialEmail);
@@ -136,6 +140,11 @@ const SendEmailModal = ({
 
   // Calculate the actual total cost from all replacement data
   const calculateActualTotalCost = () => {
+    // For inspection quotes, always use $180 regardless of number of inspections
+    if (quoteType === "inspection") {
+      return 180;
+    }
+
     // For replacement quotes, use the total from replacement data by inspection
     if (
       quoteType === "replacement" &&
@@ -160,11 +169,50 @@ const SendEmailModal = ({
     return totalCost || 0;
   };
 
+  // Filter replacement data based on selected options for existing quotes
+  const getFilteredReplacementData = () => {
+    if (!replacementDataById || Object.keys(replacementDataById).length === 0) {
+      return {};
+    }
+
+    // If we have selected replacement options for this specific quote, filter to only those
+    if (selectedReplacementOptions && selectedReplacementOptions.length > 0) {
+      const filtered: { [key: string]: any } = {};
+      selectedReplacementOptions.forEach((optionId) => {
+        if (replacementDataById[optionId]) {
+          filtered[optionId] = replacementDataById[optionId];
+        }
+      });
+      return filtered;
+    }
+
+    // Otherwise, return all available options (for new quotes)
+    return replacementDataById;
+  };
+
+  const filteredReplacementData = getFilteredReplacementData();
   const actualTotalCost = calculateActualTotalCost();
-  const replacementOptionsCount =
-    quoteType === "replacement"
-      ? Object.keys(replacementDataById || {}).length
-      : 0;
+
+  // Calculate replacement options count based on selected options or quote amount
+  const calculateReplacementOptionsCount = () => {
+    if (quoteType !== "replacement") {
+      return 0;
+    }
+
+    // If we have selected replacement options for this specific quote, use those
+    if (selectedReplacementOptions && selectedReplacementOptions.length > 0) {
+      return selectedReplacementOptions.length;
+    }
+
+    // If we have replacementDataById, use all available options (for new quotes)
+    if (replacementDataById && Object.keys(replacementDataById).length > 0) {
+      return Object.keys(replacementDataById).length;
+    }
+
+    return 0;
+  };
+
+  const replacementOptionsCount = calculateReplacementOptionsCount();
   const repairOptionsCount =
     quoteType === "repair"
       ? jobItems.filter((item) => item.type === "part").length
@@ -421,7 +469,7 @@ const SendEmailModal = ({
               ? allReplacementData[0]
               : null,
           jobItems: allJobItems,
-          replacementDataById: replacementDataById,
+          replacementDataById: filteredReplacementData,
         }),
       });
       if (!response.ok) {
@@ -444,6 +492,41 @@ const SendEmailModal = ({
         confirmed: false,
         approved: false,
         email: customerEmail,
+        selected_replacement_options:
+          quoteType === "replacement" ? Object.keys(replacementDataById) : null,
+        selected_inspection_options:
+          quoteType === "inspection"
+            ? inspectionData.map((insp: any) => insp.id)
+            : null,
+        quote_data: {
+          // Store complete quote data for preview functionality
+          quoteType,
+          quoteNumber,
+          totalCost: actualTotalCost,
+          selectedReplacementOptions:
+            quoteType === "replacement"
+              ? Object.keys(replacementDataById)
+              : null,
+          selectedInspectionOptions:
+            quoteType === "inspection"
+              ? inspectionData.map((insp: any) => insp.id)
+              : null,
+          replacementDataById:
+            quoteType === "replacement"
+              ? sanitizeReplacementDataById(replacementDataById)
+              : {},
+          inspectionData: quoteType === "inspection" ? inspectionData : [],
+          repairItems:
+            quoteType === "repair"
+              ? allJobItems.filter((item) => item.type === "part")
+              : [],
+          jobItems: allJobItems,
+          location: sanitizeLocationData(location),
+          unit: sanitizeUnitData(unit),
+          selectedPhase,
+          emailTemplate,
+          generatedAt: new Date().toISOString(),
+        },
       });
 
       if (quoteError) {
@@ -454,7 +537,11 @@ const SendEmailModal = ({
       let apiUrl;
       let requestBody;
 
-      if (quoteType === "replacement" || quoteType === "repair") {
+      if (
+        quoteType === "replacement" ||
+        quoteType === "repair" ||
+        quoteType === "inspection"
+      ) {
         apiUrl = `${
           import.meta.env.VITE_SUPABASE_URL
         }/functions/v1/send-repair-quote`;
@@ -499,7 +586,7 @@ const SendEmailModal = ({
           emailTemplate,
           pdfUrl: generateResult.pdfUrl,
           replacementDataById:
-            quoteType === "replacement" ? replacementDataById : {},
+            quoteType === "replacement" ? filteredReplacementData : {},
           repairItems: quoteType === "repair" ? repairItems : [],
           inspectionData: allInspectionData,
         };
@@ -566,7 +653,9 @@ const SendEmailModal = ({
         <h3 className="text-lg font-semibold text-center mb-4">
           {quoteType === "replacement"
             ? "Send Replacement Quote"
-            : "Send Repair Quote"}
+            : quoteType === "repair"
+            ? "Send Repair Quote"
+            : "Send Inspection Quote"}
         </h3>
 
         {error && (

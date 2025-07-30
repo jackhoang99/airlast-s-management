@@ -12,6 +12,7 @@ import {
   Building,
   User,
   AlertTriangle,
+  Eye,
 } from "lucide-react";
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
@@ -557,8 +558,9 @@ const PMHistory = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <Link
                         to={`/jobs/${job.id}`}
-                        className="text-primary-600 hover:text-primary-900"
+                        className="text-primary-600 hover:text-primary-900 flex items-center gap-1"
                       >
+                        <Eye size={14} />
                         View Details
                       </Link>
                     </td>

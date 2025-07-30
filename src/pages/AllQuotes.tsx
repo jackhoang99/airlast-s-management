@@ -1,13 +1,22 @@
 import { useEffect, useState } from "react";
 import { useSupabase } from "../lib/supabase-context";
 import { Link } from "react-router-dom";
-import { FileSpreadsheet, FileText, Eye, Trash2 } from "lucide-react";
+import {
+  FileSpreadsheet,
+  FileText,
+  Eye,
+  Trash2,
+  ExternalLink,
+} from "lucide-react";
 import ArrowBack from "../components/ui/ArrowBack";
 import QuotePDFViewer from "../components/quotes/QuotePDFViewer";
 
 const TABS = [
+  { key: "all", label: "All Quotes" },
   { key: "replacement", label: "Replacement Quotes" },
   { key: "repair", label: "Repair Quotes" },
+  { key: "inspection", label: "Inspection Quotes" },
+  { key: "pm", label: "PM Quotes" },
 ];
 
 const statusColor = (status: string) => {
@@ -26,9 +35,9 @@ export default function AllQuotes() {
   const { supabase } = useSupabase();
   const [quotes, setQuotes] = useState<any[]>([]);
   const [jobs, setJobs] = useState<any>({});
-  const [activeTab, setActiveTab] = useState<"replacement" | "repair">(
-    "replacement"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "all" | "replacement" | "repair" | "inspection" | "pm"
+  >("all");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [sortField, setSortField] = useState<string>("created_at");
@@ -36,7 +45,8 @@ export default function AllQuotes() {
   const [loading, setLoading] = useState(false);
   const [previewing, setPreviewing] = useState<null | {
     jobId: string;
-    quoteType: "replacement" | "repair";
+    quoteType: "replacement" | "repair" | "inspection" | "pm";
+    quoteId: string;
   }>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -65,7 +75,7 @@ export default function AllQuotes() {
 
   // Filter and sort quotes
   const filteredQuotes = quotes
-    .filter((q) => q.quote_type === activeTab)
+    .filter((q) => activeTab === "all" || q.quote_type === activeTab)
     .filter((q) => {
       if (!search) return true;
       const job = jobs[q.job_id] || {};
@@ -104,6 +114,7 @@ export default function AllQuotes() {
       <QuotePDFViewer
         jobId={previewing.jobId}
         quoteType={previewing.quoteType}
+        existingQuoteId={previewing.quoteId}
         onBack={() => setPreviewing(null)}
         backLabel="Back to All Quotes"
       />
@@ -181,6 +192,9 @@ export default function AllQuotes() {
                 >
                   Amount
                 </th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                  Type
+                </th>
                 <th
                   className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
                   onClick={() => setSortField("created_at")}
@@ -213,13 +227,13 @@ export default function AllQuotes() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-8 text-gray-400">
+                  <td colSpan={11} className="text-center py-8 text-gray-400">
                     Loading quotes...
                   </td>
                 </tr>
               ) : filteredQuotes.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-8 text-gray-400">
+                  <td colSpan={11} className="text-center py-8 text-gray-400">
                     No quotes found.
                   </td>
                 </tr>
@@ -244,6 +258,24 @@ export default function AllQuotes() {
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap">
                         ${Number(q.amount).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            q.quote_type === "replacement"
+                              ? "bg-blue-100 text-blue-800"
+                              : q.quote_type === "repair"
+                              ? "bg-green-100 text-green-800"
+                              : q.quote_type === "inspection"
+                              ? "bg-purple-100 text-purple-800"
+                              : q.quote_type === "pm"
+                              ? "bg-orange-100 text-orange-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {q.quote_type.charAt(0).toUpperCase() +
+                            q.quote_type.slice(1)}
+                        </span>
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap">
                         {q.created_at
@@ -274,8 +306,9 @@ export default function AllQuotes() {
                       <td className="px-4 py-2 whitespace-nowrap flex gap-2">
                         <Link
                           to={`/jobs/${q.job_id}`}
-                          className="btn btn-xs btn-success"
+                          className="btn btn-xs btn-success flex items-center gap-1"
                         >
+                          <ExternalLink size={14} />
                           View Job
                         </Link>
                         <button
@@ -284,6 +317,7 @@ export default function AllQuotes() {
                             setPreviewing({
                               jobId: q.job_id,
                               quoteType: q.quote_type,
+                              quoteId: q.id,
                             })
                           }
                         >
