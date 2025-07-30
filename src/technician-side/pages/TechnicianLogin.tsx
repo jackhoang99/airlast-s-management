@@ -34,7 +34,7 @@ const TechnicianLogin = () => {
       // First check if the user exists in the users table
       const { data: userData, error: userError } = await supabase
         .from("users")
-        .select("id, email, role, username")
+        .select("id, email, role, username, auth_id")
         .eq("username", credentials.username)
         .maybeSingle();
 
@@ -55,23 +55,72 @@ const TechnicianLogin = () => {
       const email =
         userData?.email || `${credentials.username}@airlast-demo.com`;
 
-      // Try to sign in with Supabase Auth
-      const { data, error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email: email,
-          password: credentials.password,
-        });
+      // Handle different scenarios
+      if (userData && !userData.auth_id) {
+        // User exists in users table but has no auth_id - create auth user
+        console.log("User exists but has no auth_id, creating Supabase auth user...");
+        
+        try {
+          // Try to sign in first (in case auth user already exists)
+          console.log("Trying to sign in first...");
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: credentials.password,
+          });
+          
+          if (signInData?.user) {
+            console.log("Successfully signed in with existing auth user");
+            
+            // Update the users table with the auth_id
+            const { error: updateError } = await supabase
+              .from("users")
+              .update({ auth_id: signInData.user.id })
+              .eq("id", userData.id);
 
-      if (signInError) {
-        // If sign-in fails with invalid credentials, show error
-        console.error("Sign in error:", signInError);
-        throw new Error("Invalid username or password");
+            if (updateError) {
+              console.warn("Could not update auth_id:", updateError);
+            } else {
+              console.log("Successfully linked existing auth user to public user");
+            }
+            
+            // Continue with successful login
+            sessionStorage.setItem("isTechAuthenticated", "true");
+            sessionStorage.setItem("techUsername", credentials.username);
+            navigate(from, { replace: true });
+            return;
+          }
+          
+          // If sign in failed, the auth user doesn't exist
+          // We need to create it manually through the admin API or handle this differently
+          console.log("Auth user doesn't exist. This requires manual setup.");
+          throw new Error("Authentication account not found. Please contact your administrator to set up your account.");
+          
+        } catch (authErr) {
+          console.error("Error with auth user:", authErr);
+          throw new Error("Failed to authenticate. Please contact your administrator.");
+        }
+      } else if (userData && userData.auth_id) {
+        // User exists and has auth_id - normal sign in
+        console.log("User exists with auth_id, attempting normal sign in");
+        const { data, error: signInError } =
+          await supabase.auth.signInWithPassword({
+            email: email,
+            password: credentials.password,
+          });
+
+        if (signInError) {
+          console.error("Sign in error:", signInError);
+          throw new Error("Invalid username or password");
+        }
+
+        // If we get here, login is successful
+        sessionStorage.setItem("isTechAuthenticated", "true");
+        sessionStorage.setItem("techUsername", credentials.username);
+        navigate(from, { replace: true });
+      } else {
+        // User doesn't exist in users table
+        throw new Error("User not found. Please contact your administrator.");
       }
-
-      // If we get here, login is successful
-      sessionStorage.setItem("isTechAuthenticated", "true");
-      sessionStorage.setItem("techUsername", credentials.username);
-      navigate(from, { replace: true });
     } catch (err) {
       console.error("Login error:", err);
       setError(
@@ -117,6 +166,11 @@ const TechnicianLogin = () => {
                     <AlertCircle className="h-5 w-5 text-error-500" />
                     <div className="ml-3">
                       <p className="text-sm text-error-700">{error}</p>
+                      {error.includes("account setup") && (
+                        <p className="text-xs text-error-600 mt-1">
+                          Your account is being set up. Please try signing in again.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

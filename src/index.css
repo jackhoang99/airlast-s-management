@@ -41,6 +41,10 @@
     @apply bg-error-600 text-white hover:bg-error-700;
   }
 
+  .btn-outline {
+    @apply bg-white text-gray-700 border border-gray-300 hover:bg-gray-50;
+  }
+
   .btn-outline-secondary {
     @apply bg-white text-gray-700 border border-gray-300 hover:bg-gray-50;
   }

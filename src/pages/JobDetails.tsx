@@ -28,7 +28,7 @@ import JobUnitSection from "../components/jobs/JobUnitSection";
 import AppointmentModal from "../components/jobs/AppointmentModal";
 import QuotePDFViewer from "../components/quotes/QuotePDFViewer";
 import JobReminderBanner from "../components/jobs/JobReminderBanner";
-import JobTimeTracking from "../components/jobs/JobTimeTracking";
+import AdminTimeTracking from "../components/jobs/AdminTimeTracking";
 import JobComments from "../components/jobs/JobComments";
 import JobReminderList from "../components/jobs/JobReminderList";
 import PermitSection from "../components/permits/PermitSection";
@@ -656,7 +656,9 @@ const JobDetails = () => {
                         >
                           <User size={16} className="text-gray-400" />
                           <span className="font-medium">
-                            {`${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "(No name)"}
+                            {`${contact.first_name || ""} ${
+                              contact.last_name || ""
+                            }`.trim() || "(No name)"}
                           </span>
                           {contact.type && (
                             <span className="text-gray-500">
@@ -940,7 +942,11 @@ const JobDetails = () => {
 
           {/* Time Tracking and Comments */}
           <div className="card">
-            <JobTimeTracking jobId={job.id} />
+            <AdminTimeTracking 
+              jobId={job.id} 
+              jobTechnicians={job.job_technicians}
+              onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
+            />
           </div>
 
           <div className="card">
@@ -996,7 +1002,8 @@ const JobDetails = () => {
               !isMaintenanceChecklistComplete && (
                 <div className="bg-warning-50 border border-warning-200 rounded-md p-3 mb-6">
                   <p className="text-warning-700 text-sm text-center">
-                    ⚠️ PM Checklist is not complete. This is required for technicians but optional for administrators.
+                    ⚠️ PM Checklist is not complete. This is required for
+                    technicians but optional for administrators.
                   </p>
                 </div>
               )}

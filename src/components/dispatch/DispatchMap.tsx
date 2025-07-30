@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader } from "@googlemaps/js-api-loader";
+import loader from "../../utils/loadGoogleMaps";
 
 interface Call {
   address: string;
@@ -18,7 +18,12 @@ interface MapProps {
   onMapReady?: (map: google.maps.Map) => void;
 }
 
-const Map = ({ selectedCall, className = "", onMarkerJobClick, onMapReady }: MapProps) => {
+const Map = ({
+  selectedCall,
+  className = "",
+  onMarkerJobClick,
+  onMapReady,
+}: MapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
@@ -37,11 +42,7 @@ const Map = ({ selectedCall, className = "", onMarkerJobClick, onMapReady }: Map
     let isMounted = true;
     const initMap = async () => {
       try {
-        const loader = new Loader({
-          apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
-          version: "weekly",
-          libraries: ["places", "routes"],
-        });
+        // Use centralized loader
         const google = await loader.load();
         if (mapRef.current && !mapInstanceRef.current && isMounted) {
           mapInstanceRef.current = new google.maps.Map(mapRef.current, {

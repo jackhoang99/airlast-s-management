@@ -29,7 +29,7 @@ const RequireTechAuth = () => {
           // Check if user exists in users table and is a technician
           const { data: userData, error: userError } = await supabase
             .from("users")
-            .select("id, role")
+            .select("id, role, auth_id")
             .eq("email", session.user.email)
             .maybeSingle();
 
@@ -41,6 +41,16 @@ const RequireTechAuth = () => {
           }
 
           if (userData && userData.role === "technician") {
+            // Check if user has auth_id, if not, they need to sign up first
+            if (!userData.auth_id) {
+              console.log(
+                "User is technician but has no auth_id, redirecting to login"
+              );
+              setIsTechnician(false);
+              setIsLoading(false);
+              return;
+            }
+
             console.log("User confirmed as technician");
             setIsTechnician(true);
             setIsLoading(false);

@@ -67,7 +67,7 @@ const TechnicianHome = () => {
           // Try to find user by username
           const { data, error } = await supabase
             .from("users")
-            .select("id, first_name, last_name, role")
+            .select("id, first_name, last_name, role, auth_id")
             .eq("username", username)
             .maybeSingle();
 
@@ -78,6 +78,16 @@ const TechnicianHome = () => {
 
           if (data) {
             console.log("Found technician by username:", data);
+
+            // Check if user has auth_id
+            if (!data.auth_id) {
+              console.warn(
+                "User found but has no auth_id, redirecting to login"
+              );
+              setError("Please sign in to complete your account setup");
+              return;
+            }
+
             setTechnicianId(data.id);
             setTechnicianName(
               `${data.first_name || ""} ${data.last_name || ""}`
@@ -94,7 +104,7 @@ const TechnicianHome = () => {
 
             const { data: emailData, error: emailError } = await supabase
               .from("users")
-              .select("id, first_name, last_name, role")
+              .select("id, first_name, last_name, role, auth_id")
               .eq("email", email)
               .maybeSingle();
 
@@ -105,6 +115,16 @@ const TechnicianHome = () => {
 
             if (emailData) {
               console.log("Found technician by email:", emailData);
+
+              // Check if user has auth_id
+              if (!emailData.auth_id) {
+                console.warn(
+                  "User found but has no auth_id, redirecting to login"
+                );
+                setError("Please sign in to complete your account setup");
+                return;
+              }
+
               setTechnicianId(emailData.id);
               setTechnicianName(
                 `${emailData.first_name || ""} ${emailData.last_name || ""}`
@@ -131,7 +151,7 @@ const TechnicianHome = () => {
             // Try to find by email
             const { data, error } = await supabase
               .from("users")
-              .select("id, username, first_name, last_name, role")
+              .select("id, username, first_name, last_name, role, auth_id")
               .eq("email", user.email)
               .maybeSingle();
 
@@ -142,6 +162,16 @@ const TechnicianHome = () => {
 
             if (data) {
               console.log("Found technician by email:", data);
+
+              // Check if user has auth_id
+              if (!data.auth_id) {
+                console.warn(
+                  "User found but has no auth_id, redirecting to login"
+                );
+                setError("Please sign in to complete your account setup");
+                return;
+              }
+
               setTechnicianId(data.id);
               setTechnicianName(
                 `${data.first_name || ""} ${data.last_name || ""}`
@@ -161,7 +191,7 @@ const TechnicianHome = () => {
               const { data: usernameData, error: usernameError } =
                 await supabase
                   .from("users")
-                  .select("id, first_name, last_name, role")
+                  .select("id, first_name, last_name, role, auth_id")
                   .eq("username", username)
                   .maybeSingle();
 
@@ -181,6 +211,16 @@ const TechnicianHome = () => {
                   "Found technician by username from email:",
                   usernameData
                 );
+
+                // Check if user has auth_id
+                if (!usernameData.auth_id) {
+                  console.warn(
+                    "User found but has no auth_id, redirecting to login"
+                  );
+                  setError("Please sign in to complete your account setup");
+                  return;
+                }
+
                 setTechnicianId(usernameData.id);
                 setTechnicianName(
                   `${usernameData.first_name || ""} ${

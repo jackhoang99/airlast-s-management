@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Database } from "../../types/supabase";
 import { useSupabase } from "../../lib/supabase-context";
 import { Search } from "lucide-react";
-import { Loader } from "@googlemaps/js-api-loader";
+import loader from "../../utils/loadGoogleMaps";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
 type Location = Database["public"]["Tables"]["locations"]["Row"];
@@ -51,11 +51,7 @@ const LocationForm = ({
   useEffect(() => {
     const loadGoogleMapsAPI = async () => {
       try {
-        const loader = new Loader({
-          apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
-          version: "weekly",
-          libraries: ["places", "routes", "marker"],
-        });
+        // Use centralized loader
 
         const google = await loader.load();
         setGoogleMapsLoaded(true);

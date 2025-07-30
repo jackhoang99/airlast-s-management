@@ -19,7 +19,7 @@ import {
   AlertTriangle,
   Check,
 } from "lucide-react";
-import { Loader } from "@googlemaps/js-api-loader";
+import loader from "../../../utils/loadGoogleMaps";
 
 interface TechnicianNavigationProps {
   isOpen: boolean;
@@ -191,11 +191,7 @@ const TechnicianNavigation = ({
       try {
         setIsLoading(true);
 
-        const loader = new Loader({
-          apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
-          version: "weekly",
-          libraries: ["places", "routes", "marker"],
-        });
+        // Use centralized loader
 
         const google = await loader.load();
         setGoogleMaps(google.maps);

@@ -1,515 +1,742 @@
 import { useState, useEffect, useRef } from "react";
 import { useSupabase } from "../../lib/supabase-context";
-import { Loader } from "@googlemaps/js-api-loader";
-import JobQueue from "../../components/dispatch/JobQueue";
-import DispatchFilters from "../../components/dispatch/DispatchFilters";
-import TechnicianScheduleMobile from "../components/schedule/TechnicianScheduleMobile";
+import loader from "../../utils/loadGoogleMaps";
 import TechnicianJobDetailSheet from "../components/jobs/TechnicianJobDetailSheet";
-import TechnicianRescheduleModal from "../components/jobs/TechnicianRescheduleModal";
-import TechnicianReassignModal from "../components/jobs/TechnicianReassignModal";
-import {
-  Minimize,
-  Maximize,
-  Layers,
-  Car,
-  RotateCw,
-  Menu,
-  Calendar,
-  Plus,
-} from "lucide-react";
-import { useMediaQuery } from "react-responsive";
-import { Dialog } from "@headlessui/react";
-import {
-  getJobTypeBorderColor,
-  getJobTypeBackgroundColor,
-  getJobTypeHoverColor,
-} from "../../components/jobs/JobTypeColors";
+import CurrentLocationMarker from "../components/map/CurrentLocationMarker";
+import TechnicianMarkers from "../components/map/TechnicianMarkers";
+import JobMarkers from "../components/map/JobMarkers";
+import MapControls from "../components/map/MapControls";
+import TechnicianPanel from "../components/map/TechnicianPanel";
+import JobPanel from "../components/map/JobPanel";
+import TechnicianModal from "../components/map/TechnicianModal";
+import { Technician } from "../types/technician";
+
+// Extend window object to include Google Maps
+declare global {
+  interface Window {
+    google: typeof google;
+  }
+}
+
+interface TechnicianMarker {
+  id: string;
+  marker: google.maps.Marker;
+  infoWindow: google.maps.InfoWindow;
+  labelMarker: google.maps.Marker;
+}
+
+interface JobMarker {
+  marker: google.maps.Marker;
+  job: any;
+}
+
+interface RouteLine {
+  polyline: google.maps.Polyline;
+  technicianId: string;
+}
 
 const TechnicianMap = () => {
   const { supabase } = useSupabase();
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [technicians, setTechnicians] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState("job_type");
-  const [filterJobType, setFilterJobType] = useState("all");
-  const [filterZipCode, setFilterZipCode] = useState("");
-  const [showJobQueue, setShowJobQueue] = useState(false);
-  const [showSchedule, setShowSchedule] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<any | null>(null);
-  const [showJobSheet, setShowJobSheet] = useState(false);
-  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
-  const [showReassignModal, setShowReassignModal] = useState(false);
-  const [mapType, setMapType] = useState<string>("roadmap");
-  const [trafficEnabled, setTrafficEnabled] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const isMobile = useMediaQuery({ maxWidth: 767 });
-  const [showFilters, setShowFilters] = useState(false);
+  const currentLocationMarkerRef = useRef<google.maps.Marker | null>(null);
+  const technicianMarkersRef = useRef<TechnicianMarker[]>([]);
+  const jobMarkersRef = useRef<JobMarker[]>([]);
+  const routeLinesRef = useRef<RouteLine[]>([]);
 
-  // Fetch all technicians
+  // State
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [currentUserLocation, setCurrentUserLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [selectedTechnician, setSelectedTechnician] =
+    useState<Technician | null>(null);
+  const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [showTechnicianModal, setShowTechnicianModal] = useState(false);
+  const [showJobSheet, setShowJobSheet] = useState(false);
+  const [showTechnicianPanel, setShowTechnicianPanel] = useState(false);
+  const [showJobPanel, setShowJobPanel] = useState(false);
+  const [mapType, setMapType] = useState<"roadmap" | "satellite">("roadmap");
+  const [trafficEnabled, setTrafficEnabled] = useState(false);
+  const [enRouteTechnicians, setEnRouteTechnicians] = useState<Set<string>>(
+    new Set()
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [showStatusLegend, setShowStatusLegend] = useState(true);
+  const [showTopBar, setShowTopBar] = useState(true);
+
+  // Define handleCheckInOut function before useEffects
+  function handleCheckInOut(technician: Technician) {
+    if (!supabase) return;
+
+    // Map our status values to database-compatible values
+    const newStatus = technician.status === "available" ? "active" : "active";
+
+    // Update technician status - keep as 'active' since that's what the DB allows
+    supabase
+      .from("users")
+      .update({ status: newStatus })
+      .eq("id", technician.id)
+      .then(({ error }) => {
+        if (error) {
+          console.error("Error updating technician status:", error);
+          setError("Failed to update status");
+        } else {
+          // Update local state with our custom status for UI
+          const newUISStatus =
+            technician.status === "available" ? "on_job" : "available";
+          setTechnicians((prev) =>
+            prev.map((tech) =>
+              tech.id === technician.id
+                ? { ...tech, status: newUISStatus }
+                : tech
+            )
+          );
+        }
+      })
+      .catch((err) => {
+        console.error("Error updating technician status:", err);
+        setError("Failed to update status");
+      });
+  }
+
+  // Get current user location
   useEffect(() => {
-    const fetchTechs = async () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.log("Error getting location:", error);
+        }
+      );
+    }
+  }, []);
+
+  // Fetch technicians with their current status and job information
+  useEffect(() => {
+    const fetchTechnicians = async () => {
       if (!supabase) return;
+
       try {
-        const { data, error } = await supabase
+        // Fetch technicians with their current job status and location
+        const { data: techData, error: techError } = await supabase
           .from("users")
-          .select("id, first_name, last_name")
+          .select(
+            `
+            id,
+            first_name,
+            last_name,
+            status,
+            technician_locations (
+              latitude,
+              longitude,
+              updated_at
+            )
+          `
+          )
           .eq("role", "technician")
-          .eq("status", "active")
-          .order("first_name");
-        if (error) throw error;
-        setTechnicians(data || []);
+          .eq("status", "active");
+
+        if (techError) throw techError;
+
+        // Fetch current job assignments and job details
+        const { data: jobAssignments, error: jobError } = await supabase
+          .from("job_technicians")
+          .select(
+            `
+            technician_id,
+            is_primary,
+            jobs (
+              id,
+              name,
+              status,
+              schedule_start,
+              schedule_duration,
+              locations (
+                name,
+                address,
+                city,
+                state
+              )
+            )
+          `
+          )
+          .eq("is_primary", true)
+          .neq("jobs.status", "completed")
+          .neq("jobs.status", "cancelled");
+
+        if (jobError) throw jobError;
+
+        // Process technician data with job information
+        const techniciansWithJobs = (techData || []).map((tech) => {
+          const techJobs = (jobAssignments || [])
+            .filter((assignment) => assignment.technician_id === tech.id)
+            .map((assignment) => assignment.jobs)
+            .filter((job) => job !== null); // Filter out null jobs
+
+          const currentJob = techJobs.find(
+            (job) =>
+              job &&
+              (job.status === "scheduled" || job.status === "in_progress")
+          );
+          const jobCount = techJobs.length;
+          const nextJob = techJobs
+            .filter((job) => job && job.status === "scheduled")
+            .sort(
+              (a, b) =>
+                new Date(a.schedule_start).getTime() -
+                new Date(b.schedule_start).getTime()
+            )[0];
+
+          // Get technician's real location from technician_locations table
+          const techLocation = tech.technician_locations?.[0];
+
+          return {
+            id: tech.id,
+            first_name: tech.first_name,
+            last_name: tech.last_name,
+            // Map database status to UI status - all technicians are 'active' in DB but we show different UI states
+            status: currentJob ? "on_job" : "available",
+            current_job_id: currentJob?.id,
+            current_job_name: currentJob?.name,
+            job_count: jobCount,
+            next_job_time: nextJob?.schedule_start,
+            location: {
+              lat: 33.749 + (Math.random() - 0.5) * 0.1, // Random position around Atlanta (fallback)
+              lng: -84.388 + (Math.random() - 0.5) * 0.1,
+            },
+            current_location: techLocation
+              ? {
+                  lat: techLocation.latitude,
+                  lng: techLocation.longitude,
+                  address: "Current Location",
+                }
+              : currentUserLocation
+              ? {
+                  lat: currentUserLocation.lat,
+                  lng: currentUserLocation.lng,
+                  address: "Current Location",
+                }
+              : undefined,
+            technician_location: techLocation || undefined,
+          };
+        });
+
+        setTechnicians(techniciansWithJobs);
       } catch (err) {
+        console.error("Error fetching technicians:", err);
         setError("Failed to load technicians");
       }
     };
-    fetchTechs();
-  }, [supabase]);
 
-  // Fetch all jobs (not just for the selected day)
+    fetchTechnicians();
+
+    // Update current user location immediately
+    updateCurrentUserLocation();
+
+    const interval = setInterval(fetchTechnicians, 30000); // Refresh every 30 seconds
+
+    // Set up periodic location updates (every 2 minutes)
+    const locationInterval = setInterval(() => {
+      updateCurrentUserLocation();
+    }, 120000); // 2 minutes
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(locationInterval);
+    };
+  }, [supabase, currentUserLocation]);
+
+  // Fetch jobs
   useEffect(() => {
     const fetchJobs = async () => {
       if (!supabase) return;
-      setIsLoading(true);
+
       try {
         const { data, error } = await supabase
           .from("jobs")
           .select(
-            `*,
-              job_technicians:job_technicians!inner (
-                technician_id, is_primary, users:technician_id (first_name, last_name)
-              ),
-              locations (name, zip, address, city, state),
-              job_units:job_units!inner (
-                unit_id,
-                units:unit_id (id, unit_number)
-              )
             `
+            id,
+            name,
+            status,
+            type,
+            schedule_start,
+            schedule_duration,
+            locations (
+              name,
+              address,
+              city,
+              state
+            )
+          `
           )
-          .order("schedule_start");
+          .neq("status", "completed")
+          .neq("status", "cancelled");
+
         if (error) throw error;
-        // Flatten units
-        const jobsWithUnits = (data || []).map((job: any) => ({
-          ...job,
-          units: (job.job_units || []).map((ju: any) => ju.units),
-        }));
-        setJobs(jobsWithUnits);
+        setJobs(data || []);
       } catch (err) {
+        console.error("Error fetching jobs:", err);
         setError("Failed to load jobs");
-      } finally {
-        setIsLoading(false);
       }
     };
+
     fetchJobs();
   }, [supabase]);
 
-  // Map logic (initialize, update markers, etc.)
+  // Initialize map
   useEffect(() => {
-    let isMounted = true;
     const initMap = async () => {
-      if (!mapRef.current) return;
+      if (!mapRef.current || mapInstanceRef.current) return;
+
       try {
-        const loader = new Loader({
-          apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
-          version: "weekly",
-          libraries: ["places", "routes", "marker"],
-        });
+        // Use centralized loader
+
         const google = await loader.load();
-        if (mapRef.current && isMounted) {
-          const mapInstance = new google.maps.Map(mapRef.current, {
-            center: { lat: 33.749, lng: -84.388 },
-            zoom: 11,
-            mapTypeId: mapType as google.maps.MapTypeId,
-            mapTypeControl: false,
-            fullscreenControl: false,
-            streetViewControl: false,
-            zoomControl: true,
-            zoomControlOptions: {
-              position: google.maps.ControlPosition.RIGHT_TOP,
-            },
-            styles: [
-              {
-                featureType: "poi",
-                elementType: "labels",
-                stylers: [{ visibility: "off" }],
-              },
-            ],
-          });
-          mapInstanceRef.current = mapInstance;
-        }
+
+        const map = new google.maps.Map(mapRef.current, {
+          center: { lat: 33.749, lng: -84.388 }, // Atlanta
+          zoom: 12,
+          mapTypeId: "roadmap",
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+        });
+
+        mapInstanceRef.current = map;
       } catch (error) {
+        console.error("Error loading Google Maps:", error);
         setError("Failed to load map");
       }
     };
+
     initMap();
-    return () => {
-      isMounted = false;
-      markersRef.current.forEach((marker) => marker.setMap(null));
-      markersRef.current = [];
-    };
+  }, []);
+
+  // Update map type
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setMapTypeId(mapType as any);
+    }
   }, [mapType]);
 
-  // --- Handlers for map controls ---
+  // Update traffic layer
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      const trafficLayer = (mapInstanceRef.current as any).trafficLayer;
+      if (trafficLayer) {
+        trafficLayer.setMap(trafficEnabled ? mapInstanceRef.current : null);
+      }
+    }
+  }, [trafficEnabled]);
+
   const toggleMapType = () => {
-    if (!mapInstanceRef.current) return;
-    const newMapType = mapType === "roadmap" ? "satellite" : "roadmap";
-    setMapType(newMapType);
-    mapInstanceRef.current.setMapTypeId(newMapType as google.maps.MapTypeId);
+    setMapType(mapType === "roadmap" ? "satellite" : "roadmap");
   };
+
   const toggleTraffic = () => {
     setTrafficEnabled(!trafficEnabled);
-    // ...traffic layer logic
-  };
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      mapRef.current?.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
-    }
   };
 
-  // --- Drag-and-drop handlers for schedule grid ---
-  const handleJobScheduleUpdate = async (
-    jobId: string,
-    technicianId: string,
-    newTime: string
-  ) => {
-    if (!supabase) return;
-    setIsLoading(true);
+  const handleStartJob = async (jobId: string) => {
+    if (!supabase || !selectedTechnician) return;
+
     try {
-      await supabase
+      // Update job status to in_progress
+      const { error } = await supabase
         .from("jobs")
-        .update({ schedule_start: newTime })
+        .update({ status: "in_progress" })
         .eq("id", jobId);
-      const job = jobs.find((j) => j.id === jobId);
-      if (
-        job &&
-        !job.job_technicians.some(
-          (jt: any) => jt.technician_id === technicianId
-        )
-      ) {
-        await supabase.from("job_technicians").delete().eq("job_id", jobId);
-        await supabase.from("job_technicians").insert({
-          job_id: jobId,
-          technician_id: technicianId,
-          is_primary: true,
-        });
-      }
+
+      if (error) throw error;
+
+      // Update local state
       setJobs((prev) =>
-        prev.map((j) =>
-          j.id === jobId ? { ...j, schedule_start: newTime } : j
+        prev.map((job) =>
+          job.id === jobId ? { ...job, status: "in_progress" } : job
+        )
+      );
+
+      // Refresh technicians to update their status
+      setTechnicians((prev) =>
+        prev.map((tech) =>
+          tech.id === selectedTechnician.id
+            ? { ...tech, status: "on_job", current_job_id: jobId }
+            : tech
         )
       );
     } catch (err) {
-      setError("Failed to update job schedule");
-    } finally {
-      setIsLoading(false);
+      console.error("Error starting job:", err);
+      setError("Failed to start job");
     }
   };
-  const handleJobReassign = async (
-    jobId: string,
-    fromTechId: string,
-    toTechId: string
+
+  const handleEndJob = async (jobId: string) => {
+    if (!supabase || !selectedTechnician) return;
+
+    try {
+      // Update job status to completed
+      const { error } = await supabase
+        .from("jobs")
+        .update({ status: "completed" })
+        .eq("id", jobId);
+
+      if (error) throw error;
+
+      // Update local state
+      setJobs((prev) =>
+        prev.map((job) =>
+          job.id === jobId ? { ...job, status: "completed" } : job
+        )
+      );
+
+      // Refresh technicians to update their status
+      setTechnicians((prev) =>
+        prev.map((tech) =>
+          tech.id === selectedTechnician.id
+            ? { ...tech, status: "available", current_job_id: undefined }
+            : tech
+        )
+      );
+    } catch (err) {
+      console.error("Error ending job:", err);
+      setError("Failed to end job");
+    }
+  };
+
+  const handleTechnicianClick = (technician: Technician) => {
+    setSelectedTechnician(technician);
+    setShowTechnicianModal(true);
+
+    // Pan to technician's real current location if available, otherwise fallback to assigned location
+    if (mapInstanceRef.current) {
+      const locationToPanTo =
+        technician.current_location || technician.location;
+      if (locationToPanTo) {
+        mapInstanceRef.current.panTo(locationToPanTo);
+        mapInstanceRef.current.setZoom(15);
+      }
+    }
+  };
+
+  const handleTechnicianCardClick = (technician: Technician) => {
+    // Pan to technician's real current location if available, otherwise fallback to assigned location
+    if (mapInstanceRef.current) {
+      const locationToPanTo =
+        technician.current_location || technician.location;
+      if (locationToPanTo) {
+        mapInstanceRef.current.panTo(locationToPanTo);
+        mapInstanceRef.current.setZoom(15);
+      }
+    }
+  };
+
+  const handleEnRoute = (technician: Technician) => {
+    if (!mapInstanceRef.current) return;
+
+    const isEnRoute = enRouteTechnicians.has(technician.id);
+
+    if (isEnRoute) {
+      // Remove route line
+      const routeLine = routeLinesRef.current.find(
+        (line) => line.technicianId === technician.id
+      );
+      if (routeLine) {
+        routeLine.polyline.setMap(null);
+        routeLinesRef.current = routeLinesRef.current.filter(
+          (line) => line.technicianId !== technician.id
+        );
+      }
+      setEnRouteTechnicians((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(technician.id);
+        return newSet;
+      });
+    } else {
+      // Add route line
+      if (technician.current_job_id) {
+        const job = jobs.find((j) => j.id === technician.current_job_id);
+        if (job) {
+          const startPosition =
+            technician.current_location || technician.location;
+          const endPosition = { lat: 33.749, lng: -84.388 }; // Default Atlanta position for jobs
+
+          const polyline = new google.maps.Polyline({
+            path: [startPosition, endPosition],
+            geodesic: true,
+            strokeColor: "#FF6B35",
+            strokeOpacity: 1.0,
+            strokeWeight: 3,
+            icons: [
+              {
+                icon: {
+                  path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                },
+                offset: "50%",
+                repeat: "100px",
+              },
+            ],
+          });
+
+          polyline.setMap(mapInstanceRef.current);
+
+          routeLinesRef.current.push({
+            polyline,
+            technicianId: technician.id,
+          });
+
+          setEnRouteTechnicians((prev) => new Set(prev).add(technician.id));
+
+          // Fit map to show the entire route
+          const bounds = new google.maps.LatLngBounds();
+          bounds.extend(startPosition);
+          bounds.extend(endPosition);
+          mapInstanceRef.current.fitBounds(bounds);
+        }
+      }
+    }
+  };
+
+  const handleNavigateToJob = (job: any) => {
+    if (!mapInstanceRef.current) return;
+
+    // Pan to job location (using default Atlanta coordinates)
+    const jobPosition = { lat: 33.749, lng: -84.388 };
+    mapInstanceRef.current.panTo(jobPosition);
+    mapInstanceRef.current.setZoom(15);
+  };
+
+  const handleEnRouteToJob = (job: any, technician: Technician) => {
+    if (!mapInstanceRef.current) return;
+
+    const startPosition = technician.current_location || technician.location;
+    const endPosition = { lat: 33.749, lng: -84.388 }; // Default Atlanta position for jobs
+
+    // Remove existing route for this technician
+    const existingRoute = routeLinesRef.current.find(
+      (line) => line.technicianId === technician.id
+    );
+    if (existingRoute) {
+      existingRoute.polyline.setMap(null);
+      routeLinesRef.current = routeLinesRef.current.filter(
+        (line) => line.technicianId !== technician.id
+      );
+    }
+
+    // Create new route
+    const polyline = new google.maps.Polyline({
+      path: [startPosition, endPosition],
+      geodesic: true,
+      strokeColor: "#FF6B35",
+      strokeOpacity: 1.0,
+      strokeWeight: 3,
+      icons: [
+        {
+          icon: {
+            path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+          },
+          offset: "50%",
+          repeat: "100px",
+        },
+      ],
+    });
+
+    polyline.setMap(mapInstanceRef.current);
+
+    routeLinesRef.current.push({
+      polyline,
+      technicianId: technician.id,
+    });
+
+    setEnRouteTechnicians((prev) => new Set(prev).add(technician.id));
+
+    // Fit map to show the entire route
+    const bounds = new google.maps.LatLngBounds();
+    bounds.extend(startPosition);
+    bounds.extend(endPosition);
+    mapInstanceRef.current.fitBounds(bounds);
+  };
+
+  // Get technician's assigned jobs
+  const getTechnicianJobs = (technicianId: string) => {
+    return jobs.filter((job) =>
+      job.job_technicians?.some((jt: any) => jt.technician_id === technicianId)
+    );
+  };
+
+  // Function to update technician location
+  const updateTechnicianLocation = async (
+    technicianId: string,
+    latitude: number,
+    longitude: number
   ) => {
     if (!supabase) return;
-    setIsLoading(true);
+
     try {
-      await supabase
-        .from("job_technicians")
-        .delete()
-        .eq("job_id", jobId)
-        .eq("technician_id", fromTechId);
-      await supabase
-        .from("job_technicians")
-        .insert({ job_id: jobId, technician_id: toTechId, is_primary: true });
-      setJobs((prev) =>
-        prev.map((j) =>
-          j.id === jobId
+      const { error } = await supabase.from("technician_locations").upsert({
+        tech_id: technicianId,
+        latitude,
+        longitude,
+      });
+
+      if (error) throw error;
+
+      // Refresh technicians to get updated location
+      setTechnicians((prev) =>
+        prev.map((tech) =>
+          tech.id === technicianId
             ? {
-                ...j,
-                job_technicians: [
-                  {
-                    technician_id: toTechId,
-                    is_primary: true,
-                    users: { first_name: "", last_name: "" },
-                  },
-                ],
+                ...tech,
+                technician_location: {
+                  latitude,
+                  longitude,
+                  updated_at: new Date().toISOString(),
+                },
+                current_location: {
+                  lat: latitude,
+                  lng: longitude,
+                  address: "Current Location",
+                },
               }
-            : j
+            : tech
         )
       );
     } catch (err) {
-      setError("Failed to reassign job");
-    } finally {
-      setIsLoading(false);
+      console.error("Error updating technician location:", err);
+      setError("Failed to update location");
     }
   };
 
-  // --- Job click handler ---
-  const handleJobClick = (job: any) => {
-    setSelectedJob(job);
-    setShowJobSheet(true);
+  // Function to get current user's location and update it automatically
+  const updateCurrentUserLocation = async () => {
+    if (!supabase || !currentUser) return;
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          await updateTechnicianLocation(
+            currentUser.id,
+            position.coords.latitude,
+            position.coords.longitude
+          );
+        },
+        (error) => {
+          console.log("Error getting current user location:", error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000, // 5 minutes
+        }
+      );
+    }
   };
 
-  // --- Job queue filtering ---
-  const filteredJobs = jobs.filter((job) => {
-    if (filterJobType !== "all" && job.type !== filterJobType) return false;
-    if (filterZipCode && job.locations?.zip !== filterZipCode) return false;
-    if (!searchTerm) return true;
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      job.name.toLowerCase().includes(searchLower) ||
-      job.locations?.name?.toLowerCase().includes(searchLower) ||
-      job.locations?.address?.toLowerCase().includes(searchLower) ||
-      job.locations?.city?.toLowerCase().includes(searchLower)
-    );
-  });
-
-  // --- Layout ---
   return (
-    <div className="flex flex-col h-screen w-full bg-gray-50">
-      {/* Top Bar */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 flex items-center justify-between px-2 py-2 gap-2">
-        <button
-          className="md:hidden btn btn-secondary"
-          onClick={() => setShowJobQueue((v) => !v)}
-        >
-          <Menu size={20} />
-        </button>
-        <span className="font-bold text-lg md:text-xl flex-1 text-center md:text-left">
-          Airl... Technician
-        </span>
-        {isMobile ? (
-          <button
-            className="btn btn-secondary"
-            onClick={() => setShowFilters(true)}
-          >
-            Filters
-          </button>
-        ) : (
-          <DispatchFilters
-            currentDate={currentDate}
-            onDateChange={setCurrentDate}
-            sortBy={sortBy as any}
-            onSortChange={setSortBy}
-            filterJobType={filterJobType}
-            onJobTypeFilterChange={setFilterJobType}
-            filterZipCode={filterZipCode}
-            onZipCodeFilterChange={setFilterZipCode}
-            searchTerm={searchTerm}
-            onSearchTermChange={setSearchTerm}
-            dragModeActive={false}
-            onActivateDragMode={() => setShowSchedule(true)}
-            onCancelDragMode={() => setShowSchedule(false)}
-            jobsByDate={{}}
-          />
-        )}
-        <div className="flex gap-2 md:hidden">
-          <button
-            className="btn btn-primary"
-            onClick={() => setShowSchedule((v) => !v)}
-          >
-            <Calendar size={18} className="mr-1" />
-            Schedule
-          </button>
-          <button className="btn btn-primary" onClick={() => {}}>
-            <Plus size={18} className="mr-1" />
-            Add Job
-          </button>
-        </div>
-      </div>
-      {/* Filters Modal for Mobile */}
-      {isMobile && (
-        <Dialog
-          open={showFilters}
-          onClose={() => setShowFilters(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center"
-        >
-          <Dialog.Overlay className="fixed inset-0 bg-black bg-opacity-30" />
-          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-sm mx-auto p-4">
-            <DispatchFilters
-              currentDate={currentDate}
-              onDateChange={setCurrentDate}
-              sortBy={sortBy as any}
-              onSortChange={setSortBy}
-              filterJobType={filterJobType}
-              onJobTypeFilterChange={setFilterJobType}
-              filterZipCode={filterZipCode}
-              onZipCodeFilterChange={setFilterZipCode}
-              searchTerm={searchTerm}
-              onSearchTermChange={setSearchTerm}
-              dragModeActive={false}
-              onActivateDragMode={() => setShowSchedule(true)}
-              onCancelDragMode={() => setShowSchedule(false)}
-              jobsByDate={{}}
-            />
-            <button
-              className="btn btn-secondary w-full mt-4"
-              onClick={() => setShowFilters(false)}
-            >
-              Close
-            </button>
-          </div>
-        </Dialog>
+    <div className="relative w-full h-full">
+      {/* Map Container */}
+      <div ref={mapRef} className="w-full h-full" />
+
+      {/* Map Components */}
+      <CurrentLocationMarker
+        currentUserLocation={currentUserLocation}
+        mapInstance={mapInstanceRef.current}
+      />
+
+      <TechnicianMarkers
+        technicians={technicians}
+        mapInstance={mapInstanceRef.current}
+        onTechnicianClick={handleTechnicianClick}
+        onCheckInOut={handleCheckInOut}
+      />
+
+      <JobMarkers
+        jobs={jobs}
+        mapInstance={mapInstanceRef.current}
+        onJobClick={(job) => {
+          setSelectedJob(job);
+          setShowJobSheet(true);
+        }}
+      />
+
+      {/* Map Controls */}
+      <MapControls
+        showTechnicianPanel={showTechnicianPanel}
+        showJobPanel={showJobPanel}
+        trafficEnabled={trafficEnabled}
+        showTopBar={showTopBar}
+        onToggleTechnicianPanel={() => {
+          setShowTechnicianPanel(!showTechnicianPanel);
+          setShowJobPanel(false);
+        }}
+        onToggleJobPanel={() => {
+          setShowJobPanel(!showJobPanel);
+          setShowTechnicianPanel(false);
+        }}
+        onUpdateLocation={() => {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                setCurrentUserLocation({
+                  lat: position.coords.latitude,
+                  lng: position.coords.longitude,
+                });
+              },
+              (error) => {
+                console.log("Error getting location:", error);
+              }
+            );
+          }
+        }}
+        onToggleMapType={toggleMapType}
+        onToggleTraffic={toggleTraffic}
+        onToggleTopBar={() => setShowTopBar(!showTopBar)}
+      />
+
+      {/* Technician Panel */}
+      {showTechnicianPanel && (
+        <TechnicianPanel
+          technicians={technicians}
+          onTechnicianClick={handleTechnicianClick}
+          onClose={() => setShowTechnicianPanel(false)}
+          onTechnicianCardClick={handleTechnicianCardClick}
+        />
       )}
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Job Queue Drawer (mobile full screen) */}
-        <div
-          className={`fixed z-40 top-0 left-0 h-full ${
-            isMobile ? "w-full" : "w-80"
-          } bg-white border-r border-gray-200 shadow-lg transition-transform duration-300 ${
-            showJobQueue
-              ? "translate-x-0"
-              : "-translate-x-full md:translate-x-0"
-          }`}
-        >
-          {isMobile && (
-            <div className="flex items-center justify-between p-4 border-b">
-              <span className="font-bold text-lg">Job Queue</span>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowJobQueue(false)}
-              >
-                Close
-              </button>
-            </div>
-          )}
-          <JobQueue
-            jobs={filteredJobs}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            onJobDragStart={() => {}}
-            onJobDragEnd={() => {}}
-            onJobClick={(jobId) => {
-              const job = jobs.find((j) => j.id === jobId);
-              if (job) handleJobClick(job);
-            }}
-            selectedJobId={selectedJob?.id || null}
-            getJobTypeColorClass={() => ""}
-            closeDrawer={isMobile ? () => setShowJobQueue(false) : undefined}
-          />
-        </div>
-        {/* Map */}
-        <div className="flex-1 relative">
-          <div ref={mapRef} className="absolute inset-0 h-full w-full z-0" />
-          {/* Map Controls - FAB group for mobile, vertical for desktop */}
-          {isMobile ? (
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-4 bg-white rounded-full shadow-lg px-4 py-2 border border-gray-200">
-              <button
-                onClick={toggleMapType}
-                className="p-2 rounded-full text-gray-700 hover:bg-gray-100 focus:outline-none"
-                aria-label={
-                  mapType === "roadmap"
-                    ? "Switch to Satellite"
-                    : "Switch to Map"
-                }
-              >
-                <Layers size={22} />
-              </button>
-              <button
-                onClick={toggleTraffic}
-                className={`p-2 rounded-full focus:outline-none ${
-                  trafficEnabled
-                    ? "bg-primary-600 text-white"
-                    : "text-gray-700 hover:bg-gray-100"
-                }`}
-                aria-label={trafficEnabled ? "Hide Traffic" : "Show Traffic"}
-              >
-                <Car size={22} />
-              </button>
-              <button
-                onClick={() => {}}
-                className="p-2 rounded-full text-gray-700 hover:bg-gray-100 focus:outline-none"
-                aria-label="Recalculate Route"
-              >
-                <RotateCw size={22} />
-              </button>
-              <button
-                onClick={toggleFullscreen}
-                className="p-2 rounded-full text-gray-700 hover:bg-gray-100 focus:outline-none"
-                aria-label={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-              >
-                {isFullscreen ? <Minimize size={22} /> : <Maximize size={22} />}
-              </button>
-            </div>
-          ) : (
-            <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
-              <button
-                onClick={toggleMapType}
-                className="p-3 bg-white rounded-full shadow-md text-gray-700 hover:bg-gray-50"
-                title={
-                  mapType === "roadmap"
-                    ? "Switch to Satellite"
-                    : "Switch to Map"
-                }
-              >
-                <Layers size={20} />
-              </button>
-              <button
-                onClick={toggleTraffic}
-                className={`p-3 rounded-full shadow-md ${
-                  trafficEnabled
-                    ? "bg-primary-600 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-                title={trafficEnabled ? "Hide Traffic" : "Show Traffic"}
-              >
-                <Car size={20} />
-              </button>
-              <button
-                onClick={() => {}}
-                className="p-3 bg-white rounded-full shadow-md text-gray-700 hover:bg-gray-50"
-                title="Recalculate Route"
-              >
-                <RotateCw size={20} />
-              </button>
-              <button
-                onClick={toggleFullscreen}
-                className="p-3 bg-white rounded-full shadow-md text-gray-700 hover:bg-gray-50"
-                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-              >
-                {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
-              </button>
-            </div>
-          )}
-        </div>
-        {/* Technician Schedule Drawer (mobile full screen modal) */}
-        <div
-          className={`fixed z-40 bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg transition-transform duration-300 ${
-            isMobile ? "h-full" : ""
-          } ${
-            showSchedule ? "translate-y-0" : "translate-y-full md:translate-y-0"
-          }`}
-          style={isMobile ? { minHeight: "100vh" } : { minHeight: 320 }}
-        >
-          <div className="flex items-center justify-between p-4 border-b md:hidden">
-            <span className="font-bold text-lg">Schedule</span>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setShowSchedule(false)}
-            >
-              Close
-            </button>
-          </div>
-          <TechnicianScheduleMobile
-            technicians={technicians}
-            jobs={jobs}
-            currentDate={currentDate}
-            onDateChange={setCurrentDate}
-            onJobScheduleUpdate={handleJobScheduleUpdate}
-            onJobReassign={handleJobReassign}
-            onJobClick={handleJobClick}
-          />
-        </div>
-      </div>
+
+      {/* Job Panel */}
+      {showJobPanel && (
+        <JobPanel
+          jobs={jobs}
+          technicians={technicians}
+          enRouteTechnicians={enRouteTechnicians}
+          onNavigateToJob={handleNavigateToJob}
+          onEnRouteToJob={handleEnRouteToJob}
+          onClose={() => setShowJobPanel(false)}
+        />
+      )}
+
+      {/* Technician Modal */}
+      <TechnicianModal
+        technician={selectedTechnician}
+        isOpen={showTechnicianModal}
+        enRouteTechnicians={enRouteTechnicians}
+        onClose={() => setShowTechnicianModal(false)}
+        onCheckInOut={handleCheckInOut}
+        onEnRoute={handleEnRoute}
+        onStartJob={handleStartJob}
+        onEndJob={handleEndJob}
+        getTechnicianJobs={getTechnicianJobs}
+        onUpdateLocation={updateTechnicianLocation}
+      />
+
       {/* Job Detail Sheet */}
       {showJobSheet && selectedJob && (
         <TechnicianJobDetailSheet
@@ -517,20 +744,73 @@ const TechnicianMap = () => {
           onClose={() => setShowJobSheet(false)}
         />
       )}
-      {/* Reschedule Modal */}
-      <TechnicianRescheduleModal
-        isOpen={showRescheduleModal}
-        onClose={() => setShowRescheduleModal(false)}
-        onSave={() => {}}
-        initialDate={selectedJob?.schedule_start}
-      />
-      {/* Reassign Modal */}
-      <TechnicianReassignModal
-        isOpen={showReassignModal}
-        onClose={() => setShowReassignModal(false)}
-        onSave={() => {}}
-        currentTechnicianId={""}
-      />
+
+      {/* Status Legend */}
+      {showStatusLegend && (
+        <div className="absolute bottom-4 left-4 z-20 bg-white rounded-lg shadow-lg border border-gray-200 p-3 min-w-[140px]">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-semibold text-sm">Status Legend</h4>
+            <button
+              onClick={() => setShowStatusLegend(false)}
+              className="text-gray-500 hover:text-red-500 hover:bg-red-50 p-1 rounded transition-colors"
+              title="Hide Legend"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+          <div className="space-y-1 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span>Available</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+              <span>On Job</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+              <span>Offline</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Show Legend Button (when hidden) */}
+      {!showStatusLegend && (
+        <div className="absolute bottom-4 left-4 z-20">
+          <button
+            onClick={() => setShowStatusLegend(true)}
+            className="bg-white rounded-lg shadow-lg border border-gray-200 p-2 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+            title="Show Status Legend"
+          >
+            <svg
+              className="w-5 h-5 text-blue-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

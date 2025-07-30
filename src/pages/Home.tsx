@@ -584,20 +584,20 @@ const Home = () => {
         );
 
       const totalInvoiceValue =
-        draftInvoiceData?.reduce(
-          (sum, inv) => sum + Number(inv.amount || 0),
-          0
-        ) || 0;
+        draftInvoiceData?.reduce((sum, inv) => {
+          const amount = Number(inv.amount);
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0) || 0;
       const totalPaidAmount =
-        paidInvoiceData?.reduce(
-          (sum, inv) => sum + Number(inv.amount || 0),
-          0
-        ) || 0;
+        paidInvoiceData?.reduce((sum, inv) => {
+          const amount = Number(inv.amount);
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0) || 0;
       const totalPendingAmount =
-        pendingInvoiceData?.reduce(
-          (sum, inv) => sum + Number(inv.amount || 0),
-          0
-        ) || 0;
+        pendingInvoiceData?.reduce((sum, inv) => {
+          const amount = Number(inv.amount);
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0) || 0;
 
       // Fetch quote statistics
       const { data: quotesData, error: quotesError } = await supabase
@@ -708,6 +708,10 @@ const Home = () => {
   }, [supabase, selectedDate]);
 
   const formatCurrency = (amount: number) => {
+    // Handle NaN, null, or undefined values
+    if (isNaN(amount) || amount === null || amount === undefined) {
+      return "$0.00";
+    }
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
@@ -1558,13 +1562,18 @@ const Home = () => {
         {getPastDueJobsCount() > 0 && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex items-center">
-              <AlertTriangle size={16} className="text-red-500 mr-2 flex-shrink-0" />
+              <AlertTriangle
+                size={16}
+                className="text-red-500 mr-2 flex-shrink-0"
+              />
               <div className="text-sm">
                 <p className="font-medium text-red-800">
                   Past Dates Jobs Detected
                 </p>
                 <p className="text-red-600">
-                  {getPastDueJobsCount()} job(s) are past dates or scheduled time but haven't been completed. These jobs are marked with "Past Dates" indicators and need immediate attention.
+                  {getPastDueJobsCount()} job(s) are past dates or scheduled
+                  time but haven't been completed. These jobs are marked with
+                  "Past Dates" indicators and need immediate attention.
                 </p>
               </div>
             </div>
