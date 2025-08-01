@@ -698,9 +698,9 @@ const JobInvoiceSection = ({
                             )}
                           </td>
                           <td className="px-4 py-3 align-middle">
-                            <div className="flex gap-1 items-center">
+                            <div className="flex flex-wrap gap-2 items-center">
                               <button
-                                className="btn btn-secondary btn-xs"
+                                className="btn btn-secondary btn-xs w-full sm:w-28"
                                 title="View Invoice"
                                 onClick={() => {
                                   setSelectedInvoice(invoice);
@@ -751,38 +751,41 @@ const JobInvoiceSection = ({
                                   }
                                 }}
                               >
+                                <Eye size={16} className="mr-2" />
                                 View
                               </button>
                               <button
-                                className="btn btn-primary btn-xs"
+                                className="btn btn-primary btn-xs w-full sm:w-28"
                                 title="Send Invoice"
                                 onClick={() => {
                                   setSelectedInvoice(invoice);
                                   setShowSendInvoiceModal(true);
                                 }}
                               >
+                                <Send size={16} className="mr-2" />
                                 Send
                               </button>
                               <button
-                                className="btn btn-success btn-xs"
+                                className="btn btn-success btn-xs w-full sm:w-28"
                                 title="Mark as Paid"
                                 onClick={() => {
                                   setSelectedInvoice(invoice);
                                   setShowMarkAsPaidModal(true);
                                 }}
                               >
+                                <Check size={16} className="mr-2" />
                                 Mark as Paid
                               </button>
                               <button
-                                className="p-1 rounded hover:bg-red-50 text-error-600 hover:text-error-800 transition-colors"
+                                className="btn btn-error btn-xs w-full sm:w-28"
                                 title="Delete Invoice"
-                                aria-label="Delete Invoice"
                                 onClick={() => {
                                   setSelectedInvoice(invoice);
                                   setShowDeleteInvoiceModal(true);
                                 }}
                               >
-                                <Trash2 size={18} />
+                                <Trash2 size={16} className="mr-2" />
+                                Delete
                               </button>
                             </div>
                           </td>

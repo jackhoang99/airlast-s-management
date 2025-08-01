@@ -67,6 +67,9 @@ const QuoteSection = ({
 
   const [showSendQuoteModal, setShowSendQuoteModal] = useState(false);
   const [showGenerateQuoteModal, setShowGenerateQuoteModal] = useState(false);
+  const [selectedQuoteType, setSelectedQuoteType] = useState<
+    "replacement" | "repair" | "inspection" | "pm"
+  >("replacement");
   const [showPMQuoteModal, setShowPMQuoteModal] = useState(false);
 
   // Add a state to track if replacement data exists
@@ -485,7 +488,10 @@ const QuoteSection = ({
                 Add Replacement
               </button>
               <button
-                onClick={() => setShowGenerateQuoteModal(true)}
+                onClick={() => {
+                  setSelectedQuoteType("replacement");
+                  setShowGenerateQuoteModal(true);
+                }}
                 className="btn btn-secondary btn-sm"
               >
                 <FileText size={14} className="mr-1" />
@@ -836,7 +842,10 @@ const QuoteSection = ({
                 Add Repair
               </button>
               <button
-                onClick={() => setShowGenerateQuoteModal(true)}
+                onClick={() => {
+                  setSelectedQuoteType("repair");
+                  setShowGenerateQuoteModal(true);
+                }}
                 className="btn btn-secondary btn-sm"
               >
                 <FileText size={14} className="mr-1" />
@@ -1022,7 +1031,7 @@ const QuoteSection = ({
       {/* PM Quote Section */}
       {activeTab === "pm" && (
         <>
-          <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-0">
+          <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-2">
             <button
               onClick={() => {
                 setSelectedPMQuote(null);
@@ -1032,6 +1041,16 @@ const QuoteSection = ({
             >
               <Plus size={14} className="mr-1" />
               Add PM Quote
+            </button>
+            <button
+              onClick={() => {
+                setSelectedQuoteType("pm");
+                setShowGenerateQuoteModal(true);
+              }}
+              className="btn btn-secondary btn-sm"
+            >
+              <FileText size={14} className="mr-1" />
+              Generate Quote
             </button>
           </div>
 
@@ -1362,6 +1381,7 @@ const QuoteSection = ({
               <GenerateQuote
                 jobId={jobId}
                 jobItems={jobItems}
+                defaultQuoteType={selectedQuoteType}
                 onQuoteSent={() => {
                   setShowGenerateQuoteModal(false);
                   // Refresh data

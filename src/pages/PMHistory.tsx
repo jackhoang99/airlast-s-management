@@ -13,6 +13,7 @@ import {
   User,
   AlertTriangle,
   Eye,
+  FileText,
 } from "lucide-react";
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
@@ -55,6 +56,9 @@ const PMHistory = () => {
   );
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
+  const [jobsWithPMQuotes, setJobsWithPMQuotes] = useState<Set<string>>(
+    new Set()
+  );
 
   useEffect(() => {
     fetchPMJobs();
@@ -67,7 +71,8 @@ const PMHistory = () => {
     setError(null);
 
     try {
-      const { data, error: fetchError } = await supabase
+      // First, get all jobs with their related data
+      const { data: allJobs, error: jobsError } = await supabase
         .from("jobs")
         .select(
           `
@@ -96,17 +101,42 @@ const PMHistory = () => {
           )
         `
         )
-        .eq("type", "maintenance")
-        .in("additional_type", [
-          "PM Filter Change",
-          "PM Cleaning AC",
-          "PM Cleaning HEAT",
-        ])
         .order("created_at", { ascending: false });
 
-      if (fetchError) throw fetchError;
+      if (jobsError) throw jobsError;
 
-      setJobs(data || []);
+      // Get all jobs that have PM quotes
+      const { data: pmQuoteJobs, error: pmQuotesError } = await supabase
+        .from("pm_quotes")
+        .select("job_id");
+
+      if (pmQuotesError) throw pmQuotesError;
+
+      // Create a Set of job IDs that have PM quotes for fast lookup
+      const jobsWithPMQuotes = new Set(
+        pmQuoteJobs?.map((pq) => pq.job_id) || []
+      );
+
+      // Store the PM quotes data in state for use in rendering
+      setJobsWithPMQuotes(jobsWithPMQuotes);
+
+      // Filter jobs to include those that either:
+      // 1. Have maintenance type AND additional_type contains "pm" (case insensitive)
+      // 2. Have PM quotes
+      const pmJobs = (allJobs || []).filter((job) => {
+        // Check if job has PM quotes
+        const hasPMQuotes = jobsWithPMQuotes.has(job.id);
+
+        // Check if job is maintenance type with PM additional type
+        const isMaintenanceWithPM =
+          job.type === "maintenance" &&
+          job.additional_type &&
+          job.additional_type.toLowerCase().includes("pm");
+
+        return hasPMQuotes || isMaintenanceWithPM;
+      });
+
+      setJobs(pmJobs);
     } catch (err) {
       console.error("Error fetching PM jobs:", err);
       setError("Failed to fetch PM jobs. Please try again.");
@@ -274,7 +304,7 @@ const PMHistory = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
               <div className="p-2 bg-purple-100 rounded-lg">
@@ -286,6 +316,19 @@ const PMHistory = () => {
                 </p>
                 <p className="text-2xl font-bold text-gray-900">
                   {jobs.length}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <FileText className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">PM Quotes</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {jobs.filter((job) => jobsWithPMQuotes.has(job.id)).length}
                 </p>
               </div>
             </div>
@@ -434,15 +477,22 @@ const PMHistory = () => {
                           <div className="text-sm text-gray-500">
                             #{job.number}
                           </div>
-                          {job.additional_type && (
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeBadgeClass(
-                                job.additional_type
-                              )}`}
-                            >
-                              {job.additional_type}
-                            </span>
-                          )}
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {job.additional_type && (
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeBadgeClass(
+                                  job.additional_type
+                                )}`}
+                              >
+                                {job.additional_type}
+                              </span>
+                            )}
+                            {jobsWithPMQuotes.has(job.id) && (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                PM Quote Available
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 

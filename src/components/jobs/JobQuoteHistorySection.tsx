@@ -571,19 +571,21 @@ const JobQuoteHistorySection = ({
             <div
               className={`border rounded-lg p-4 cursor-pointer transition-colors ${
                 activeQuoteFilter === "pm"
-                  ? "bg-blue-100 border-blue-300"
-                  : "bg-blue-50 border-blue-200 hover:bg-blue-100"
+                  ? "bg-orange-100 border-orange-300"
+                  : "bg-orange-50 border-orange-200 hover:bg-orange-100"
               }`}
               onClick={() => setActiveQuoteFilter("pm")}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <CheckSquare size={20} className="text-blue-600 mr-2" />
-                  <span className="font-medium text-blue-900">PM</span>
+                  <CheckSquare size={20} className="text-orange-600 mr-2" />
+                  <span className="font-medium text-orange-900">PM</span>
                 </div>
                 <span className="w-2 h-2 bg-success-500 rounded-full"></span>
               </div>
-              <p className="text-sm text-blue-700 mt-1">PM quotes available</p>
+              <p className="text-sm text-orange-700 mt-1">
+                PM quotes available
+              </p>
             </div>
           </div>
         </div>
@@ -633,8 +635,8 @@ const JobQuoteHistorySection = ({
                   <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
                     <span
                       className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
-                        activeQuoteFilter === "pm"
-                          ? "bg-blue-100 text-blue-800"
+                        activeQuoteFilter === "pm" || quote.quote_type === "pm"
+                          ? "bg-orange-100 text-orange-800"
                           : quote.quote_type === "replacement"
                           ? "bg-blue-100 text-blue-800"
                           : quote.quote_type === "repair"
@@ -642,7 +644,7 @@ const JobQuoteHistorySection = ({
                           : "bg-purple-100 text-purple-800"
                       }`}
                     >
-                      {activeQuoteFilter === "pm"
+                      {activeQuoteFilter === "pm" || quote.quote_type === "pm"
                         ? "PM"
                         : quote.quote_type.charAt(0).toUpperCase() +
                           quote.quote_type.slice(1)}
@@ -663,7 +665,7 @@ const JobQuoteHistorySection = ({
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                         activeQuoteFilter === "pm"
-                          ? "bg-blue-100 text-blue-800"
+                          ? "bg-orange-100 text-orange-800"
                           : quote.confirmed
                           ? quote.approved
                             ? "bg-success-100 text-success-800"
@@ -694,7 +696,7 @@ const JobQuoteHistorySection = ({
                   <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
                     <div className="flex flex-wrap gap-2 items-center">
                       <button
-                        className="btn btn-secondary btn-xs w-full sm:w-auto"
+                        className="btn btn-secondary btn-xs w-full sm:w-28"
                         onClick={() =>
                           onPreviewQuote(
                             activeQuoteFilter === "pm"
@@ -712,7 +714,7 @@ const JobQuoteHistorySection = ({
                       </button>
                       {activeQuoteFilter === "pm" ? (
                         <button
-                          className="btn btn-primary btn-xs w-full sm:w-auto"
+                          className="btn btn-primary btn-xs w-full sm:w-28"
                           onClick={() => {
                             setSelectedQuoteForSending(quote);
                             setShowIndividualQuoteModal(true);
@@ -723,7 +725,7 @@ const JobQuoteHistorySection = ({
                         </button>
                       ) : !quote.email_sent_at ? (
                         <button
-                          className="btn btn-primary btn-xs w-full sm:w-auto"
+                          className="btn btn-primary btn-xs w-full sm:w-28"
                           onClick={() => {
                             setSelectedQuoteForSending(quote);
                             setShowIndividualQuoteModal(true);
@@ -734,7 +736,7 @@ const JobQuoteHistorySection = ({
                         </button>
                       ) : (
                         <button
-                          className="btn btn-secondary btn-xs w-full sm:w-auto"
+                          className="btn btn-secondary btn-xs w-full sm:w-28"
                           onClick={() => {
                             setSelectedQuoteForSending(quote);
                             setShowIndividualQuoteModal(true);
@@ -745,7 +747,7 @@ const JobQuoteHistorySection = ({
                         </button>
                       )}
                       <button
-                        className="btn btn-error btn-xs w-full sm:w-auto"
+                        className="btn btn-error btn-xs w-full sm:w-28"
                         onClick={() => handleDeleteQuote(quote.id)}
                         disabled={isDeletingQuote === quote.id}
                         title="Delete Quote"

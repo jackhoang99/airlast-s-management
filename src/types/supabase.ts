@@ -233,9 +233,9 @@ export interface Database {
       job_part_prices: {
         Row: {
           id: string;
+          uuid: string;
           code: string;
           name: string;
-          description: string | null;
           service_line: string;
           unit_cost: number;
           parts_cost: number;
@@ -252,9 +252,9 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          uuid?: string;
           code: string;
           name: string;
-          description?: string | null;
           service_line: string;
           unit_cost?: number;
           parts_cost?: number;
@@ -271,9 +271,9 @@ export interface Database {
         };
         Update: {
           id?: string;
+          uuid?: string;
           code?: string;
           name?: string;
-          description?: string | null;
           service_line?: string;
           unit_cost?: number;
           parts_cost?: number;

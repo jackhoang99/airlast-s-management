@@ -1258,8 +1258,10 @@ const GenerateQuote = ({
               <>
                 <Plus size={16} className="mr-2" />
                 Generate{" "}
-                {selectedQuoteType.charAt(0).toUpperCase() +
-                  selectedQuoteType.slice(1)}{" "}
+                {selectedQuoteType === "pm"
+                  ? "PM"
+                  : selectedQuoteType.charAt(0).toUpperCase() +
+                    selectedQuoteType.slice(1)}{" "}
                 Quote
               </>
             )}

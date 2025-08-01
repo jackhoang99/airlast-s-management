@@ -77,7 +77,6 @@ const AddJobPricingModal = ({
     // Common fields
     code: "",
     name: "",
-    description: "",
     service_line: "TRNG",
     unit_cost: 0,
     quantity: 1,
@@ -176,7 +175,6 @@ const AddJobPricingModal = ({
         ...newItem,
         code: "",
         name: "",
-        description: "",
         unit_cost: 0,
         quantity: 1,
       });
@@ -200,7 +198,7 @@ const AddJobPricingModal = ({
       partItems.filter(
         (item) =>
           item.code.toLowerCase().includes(lowerSearchTerm) ||
-          (item.description?.toLowerCase().includes(lowerSearchTerm) ?? false)
+          item.name.toLowerCase().includes(lowerSearchTerm)
       )
     );
   }, [searchTerm, partItems]);
@@ -260,7 +258,6 @@ const AddJobPricingModal = ({
       ...newItem,
       code: item.code,
       name: item.name,
-      description: item.description || "",
       service_line: item.service_line,
       unit_cost: Number(item.unit_cost),
       parts_cost: Number(item.parts_cost),
@@ -278,9 +275,7 @@ const AddJobPricingModal = ({
     setIncludeRoofAccessFee(Number(item.roof_access_fee) > 0);
 
     // Update selected item code display
-    setSelectedItemCode(
-      `${item.code}${item.description ? ` - ${item.description}` : ""}`
-    );
+    setSelectedItemCode(`${item.code}${item.name ? ` - ${item.name}` : ""}`);
   };
 
   const handleSubmit = async () => {
@@ -317,7 +312,7 @@ const AddJobPricingModal = ({
             .insert({
               job_id: jobId,
               code: newItem.code,
-              name: newItem.name || newItem.description || newItem.code,
+              name: newItem.name || newItem.code,
               service_line: newItem.service_line,
               quantity: newItem.quantity,
               unit_cost: finalUnitCost,
@@ -332,7 +327,6 @@ const AddJobPricingModal = ({
           const { error } = await supabase.from("job_part_prices").insert({
             code: newItem.code,
             name: newItem.name,
-            description: newItem.description || null,
             service_line: newItem.service_line,
             parts_cost: newItem.parts_cost,
             estimated_hours: newItem.estimated_hours,
@@ -443,7 +437,7 @@ const AddJobPricingModal = ({
                       >
                         <div className="font-medium">
                           {item.code}
-                          {item.description ? ` - ${item.description}` : ""}
+                          {item.name ? ` - ${item.name}` : ""}
                         </div>
                         <div className="text-xs text-gray-500 flex justify-between">
                           <span>
@@ -645,19 +639,19 @@ const AddJobPricingModal = ({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
+                  Name
                 </label>
                 <input
                   type="text"
-                  value={newItem.description}
+                  value={newItem.name}
                   onChange={(e) =>
                     setNewItem((prev) => ({
                       ...prev,
-                      description: e.target.value,
+                      name: e.target.value,
                     }))
                   }
                   className="input w-full text-base sm:text-sm"
-                  placeholder="Description (optional)"
+                  placeholder="Name (optional)"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
@@ -672,6 +666,73 @@ const AddJobPricingModal = ({
           {/* Part-specific fields */}
           {selectedTab === "part" && !editItem && (
             <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Item Code *
+                  </label>
+                  <input
+                    type="text"
+                    value={newItem.code}
+                    onChange={(e) =>
+                      setNewItem((prev) => ({ ...prev, code: e.target.value }))
+                    }
+                    className="input w-full text-base sm:text-sm"
+                    placeholder="PART-CODE"
+                    required
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newItem.name}
+                    onChange={(e) =>
+                      setNewItem((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }))
+                    }
+                    className="input w-full text-base sm:text-sm"
+                    placeholder="Part name or description"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Service Line
+                  </label>
+                  <select
+                    value={newItem.service_line}
+                    onChange={(e) =>
+                      setNewItem((prev) => ({
+                        ...prev,
+                        service_line: e.target.value,
+                      }))
+                    }
+                    className="select w-full text-base sm:text-sm"
+                  >
+                    <option value="TRNG">Training</option>
+                    <option value="HVACGEN">HVAC General</option>
+                    <option value="PLUMB">Plumbing</option>
+                    <option value="ELEC">Electrical</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
