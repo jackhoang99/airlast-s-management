@@ -511,7 +511,10 @@ const JobDetails = () => {
     setQuoteNeedsUpdate(false);
   };
 
-  const handlePreviewQuote = (quoteType: "repair" | "replacement" | "inspection", quoteData?: any) => {
+  const handlePreviewQuote = (
+    quoteType: "repair" | "replacement" | "inspection" | "pm",
+    quoteData?: any
+  ) => {
     setActiveQuoteType(quoteType);
     // Store the specific quote data for the PDF viewer
     if (quoteData) {
@@ -600,6 +603,7 @@ const JobDetails = () => {
         jobId={job.id}
         quoteType={activeQuoteType}
         quoteData={activeQuoteData}
+        existingQuoteId={activeQuoteData?.id}
         onBack={() => {
           setShowQuotePDF(false);
           setActiveQuoteData(null);
@@ -887,7 +891,9 @@ const JobDetails = () => {
           <div className="card">
             <div
               className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
-              onClick={() => setShowQuoteHistorySection(!showQuoteHistorySection)}
+              onClick={() =>
+                setShowQuoteHistorySection(!showQuoteHistorySection)
+              }
             >
               <h2 className="text-lg font-medium">Quote History</h2>
               <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
@@ -951,8 +957,8 @@ const JobDetails = () => {
 
           {/* Time Tracking and Comments */}
           <div className="card">
-            <AdminTimeTracking 
-              jobId={job.id} 
+            <AdminTimeTracking
+              jobId={job.id}
               jobTechnicians={job.job_technicians}
               onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
             />
@@ -964,7 +970,10 @@ const JobDetails = () => {
 
           {/* Reminders */}
           <div className="card">
-            <JobReminderList jobId={job.id} jobTechnicians={job.job_technicians} />
+            <JobReminderList
+              jobId={job.id}
+              jobTechnicians={job.job_technicians}
+            />
           </div>
         </div>
 

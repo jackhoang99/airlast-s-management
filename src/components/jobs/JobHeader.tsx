@@ -103,9 +103,8 @@ const JobHeader = ({
             Complete Job
           </button>
         )}
-        <button onClick={onDeleteJob} className="btn btn-error">
-          <Trash2 size={16} className="mr-2" />
-          Delete Job
+        <button onClick={onDeleteJob} className="btn btn-error" title="Delete Job">
+          <Trash2 size={16} />
         </button>
       </div>
     </div>

@@ -5,7 +5,7 @@ import { ArrowLeft, Printer, Download, AlertTriangle } from "lucide-react";
 
 interface QuotePDFViewerProps {
   jobId: string;
-  quoteType: "replacement" | "repair" | "inspection";
+  quoteType: "replacement" | "repair" | "inspection" | "pm";
   quoteData?: any; // Specific quote data with selected options
   existingQuoteId?: string; // ID of existing quote to preview
   onBack: () => void;
@@ -41,21 +41,50 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
         let existingQuote = null;
         let quoteNumber = null;
         let storedQuoteData = null;
+        let storedPdfUrl = null;
 
         if (existingQuoteId) {
-          const { data: quoteData, error: quoteError } = await supabase
-            .from("job_quotes")
-            .select("*")
-            .eq("id", existingQuoteId)
-            .single();
+          // For PM quotes, fetch from pm_quotes table
+          if (quoteType === "pm") {
+            const { data: pmQuoteData, error: pmQuoteError } = await supabase
+              .from("pm_quotes")
+              .select("*")
+              .eq("id", existingQuoteId)
+              .single();
 
-          if (quoteError) {
-            console.warn("Could not fetch existing quote:", quoteError);
+            if (pmQuoteError) {
+              console.warn("Could not fetch existing PM quote:", pmQuoteError);
+            } else {
+              existingQuote = pmQuoteData;
+              quoteNumber = `PM-${pmQuoteData.id.slice(0, 8)}`;
+              // For PM quotes, the entire quote data is the stored data
+              storedQuoteData = pmQuoteData;
+              storedPdfUrl = pmQuoteData.pdf_url;
+            }
           } else {
-            existingQuote = quoteData;
-            quoteNumber = quoteData.quote_number;
-            storedQuoteData = quoteData.quote_data;
+            // For other quote types, fetch from job_quotes table
+            const { data: quoteData, error: quoteError } = await supabase
+              .from("job_quotes")
+              .select("*")
+              .eq("id", existingQuoteId)
+              .single();
+
+            if (quoteError) {
+              console.warn("Could not fetch existing quote:", quoteError);
+            } else {
+              existingQuote = quoteData;
+              quoteNumber = quoteData.quote_number;
+              storedQuoteData = quoteData.quote_data;
+              storedPdfUrl = quoteData.pdf_url;
+            }
           }
+        }
+
+        // If we have a stored PDF URL, use it directly
+        if (storedPdfUrl) {
+          console.log("Using stored PDF URL for preview:", storedPdfUrl);
+          setPdfUrl(storedPdfUrl);
+          return; // Exit early - no need to regenerate PDF
         }
 
         // If we have stored quote data, use it directly
@@ -64,10 +93,124 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
 
           // Use stored data directly
           const finalQuoteNumber = quoteNumber;
+
+          // Handle PM quotes differently since they have a different data structure
+          if (quoteType === "pm") {
+            // For PM quotes, the stored data is the entire PM quote object
+            const pmQuoteData = storedQuoteData;
+
+            // Fetch job details (still needed for PDF generation)
+            const { data: jobData, error: jobError } = await supabase
+              .from("jobs")
+              .select(
+                `
+                *,
+                locations (
+                  name,
+                  address,
+                  city,
+                  state,
+                  zip,
+                  companies (
+                    name
+                  )
+                ),
+                job_units:job_units!inner (
+                  unit_id,
+                  units:unit_id (
+                    id,
+                    unit_number
+                  )
+                )
+              `
+              )
+              .eq("id", jobId)
+              .single();
+            if (jobError) throw jobError;
+
+            // Try to fetch default template
+            const { data: templateData, error: templateError } = await supabase
+              .from("quote_templates")
+              .select("*")
+              .eq("template_data->>type", "pdf")
+              .eq("template_data->>templateType", quoteType)
+              .eq("template_data->>isDefault", "true")
+              .limit(1);
+            if (templateError) throw templateError;
+
+            let templateToUse =
+              templateData && templateData.length > 0 ? templateData[0] : null;
+
+            // Fallback to any template
+            if (!templateToUse) {
+              const { data: fallback, error: fallbackError } = await supabase
+                .from("quote_templates")
+                .select("*")
+                .eq("template_data->>type", "pdf")
+                .eq("template_data->>templateType", quoteType)
+                .limit(1);
+              if (fallbackError) throw fallbackError;
+
+              if (fallback && fallback.length > 0) {
+                templateToUse = fallback[0];
+              }
+            }
+
+            if (!templateToUse) {
+              throw new Error(
+                `No PDF template found for ${quoteType} quotes. Please upload a template and set it as default.`
+              );
+            }
+
+            const apiUrl = `${
+              import.meta.env.VITE_SUPABASE_URL
+            }/functions/v1/generate-quote-pdf`;
+
+            const response = await fetch(apiUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${
+                  import.meta.env.VITE_SUPABASE_ANON_KEY
+                }`,
+              },
+              body: JSON.stringify({
+                jobId,
+                quoteType,
+                quoteNumber: finalQuoteNumber,
+                templateId: templateToUse.id,
+                jobData,
+                inspectionData: [],
+                replacementData: null,
+                jobItems: [],
+                replacementDataById: {},
+                pmQuotes: [pmQuoteData], // Pass the PM quote data directly
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(
+                errorData.message || errorData.error || "Failed to generate PDF"
+              );
+            }
+
+            const result = await response.json();
+            if (result.pdfUrl) {
+              setPdfUrl(result.pdfUrl);
+            } else {
+              throw new Error("No PDF URL returned from the server");
+            }
+
+            return; // Exit early for PM quotes
+          }
+
+          // Original logic for other quote types
           const storedInspectionData = storedQuoteData.inspectionData || [];
           const storedReplacementDataById =
             storedQuoteData.replacementDataById || {};
           const storedJobItems = storedQuoteData.jobItems || [];
+          const storedPMQuotes = storedQuoteData.pmQuotes || [];
           const storedLocation = storedQuoteData.location;
           const storedUnit = storedQuoteData.unit;
 
@@ -178,6 +321,7 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
               replacementData: null, // Use replacementDataById instead
               jobItems: filteredJobItems,
               replacementDataById: storedReplacementDataById,
+              pmQuotes: null,
             }),
           });
 
@@ -265,6 +409,15 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
           .select("*")
           .eq("job_id", jobId);
         if (itemsError) throw itemsError;
+
+        // Fetch PM quotes
+        const { data: pmQuotes, error: pmError } = await supabase
+          .from("pm_quotes")
+          .select("*")
+          .eq("job_id", jobId);
+        if (pmError && !pmError.message.includes("contains 0 rows")) {
+          throw pmError;
+        }
 
         // Organize replacement data by inspection_id
         let replacementDataById: { [key: string]: any } = {};
@@ -379,6 +532,7 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
                 : null,
             jobItems,
             replacementDataById: replacementDataById,
+            pmQuotes: quoteType === "pm" ? pmQuotes : null,
           }),
         });
 

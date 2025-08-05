@@ -608,6 +608,8 @@ const GenerateQuote = ({
               : [],
           replacementDataById:
             selectedQuoteType === "replacement" ? replacementDataById : {},
+          pmQuotes:
+            selectedQuoteType === "pm" ? dataToUse.selectedPMQuotes : null,
         }),
       });
 
@@ -644,6 +646,10 @@ const GenerateQuote = ({
                   selectedQuoteType === "inspection"
                     ? selectedInspections
                     : null,
+                selected_pm_options:
+                  selectedQuoteType === "pm" ? selectedPMQuotes : null,
+                pdf_url: result.pdfUrl, // Store the PDF URL
+                pdf_generated_at: new Date().toISOString(), // Store generation timestamp
                 quote_data: {
                   // Store complete quote data for preview functionality
                   quoteType: selectedQuoteType,
@@ -679,6 +685,10 @@ const GenerateQuote = ({
                       ? jobItems.filter((item) =>
                           selectedRepairItems.includes(item.id)
                         )
+                      : [],
+                  pmQuotes:
+                    selectedQuoteType === "pm"
+                      ? dataToUse.selectedPMQuotes
                       : [],
                   jobItems,
                   location: location || {
@@ -763,16 +773,15 @@ const GenerateQuote = ({
               onClick={handlePreviewQuote}
               className="btn btn-secondary btn-sm w-full sm:w-auto"
               disabled={isGeneratingPDF}
+              title="Preview Quote"
             >
               {isGeneratingPDF ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-                  Generating...
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
                 </>
               ) : (
                 <>
-                  <Eye size={16} className="mr-2" />
-                  Preview Quote
+                  <Eye size={16} />
                 </>
               )}
             </button>

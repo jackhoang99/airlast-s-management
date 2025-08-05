@@ -18,6 +18,7 @@ import {
   Plus,
   Trash2,
   CheckSquare,
+  Settings,
 } from "lucide-react";
 import SendEmailModal from "./SendEmailModal";
 import GenerateQuote from "../GenerateQuote";
@@ -107,11 +108,14 @@ const JobQuoteHistorySection = ({
   // Calculate quote counts by type
   const getQuoteCounts = () => {
     const counts = {
-      all: (allQuotes?.length || 0) + (pmQuotes?.length || 0),
-      replacement: Object.keys(replacementDataById).length, // Count available replacement options
-      repair: hasRepairData ? 1 : 0, // Count if repair data is available
-      inspection: inspectionData.length, // Count available inspections
-      pm: pmQuotes?.length || 0, // Count PM quotes
+      all: allQuotes?.length || 0,
+      replacement: (allQuotes || []).filter(
+        (q) => q.quote_type === "replacement"
+      ).length,
+      repair: (allQuotes || []).filter((q) => q.quote_type === "repair").length,
+      inspection: (allQuotes || []).filter((q) => q.quote_type === "inspection")
+        .length,
+      pm: (allQuotes || []).filter((q) => q.quote_type === "pm").length,
     };
     return counts;
   };
@@ -120,8 +124,6 @@ const JobQuoteHistorySection = ({
   const getFilteredQuotes = () => {
     if (activeQuoteFilter === "all") {
       return allQuotes || [];
-    } else if (activeQuoteFilter === "pm") {
-      return pmQuotes || [];
     }
     return (allQuotes || []).filter((q) => q.quote_type === activeQuoteFilter);
   };
@@ -136,7 +138,7 @@ const JobQuoteHistorySection = ({
       case "inspection":
         return inspectionData.length > 0;
       case "pm":
-        return (pmQuotes?.length || 0) > 0;
+        return (allQuotes || []).some((q) => q.quote_type === "pm");
       default:
         return true;
     }
@@ -147,41 +149,69 @@ const JobQuoteHistorySection = ({
     if (!supabase || !job) return;
 
     try {
-      const { data: quotesData, error: quotesError } = await supabase
+      // Fetch job_quotes
+      const { data: jobQuotesData, error: jobQuotesError } = await supabase
         .from("job_quotes")
         .select("*")
         .eq("job_id", job.id)
         .order("created_at", { ascending: false });
 
-      if (!quotesError && quotesData) {
-        setAllQuotes(quotesData);
-
-        // Check if we have sent quotes by type
-        const sentReplacement = quotesData.some(
-          (q) => q.quote_type === "replacement"
-        );
-        const sentRepair = quotesData.some((q) => q.quote_type === "repair");
-
-        setSentQuoteTypes({
-          replacement: sentReplacement,
-          repair: sentRepair,
-        });
-      } else if (quotesError) {
-        console.error("Error fetching quotes:", quotesError);
+      if (jobQuotesError) {
+        console.error("Error fetching job quotes:", jobQuotesError);
       }
 
-      // Fetch PM quotes
+      // Fetch pm_quotes
       const { data: pmQuotesData, error: pmQuotesError } = await supabase
         .from("pm_quotes")
         .select("*")
         .eq("job_id", job.id)
         .order("created_at", { ascending: false });
 
-      if (!pmQuotesError && pmQuotesData) {
-        setPmQuotes(pmQuotesData);
-      } else if (pmQuotesError) {
+      if (pmQuotesError) {
         console.error("Error fetching PM quotes:", pmQuotesError);
       }
+
+      // Transform PM quotes to match the regular quote structure
+      const transformedPMQuotes = (pmQuotesData || []).map((pmQuote: any) => ({
+        id: pmQuote.id,
+        quote_number: `PM-${pmQuote.id.slice(0, 8)}`,
+        quote_type: "pm" as const,
+        amount: pmQuote.total_cost || 0,
+        status: "Created",
+        confirmed: false,
+        approved: false,
+        confirmed_at: null,
+        email_sent_at: null,
+        created_at: pmQuote.created_at,
+        job_id: pmQuote.job_id,
+        quote_data: pmQuote, // Store the entire PM quote data
+        pdf_url: pmQuote.pdf_url,
+        pdf_generated_at: pmQuote.pdf_generated_at,
+        selected_replacement_options: null,
+        selected_repair_options: null,
+        selected_inspection_options: null,
+        selected_pm_options: [pmQuote.id],
+      }));
+
+      // Combine both types of quotes
+      const allQuotes = [...(jobQuotesData || []), ...transformedPMQuotes];
+      setAllQuotes(allQuotes);
+
+      // Check if we have sent quotes by type
+      const sentReplacement = allQuotes.some(
+        (q) => q.quote_type === "replacement"
+      );
+      const sentRepair = allQuotes.some((q) => q.quote_type === "repair");
+      const sentPM = allQuotes.some((q) => q.quote_type === "pm");
+
+      setSentQuoteTypes({
+        replacement: sentReplacement,
+        repair: sentRepair,
+        pm: sentPM,
+      });
+
+      // Set PM quotes for backward compatibility
+      setPmQuotes(pmQuotesData || []);
     } catch (err) {
       console.error("Error fetching quotes:", err);
     }
@@ -199,12 +229,26 @@ const JobQuoteHistorySection = ({
     setDeleteError(null);
 
     try {
-      const { error: deleteError } = await supabase
-        .from("job_quotes")
-        .delete()
-        .eq("id", quoteId);
+      // Check if it's a PM quote by looking at the quote type
+      const quote = allQuotes.find((q) => q.id === quoteId);
 
-      if (deleteError) throw deleteError;
+      if (quote?.quote_type === "pm") {
+        // Delete from pm_quotes table
+        const { error: deleteError } = await supabase
+          .from("pm_quotes")
+          .delete()
+          .eq("id", quoteId);
+
+        if (deleteError) throw deleteError;
+      } else {
+        // Delete from job_quotes table
+        const { error: deleteError } = await supabase
+          .from("job_quotes")
+          .delete()
+          .eq("id", quoteId);
+
+        if (deleteError) throw deleteError;
+      }
 
       // Refresh quotes after deletion
       await fetchQuotes();
@@ -227,9 +271,11 @@ const JobQuoteHistorySection = ({
   const [sentQuoteTypes, setSentQuoteTypes] = useState<{
     replacement: boolean;
     repair: boolean;
+    pm: boolean;
   }>({
     replacement: false,
     repair: false,
+    pm: false,
   });
 
   // Add state for quote filtering
@@ -488,8 +534,8 @@ const JobQuoteHistorySection = ({
             </div>
           </div>
 
-          {/* Quote Type Cards - 4 Column Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+          {/* Quote Type Cards - 5 Column Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mb-6">
             <div
               className={`border rounded-lg p-4 cursor-pointer transition-colors ${
                 activeQuoteFilter === "replacement"
@@ -578,13 +624,17 @@ const JobQuoteHistorySection = ({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <CheckSquare size={20} className="text-orange-600 mr-2" />
+                  <Settings size={20} className="text-orange-600 mr-2" />
                   <span className="font-medium text-orange-900">PM</span>
                 </div>
-                <span className="w-2 h-2 bg-success-500 rounded-full"></span>
+                {sentQuoteTypes.pm && (
+                  <span className="w-2 h-2 bg-success-500 rounded-full"></span>
+                )}
               </div>
               <p className="text-sm text-orange-700 mt-1">
-                PM quotes available
+                {getQuoteCounts().pm > 0
+                  ? `${getQuoteCounts().pm} PM quote(s)`
+                  : "No PM quotes available"}
               </p>
             </div>
           </div>
@@ -628,7 +678,7 @@ const JobQuoteHistorySection = ({
                   }`}
                 >
                   <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
-                    {activeQuoteFilter === "pm"
+                    {quote.quote_type === "pm"
                       ? `PM-${(quote.id || "").slice(0, 8)}`
                       : quote.quote_number || "-"}
                   </td>
@@ -656,15 +706,12 @@ const JobQuoteHistorySection = ({
                       : "-"}
                   </td>
                   <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
-                    $
-                    {activeQuoteFilter === "pm"
-                      ? Number(quote.total_cost || 0).toFixed(2)
-                      : Number(quote.amount).toFixed(2)}
+                    ${Number(quote.amount).toFixed(2)}
                   </td>
                   <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        activeQuoteFilter === "pm"
+                        quote.quote_type === "pm"
                           ? "bg-orange-100 text-orange-800"
                           : quote.confirmed
                           ? quote.approved
@@ -675,7 +722,7 @@ const JobQuoteHistorySection = ({
                           : "bg-yellow-100 text-yellow-800"
                       }`}
                     >
-                      {activeQuoteFilter === "pm"
+                      {quote.quote_type === "pm"
                         ? "Available"
                         : quote.confirmed
                         ? quote.approved
@@ -687,7 +734,7 @@ const JobQuoteHistorySection = ({
                     </span>
                   </td>
                   <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
-                    {activeQuoteFilter === "pm"
+                    {quote.quote_type === "pm"
                       ? "-"
                       : quote.confirmed_at
                       ? new Date(quote.confirmed_at).toLocaleDateString()
@@ -696,68 +743,72 @@ const JobQuoteHistorySection = ({
                   <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
                     <div className="flex flex-wrap gap-2 items-center">
                       <button
-                        className="btn btn-secondary btn-xs w-full sm:w-28"
-                        onClick={() =>
-                          onPreviewQuote(
-                            activeQuoteFilter === "pm"
-                              ? "pm"
-                              : (quote.quote_type as
-                                  | "replacement"
-                                  | "repair"
-                                  | "inspection"),
-                            quote
-                          )
-                        }
+                        className="btn btn-secondary btn-xs w-full sm:w-auto"
+                        onClick={() => {
+                          // If we have a stored PDF URL, open it directly
+                          if (quote.pdf_url) {
+                            window.open(quote.pdf_url, "_blank");
+                          } else {
+                            // Fallback to the old preview method if no stored URL
+                            onPreviewQuote(
+                              quote.quote_type as
+                                | "replacement"
+                                | "repair"
+                                | "inspection"
+                                | "pm",
+                              quote
+                            );
+                          }
+                        }}
+                        title="Preview Quote"
                       >
-                        <Eye size={16} className="mr-2" />
-                        Preview
+                        <Eye size={16} />
                       </button>
-                      {activeQuoteFilter === "pm" ? (
+                      {quote.quote_type === "pm" ? (
                         <button
-                          className="btn btn-primary btn-xs w-full sm:w-28"
+                          className="btn btn-primary btn-xs w-full sm:w-auto"
                           onClick={() => {
                             setSelectedQuoteForSending(quote);
                             setShowIndividualQuoteModal(true);
                           }}
+                          title="Send Quote"
                         >
-                          <Send size={16} className="mr-2" />
-                          Send
+                          <Send size={16} />
                         </button>
                       ) : !quote.email_sent_at ? (
                         <button
-                          className="btn btn-primary btn-xs w-full sm:w-28"
+                          className="btn btn-primary btn-xs w-full sm:w-auto"
                           onClick={() => {
                             setSelectedQuoteForSending(quote);
                             setShowIndividualQuoteModal(true);
                           }}
+                          title="Send Quote"
                         >
-                          <Send size={16} className="mr-2" />
-                          Send
+                          <Send size={16} />
                         </button>
                       ) : (
                         <button
-                          className="btn btn-secondary btn-xs w-full sm:w-28"
+                          className="btn btn-secondary btn-xs w-full sm:w-auto"
                           onClick={() => {
                             setSelectedQuoteForSending(quote);
                             setShowIndividualQuoteModal(true);
                           }}
+                          title="Resend Quote"
                         >
-                          <Send size={16} className="mr-2" />
-                          Resend
+                          <Send size={16} />
                         </button>
                       )}
                       <button
-                        className="btn btn-error btn-xs w-full sm:w-28"
+                        className="btn btn-error btn-xs w-full sm:w-auto"
                         onClick={() => handleDeleteQuote(quote.id)}
                         disabled={isDeletingQuote === quote.id}
                         title="Delete Quote"
                       >
                         {isDeletingQuote === quote.id ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
                         ) : (
-                          <Trash2 size={16} className="mr-2" />
+                          <Trash2 size={16} />
                         )}
-                        Delete
                       </button>
                     </div>
                   </td>

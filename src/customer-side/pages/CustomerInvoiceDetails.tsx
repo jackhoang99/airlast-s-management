@@ -330,8 +330,7 @@ const CustomerInvoiceDetails = () => {
                   onClick={() => setShowPdf(true)}
                   className="btn btn-primary"
                 >
-                  <Eye size={16} className="mr-2" />
-                  View Invoice
+                  <Eye size={16} />
                 </button>
               </div>
             </div>
@@ -543,8 +542,7 @@ const CustomerInvoiceDetails = () => {
                 onClick={() => setShowPdf(true)}
                 className="btn btn-primary w-full justify-start"
               >
-                <Eye size={16} className="mr-2" />
-                View Invoice
+                <Eye size={16} />
               </button>
               
               <button

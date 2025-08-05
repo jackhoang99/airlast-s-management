@@ -81,6 +81,7 @@ const QuoteSection = ({
   // PM Quote states
   const [pmQuotes, setPmQuotes] = useState<any[]>([]);
   const [selectedPMQuote, setSelectedPMQuote] = useState<any | null>(null);
+  const [isPMLoading, setIsPMLoading] = useState(false);
 
   // Fetch job details and PM quotes
   useEffect(() => {
@@ -283,6 +284,7 @@ const QuoteSection = ({
   const handlePMSave = async (pmQuoteData: any) => {
     if (!supabase) return;
 
+    setIsPMLoading(true);
     try {
       let result;
       if (pmQuoteData.id) {
@@ -365,6 +367,110 @@ const QuoteSection = ({
         result = data;
       }
 
+      // Generate PDF for the PM quote
+      try {
+        const quoteNumber = `PM-${result.id.slice(0, 8)}`;
+
+        // Fetch job details for PDF generation
+        const { data: jobData, error: jobError } = await supabase
+          .from("jobs")
+          .select(
+            `
+            *,
+            locations (
+              name,
+              address,
+              city,
+              state,
+              zip,
+              companies (
+                name
+              )
+            ),
+            job_units:job_units!inner (
+              unit_id,
+              units:unit_id (
+                id,
+                unit_number
+              )
+            )
+          `
+          )
+          .eq("id", jobId)
+          .single();
+
+        if (jobError) throw jobError;
+
+        // Try to fetch default template
+        const { data: templateData, error: templateError } = await supabase
+          .from("quote_templates")
+          .select("*")
+          .eq("template_data->>type", "pdf")
+          .eq("template_data->>templateType", "pm")
+          .eq("template_data->>isDefault", "true")
+          .limit(1);
+
+        let templateToUse =
+          templateData && templateData.length > 0 ? templateData[0] : null;
+
+        // Fallback to any template
+        if (!templateToUse) {
+          const { data: fallback, error: fallbackError } = await supabase
+            .from("quote_templates")
+            .select("*")
+            .eq("template_data->>type", "pdf")
+            .eq("template_data->>templateType", "pm")
+            .limit(1);
+
+          if (!fallbackError && fallback && fallback.length > 0) {
+            templateToUse = fallback[0];
+          }
+        }
+
+        if (templateToUse) {
+          const apiUrl = `${
+            import.meta.env.VITE_SUPABASE_URL
+          }/functions/v1/generate-quote-pdf`;
+
+          const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              jobId,
+              quoteType: "pm",
+              quoteNumber,
+              templateId: templateToUse.id,
+              jobData,
+              inspectionData: [],
+              replacementData: null,
+              jobItems: [],
+              replacementDataById: {},
+              pmQuotes: [result], // Pass the PM quote data
+            }),
+          });
+
+          if (response.ok) {
+            const pdfResult = await response.json();
+            if (pdfResult.pdfUrl) {
+              // Update the PM quote with the PDF URL
+              await supabase
+                .from("pm_quotes")
+                .update({
+                  pdf_url: pdfResult.pdfUrl,
+                  pdf_generated_at: new Date().toISOString(),
+                })
+                .eq("id", result.id);
+            }
+          }
+        }
+      } catch (pdfError) {
+        console.error("Error generating PDF for PM quote:", pdfError);
+        // Don't throw error here - quote was saved successfully
+      }
+
       // Refresh PM quotes
       const { data: updatedQuotes, error: fetchError } = await supabase
         .from("pm_quotes")
@@ -379,6 +485,8 @@ const QuoteSection = ({
     } catch (err) {
       console.error("Error saving PM quote:", err);
       throw err;
+    } finally {
+      setIsPMLoading(false);
     }
   };
 
@@ -386,6 +494,7 @@ const QuoteSection = ({
   const handlePMDelete = async (quoteId: string) => {
     if (!supabase) return;
 
+    setIsPMLoading(true);
     try {
       const { error } = await supabase
         .from("pm_quotes")
@@ -407,6 +516,8 @@ const QuoteSection = ({
       if (onQuoteStatusChange) onQuoteStatusChange();
     } catch (err) {
       console.error("Error deleting PM quote:", err);
+    } finally {
+      setIsPMLoading(false);
     }
   };
 
@@ -1038,9 +1149,19 @@ const QuoteSection = ({
                 setShowPMQuoteModal(true);
               }}
               className="btn btn-primary btn-sm"
+              disabled={isPMLoading}
             >
-              <Plus size={14} className="mr-1" />
-              Add PM Quote
+              {isPMLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-1"></div>
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus size={14} className="mr-1" />
+                  Add PM Quote
+                </>
+              )}
             </button>
             <button
               onClick={() => {
@@ -1054,7 +1175,12 @@ const QuoteSection = ({
             </button>
           </div>
 
-          {pmQuotes.length > 0 ? (
+          {isPMLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600 mx-auto mb-3"></div>
+              <p className="text-gray-600">Adding PM Quote...</p>
+            </div>
+          ) : pmQuotes.length > 0 ? (
             <div className="space-y-4">
               {pmQuotes.map((quote, index) => (
                 <div
@@ -1221,28 +1347,10 @@ const QuoteSection = ({
                     {/* Action Buttons */}
                     <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
                       <button
-                        onClick={() => {
-                          import("./PMQuotePDFGenerator")
-                            .then(({ default: PMQuotePDFGenerator }) => {
-                              const doc = PMQuotePDFGenerator(quote);
-                              const fileName = `PM_HVAC_Quote_${
-                                new Date().toISOString().split("T")[0]
-                              }.pdf`;
-                              doc.save(fileName);
-                            })
-                            .catch((error) => {
-                              console.error("Error generating PDF:", error);
-                            });
-                        }}
-                        className="p-1 text-blue-600 hover:text-blue-800"
-                        title="Generate PDF"
-                      >
-                        <FileText size={16} />
-                      </button>
-                      <button
                         onClick={() => handlePMEdit(quote)}
                         className="p-1 text-primary-600 hover:text-primary-800"
                         title="Edit PM Quote"
+                        disabled={isPMLoading}
                       >
                         <Edit size={16} />
                       </button>
@@ -1258,8 +1366,13 @@ const QuoteSection = ({
                         }}
                         className="p-1 text-error-600 hover:text-error-800"
                         title="Delete PM Quote"
+                        disabled={isPMLoading}
                       >
-                        <Trash2 size={16} />
+                        {isPMLoading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-error-600"></div>
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
                       </button>
                     </div>
                   </div>

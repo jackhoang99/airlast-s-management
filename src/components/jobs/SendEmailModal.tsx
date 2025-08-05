@@ -457,40 +457,50 @@ const SendEmailModal = ({
           `No PDF template found for ${quoteType} quotes. Please upload a template and set it as default.`
         );
       }
-      // Generate PDF with the same payload as QuotePDFViewer
-      const generatePdfUrl = `${
-        import.meta.env.VITE_SUPABASE_URL
-      }/functions/v1/generate-quote-pdf`;
-      const response = await fetch(generatePdfUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          jobId,
-          quoteType,
-          quoteNumber,
-          templateId: templateToUse.id,
-          jobData: fullJobData,
-          inspectionData: allInspectionData,
-          replacementData:
-            allReplacementData && allReplacementData.length > 0
-              ? allReplacementData[0]
-              : null,
-          jobItems: allJobItems,
-          replacementDataById: filteredReplacementData,
-        }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate PDF");
+      // Check if we have a stored PDF URL for existing quotes
+      let pdfUrlToUse = null;
+
+      if (existingQuote && existingQuote.pdf_url) {
+        // Use the stored PDF URL if available
+        pdfUrlToUse = existingQuote.pdf_url;
+        setPdfUrl(pdfUrlToUse);
+      } else {
+        // Generate new PDF if no stored URL exists
+        const generatePdfUrl = `${
+          import.meta.env.VITE_SUPABASE_URL
+        }/functions/v1/generate-quote-pdf`;
+        const response = await fetch(generatePdfUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            jobId,
+            quoteType,
+            quoteNumber,
+            templateId: templateToUse.id,
+            jobData: fullJobData,
+            inspectionData: allInspectionData,
+            replacementData:
+              allReplacementData && allReplacementData.length > 0
+                ? allReplacementData[0]
+                : null,
+            jobItems: allJobItems,
+            replacementDataById: filteredReplacementData,
+          }),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to generate PDF");
+        }
+        const generateResult = await response.json();
+        if (!generateResult.pdfUrl) {
+          throw new Error("No PDF URL returned from the server");
+        }
+        pdfUrlToUse = generateResult.pdfUrl;
+        setPdfUrl(pdfUrlToUse);
       }
-      const generateResult = await response.json();
-      if (!generateResult.pdfUrl) {
-        throw new Error("No PDF URL returned from the server");
-      }
-      setPdfUrl(generateResult.pdfUrl);
 
       let quoteData;
       let quoteError;
@@ -502,6 +512,8 @@ const SendEmailModal = ({
           .update({
             token: token,
             email: customerEmail,
+            pdf_url: pdfUrlToUse,
+            pdf_generated_at: new Date().toISOString(),
             quote_data: {
               // Update quote data with current information
               quoteType,
@@ -547,6 +559,8 @@ const SendEmailModal = ({
           .update({
             token: token,
             email: customerEmail,
+            pdf_url: pdfUrlToUse,
+            pdf_generated_at: new Date().toISOString(),
             quote_data: {
               // Update quote data with current information
               quoteType,
@@ -598,6 +612,8 @@ const SendEmailModal = ({
             confirmed: false,
             approved: false,
             email: customerEmail,
+            pdf_url: pdfUrlToUse,
+            pdf_generated_at: new Date().toISOString(),
             selected_replacement_options:
               quoteType === "replacement"
                 ? Object.keys(replacementDataById)
@@ -702,7 +718,7 @@ const SendEmailModal = ({
           quoteNumber,
           quoteType,
           emailTemplate,
-          pdfUrl: generateResult.pdfUrl,
+          pdfUrl: pdfUrlToUse,
           replacementDataById:
             quoteType === "replacement" ? filteredReplacementData : {},
           repairItems: quoteType === "repair" ? repairItems : [],
@@ -724,7 +740,7 @@ const SendEmailModal = ({
           jobItems: [],
           quoteNumber,
           emailTemplate,
-          pdfUrl: generateResult.pdfUrl,
+          pdfUrl: pdfUrlToUse,
           inspectionData: allInspectionData,
         };
       }

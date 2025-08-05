@@ -369,20 +369,6 @@ const PMQuoteModal = ({
     }
   };
 
-  const handleGeneratePDF = () => {
-    import("./PMQuotePDFGenerator")
-      .then(({ default: PMQuotePDFGenerator }) => {
-        const doc = PMQuotePDFGenerator(pmQuote);
-        const fileName = `PM_HVAC_Quote_${
-          new Date().toISOString().split("T")[0]
-        }.pdf`;
-        doc.save(fileName);
-      })
-      .catch((error) => {
-        console.error("Error generating PDF:", error);
-      });
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -965,13 +951,6 @@ const PMQuoteModal = ({
             className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
           >
             Cancel
-          </button>
-          <button
-            onClick={handleGeneratePDF}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
-          >
-            <FileText size={16} />
-            Generate PDF
           </button>
           <button
             onClick={handleSave}

@@ -54,30 +54,13 @@ const PMQuotePDFGenerator = (pmQuote: PMQuoteData) => {
   doc.text("Date:", 20, yPos);
   doc.setFont("helvetica", "normal");
   const today = new Date();
-  const formattedDate = today.toLocaleDateString('en-US', {
-    month: 'numeric',
-    day: 'numeric',
-    year: 'numeric'
+  const formattedDate = today.toLocaleDateString("en-US", {
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
   });
   doc.text(formattedDate, 35, yPos);
   yPos += 15;
-
-  // Client Information
-  if (pmQuote.client_name) {
-    doc.setFont("helvetica", "bold");
-    doc.text("Client:", 20, yPos);
-    doc.setFont("helvetica", "normal");
-    doc.text(pmQuote.client_name, 35, yPos);
-    yPos += 8;
-  }
-
-  if (pmQuote.property_address) {
-    doc.setFont("helvetica", "bold");
-    doc.text("Property Address:", 20, yPos);
-    doc.setFont("helvetica", "normal");
-    doc.text(pmQuote.property_address, 50, yPos);
-    yPos += 15;
-  }
 
   // Scope of Work
   yPos += 5;
@@ -292,7 +275,11 @@ const PMQuotePDFGenerator = (pmQuote: PMQuoteData) => {
   doc.setFontSize(10);
 
   // Individual Visit Costs
-  if (pmQuote.include_comprehensive_service && pmQuote.comprehensive_visit_costs && pmQuote.comprehensive_visit_costs.length > 0) {
+  if (
+    pmQuote.include_comprehensive_service &&
+    pmQuote.comprehensive_visit_costs &&
+    pmQuote.comprehensive_visit_costs.length > 0
+  ) {
     doc.setFont("helvetica", "bold");
     doc.text("Comprehensive Service Visit Costs:", 20, yPos);
     yPos += 6;
@@ -301,7 +288,11 @@ const PMQuotePDFGenerator = (pmQuote: PMQuoteData) => {
     pmQuote.comprehensive_visit_costs.forEach((cost, index) => {
       const visitNumber = index + 1;
       const visitCost = cost || 0;
-      doc.text(`Visit ${visitNumber}: $${visitCost.toLocaleString()}`, 25, yPos);
+      doc.text(
+        `Visit ${visitNumber}: $${visitCost.toLocaleString()}`,
+        25,
+        yPos
+      );
       yPos += 5;
     });
     yPos += 3;
@@ -318,7 +309,11 @@ const PMQuotePDFGenerator = (pmQuote: PMQuoteData) => {
   }
 
   // Filter Change Visit Costs
-  if (pmQuote.include_filter_change_service && pmQuote.filter_visit_costs && pmQuote.filter_visit_costs.length > 0) {
+  if (
+    pmQuote.include_filter_change_service &&
+    pmQuote.filter_visit_costs &&
+    pmQuote.filter_visit_costs.length > 0
+  ) {
     doc.setFont("helvetica", "bold");
     doc.text("Filter Change Visit Costs:", 20, yPos);
     yPos += 6;
@@ -327,7 +322,11 @@ const PMQuotePDFGenerator = (pmQuote: PMQuoteData) => {
     pmQuote.filter_visit_costs.forEach((cost, index) => {
       const visitNumber = index + 1;
       const visitCost = cost || 0;
-      doc.text(`Visit ${visitNumber}: $${visitCost.toLocaleString()}`, 25, yPos);
+      doc.text(
+        `Visit ${visitNumber}: $${visitCost.toLocaleString()}`,
+        25,
+        yPos
+      );
       yPos += 5;
     });
     yPos += 3;

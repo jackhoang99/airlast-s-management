@@ -556,7 +556,6 @@ const Assets = () => {
                         className="text-primary-600 hover:text-primary-800 flex items-center gap-1"
                       >
                         <Eye size={16} />
-                        View Details
                       </button>
                       <button
                         className="ml-2 text-primary-600 hover:text-primary-800"
