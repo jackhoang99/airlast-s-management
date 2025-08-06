@@ -56,7 +56,9 @@ const QuotePDFViewer: React.FC<QuotePDFViewerProps> = ({
               console.warn("Could not fetch existing PM quote:", pmQuoteError);
             } else {
               existingQuote = pmQuoteData;
-              quoteNumber = `PM-${pmQuoteData.id.slice(0, 8)}`;
+              quoteNumber = `QT-${jobId}-${Math.floor(Math.random() * 10000)
+                .toString()
+                .padStart(4, "0")}`;
               // For PM quotes, the entire quote data is the stored data
               storedQuoteData = pmQuoteData;
               storedPdfUrl = pmQuoteData.pdf_url;

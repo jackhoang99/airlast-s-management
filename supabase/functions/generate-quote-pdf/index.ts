@@ -118,17 +118,33 @@ serve(async (req) => {
     // Fetch template PDF if available, otherwise create a new document
     let pdfDoc;
     if (
-      templateData.template_data.fileUrl &&
+      templateData?.template_data?.fileUrl &&
       templateData.template_data.fileUrl !==
         "https://example.com/default-template.pdf"
     ) {
-      const tplRes = await fetch(templateData.template_data.fileUrl);
-      if (!tplRes.ok) {
-        console.log("Failed to fetch template PDF, creating new document");
+      try {
+        // Add timeout to template fetch
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        const tplRes = await fetch(templateData.template_data.fileUrl, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!tplRes.ok) {
+          console.log("Failed to fetch template PDF, creating new document");
+          pdfDoc = await PDFDocument.create();
+        } else {
+          const tplBytes = await tplRes.arrayBuffer();
+          pdfDoc = await PDFDocument.load(tplBytes);
+        }
+      } catch (error) {
+        console.log(
+          "Template fetch failed or timed out, creating new document:",
+          error
+        );
         pdfDoc = await PDFDocument.create();
-      } else {
-        const tplBytes = await tplRes.arrayBuffer();
-        pdfDoc = await PDFDocument.load(tplBytes);
       }
     } else {
       console.log("Creating new PDF document without template");
@@ -175,12 +191,20 @@ serve(async (req) => {
             const imageHeight = imageWidth; // Make it square for hexagonal shape
             const imageX = width - imageWidth; // Position at the right edge
             const imageY = height - imageHeight; // Position at the top edge
-            // Add HVAC image to the frame
+            // Add HVAC image to the frame with timeout
             try {
-              // Use the hexagonal HVAC image without border from Supabase storage
               const hvacImageUrl =
                 "https://ekxkjnygupehzpoyojwq.supabase.co/storage/v1/object/public/templates/quote-templates/output-onlinepngtools.png";
-              const hvacImageRes = await fetch(hvacImageUrl);
+
+              // Add timeout to image fetch
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+              const hvacImageRes = await fetch(hvacImageUrl, {
+                signal: controller.signal,
+              });
+              clearTimeout(timeoutId);
+
               if (hvacImageRes.ok) {
                 const hvacImageBytes = await hvacImageRes.arrayBuffer();
                 const hvacImage = await newPdfDoc.embedPng(hvacImageBytes);
@@ -192,34 +216,10 @@ serve(async (req) => {
                   height: imageHeight,
                 });
               } else {
-                // Fallback to original image if hexagonal version not found
-                const originalHvacImageUrl =
-                  "https://ekxkjnygupehzpoyojwq.supabase.co/storage/v1/object/public/templates/quote-templates/output-onlinepngtools.png";
-                const originalHvacImageRes = await fetch(originalHvacImageUrl);
-                if (originalHvacImageRes.ok) {
-                  const hvacImageBytes =
-                    await originalHvacImageRes.arrayBuffer();
-                  const hvacImage = await newPdfDoc.embedPng(hvacImageBytes);
-                  // Draw the original image
-                  addedPage.drawImage(hvacImage, {
-                    x: imageX,
-                    y: imageY,
-                    width: imageWidth,
-                    height: imageHeight,
-                  });
-                } else {
-                  // Fallback to placeholder text if image fails to load
-                  addedPage.drawText("HVAC Units", {
-                    x: imageX + imageWidth / 2 - 30,
-                    y: imageY + imageHeight / 2,
-                    size: 16,
-                    font: bold,
-                    color: rgb(1, 1, 1),
-                  });
-                }
+                throw new Error("Image fetch failed");
               }
             } catch (error) {
-              console.log("Error loading HVAC image:", error);
+              console.log("Error loading HVAC image, using fallback:", error);
               // Fallback to placeholder text
               addedPage.drawText("HVAC Units", {
                 x: imageX + imageWidth / 2 - 30,

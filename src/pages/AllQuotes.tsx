@@ -220,7 +220,11 @@ export default function AllQuotes() {
       // Transform PM quotes to match the Quote type structure
       const transformedPMQuotes = (pmQuotesData || []).map((pmQuote: any) => ({
         id: pmQuote.id,
-        quote_number: `PM-${pmQuote.id.slice(0, 8)}`,
+        quote_number: `QT-${pmQuote.jobs.number}-${Math.floor(
+          Math.random() * 10000
+        )
+          .toString()
+          .padStart(4, "0")}`,
         quote_type: "pm" as const,
         amount: pmQuote.total_cost || 0,
         status: "Created",
@@ -766,6 +770,11 @@ export default function AllQuotes() {
           location={selectedQuoteForSending.quote_data?.location || null}
           unit={selectedQuoteForSending.quote_data?.unit || null}
           quoteType={selectedQuoteForSending.quote_type}
+          pmQuotes={
+            selectedQuoteForSending.quote_type === "pm"
+              ? selectedQuoteForSending.quote_data?.pmQuotes || []
+              : []
+          }
           onEmailSent={handleQuoteSent}
           existingQuote={selectedQuoteForSending}
         />

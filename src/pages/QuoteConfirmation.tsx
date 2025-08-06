@@ -26,10 +26,10 @@ const QuoteConfirmation = () => {
   const [invoiceCreated, setInvoiceCreated] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
   const [quoteType, setQuoteType] = useState<
-    "replacement" | "repair" | "inspection"
+    "replacement" | "repair" | "inspection" | "pm"
   >("replacement");
   const [intendedQuoteType, setIntendedQuoteType] = useState<
-    "replacement" | "repair" | "inspection"
+    "replacement" | "repair" | "inspection" | "pm"
   >("replacement");
 
   // Get the approval status from URL query parameters
@@ -37,9 +37,17 @@ const QuoteConfirmation = () => {
     const searchParams = new URLSearchParams(location.search);
     const approveParam = searchParams.get("approve");
 
+    console.log("URL approve parameter:", approveParam);
+
     if (approveParam === "true") {
       setApproved(true);
+      console.log("Setting approved to true");
     } else if (approveParam === "false") {
+      setApproved(false);
+      console.log("Setting approved to false");
+    } else {
+      // If no approve parameter is found, default to false (denied)
+      console.log("No approve parameter found, defaulting to false");
       setApproved(false);
     }
   }, [location]);
@@ -49,6 +57,12 @@ const QuoteConfirmation = () => {
       if (!token) {
         setError("Invalid confirmation link");
         setIsLoading(false);
+        return;
+      }
+
+      // Don't proceed if approved state is not set yet
+      if (approved === null) {
+        console.log("Approved state not set yet, waiting...");
         return;
       }
 
@@ -64,7 +78,11 @@ const QuoteConfirmation = () => {
           if (!quoteError && quoteData) {
             setQuoteDetails(quoteData);
             setQuoteType(
-              quoteData.quote_type as "replacement" | "repair" | "inspection"
+              quoteData.quote_type as
+                | "replacement"
+                | "repair"
+                | "inspection"
+                | "pm"
             );
 
             // If already confirmed, just return success
@@ -172,12 +190,8 @@ const QuoteConfirmation = () => {
             // If already confirmed, just return success
             if (jobData.quote_confirmed) {
               setSuccess(true);
-              setApproved(
-                quoteType === "replacement" ||
-                  (quoteDetails && quoteDetails.quote_type === "replacement")
-                  ? jobData.replacement_approved
-                  : jobData.repair_approved
-              );
+              // Use the quote details for approval status instead of job data
+              setApproved(quoteDetails ? quoteDetails.approved : null);
               setIsLoading(false);
               return;
             }
@@ -213,13 +227,16 @@ const QuoteConfirmation = () => {
 
             // Call the Supabase Edge Function to confirm the quote
             // Use the appropriate edge function based on quote type
-            const functionName =
-              quoteType === "repair"
-                ? "confirm-repair-quote"
-                : "confirm-replacement-quote";
+            const functionName = "confirm-quote";
             const apiUrl = `${
               import.meta.env.VITE_SUPABASE_URL
             }/functions/v1/${functionName}`;
+
+            console.log("Sending confirmation request:", {
+              token,
+              approved,
+              quoteType: quoteDetails ? quoteType : intendedQuoteType,
+            });
 
             const response = await fetch(apiUrl, {
               method: "POST",
@@ -249,12 +266,13 @@ const QuoteConfirmation = () => {
                   | "replacement"
                   | "repair"
                   | "inspection"
+                  | "pm"
               );
             }
 
             setSuccess(true);
             setApproved(approved);
-            // If repair is declined, create an inspection invoice
+            // If quote is declined, create an inspection invoice
             if (approved === false && supabase && jobDetails) {
               setIsCreatingInvoice(true);
 
@@ -271,14 +289,17 @@ const QuoteConfirmation = () => {
                 const dueDate = new Date();
                 dueDate.setDate(dueDate.getDate() + 30);
 
-                // Create inspection invoice for $180
+                // Always create an inspection invoice for declined quotes
+                const invoiceAmount = 180.0; // Standard inspection fee
+                const invoiceDescription = "Inspection Fee";
+                const itemCode = "INSP-FEE";
                 const { data: invoiceData, error: invoiceError } =
                   await supabase
                     .from("job_invoices")
                     .insert({
                       job_id: jobDetails.id,
                       invoice_number: invoiceNumber,
-                      amount: 180.0, // Fixed inspection fee
+                      amount: invoiceAmount,
                       status: "issued",
                       issued_date: new Date().toISOString().split("T")[0],
                       due_date: dueDate.toISOString().split("T")[0],
@@ -287,22 +308,6 @@ const QuoteConfirmation = () => {
                     .single();
 
                 if (invoiceError) throw invoiceError;
-
-                // Add inspection item to job_items
-                const { error: itemError } = await supabase
-                  .from("job_items")
-                  .insert({
-                    job_id: jobDetails.id,
-                    code: "INSP-FEE",
-                    name: "Inspection Fee",
-                    service_line: "INSP",
-                    quantity: 1,
-                    unit_cost: 180.0,
-                    total_cost: 180.0,
-                    type: "item",
-                  });
-
-                if (itemError) throw itemError;
 
                 try {
                   // Call the Supabase Edge Function to send the email
@@ -326,14 +331,14 @@ const QuoteConfirmation = () => {
                       jobName: jobDetails.name,
                       customerName: jobDetails.contact_name,
                       invoiceNumber: invoiceNumber,
-                      amount: 180.0,
+                      amount: invoiceAmount,
                       issuedDate: new Date().toISOString().split("T")[0],
                       dueDate: dueDate.toISOString().split("T")[0],
                       jobItems: [
                         {
-                          name: "Inspection Fee",
+                          name: invoiceDescription,
                           quantity: 1,
-                          total_cost: 180.0,
+                          total_cost: invoiceAmount,
                         },
                       ],
                     }),
@@ -439,7 +444,15 @@ const QuoteConfirmation = () => {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-center mb-4">
-            {quoteType === "replacement" ? "Replacements" : "Repairs"}{" "}
+            {quoteType === "replacement"
+              ? "Replacement"
+              : quoteType === "repair"
+              ? "Repair"
+              : quoteType === "pm"
+              ? "PM"
+              : quoteType === "inspection"
+              ? "Inspection"
+              : "Quote"}{" "}
             {approved ? "Approved" : "Declined"}
           </h1>
           <p className="text-gray-600 text-center mb-6">
@@ -451,7 +464,16 @@ const QuoteConfirmation = () => {
           <div className="border rounded-lg p-6 mb-6">
             <h2 className="text-lg font-medium mb-4 flex items-center">
               <FileText className="h-5 w-5 mr-2 text-primary-600" />
-              {quoteType === "replacement" ? "Replacement" : "Repair"} Details
+              {quoteType === "replacement"
+                ? "Replacement"
+                : quoteType === "repair"
+                ? "Repair"
+                : quoteType === "pm"
+                ? "PM"
+                : quoteType === "inspection"
+                ? "Inspection"
+                : "Quote"}{" "}
+              Details
             </h2>
 
             <div className="space-y-4">
@@ -535,7 +557,16 @@ const QuoteConfirmation = () => {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-center mb-4">
-            {quoteType === "replacement" ? "Replacement" : "Repair"} Quote
+            {quoteType === "replacement"
+              ? "Replacement"
+              : quoteType === "repair"
+              ? "Repair"
+              : quoteType === "pm"
+              ? "PM"
+              : quoteType === "inspection"
+              ? "Inspection"
+              : "Quote"}{" "}
+            Quote
           </h1>
           <p className="text-gray-600 text-center mb-6">
             Based on our assessment, we recommend proceeding with{" "}
@@ -575,7 +606,15 @@ const QuoteConfirmation = () => {
             {replacementData.length > 0 && (
               <div className="mt-4">
                 <h3 className="font-medium">
-                  {quoteType === "replacement" ? "Replacement" : "Repair"}{" "}
+                  {quoteType === "replacement"
+                    ? "Replacement"
+                    : quoteType === "repair"
+                    ? "Repair"
+                    : quoteType === "pm"
+                    ? "PM"
+                    : quoteType === "inspection"
+                    ? "Inspection"
+                    : "Quote"}{" "}
                   Details
                 </h3>
                 <div className="mt-2 space-y-4">

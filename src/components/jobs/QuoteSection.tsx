@@ -369,7 +369,11 @@ const QuoteSection = ({
 
       // Generate PDF for the PM quote
       try {
-        const quoteNumber = `PM-${result.id.slice(0, 8)}`;
+        const quoteNumber = `QT-${job.number}-${Math.floor(
+          Math.random() * 10000
+        )
+          .toString()
+          .padStart(4, "0")}`;
 
         // Fetch job details for PDF generation
         const { data: jobData, error: jobError } = await supabase
@@ -1468,6 +1472,7 @@ const QuoteSection = ({
               : null
           }
           quoteType={activeTab === "pm" ? undefined : activeTab}
+          pmQuotes={activeTab === "pm" ? pmQuotes : []}
           onEmailSent={() => {
             window.location.reload();
           }}

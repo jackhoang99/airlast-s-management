@@ -23,7 +23,14 @@ serve(async (req) => {
     if (!token) {
       throw new Error("Token is required");
     }
-    // First check if there's a quote record with this token
+
+    console.log("Confirming quote:", {
+      token,
+      approved,
+      requestQuoteType,
+    });
+    // Check if there's a quote record with this token
+    console.log("Looking for quote with token:", token);
     const { data: quoteData, error: quoteError } = await supabase
       .from("job_quotes")
       .select("*")
@@ -32,6 +39,7 @@ serve(async (req) => {
     if (quoteError && !quoteError.message.includes("contains 0 rows")) {
       throw quoteError;
     }
+    console.log("Found quote data:", quoteData);
     // If quote record exists, update it
     if (quoteData) {
       const { error: updateQuoteError } = await supabase
@@ -44,30 +52,6 @@ serve(async (req) => {
         .eq("id", quoteData.id);
       if (updateQuoteError) {
         throw updateQuoteError;
-      }
-      // Also update the job record
-      // Get quote type to determine which approval column to update
-      const quoteType = quoteData.quote_type || "replacement";
-
-      let updateObj = {
-        quote_confirmed: true,
-        quote_confirmed_at: new Date().toISOString(),
-      };
-
-      // Set the appropriate approval column based on quote type
-      if (quoteType === "repair") {
-        updateObj["repair_approved"] = approved;
-      } else {
-        updateObj["replacement_approved"] = approved;
-      }
-
-      const { error: updateJobError } = await supabase
-        .from("jobs")
-        .update(updateObj)
-        .eq("id", quoteData.job_id);
-
-      if (updateJobError) {
-        throw updateJobError;
       }
       return new Response(
         JSON.stringify({
@@ -84,7 +68,7 @@ serve(async (req) => {
         }
       );
     }
-    // If no quote record, check the job record
+    // If no quote record, check the job record (for backward compatibility)
     const { data: jobData, error: jobError } = await supabase
       .from("jobs")
       .select("*")
@@ -96,25 +80,30 @@ serve(async (req) => {
     if (!jobData) {
       throw new Error("Quote not found");
     }
-    // Update the job record
-    // Use quoteType from request if provided, otherwise default to 'replacement'
-    const quoteType = requestQuoteType || "replacement";
-    let updateObj = {
-      quote_confirmed: true,
-      quote_confirmed_at: new Date().toISOString(),
-    };
-    // Set the appropriate approval column based on quote type
-    if (quoteType === "repair") {
-      updateObj["repair_approved"] = approved;
-    } else {
-      updateObj["replacement_approved"] = approved;
-    }
-    const { error: updateError } = await supabase
-      .from("jobs")
-      .update(updateObj)
-      .eq("id", jobData.id);
-    if (updateError) {
-      throw updateError;
+    // For backward compatibility, create a quote record if one doesn't exist
+    const validQuoteTypes = ["repair", "replacement", "pm", "inspection"];
+    const quoteType = validQuoteTypes.includes(requestQuoteType)
+      ? requestQuoteType
+      : "replacement";
+    const { data: newQuote, error: insertError } = await supabase
+      .from("job_quotes")
+      .insert({
+        job_id: jobData.id,
+        quote_number: `QT-${jobData.number}-${Math.floor(Math.random() * 10000)
+          .toString()
+          .padStart(4, "0")}`,
+        quote_type: quoteType,
+        amount: 0, // Default amount since we don't have quote data
+        token: token,
+        confirmed: true,
+        confirmed_at: new Date().toISOString(),
+        approved: approved,
+        email: jobData.contact_email || "",
+      })
+      .select()
+      .single();
+    if (insertError) {
+      throw insertError;
     }
     return new Response(
       JSON.stringify({

@@ -1,4 +1,4 @@
-// supabase/functions/send-repair-quote/index.ts
+// supabase/functions/send-quote/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import sgMail from "npm:@sendgrid/mail";
 const corsHeaders = {
@@ -40,6 +40,7 @@ serve(async (req) => {
       emailTemplate,
       pdfUrl,
       replacementDataByInspection,
+      pmQuotes,
     } = requestData;
     if (!quoteType) {
       return new Response(
@@ -55,7 +56,7 @@ serve(async (req) => {
         }
       );
     }
-    console.log("Received repair quote request:", {
+    console.log("Received quote request:", {
       jobId,
       customerEmail,
       jobNumber,
@@ -68,6 +69,7 @@ serve(async (req) => {
       hasAllReplacementData:
         Array.isArray(allReplacementData) && allReplacementData.length > 0,
       hasPdfUrl: !!pdfUrl,
+      hasPMQuotes: Array.isArray(pmQuotes) && pmQuotes.length > 0,
     });
     if (!jobId || !customerEmail || !quoteToken || !jobNumber) {
       return new Response(
@@ -85,7 +87,7 @@ serve(async (req) => {
     }
     const confirmationUrl = `${req.headers.get(
       "origin"
-    )}/quote/confirm/${quoteToken}`;
+    )}/quote/confirm/${quoteToken}?type=${quoteType}`;
     // Build inspection details HTML and text
     let inspectionHtml = "";
     let inspectionText = "";
@@ -156,6 +158,66 @@ serve(async (req) => {
       }
       inspectionHtml += `</div>`;
     }
+    // Build PM quote details HTML and text
+    let pmQuoteHtml = "";
+    let pmQuoteText = "";
+    if (quoteType === "pm" && Array.isArray(pmQuotes) && pmQuotes.length > 0) {
+      pmQuoteHtml = `<div style="background-color:#f0f7ff; padding:15px; border-radius:5px; margin:20px 0;">
+        <h3 style="margin-top:0; color:#0672be;">Preventative Maintenance Quote Details</h3>`;
+      pmQuoteText = "Preventative Maintenance Quote Details:\n\n";
+
+      pmQuotes.forEach((pmQuote, index) => {
+        const unitCount = pmQuote.unit_count || "N/A";
+        const totalCost = pmQuote.total_cost || 0;
+        const comprehensiveVisits = pmQuote.comprehensive_visits_count || 0;
+        const filterVisits = pmQuote.filter_visits_count || 0;
+        const servicePeriod = pmQuote.service_period || "N/A";
+        const filterPeriod = pmQuote.filter_visit_period || "N/A";
+
+        pmQuoteHtml += `
+          <div style="margin-bottom: ${
+            index < pmQuotes.length - 1 ? "20px" : "0"
+          }; ${
+          index > 0 ? "border-top: 1px solid #ddd; padding-top: 15px;" : ""
+        }">
+            <h4 style="margin-top:0;">PM Quote ${index + 1}</h4>
+            <table style="width:100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Number of Units:</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">${unitCount}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Comprehensive Visits:</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">${comprehensiveVisits}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Filter Change Visits:</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">${filterVisits}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Service Period:</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">${servicePeriod}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Filter Period:</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">${filterPeriod}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Total Annual Cost:</strong></td>
+                <td style="padding:8px; border:1px solid #ddd; font-weight:bold; color:#0672be;">$${totalCost.toLocaleString()}</td>
+              </tr>
+            </table>
+          </div>`;
+        pmQuoteText += `PM Quote ${index + 1}:\n`;
+        pmQuoteText += `- Number of Units: ${unitCount}\n`;
+        pmQuoteText += `- Comprehensive Visits: ${comprehensiveVisits}\n`;
+        pmQuoteText += `- Filter Change Visits: ${filterVisits}\n`;
+        pmQuoteText += `- Service Period: ${servicePeriod}\n`;
+        pmQuoteText += `- Filter Period: ${filterPeriod}\n`;
+        pmQuoteText += `- Total Annual Cost: $${totalCost.toLocaleString()}\n\n`;
+      });
+      pmQuoteHtml += `</div>`;
+    }
     // Location and unit information
     let locationHtml = "";
     let locationText = "";
@@ -183,30 +245,95 @@ ${city}, ${state} ${zip}
 ${unitNumber ? `Unit: ${unitNumber}` : ""}
 `;
     }
+    // Determine quote type specific content
+    const getQuoteTypeContent = () => {
+      switch (quoteType) {
+        case "repair":
+          return {
+            subject: `Repair Quote #${quoteNumber} from Airlast HVAC`,
+            introText: `Thank you for choosing Airlast HVAC services. Based on our inspection, we have prepared a repair quote for your review.`,
+            approvalText:
+              "Please click one of the buttons below to approve or deny the recommended repairs:",
+            approveButtonText: "Approve Repairs",
+            denyButtonText: "Deny Repairs",
+            approvalNote:
+              "If you approve, we will schedule the repair work at your earliest convenience.",
+            denialNote:
+              "If you deny, you will be charged $180.00 for the inspection service.",
+            quoteTypeLabel: "Repair Quote",
+          };
+        case "replacement":
+          return {
+            subject: `Replacement Quote #${quoteNumber} from Airlast HVAC`,
+            introText: `Thank you for choosing Airlast HVAC services. Based on our inspection, we have prepared a replacement quote for your review.`,
+            approvalText:
+              "Please click one of the buttons below to approve or deny the recommended replacements:",
+            approveButtonText: "Approve Replacements",
+            denyButtonText: "Deny Replacements",
+            approvalNote:
+              "If you approve, we will schedule the replacement work at your earliest convenience.",
+            denialNote:
+              "If you deny, you will be charged $180.00 for the inspection service.",
+            quoteTypeLabel: "Replacement Quote",
+          };
+        case "pm":
+          return {
+            subject: `Preventative Maintenance Quote #${quoteNumber} from Airlast HVAC`,
+            introText: `Thank you for choosing Airlast HVAC services. We have prepared a preventative maintenance quote to help keep your HVAC systems running efficiently.`,
+            approvalText:
+              "Please click one of the buttons below to approve or deny the preventative maintenance service:",
+            approveButtonText: "Approve PM Service",
+            denyButtonText: "Deny PM Service",
+            approvalNote:
+              "If you approve, we will schedule the preventative maintenance service at your earliest convenience.",
+            denialNote: "If you deny, no charges will be applied.",
+            quoteTypeLabel: "Preventative Maintenance Quote",
+          };
+        case "inspection":
+          return {
+            subject: `Inspection Quote #${quoteNumber} from Airlast HVAC`,
+            introText: `Thank you for choosing Airlast HVAC services. We have completed a comprehensive inspection of your HVAC systems.`,
+            approvalText:
+              "Please click one of the buttons below to approve or deny the inspection service:",
+            approveButtonText: "Approve Inspection",
+            denyButtonText: "Deny Inspection",
+            approvalNote:
+              "If you approve, the inspection service will be completed.",
+            denialNote:
+              "If you deny, you will be charged $180.00 for the inspection service.",
+            quoteTypeLabel: "Inspection Quote",
+          };
+        default:
+          return {
+            subject: `Quote #${quoteNumber} from Airlast HVAC`,
+            introText: `Thank you for choosing Airlast HVAC services. We have prepared a quote for your review.`,
+            approvalText:
+              "Please click one of the buttons below to approve or deny the service:",
+            approveButtonText: "Approve",
+            denyButtonText: "Deny",
+            approvalNote:
+              "If you approve, we will schedule the work at your earliest convenience.",
+            denialNote:
+              "If you deny, you will be charged $180.00 for the inspection service.",
+            quoteTypeLabel: "Quote",
+          };
+      }
+    };
+    const quoteContent = getQuoteTypeContent();
     // Use custom email template if provided, otherwise use defaults
-    const subject =
-      emailTemplate?.subject ||
-      `${
-        quoteType === "replacement" ? "Replacement" : "Repair"
-      } Quote #${quoteNumber} from Airlast HVAC`;
+    const subject = emailTemplate?.subject || quoteContent.subject;
     const greeting =
       emailTemplate?.greeting || `Dear ${customerName || "Customer"},`;
-    const introText =
-      emailTemplate?.introText ||
-      `Thank you for choosing Airlast HVAC services. Based on our inspection, we have prepared a quote for your review.`;
+    const introText = emailTemplate?.introText || quoteContent.introText;
     const approvalText =
-      quoteType === "repair"
-        ? "Please click one of the buttons below to approve or deny the recommended repairs:"
-        : "Please click one of the buttons below to approve or deny the recommended replacements:";
-    const approveButtonText = quoteType === "repair" ? "Approve" : "Approve";
-    const denyButtonText = quoteType === "repair" ? "Deny" : "Deny";
+      emailTemplate?.approvalText || quoteContent.approvalText;
+    const approveButtonText =
+      emailTemplate?.approveButtonText || quoteContent.approveButtonText;
+    const denyButtonText =
+      emailTemplate?.denyButtonText || quoteContent.denyButtonText;
     const approvalNote =
-      quoteType === "repair"
-        ? "If you approve, we will schedule the repair work at your earliest convenience."
-        : "If you approve, we will schedule the replacement work at your earliest convenience.";
-    const denialNote =
-      emailTemplate?.denialNote ||
-      "If you deny, you will be charged $180.00 for the inspection service.";
+      emailTemplate?.approvalNote || quoteContent.approvalNote;
+    const denialNote = emailTemplate?.denialNote || quoteContent.denialNote;
     const closingText =
       emailTemplate?.closingText ||
       "If you have any questions, please don't hesitate to contact us.";
@@ -228,9 +355,9 @@ ${unitNumber ? `Unit: ${unitNumber}` : ""}
             );
             attachments.push({
               content: pdfBase64,
-              filename: `${
-                quoteType.charAt(0).toUpperCase() + quoteType.slice(1)
-              }-Quote-${quoteNumber || jobNumber}.pdf`,
+              filename: `${quoteContent.quoteTypeLabel.replace(/\s+/g, "-")}-${
+                quoteNumber || jobNumber
+              }.pdf`,
               type: "application/pdf",
               disposition: "attachment",
             });
@@ -277,9 +404,7 @@ ${unitNumber ? `Unit: ${unitNumber}` : ""}
     const msg = {
       to: customerEmail,
       from: "support@airlast-management.com",
-      subject: `${
-        quoteType === "replacement" ? "Replacement" : "Repair"
-      } Quote #${quoteNumber} from Airlast HVAC`,
+      subject: subject,
       text: `${greeting}
 
 ${introText}
@@ -289,10 +414,9 @@ Quote #${quoteNumber} for Job #${jobNumber} - ${jobName || "HVAC Service"}
 ${locationText}
 
 ${inspectionText}
+${pmQuoteText}
 
-Please click the link below to approve or deny the recommended ${
-        quoteType === "replacement" ? "replacement" : "repairs"
-      }:
+Please click the link below to approve or deny the recommended service:
 
 ${confirmationUrl}
 
@@ -317,22 +441,21 @@ ${signature}`,
             <div style="background-color:#f0f7ff; padding:10px; border-radius:5px; margin:15px 0;">
               <h2 style="margin-top:0; color:#0672be;">Quote #${quoteNumber}</h2>
               <p>Job #${jobNumber} - ${jobName || "HVAC Service"}</p>
-              <p><strong>${
-                quoteType === "replacement" ? "Replacement" : "Repair"
-              } Quote</strong></p>
+              <p><strong>${quoteContent.quoteTypeLabel}</strong></p>
             </div>
 
             ${locationHtml}
             ${inspectionHtml}
+            ${pmQuoteHtml}
             ${viewPdfButtonHtml}
 
             <p>${approvalText}</p>
             
             <div style="text-align:center; margin:30px 0;">
-              <a href="${confirmationUrl}?approve=true" style="background-color:#22c55e; color:white; padding:12px 24px; text-decoration:none; border-radius:4px; font-weight:bold; margin-right:10px;">
+              <a href="${confirmationUrl}&approve=true" style="background-color:#22c55e; color:white; padding:12px 24px; text-decoration:none; border-radius:4px; font-weight:bold; display:block; margin-bottom:10px;">
                 ${approveButtonText}
               </a>
-              <a href="${confirmationUrl}?approve=false" style="background-color:#ef4444; color:white; padding:12px 24px; text-decoration:none; border-radius:4px; font-weight:bold; margin-left:10px;">
+              <a href="${confirmationUrl}&approve=false" style="background-color:#ef4444; color:white; padding:12px 24px; text-decoration:none; border-radius:4px; font-weight:bold; display:block;">
                 ${denyButtonText}
               </a>
             </div>
@@ -358,9 +481,7 @@ ${signature}`,
     return new Response(
       JSON.stringify({
         success: true,
-        message: `${
-          quoteType === "replacement" ? "Replacement" : "Repair"
-        } quote email sent successfully`,
+        message: `${quoteContent.quoteTypeLabel} email sent successfully`,
       }),
       {
         status: 200,
@@ -371,7 +492,7 @@ ${signature}`,
       }
     );
   } catch (error) {
-    console.error("Error sending repair quote:", error);
+    console.error("Error sending quote:", error);
     return new Response(
       JSON.stringify({
         error: error.message,

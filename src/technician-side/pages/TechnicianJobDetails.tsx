@@ -536,14 +536,9 @@ const TechnicianJobDetails = () => {
               training
             </span>
           )}
-          {job.quote_confirmed && job.repair_approved && (
-            <span className="badge bg-success-100 text-success-800">
-              Repair Approved
-            </span>
-          )}
-          {job.quote_confirmed && job.repair_approved === false && (
-            <span className="badge bg-error-100 text-error-800">
-              Repair Declined
+          {job.quote_confirmed && (
+            <span className="badge bg-blue-100 text-blue-800">
+              Quote Confirmed
             </span>
           )}
         </div>

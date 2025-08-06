@@ -29,26 +29,16 @@ type SendEmailModalProps = {
   totalCost?: number;
   location?: any;
   unit?: any;
-  quoteType?: "replacement" | "repair" | "inspection";
+  quoteType?: "replacement" | "repair" | "inspection" | "pm";
   onEmailSent?: (updatedJob: any) => void;
-  emailTemplate?: {
-    subject: string;
-    greeting: string;
-    introText: string;
-    approvalText: string;
-    approveButtonText: string;
-    denyButtonText: string;
-    approvalNote: string;
-    denialNote: string;
-    closingText: string;
-    signature: string;
-  };
+
   replacementDataById?: { [key: string]: any };
   repairItems?: any[];
   inspectionData?: any[];
   selectedReplacementOptions?: string[];
   selectedInspectionOptions?: string[];
   selectedRepairOptions?: string[];
+  pmQuotes?: any[]; // PM quotes data for PM quote type
   existingQuote?: any; // Add prop for existing quote when resending
 };
 
@@ -68,13 +58,13 @@ const SendEmailModal = ({
   unit,
   quoteType = "replacement",
   onEmailSent,
-  emailTemplate,
   replacementDataById = {},
   repairItems = [],
   inspectionData = [],
   selectedReplacementOptions = [],
   selectedInspectionOptions = [],
   selectedRepairOptions = [],
+  pmQuotes = [],
   existingQuote,
 }: SendEmailModalProps) => {
   const { supabase } = useSupabase();
@@ -538,11 +528,11 @@ const SendEmailModal = ({
                 quoteType === "repair"
                   ? allJobItems.filter((item) => item.type === "part")
                   : [],
+              pmQuotes: quoteType === "pm" ? pmQuotes : [],
               jobItems: allJobItems,
               location: sanitizeLocationData(location),
               unit: sanitizeUnitData(unit),
               selectedPhase,
-              emailTemplate,
               generatedAt: new Date().toISOString(),
             },
           })
@@ -585,11 +575,11 @@ const SendEmailModal = ({
                 quoteType === "repair"
                   ? allJobItems.filter((item) => item.type === "part")
                   : [],
+              pmQuotes: quoteType === "pm" ? pmQuotes : [],
               jobItems: allJobItems,
               location: sanitizeLocationData(location),
               unit: sanitizeUnitData(unit),
               selectedPhase,
-              emailTemplate,
               generatedAt: new Date().toISOString(),
             },
           })
@@ -648,11 +638,11 @@ const SendEmailModal = ({
                 quoteType === "repair"
                   ? allJobItems.filter((item) => item.type === "part")
                   : [],
+              pmQuotes: quoteType === "pm" ? pmQuotes : [],
               jobItems: allJobItems,
               location: sanitizeLocationData(location),
               unit: sanitizeUnitData(unit),
               selectedPhase,
-              emailTemplate,
               generatedAt: new Date().toISOString(),
             },
           })
@@ -671,79 +661,49 @@ const SendEmailModal = ({
       let apiUrl;
       let requestBody;
 
-      if (
-        quoteType === "replacement" ||
-        quoteType === "repair" ||
-        quoteType === "inspection"
-      ) {
-        apiUrl = `${
-          import.meta.env.VITE_SUPABASE_URL
-        }/functions/v1/send-repair-quote`;
+      apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-quote`;
 
-        // Get all replacement data
-        const { data: fetchedReplacementData, error: replacementError } =
-          await supabase
-            .from("job_replacements")
-            .select("*")
-            .eq("job_id", jobId);
+      // Get all replacement data
+      const { data: fetchedReplacementData, error: replacementError } =
+        await supabase.from("job_replacements").select("*").eq("job_id", jobId);
 
-        if (replacementError) throw replacementError;
+      if (replacementError) throw replacementError;
 
-        const sanitizedAllReplacementData = fetchedReplacementData
-          ? fetchedReplacementData.map(sanitizeReplacementData)
+      const sanitizedAllReplacementData = fetchedReplacementData
+        ? fetchedReplacementData.map(sanitizeReplacementData)
+        : [];
+
+      // For repair quotes, get all part items
+      const repairItems =
+        quoteType === "repair"
+          ? allJobItems.filter((item) => item.type === "part")
           : [];
 
-        // For repair quotes, get all part items
-        const repairItems =
-          quoteType === "repair"
-            ? allJobItems.filter((item) => item.type === "part")
-            : [];
-
-        requestBody = {
-          jobId,
-          customerEmail,
-          quoteToken: token,
-          jobNumber,
-          jobName,
-          customerName,
-          replacementData:
-            allReplacementData && allReplacementData.length > 0
-              ? allReplacementData[0]
-              : null,
-          allReplacementData: sanitizedAllReplacementData,
-          selectedPhase,
-          totalCost: actualTotalCost,
-          location: sanitizeLocationData(location),
-          unit: sanitizeUnitData(unit),
-          quoteNumber,
-          quoteType,
-          emailTemplate,
-          pdfUrl: pdfUrlToUse,
-          replacementDataById:
-            quoteType === "replacement" ? filteredReplacementData : {},
-          repairItems: quoteType === "repair" ? repairItems : [],
-          inspectionData: allInspectionData,
-        };
-      } else {
-        apiUrl = `${
-          import.meta.env.VITE_SUPABASE_URL
-        }/functions/v1/send-quote-email`;
-
-        requestBody = {
-          jobId,
-          customerEmail,
-          quoteToken: token,
-          jobNumber,
-          jobName,
-          customerName,
-          totalAmount: actualTotalCost.toFixed(2),
-          jobItems: [],
-          quoteNumber,
-          emailTemplate,
-          pdfUrl: pdfUrlToUse,
-          inspectionData: allInspectionData,
-        };
-      }
+      requestBody = {
+        jobId,
+        customerEmail,
+        quoteToken: token,
+        jobNumber,
+        jobName,
+        customerName,
+        replacementData:
+          allReplacementData && allReplacementData.length > 0
+            ? allReplacementData[0]
+            : null,
+        allReplacementData: sanitizedAllReplacementData,
+        selectedPhase,
+        totalCost: actualTotalCost,
+        location: sanitizeLocationData(location),
+        unit: sanitizeUnitData(unit),
+        quoteNumber,
+        quoteType,
+        pdfUrl: pdfUrlToUse,
+        replacementDataById:
+          quoteType === "replacement" ? filteredReplacementData : {},
+        repairItems: quoteType === "repair" ? repairItems : [],
+        inspectionData: allInspectionData,
+        pmQuotes: quoteType === "pm" ? pmQuotes : [],
+      };
 
       const emailResponse = await fetch(apiUrl, {
         method: "POST",

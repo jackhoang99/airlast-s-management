@@ -144,24 +144,6 @@ const GenerateQuote = ({
   const [generatedQuoteData, setGeneratedQuoteData] = useState<any>(null);
   const [totalCost, setTotalCost] = useState<number>(0);
 
-  // Email template state
-  const [emailTemplate, setEmailTemplate] = useState({
-    subject: "Quote from Airlast HVAC",
-    greeting: "Dear Customer,",
-    introText:
-      "Thank you for choosing Airlast HVAC services. Please find attached your quote for review.",
-    approvalText:
-      "Please click one of the buttons below to approve or deny the recommended work:",
-    approveButtonText: "Approve Quote",
-    denyButtonText: "Deny Quote",
-    approvalNote:
-      "If you approve this quote, we will proceed with the work as outlined.",
-    denialNote:
-      "If you deny this quote, please let us know your concerns so we can address them.",
-    closingText: "Thank you for your business.",
-    signature: "Best regards,\nThe AirLast Team",
-  });
-
   // Load available data
   useEffect(() => {
     const loadAvailableData = async () => {
@@ -1330,14 +1312,14 @@ const GenerateQuote = ({
           totalCost={totalCost}
           location={location}
           unit={unit}
-          quoteType={selectedQuoteType === "pm" ? undefined : selectedQuoteType}
+          quoteType={selectedQuoteType}
           onEmailSent={handleQuoteSent}
-          emailTemplate={emailTemplate}
           replacementDataById={{}}
           inspectionData={generatedQuoteData.selectedInspections}
           selectedRepairOptions={
             selectedQuoteType === "repair" ? selectedRepairItems : []
           }
+          pmQuotes={selectedQuoteType === "pm" ? selectedPMQuotes : []}
         />
       )}
     </div>

@@ -64,23 +64,7 @@ const JobQuoteHistorySection = ({
   const [location, setLocation] = useState<any | null>(null);
   const [unit, setUnit] = useState<any | null>(null);
   const [allQuotes, setAllQuotes] = useState<any[]>([]);
-  const [emailTemplate, setEmailTemplate] = useState({
-    subject: "Replacement Quote from Airlast HVAC",
-    greeting: "Dear Customer,",
-    introText:
-      "Thank you for choosing Airlast HVAC services. Based on our inspection, we have prepared a replacement quote for your review.",
-    approvalText:
-      "Please click one of the buttons below to approve or deny the recommended replacements:",
-    approveButtonText: "Approve Replacements",
-    denyButtonText: "Deny Replacements",
-    approvalNote:
-      "If you approve, we will schedule the replacement work at your earliest convenience.",
-    denialNote:
-      "If you deny, you will be charged $180.00 for the inspection service.",
-    closingText:
-      "If you have any questions, please don't hesitate to contact us.",
-    signature: "Best regards,\nAirlast HVAC Team",
-  });
+
   const [defaultTemplates, setDefaultTemplates] = useState<{
     replacement: any | null;
     repair: any | null;
@@ -149,7 +133,7 @@ const JobQuoteHistorySection = ({
     if (!supabase || !job) return;
 
     try {
-      // Fetch job_quotes
+      // Fetch job_quotes only
       const { data: jobQuotesData, error: jobQuotesError } = await supabase
         .from("job_quotes")
         .select("*")
@@ -160,49 +144,17 @@ const JobQuoteHistorySection = ({
         console.error("Error fetching job quotes:", jobQuotesError);
       }
 
-      // Fetch pm_quotes
-      const { data: pmQuotesData, error: pmQuotesError } = await supabase
-        .from("pm_quotes")
-        .select("*")
-        .eq("job_id", job.id)
-        .order("created_at", { ascending: false });
-
-      if (pmQuotesError) {
-        console.error("Error fetching PM quotes:", pmQuotesError);
-      }
-
-      // Transform PM quotes to match the regular quote structure
-      const transformedPMQuotes = (pmQuotesData || []).map((pmQuote: any) => ({
-        id: pmQuote.id,
-        quote_number: `PM-${pmQuote.id.slice(0, 8)}`,
-        quote_type: "pm" as const,
-        amount: pmQuote.total_cost || 0,
-        status: "Created",
-        confirmed: false,
-        approved: false,
-        confirmed_at: null,
-        email_sent_at: null,
-        created_at: pmQuote.created_at,
-        job_id: pmQuote.job_id,
-        quote_data: pmQuote, // Store the entire PM quote data
-        pdf_url: pmQuote.pdf_url,
-        pdf_generated_at: pmQuote.pdf_generated_at,
-        selected_replacement_options: null,
-        selected_repair_options: null,
-        selected_inspection_options: null,
-        selected_pm_options: [pmQuote.id],
-      }));
-
-      // Combine both types of quotes
-      const allQuotes = [...(jobQuotesData || []), ...transformedPMQuotes];
-      setAllQuotes(allQuotes);
+      // Set quotes from job_quotes table only
+      setAllQuotes(jobQuotesData || []);
 
       // Check if we have sent quotes by type
-      const sentReplacement = allQuotes.some(
+      const sentReplacement = (jobQuotesData || []).some(
         (q) => q.quote_type === "replacement"
       );
-      const sentRepair = allQuotes.some((q) => q.quote_type === "repair");
-      const sentPM = allQuotes.some((q) => q.quote_type === "pm");
+      const sentRepair = (jobQuotesData || []).some(
+        (q) => q.quote_type === "repair"
+      );
+      const sentPM = (jobQuotesData || []).some((q) => q.quote_type === "pm");
 
       setSentQuoteTypes({
         replacement: sentReplacement,
@@ -210,8 +162,8 @@ const JobQuoteHistorySection = ({
         pm: sentPM,
       });
 
-      // Set PM quotes for backward compatibility
-      setPmQuotes(pmQuotesData || []);
+      // Set PM quotes for backward compatibility (empty since we're not fetching from pm_quotes)
+      setPmQuotes([]);
     } catch (err) {
       console.error("Error fetching quotes:", err);
     }
@@ -229,25 +181,15 @@ const JobQuoteHistorySection = ({
     setDeleteError(null);
 
     try {
-      // Check if it's a PM quote by looking at the quote type
-      const quote = allQuotes.find((q) => q.id === quoteId);
+      // Delete from job_quotes table only
+      const { error: deleteError } = await supabase
+        .from("job_quotes")
+        .delete()
+        .eq("id", quoteId);
 
-      if (quote?.quote_type === "pm") {
-        // Delete from pm_quotes table
-        const { error: deleteError } = await supabase
-          .from("pm_quotes")
-          .delete()
-          .eq("id", quoteId);
-
-        if (deleteError) throw deleteError;
-      } else {
-        // Delete from job_quotes table
-        const { error: deleteError } = await supabase
-          .from("job_quotes")
-          .delete()
-          .eq("id", quoteId);
-
-        if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error("Error deleting quote:", deleteError);
+        throw deleteError;
       }
 
       // Refresh quotes after deletion
@@ -678,9 +620,7 @@ const JobQuoteHistorySection = ({
                   }`}
                 >
                   <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
-                    {quote.quote_type === "pm"
-                      ? `PM-${(quote.id || "").slice(0, 8)}`
-                      : quote.quote_number || "-"}
+                    {quote.quote_number || "-"}
                   </td>
                   <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
                     <span
@@ -711,9 +651,7 @@ const JobQuoteHistorySection = ({
                   <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        quote.quote_type === "pm"
-                          ? "bg-orange-100 text-orange-800"
-                          : quote.confirmed
+                        quote.confirmed
                           ? quote.approved
                             ? "bg-success-100 text-success-800"
                             : "bg-error-100 text-error-800"
@@ -722,9 +660,7 @@ const JobQuoteHistorySection = ({
                           : "bg-yellow-100 text-yellow-800"
                       }`}
                     >
-                      {quote.quote_type === "pm"
-                        ? "Available"
-                        : quote.confirmed
+                      {quote.confirmed
                         ? quote.approved
                           ? "Approved"
                           : "Declined"
@@ -882,11 +818,11 @@ const JobQuoteHistorySection = ({
             });
           }
         }}
-        emailTemplate={emailTemplate}
         replacementDataById={
           selectedQuoteType === "replacement" ? replacementDataById : {}
         }
         inspectionData={inspectionData}
+        pmQuotes={selectedQuoteType === "pm" ? pmQuotes : []}
       />
 
       {/* Individual Quote Send Modal */}
@@ -920,7 +856,6 @@ const JobQuoteHistorySection = ({
               });
             }
           }}
-          emailTemplate={emailTemplate}
           replacementDataById={
             selectedQuoteForSending.quote_type === "replacement"
               ? replacementDataById
@@ -933,6 +868,7 @@ const JobQuoteHistorySection = ({
           selectedInspectionOptions={
             selectedQuoteForSending.selected_inspection_options || []
           }
+          pmQuotes={selectedQuoteForSending.quote_type === "pm" ? pmQuotes : []}
           existingQuote={selectedQuoteForSending}
         />
       )}
