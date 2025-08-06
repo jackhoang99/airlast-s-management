@@ -75,8 +75,13 @@ const JobInvoiceSection = ({
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [customerEmail, setCustomerEmail] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customAmount, setCustomAmount] = useState<number | null>(null);
+  const [amountInputValue, setAmountInputValue] = useState<string>("");
+  const [editingAmount, setEditingAmount] = useState<string | null>(null);
   const [replacementTotal, setReplacementTotal] = useState(0);
   const [repairTotal, setRepairTotal] = useState(0);
+  const [pmQuoteTotal, setPmQuoteTotal] = useState(0);
   const [showDeleteInvoiceModal, setShowDeleteInvoiceModal] = useState(false);
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date();
@@ -84,7 +89,7 @@ const JobInvoiceSection = ({
     return d.toISOString().split("T")[0];
   });
   const [selectedInvoiceType, setSelectedInvoiceType] = useState<
-    "all" | "replacement" | "repair" | "inspection" | null
+    "replacement" | "repair" | "pm" | "inspection" | null
   >(null);
   const [consolidatedJobDetails, setConsolidatedJobDetails] = useState<
     Array<{
@@ -136,14 +141,16 @@ const JobInvoiceSection = ({
     if (!supabase || !job) return;
 
     try {
-      // Fetch both replacement and repair totals in parallel
-      const [replacementsResult, itemsResult] = await Promise.all([
-        supabase
-          .from("job_replacements")
-          .select("total_cost")
-          .eq("job_id", job.id),
-        supabase.from("job_items").select("total_cost").eq("job_id", job.id),
-      ]);
+      // Fetch replacement, repair, and PM quote totals in parallel
+      const [replacementsResult, itemsResult, pmQuotesResult] =
+        await Promise.all([
+          supabase
+            .from("job_replacements")
+            .select("total_cost")
+            .eq("job_id", job.id),
+          supabase.from("job_items").select("total_cost").eq("job_id", job.id),
+          supabase.from("pm_quotes").select("total_cost").eq("job_id", job.id),
+        ]);
 
       // Calculate replacement total
       if (replacementsResult.error) {
@@ -171,10 +178,23 @@ const JobInvoiceSection = ({
         );
         setRepairTotal(total);
       }
+
+      // Calculate PM quote total
+      if (pmQuotesResult.error) {
+        console.error("Error fetching pm_quotes:", pmQuotesResult.error);
+        setPmQuoteTotal(0);
+      } else {
+        const total = (pmQuotesResult.data || []).reduce(
+          (sum, row) => sum + Number(row.total_cost || 0),
+          0
+        );
+        setPmQuoteTotal(total);
+      }
     } catch (err) {
       console.error("Error fetching totals:", err);
       setReplacementTotal(0);
       setRepairTotal(0);
+      setPmQuoteTotal(0);
     }
   };
 
@@ -188,7 +208,7 @@ const JobInvoiceSection = ({
   // Removed getPreviewAmount and handlePreviewClick
 
   const handleCreateInvoice = async (
-    type?: "replacement" | "repair" | "all" | "inspection",
+    type?: "replacement" | "repair" | "pm" | "inspection",
     amountOverride?: number,
     dueDateOverride?: string
   ) => {
@@ -338,11 +358,19 @@ const JobInvoiceSection = ({
 
       if (updateError) throw updateError;
 
-      // Update job contact email if it changed
+      // Update job contact information if it changed
+      const jobUpdates: any = {};
       if (customerEmail !== job.contact_email) {
+        jobUpdates.contact_email = customerEmail;
+      }
+      if (customerName && customerName !== job.contact_name) {
+        jobUpdates.contact_name = customerName;
+      }
+
+      if (Object.keys(jobUpdates).length > 0) {
         const { error: jobUpdateError } = await supabase
           .from("jobs")
-          .update({ contact_email: customerEmail })
+          .update(jobUpdates)
           .eq("id", job.id);
 
         if (jobUpdateError) throw jobUpdateError;
@@ -454,7 +482,7 @@ const JobInvoiceSection = ({
             customerEmail: customerEmail, // Use the potentially edited email
             jobNumber: job.number,
             jobName: job.name,
-            customerName: job.contact_name,
+            customerName: customerName || job.contact_name, // Use the potentially edited customer name
             invoiceNumber: updatedInvoice.invoice_number,
             amount: updatedInvoice.amount,
             issuedDate: updatedInvoice.issued_date,
@@ -553,6 +581,80 @@ const JobInvoiceSection = ({
         return "bg-gray-100 text-gray-800";
     }
   };
+
+  const getInvoiceAmount = (type: string): number => {
+    if (customAmount !== null) return customAmount;
+
+    switch (type) {
+      case "replacement":
+        return replacementTotal;
+      case "repair":
+        return repairTotal;
+      case "pm":
+        return pmQuoteTotal;
+      case "inspection":
+        return 180;
+      default:
+        return 0;
+    }
+  };
+
+  const handleAmountInputChange = (value: string, type: string) => {
+    // Remove commas and non-numeric characters except decimal point
+    const cleanValue = value.replace(/[^\d.]/g, "");
+
+    // Always update the input value first
+    setAmountInputValue(value);
+
+    // Allow empty string for clearing
+    if (cleanValue === "") {
+      setCustomAmount(null);
+      return;
+    }
+
+    // Parse the number
+    const numValue = parseFloat(cleanValue);
+    if (!isNaN(numValue) && numValue >= 0) {
+      setCustomAmount(numValue);
+    } else {
+      // If not a valid number, clear the custom amount but keep the input
+      setCustomAmount(null);
+    }
+  };
+
+  const getAmountInputValue = (type: string) => {
+    if (selectedInvoiceType === type) {
+      // If user is actively typing, show their input
+      if (amountInputValue !== "") {
+        return amountInputValue;
+      }
+      // If there's a custom amount set, show it formatted
+      if (customAmount !== null) {
+        return customAmount.toLocaleString();
+      }
+      // Otherwise show the calculated amount
+      return getInvoiceAmount(type).toLocaleString();
+    }
+    // For non-selected types, always show calculated amount
+    return getInvoiceAmount(type).toLocaleString();
+  };
+
+  const handleEditAmount = (type: string) => {
+    setEditingAmount(type);
+    setAmountInputValue("");
+    setCustomAmount(null);
+  };
+
+  const handleSaveAmount = (type: string) => {
+    const numValue = parseFloat(amountInputValue.replace(/[^\d.]/g, ""));
+    if (!isNaN(numValue) && numValue >= 0) {
+      setCustomAmount(numValue);
+    }
+    setEditingAmount(null);
+    setAmountInputValue("");
+  };
+
+  const isEditing = (type: string) => editingAmount === type;
 
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -977,36 +1079,16 @@ const JobInvoiceSection = ({
               <div className="space-y-3">
                 <div
                   className={`p-4 border rounded-lg cursor-pointer ${
-                    selectedInvoiceType === "all"
-                      ? "border-primary-500 bg-primary-50"
-                      : "hover:bg-gray-50"
-                  }`}
-                  onClick={() => setSelectedInvoiceType("all")}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">Standard Invoice</h4>
-                      <p className="text-sm text-gray-500">
-                        Create an invoice with all replacement parts and repair
-                        costs
-                      </p>
-                    </div>
-                    {selectedInvoiceType === "all" && (
-                      <Check size={20} className="text-primary-600" />
-                    )}
-                  </div>
-                  <div className="mt-2 text-sm">
-                    <span className="font-medium">Total Amount:</span> $
-                    {(replacementTotal + repairTotal).toFixed(2)}
-                  </div>
-                </div>
-                <div
-                  className={`p-4 border rounded-lg cursor-pointer ${
                     selectedInvoiceType === "replacement"
                       ? "border-primary-500 bg-primary-50"
                       : "hover:bg-gray-50"
                   }`}
-                  onClick={() => setSelectedInvoiceType("replacement")}
+                  onClick={() => {
+                    setSelectedInvoiceType("replacement");
+                    setCustomAmount(null);
+                    setAmountInputValue("");
+                    setEditingAmount(null);
+                  }}
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -1019,9 +1101,39 @@ const JobInvoiceSection = ({
                       <Check size={20} className="text-primary-600" />
                     )}
                   </div>
-                  <div className="mt-2 text-sm">
+                  <div className="mt-2 text-sm flex items-center gap-2">
                     <span className="font-medium">Total Amount:</span> $
-                    {replacementTotal.toFixed(2)}
+                    <input
+                      type="text"
+                      value={
+                        isEditing("replacement")
+                          ? amountInputValue
+                          : getAmountInputValue("replacement")
+                      }
+                      onChange={(e) => {
+                        if (isEditing("replacement")) {
+                          setAmountInputValue(e.target.value);
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-20 ml-1 border border-gray-300 rounded px-1 text-sm"
+                      placeholder="0.00"
+                      disabled={!isEditing("replacement")}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isEditing("replacement")) {
+                          handleSaveAmount("replacement");
+                        } else {
+                          handleEditAmount("replacement");
+                        }
+                      }}
+                      className="text-xs px-2 py-1 rounded border hover:bg-gray-50"
+                    >
+                      {isEditing("replacement") ? "Save" : "Edit"}
+                    </button>
                   </div>
                 </div>
                 <div
@@ -1030,7 +1142,12 @@ const JobInvoiceSection = ({
                       ? "border-primary-500 bg-primary-50"
                       : "hover:bg-gray-50"
                   }`}
-                  onClick={() => setSelectedInvoiceType("repair")}
+                  onClick={() => {
+                    setSelectedInvoiceType("repair");
+                    setCustomAmount(null);
+                    setAmountInputValue("");
+                    setEditingAmount(null);
+                  }}
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -1043,9 +1160,98 @@ const JobInvoiceSection = ({
                       <Check size={20} className="text-primary-600" />
                     )}
                   </div>
-                  <div className="mt-2 text-sm">
+                  <div className="mt-2 text-sm flex items-center gap-2">
                     <span className="font-medium">Total Amount:</span> $
-                    {repairTotal.toFixed(2)}
+                    <input
+                      type="text"
+                      value={
+                        isEditing("repair")
+                          ? amountInputValue
+                          : getAmountInputValue("repair")
+                      }
+                      onChange={(e) => {
+                        if (isEditing("repair")) {
+                          setAmountInputValue(e.target.value);
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-20 ml-1 border border-gray-300 rounded px-1 text-sm"
+                      placeholder="0.00"
+                      disabled={!isEditing("repair")}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isEditing("repair")) {
+                          handleSaveAmount("repair");
+                        } else {
+                          handleEditAmount("repair");
+                        }
+                      }}
+                      className="text-xs px-2 py-1 rounded border hover:bg-gray-50"
+                    >
+                      {isEditing("repair") ? "Save" : "Edit"}
+                    </button>
+                  </div>
+                </div>
+                <div
+                  className={`p-4 border rounded-lg cursor-pointer ${
+                    selectedInvoiceType === "pm"
+                      ? "border-primary-500 bg-primary-50"
+                      : "hover:bg-gray-50"
+                  }`}
+                  onClick={() => {
+                    setSelectedInvoiceType("pm");
+                    setCustomAmount(null);
+                    setAmountInputValue("");
+                    setEditingAmount(null);
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">PM Invoice</h4>
+                      <p className="text-sm text-gray-500">
+                        Create an invoice for preventive maintenance services
+                      </p>
+                    </div>
+                    {selectedInvoiceType === "pm" && (
+                      <Check size={20} className="text-primary-600" />
+                    )}
+                  </div>
+                  <div className="mt-2 text-sm flex items-center gap-2">
+                    <span className="font-medium">Total Amount:</span> $
+                    <input
+                      type="text"
+                      value={
+                        isEditing("pm")
+                          ? amountInputValue
+                          : getAmountInputValue("pm")
+                      }
+                      onChange={(e) => {
+                        if (isEditing("pm")) {
+                          setAmountInputValue(e.target.value);
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-20 ml-1 border border-gray-300 rounded px-1 text-sm"
+                      placeholder="0.00"
+                      disabled={!isEditing("pm")}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isEditing("pm")) {
+                          handleSaveAmount("pm");
+                        } else {
+                          handleEditAmount("pm");
+                        }
+                      }}
+                      className="text-xs px-2 py-1 rounded border hover:bg-gray-50"
+                    >
+                      {isEditing("pm") ? "Save" : "Edit"}
+                    </button>
                   </div>
                 </div>
                 <div
@@ -1054,7 +1260,12 @@ const JobInvoiceSection = ({
                       ? "border-primary-500 bg-primary-50"
                       : "hover:bg-gray-50"
                   }`}
-                  onClick={() => setSelectedInvoiceType("inspection")}
+                  onClick={() => {
+                    setSelectedInvoiceType("inspection");
+                    setCustomAmount(null);
+                    setAmountInputValue("");
+                    setEditingAmount(null);
+                  }}
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -1067,23 +1278,68 @@ const JobInvoiceSection = ({
                       <Check size={20} className="text-primary-600" />
                     )}
                   </div>
-                  <div className="mt-2 text-sm">
-                    <span className="font-medium">Total Amount:</span> $180.00
+                  <div className="mt-2 text-sm flex items-center gap-2">
+                    <span className="font-medium">Total Amount:</span> $
+                    <input
+                      type="text"
+                      value={
+                        isEditing("inspection")
+                          ? amountInputValue
+                          : getAmountInputValue("inspection")
+                      }
+                      onChange={(e) => {
+                        if (isEditing("inspection")) {
+                          setAmountInputValue(e.target.value);
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-20 ml-1 border border-gray-300 rounded px-1 text-sm"
+                      placeholder="180.00"
+                      disabled={!isEditing("inspection")}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isEditing("inspection")) {
+                          handleSaveAmount("inspection");
+                        } else {
+                          handleEditAmount("inspection");
+                        }
+                      }}
+                      className="text-xs px-2 py-1 rounded border hover:bg-gray-50"
+                    >
+                      {isEditing("inspection") ? "Save" : "Edit"}
+                    </button>
                   </div>
                 </div>
               </div>
-              <div className="mt-4 bg-gray-50 p-4 rounded-md">
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Customer:</span>
-                  <span className="font-medium">
-                    {job.contact_name || "Not specified"}
-                  </span>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Customer Name
+                  </label>
+                  <input
+                    type="text"
+                    value={customerName || job.contact_name || ""}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="input w-full"
+                    placeholder="Customer Name"
+                    required
+                  />
                 </div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Email:</span>
-                  <span className="font-medium">
-                    {job.contact_email || "Not specified"}
-                  </span>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Customer Email
+                  </label>
+                  <input
+                    type="email"
+                    value={customerEmail || job.contact_email || ""}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    className="input w-full"
+                    placeholder="customer@example.com"
+                    required
+                  />
                 </div>
               </div>
               {/* Remove the invoiceType state and Invoice Type button group */}
@@ -1119,13 +1375,7 @@ const JobInvoiceSection = ({
                   selectedInvoiceType &&
                   handleCreateInvoice(
                     selectedInvoiceType,
-                    selectedInvoiceType === "all"
-                      ? replacementTotal + repairTotal
-                      : selectedInvoiceType === "replacement"
-                      ? replacementTotal
-                      : selectedInvoiceType === "repair"
-                      ? repairTotal
-                      : 180,
+                    customAmount ?? getInvoiceAmount(selectedInvoiceType),
                     dueDate
                   )
                 }
@@ -1165,10 +1415,6 @@ const JobInvoiceSection = ({
               <div className="space-y-4">
                 <div className="bg-gray-50 p-4 rounded-md">
                   <div className="flex justify-between mb-2">
-                    <span className="text-gray-600">Customer:</span>
-                    <span className="font-medium">{job.contact_name}</span>
-                  </div>
-                  <div className="flex justify-between mb-2">
                     <span className="text-gray-600">Invoice Number:</span>
                     <span className="font-medium">
                       {selectedInvoice.invoice_number}
@@ -1180,6 +1426,20 @@ const JobInvoiceSection = ({
                       ${Number(selectedInvoice.amount).toFixed(2)}
                     </span>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Customer Name
+                  </label>
+                  <input
+                    type="text"
+                    value={customerName || job.contact_name || ""}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="input w-full"
+                    placeholder="Customer Name"
+                    required
+                  />
                 </div>
 
                 <div>

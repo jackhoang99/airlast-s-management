@@ -69,6 +69,9 @@ const SendEmailModal = ({
 }: SendEmailModalProps) => {
   const { supabase } = useSupabase();
   const [customerEmail, setCustomerEmail] = useState(initialEmail);
+  const [customerNameInput, setCustomerNameInput] = useState(
+    customerName || ""
+  );
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -709,7 +712,7 @@ const SendEmailModal = ({
         quoteToken: token,
         jobNumber,
         jobName,
-        customerName,
+        customerName: customerNameInput,
         replacementData:
           allReplacementData && allReplacementData.length > 0
             ? allReplacementData[0]
@@ -862,6 +865,24 @@ const SendEmailModal = ({
 
                 <div>
                   <label
+                    htmlFor="customerName"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Customer Name
+                  </label>
+                  <input
+                    type="text"
+                    id="customerName"
+                    value={customerNameInput}
+                    onChange={(e) => setCustomerNameInput(e.target.value)}
+                    className="input"
+                    placeholder="Customer Name"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label
                     htmlFor="customerEmail"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
@@ -888,7 +909,7 @@ const SendEmailModal = ({
                   <div className="flex justify-between mb-2">
                     <span className="text-gray-600">Customer:</span>
                     <span className="font-medium">
-                      {customerName || "Not specified"}
+                      {customerNameInput || "Not specified"}
                     </span>
                   </div>
                   {quoteType === "replacement" && (
