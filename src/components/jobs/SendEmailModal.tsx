@@ -679,6 +679,29 @@ const SendEmailModal = ({
           ? allJobItems.filter((item) => item.type === "part")
           : [];
 
+      // Filter inspection data based on selected inspections
+      const filteredInspectionData =
+        selectedInspectionOptions && selectedInspectionOptions.length > 0
+          ? allInspectionData.filter((insp: any) =>
+              selectedInspectionOptions.includes(insp.id)
+            )
+          : allInspectionData;
+
+      console.log("=== SEND EMAIL MODAL DEBUG ===");
+      console.log(
+        "selectedInspectionOptions received:",
+        selectedInspectionOptions
+      );
+      console.log(
+        "selectedInspectionOptions.length:",
+        selectedInspectionOptions?.length
+      );
+      console.log(
+        "filteredInspectionData.length:",
+        filteredInspectionData.length
+      );
+      console.log("allInspectionData.length:", allInspectionData.length);
+
       requestBody = {
         jobId,
         customerEmail,
@@ -701,9 +724,21 @@ const SendEmailModal = ({
         replacementDataById:
           quoteType === "replacement" ? filteredReplacementData : {},
         repairItems: quoteType === "repair" ? repairItems : [],
-        inspectionData: allInspectionData,
+        inspectionData: filteredInspectionData,
         pmQuotes: quoteType === "pm" ? pmQuotes : [],
+        selectedInspectionOptions: selectedInspectionOptions,
+        quoteData: quoteData?.quote_data || null,
       };
+
+      console.log("=== REQUEST BODY DEBUG ===");
+      console.log(
+        "requestBody.selectedInspectionOptions:",
+        requestBody.selectedInspectionOptions
+      );
+      console.log(
+        "requestBody.selectedInspectionOptions.length:",
+        requestBody.selectedInspectionOptions?.length
+      );
 
       const emailResponse = await fetch(apiUrl, {
         method: "POST",

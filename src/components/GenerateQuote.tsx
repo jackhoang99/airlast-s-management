@@ -278,11 +278,24 @@ const GenerateQuote = ({
 
   // Handle inspection selection
   const handleInspectionToggle = (inspectionId: string) => {
-    setSelectedInspections((prev) =>
-      prev.includes(inspectionId)
+    console.log("Inspection toggle called for:", inspectionId);
+    setSelectedInspections((prev) => {
+      const newSelection = prev.includes(inspectionId)
         ? prev.filter((id) => id !== inspectionId)
-        : [...prev, inspectionId]
-    );
+        : [...prev, inspectionId];
+      console.log("Previous selection:", prev);
+      console.log("New selection:", newSelection);
+      return newSelection;
+    });
+  };
+
+  // Reset all selections
+  const resetSelections = () => {
+    console.log("Resetting all selections");
+    setSelectedInspections([]);
+    setSelectedReplacements([]);
+    setSelectedRepairItems([]);
+    setSelectedPMQuotes([]);
   };
 
   // Handle replacement selection
@@ -317,7 +330,8 @@ const GenerateQuote = ({
         return quote.selected_inspection_options?.includes(inspectionId);
       } else if (
         quote.quote_type === "replacement" ||
-        quote.quote_type === "repair"
+        quote.quote_type === "repair" ||
+        quote.quote_type === "pm"
       ) {
         return quote.selected_inspection_options?.includes(inspectionId);
       }
@@ -356,7 +370,8 @@ const GenerateQuote = ({
           return quote.selected_inspection_options?.includes(itemId);
         } else if (
           quote.quote_type === "replacement" ||
-          quote.quote_type === "repair"
+          quote.quote_type === "repair" ||
+          quote.quote_type === "pm"
         ) {
           return quote.selected_inspection_options?.includes(itemId);
         }
@@ -386,6 +401,18 @@ const GenerateQuote = ({
 
   // Generate quote based on selected data
   const handleGenerateQuote = async () => {
+    console.log("=== GENERATE QUOTE DEBUG ===");
+    console.log("selectedInspections:", selectedInspections);
+    console.log("selectedInspections.length:", selectedInspections.length);
+    console.log("selectedQuoteType:", selectedQuoteType);
+    console.log(
+      "availableInspections:",
+      availableInspections.map((insp) => ({
+        id: insp.id,
+        model_number: insp.model_number,
+      }))
+    );
+
     // Validate selections based on quote type
     if (selectedQuoteType === "inspection") {
       if (selectedInspections.length === 0) {
@@ -462,11 +489,19 @@ const GenerateQuote = ({
     setTotalCost(calculatedTotalCost);
 
     // Create quote data
+    const selectedInspectionsData = selectedInspections
+      .map((id) => availableInspections.find((insp) => insp.id === id))
+      .filter(Boolean);
+
+    console.log("selectedInspectionsData:", selectedInspectionsData);
+    console.log(
+      "selectedInspectionsData.length:",
+      selectedInspectionsData.length
+    );
+
     const quoteData = {
       jobId,
-      selectedInspections: selectedInspections
-        .map((id) => availableInspections.find((insp) => insp.id === id))
-        .filter(Boolean),
+      selectedInspections: selectedInspectionsData,
       selectedReplacements: selectedReplacements
         .map((id) => availableReplacements.find((rep) => rep.id === id))
         .filter(Boolean),
@@ -858,9 +893,18 @@ const GenerateQuote = ({
       {/* Quote Type Selection */}
       {availableQuoteTypes.length > 1 && (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Quote Type
-          </label>
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Quote Type
+            </label>
+            <button
+              onClick={resetSelections}
+              className="text-xs text-gray-500 hover:text-gray-700 underline"
+              title="Clear all selections"
+            >
+              Reset Selections
+            </button>
+          </div>
           <div className="flex gap-4">
             {availableQuoteTypes.includes("replacement") && (
               <label className="flex items-center">
@@ -1400,31 +1444,40 @@ const GenerateQuote = ({
 
       {/* Send Quote Modal */}
       {showSendQuoteModal && generatedQuoteData && (
-        <SendEmailModal
-          isOpen={showSendQuoteModal}
-          onClose={() => setShowSendQuoteModal(false)}
-          jobId={jobId || ""}
-          jobNumber={job?.number || "MANUAL"}
-          jobName={job?.name || "Manual Quote"}
-          customerName={customerName || job?.contact_name}
-          initialEmail={customerEmail || job?.contact_email || ""}
-          replacementData={generatedQuoteData.selectedReplacements}
-          selectedPhase={
-            generatedQuoteData.selectedReplacements[0]?.selected_phase ||
-            undefined
-          }
-          totalCost={totalCost}
-          location={location}
-          unit={unit}
-          quoteType={selectedQuoteType}
-          onEmailSent={handleQuoteSent}
-          replacementDataById={{}}
-          inspectionData={generatedQuoteData.selectedInspections}
-          selectedRepairOptions={
-            selectedQuoteType === "repair" ? selectedRepairItems : []
-          }
-          pmQuotes={selectedQuoteType === "pm" ? selectedPMQuotes : []}
-        />
+        <>
+          {console.log("=== SEND EMAIL MODAL DEBUG ===")}
+          {console.log("selectedInspections:", selectedInspections)}
+          {console.log(
+            "generatedQuoteData.selectedInspections:",
+            generatedQuoteData.selectedInspections
+          )}
+          <SendEmailModal
+            isOpen={showSendQuoteModal}
+            onClose={() => setShowSendQuoteModal(false)}
+            jobId={jobId || ""}
+            jobNumber={job?.number || "MANUAL"}
+            jobName={job?.name || "Manual Quote"}
+            customerName={customerName || job?.contact_name}
+            initialEmail={customerEmail || job?.contact_email || ""}
+            replacementData={generatedQuoteData.selectedReplacements}
+            selectedPhase={
+              generatedQuoteData.selectedReplacements[0]?.selected_phase ||
+              undefined
+            }
+            totalCost={totalCost}
+            location={location}
+            unit={unit}
+            quoteType={selectedQuoteType}
+            onEmailSent={handleQuoteSent}
+            replacementDataById={{}}
+            inspectionData={generatedQuoteData.selectedInspections}
+            selectedInspectionOptions={selectedInspections}
+            selectedRepairOptions={
+              selectedQuoteType === "repair" ? selectedRepairItems : []
+            }
+            pmQuotes={selectedQuoteType === "pm" ? selectedPMQuotes : []}
+          />
+        </>
       )}
     </div>
   );

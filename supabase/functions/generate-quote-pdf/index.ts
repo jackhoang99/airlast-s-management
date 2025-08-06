@@ -564,6 +564,126 @@ serve(async (req) => {
         });
       }
     }
+    // Add inspection results to all quote types (BEFORE replacement data)
+    if (Array.isArray(inspectionData) && inspectionData.length > 0) {
+      console.log("=== INSPECTION RESULTS SECTION ENTERED ===");
+      // Check if we need a new page
+      if (y < 200) {
+        dynamicPage = newPdfDoc.addPage();
+        y = height - margin;
+        // Add background to new page if available
+        if (bgImage) {
+          dynamicPage.drawImage(bgImage, {
+            x: 0,
+            y: 0,
+            width,
+            height,
+          });
+        }
+      }
+      // Draw inspection results header
+      dynamicPage.drawText("Inspection Results:", {
+        x: margin,
+        y,
+        size: fontSize + 2,
+        font: bold,
+      });
+      y -= lineHeight * 2;
+      // List each inspection with comments
+      for (let i = 0; i < inspectionData.length; i++) {
+        const insp = inspectionData[i];
+        // Check if we need a new page
+        if (y < 200) {
+          dynamicPage = newPdfDoc.addPage();
+          y = height - margin;
+          // Add background to new page if available
+          if (bgImage) {
+            dynamicPage.drawImage(bgImage, {
+              x: 0,
+              y: 0,
+              width,
+              height,
+            });
+          }
+        }
+        // Draw inspection number
+        dynamicPage.drawText(`${i + 1})`, {
+          x: margin,
+          y,
+          size: fontSize,
+          font: bold,
+        });
+        y -= lineHeight;
+        // Draw unit information header
+        console.log("Checking unit data:", {
+          hasJobData: !!jobData,
+          hasUnit: !!jobData?.unit,
+          unitNumber: jobData?.unit?.unit_number,
+          fullUnitData: jobData?.unit,
+        });
+        if (jobData?.unit?.unit_number) {
+          console.log("Drawing unit number:", jobData.unit.unit_number);
+          dynamicPage.drawText(`Unit: ${jobData.unit.unit_number}`, {
+            x: margin,
+            y,
+            size: fontSize,
+            font,
+          });
+          y -= lineHeight;
+        } else {
+          console.log("No unit number found, skipping unit display");
+        }
+        // Draw inspection details in two-column format like the image
+        const leftColumn = [];
+        const rightColumn = [];
+        if (insp.model_number)
+          leftColumn.push(`Model Number: ${insp.model_number}`);
+        if (insp.age) leftColumn.push(`Age: ${insp.age} years`);
+        if (insp.unit_type) leftColumn.push(`Unit Type: ${insp.unit_type}`);
+        if (insp.serial_number)
+          rightColumn.push(`Serial Number: ${insp.serial_number}`);
+        if (insp.tonnage) rightColumn.push(`Tonnage: ${insp.tonnage}`);
+        if (insp.system_type)
+          rightColumn.push(`System Type: ${insp.system_type}`);
+        // Draw left column
+        let leftY = y;
+        for (const detail of leftColumn) {
+          dynamicPage.drawText(detail, {
+            x: margin,
+            y: leftY,
+            size: fontSize,
+            font,
+          });
+          leftY -= lineHeight;
+        }
+        // Draw right column
+        let rightY = y;
+        for (const detail of rightColumn) {
+          dynamicPage.drawText(detail, {
+            x: margin + 250,
+            y: rightY,
+            size: fontSize,
+            font,
+          });
+          rightY -= lineHeight;
+        }
+        // Use the lower Y position for the next element
+        y = Math.min(leftY, rightY);
+        // Add comment if available
+        if (insp.comment) {
+          dynamicPage.drawText(`Comment: ${insp.comment}`, {
+            x: margin,
+            y,
+            size: fontSize,
+            font,
+          });
+          y -= lineHeight;
+        }
+        y -= lineHeight;
+      }
+      y -= lineHeight * 2; // Add extra space after inspection results
+    }
+
     // Draw replacement summary header (only for replacement quotes)
     if (quoteType === "replacement") {
       dynamicPage.drawText("Replacement Summary:", {
@@ -797,188 +917,8 @@ serve(async (req) => {
         y -= lineHeight;
       }
     }
-    console.log("=== BEFORE INSPECTION RESULTS SECTION ===");
-    // Add inspection results to all quote types
-    if (Array.isArray(inspectionData) && inspectionData.length > 0) {
-      console.log("=== INSPECTION RESULTS SECTION ENTERED ===");
-      // Check if we need a new page
-      if (y < 200) {
-        dynamicPage = newPdfDoc.addPage();
-        y = height - margin;
-        // Add background to new page if available
-        if (bgImage) {
-          dynamicPage.drawImage(bgImage, {
-            x: 0,
-            y: 0,
-            width,
-            height,
-          });
-        }
-      }
-      // Draw inspection results header
-      dynamicPage.drawText("Inspection Results:", {
-        x: margin,
-        y,
-        size: fontSize + 2,
-        font: bold,
-      });
-      y -= lineHeight * 2;
-      // List each inspection with comments
-      for (let i = 0; i < inspectionData.length; i++) {
-        const insp = inspectionData[i];
-        // Check if we need a new page
-        if (y < 200) {
-          dynamicPage = newPdfDoc.addPage();
-          y = height - margin;
-          // Add background to new page if available
-          if (bgImage) {
-            dynamicPage.drawImage(bgImage, {
-              x: 0,
-              y: 0,
-              width,
-              height,
-            });
-          }
-        }
-        // Draw inspection number
-        dynamicPage.drawText(`${i + 1})`, {
-          x: margin,
-          y,
-          size: fontSize,
-          font: bold,
-        });
-        y -= lineHeight;
-        // Draw unit information header
-        console.log("Checking unit data:", {
-          hasJobData: !!jobData,
-          hasUnit: !!jobData?.unit,
-          unitNumber: jobData?.unit?.unit_number,
-          fullUnitData: jobData?.unit,
-        });
-        if (jobData?.unit?.unit_number) {
-          console.log("Drawing unit number:", jobData.unit.unit_number);
-          dynamicPage.drawText(`Unit: ${jobData.unit.unit_number}`, {
-            x: margin,
-            y,
-            size: fontSize,
-            font,
-          });
-          y -= lineHeight;
-        } else {
-          console.log("No unit number found, skipping unit display");
-        }
-        // Draw inspection details in two-column format like the image
-        const leftColumn = [];
-        const rightColumn = [];
-        if (insp.model_number)
-          leftColumn.push(`Model Number: ${insp.model_number}`);
-        if (insp.age) leftColumn.push(`Age: ${insp.age} years`);
-        if (insp.unit_type) leftColumn.push(`Unit Type: ${insp.unit_type}`);
-        if (insp.serial_number)
-          rightColumn.push(`Serial Number: ${insp.serial_number}`);
-        if (insp.tonnage) rightColumn.push(`Tonnage: ${insp.tonnage}`);
-        if (insp.system_type)
-          rightColumn.push(`System Type: ${insp.system_type}`);
-        // Draw left column
-        let leftY = y;
-        for (const detail of leftColumn) {
-          dynamicPage.drawText(detail, {
-            x: margin,
-            y: leftY,
-            size: fontSize,
-            font,
-          });
-          leftY -= lineHeight;
-        }
-        // Draw right column
-        let rightY = y;
-        for (const detail of rightColumn) {
-          dynamicPage.drawText(detail, {
-            x: margin + 250,
-            y: rightY,
-            size: fontSize,
-            font,
-          });
-          rightY -= lineHeight;
-        }
-        // Move Y to the lowest point of either column
-        y = Math.min(leftY, rightY);
-        // Show inspection comment if available
-        if (insp.comment && insp.comment.trim()) {
-          y -= lineHeight * 0.5; // Small spacing before comment
-          dynamicPage.drawText(`Comment: ${insp.comment}`, {
-            x: margin,
-            y,
-            size: fontSize,
-            font,
-            color: rgb(0.4, 0.4, 0.4),
-          });
-          y -= lineHeight * 1.2;
-        }
-        y -= lineHeight; // Spacing between inspections
-      }
-      y -= lineHeight; // Final spacing after inspections
-      // Add summary comment section if available
-      if (
-        jobData &&
-        jobData.inspection_summary_comment &&
-        jobData.inspection_summary_comment.trim()
-      ) {
-        // Check if we need a new page for the summary comment
-        if (y < 150) {
-          dynamicPage = newPdfDoc.addPage();
-          y = height - margin;
-          // Add background to new page if available
-          if (bgImage) {
-            dynamicPage.drawImage(bgImage, {
-              x: 0,
-              y: 0,
-              width,
-              height,
-            });
-          }
-        }
-        dynamicPage.drawText("Summary Comment:", {
-          x: margin,
-          y,
-          size: fontSize + 1,
-          font: bold,
-        });
-        y -= lineHeight * 1.5;
-        // Split comment into lines if it's too long
-        const commentText = jobData.inspection_summary_comment;
-        const maxWidth = width - margin * 2;
-        const words = commentText.split(" ");
-        let currentLine = "";
-        for (const word of words) {
-          const testLine = currentLine ? `${currentLine} ${word}` : word;
-          const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
-          if (testWidth > maxWidth && currentLine) {
-            // Draw current line and start new line
-            dynamicPage.drawText(currentLine, {
-              x: margin,
-              y,
-              size: fontSize - 1,
-              font,
-            });
-            y -= lineHeight;
-            currentLine = word;
-          } else {
-            currentLine = testLine;
-          }
-        }
-        // Draw the last line
-        if (currentLine) {
-          dynamicPage.drawText(currentLine, {
-            x: margin,
-            y,
-            size: fontSize - 1,
-            font,
-          });
-          y -= lineHeight * 2;
-        }
-      }
-    }
+
+    // Note: Duplicate inspection results section removed - only the first one is kept
     console.log("=== BEFORE MAIN IF/ELSE CONDITIONS ===");
     if (quoteType === "inspection") {
       // Handle inspection quotes

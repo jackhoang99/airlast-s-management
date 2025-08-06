@@ -39,6 +39,8 @@ type QuoteSectionProps = {
   onItemsUpdated: () => void;
   onQuoteStatusChange?: () => void;
   refreshTrigger?: number;
+  inspectionData?: any[];
+  jobUnits?: any[];
 };
 
 const QuoteSection = ({
@@ -47,6 +49,8 @@ const QuoteSection = ({
   onItemsUpdated,
   onQuoteStatusChange,
   refreshTrigger = 0,
+  inspectionData = [],
+  jobUnits = [],
 }: QuoteSectionProps) => {
   const { supabase } = useSupabase();
   const [showAddPricingModal, setShowAddPricingModal] = useState(false);
@@ -74,6 +78,8 @@ const QuoteSection = ({
 
   // Add a state to track if replacement data exists
   const [hasReplacementData, setHasReplacementData] = useState(false);
+  const [isLoadingReplacementData, setIsLoadingReplacementData] =
+    useState(false);
 
   // Add a refresh trigger
   const [refreshTriggerState, setRefreshTriggerState] = useState(0);
@@ -135,10 +141,11 @@ const QuoteSection = ({
     return groups;
   }, {} as Record<string, any[]>);
 
-  // Fetch replacement data
+  // Fetch replacement data function
   const fetchReplacementData = async () => {
     if (!supabase || !jobId) return;
 
+    setIsLoadingReplacementData(true);
     try {
       const { data: replacementData, error: replacementError } = await supabase
         .from("job_replacements")
@@ -185,13 +192,19 @@ const QuoteSection = ({
         setTotalReplacementCost(totalReplacementCostSum);
         setHasReplacementData(true);
       } else {
+        setReplacementData([]);
+        setAllReplacementData([]);
+        setTotalReplacementCost(0);
         setHasReplacementData(false);
       }
     } catch (err) {
       console.error("Error fetching replacement data:", err);
+    } finally {
+      setIsLoadingReplacementData(false);
     }
   };
 
+  // Fetch replacement data on mount and when dependencies change
   useEffect(() => {
     fetchReplacementData();
   }, [supabase, jobId, refreshTrigger]);
@@ -586,7 +599,7 @@ const QuoteSection = ({
       {/* Replacement Section */}
       {activeTab === "replacement" && (
         <>
-          {replacementData.length > 0 ? (
+          {!isLoadingReplacementData && replacementData.length > 0 ? (
             <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-0">
               <button
                 onClick={() => {
@@ -611,300 +624,303 @@ const QuoteSection = ({
             </div>
           ) : null}
 
-          {replacementData.map((data, index) => {
-            const selectedPhase = data.selectedPhase || "phase2";
-            const optionType =
-              selectedPhase === "phase1"
-                ? "Economy"
-                : selectedPhase === "phase2"
-                ? "Standard"
-                : "Premium";
-            return (
-              <div
-                key={data.id || index}
-                className="border rounded-lg overflow-hidden mb-4 p-2 sm:p-4 flex flex-col gap-2"
-              >
-                <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 border-b border-green-200">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h4 className="text-sm font-medium flex items-center">
-                        <Home size={14} className="mr-1 text-blue-500" />
-                        Replacement Option {index + 1}
-                      </h4>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-lg">
-                        ${Number(data.totalCost || 0).toLocaleString()}
+          {!isLoadingReplacementData &&
+            replacementData.map((data, index) => {
+              const selectedPhase = data.selectedPhase || "phase2";
+              const optionType =
+                selectedPhase === "phase1"
+                  ? "Economy"
+                  : selectedPhase === "phase2"
+                  ? "Standard"
+                  : "Premium";
+              return (
+                <div
+                  key={data.id || index}
+                  className="border rounded-lg overflow-hidden mb-4 p-2 sm:p-4 flex flex-col gap-2"
+                >
+                  <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 border-b border-green-200">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="text-sm font-medium flex items-center">
+                          <Home size={14} className="mr-1 text-blue-500" />
+                          Replacement Option {index + 1}
+                        </h4>
                       </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-lg">
+                          ${Number(data.totalCost || 0).toLocaleString()}
+                        </div>
 
-                      {(data.needsCrane ||
-                        data.requiresPermit ||
-                        data.requiresBigLadder) && (
-                        <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full mt-1 inline-block">
-                          {[
-                            data.needsCrane && "Crane Required",
-                            data.requiresPermit && "Permit Required",
-                            data.requiresBigLadder && "Big Ladder Required",
-                          ]
-                            .filter(Boolean)
-                            .join(", ")}
+                        {(data.needsCrane ||
+                          data.requiresPermit ||
+                          data.requiresBigLadder) && (
+                          <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full mt-1 inline-block">
+                            {[
+                              data.needsCrane && "Crane Required",
+                              data.requiresPermit && "Permit Required",
+                              data.requiresBigLadder && "Big Ladder Required",
+                            ]
+                              .filter(Boolean)
+                              .join(", ")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Date display */}
+                  {data.created_at && (
+                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                      <div className="text-xs text-gray-500">
+                        Created:{" "}
+                        {new Date(data.created_at).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    {data.phase2 && data.phase2.cost > 0 && (
+                      <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                        <span>Crane Option:</span>
+                        <span className="font-semibold">
+                          ${Number(data.phase2.cost).toLocaleString()}
                         </span>
+                      </div>
+                    )}
+
+                    {data.labor > 0 && (
+                      <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                        <span>Labor:</span>
+                        <span className="font-semibold">
+                          ${Number(data.labor).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    {data.refrigerationRecovery > 0 && (
+                      <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                        <span>Refrigeration Recovery:</span>
+                        <span className="font-semibold">
+                          ${Number(data.refrigerationRecovery).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    {data.startUpCosts > 0 && (
+                      <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                        <span>Start Up Costs:</span>
+                        <span className="font-semibold">
+                          ${Number(data.startUpCosts).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    {data.thermostatStartup > 0 && (
+                      <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                        <span>Thermostat Startup:</span>
+                        <span className="font-semibold">
+                          ${Number(data.thermostatStartup).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    {data.removalCost > 0 && (
+                      <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                        <span>Removal Cost:</span>
+                        <span className="font-semibold">
+                          ${Number(data.removalCost).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    {data.permitCost > 0 && (
+                      <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                        <span>Permit Cost:</span>
+                        <span className="font-semibold">
+                          ${Number(data.permitCost).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Accessories */}
+                    {data.accessories &&
+                      data.accessories.length > 0 &&
+                      data.accessories.some(
+                        (acc: any) => acc.name && acc.cost > 0
+                      ) && (
+                        <div className="p-3 border-b border-gray-100">
+                          <h4 className="font-medium mb-2">Accessories:</h4>
+                          {data.accessories.map((acc: any, i: number) =>
+                            acc.name && acc.cost > 0 ? (
+                              <div
+                                key={i}
+                                className="flex justify-between items-center"
+                              >
+                                <span>{acc.name}</span>
+                                <span className="font-semibold">
+                                  ${Number(acc.cost).toLocaleString()}
+                                </span>
+                              </div>
+                            ) : null
+                          )}
+                        </div>
                       )}
-                    </div>
+
+                    {/* Additional Items */}
+                    {data.additionalItems &&
+                      data.additionalItems.length > 0 &&
+                      data.additionalItems.some(
+                        (item: any) => item.name && item.cost > 0
+                      ) && (
+                        <div className="p-3 border-b border-gray-100">
+                          <h4 className="font-medium mb-2">
+                            Additional Items:
+                          </h4>
+                          {data.additionalItems.map((item: any, i: number) =>
+                            item.name && item.cost > 0 ? (
+                              <div
+                                key={i}
+                                className="flex justify-between items-center"
+                              >
+                                <span>{item.name}</span>
+                                <span className="font-semibold">
+                                  ${Number(item.cost).toLocaleString()}
+                                </span>
+                              </div>
+                            ) : null
+                          )}
+                        </div>
+                      )}
                   </div>
-                </div>
 
-                {/* Date display */}
-                {data.created_at && (
-                  <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-                    <div className="text-xs text-gray-500">
-                      Created:{" "}
-                      {new Date(data.created_at).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
-                    </div>
-                  </div>
-                )}
+                  <div className="flex flex-col sm:flex-row justify-end gap-2 p-3 bg-gray-50">
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => {
+                          // Use the database ID to edit the correct replacement
+                          const replacementToEdit = allReplacementData.find(
+                            (r) => r.id === data.id
+                          );
+                          setCurrentReplacementData(replacementToEdit);
+                          setShowRepairsForm(true);
+                        }}
+                        className="p-1 text-primary-600 hover:text-primary-800"
+                        aria-label="Edit replacement"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!supabase) return;
+                          if (
+                            window.confirm(
+                              "Are you sure you want to delete this replacement?"
+                            )
+                          ) {
+                            setDeleteError(null);
+                            try {
+                              const { error } = await supabase
+                                .from("job_replacements")
+                                .delete()
+                                .eq("id", data.id);
+                              if (error) throw error;
 
-                <div>
-                  {data.phase2 && data.phase2.cost > 0 && (
-                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
-                      <span>Crane Option:</span>
-                      <span className="font-semibold">
-                        ${Number(data.phase2.cost).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
+                              // Refresh replacement data and update all related states
+                              const {
+                                data: replacementData,
+                                error: replacementError,
+                              } = await supabase
+                                .from("job_replacements")
+                                .select("*")
+                                .eq("job_id", jobId);
 
-                  {data.labor > 0 && (
-                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
-                      <span>Labor:</span>
-                      <span className="font-semibold">
-                        ${Number(data.labor).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                  {data.refrigerationRecovery > 0 && (
-                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
-                      <span>Refrigeration Recovery:</span>
-                      <span className="font-semibold">
-                        ${Number(data.refrigerationRecovery).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                  {data.startUpCosts > 0 && (
-                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
-                      <span>Start Up Costs:</span>
-                      <span className="font-semibold">
-                        ${Number(data.startUpCosts).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                  {data.thermostatStartup > 0 && (
-                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
-                      <span>Thermostat Startup:</span>
-                      <span className="font-semibold">
-                        ${Number(data.thermostatStartup).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                  {data.removalCost > 0 && (
-                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
-                      <span>Removal Cost:</span>
-                      <span className="font-semibold">
-                        ${Number(data.removalCost).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                  {data.permitCost > 0 && (
-                    <div className="flex justify-between items-center p-3 border-b border-gray-100">
-                      <span>Permit Cost:</span>
-                      <span className="font-semibold">
-                        ${Number(data.permitCost).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Accessories */}
-                  {data.accessories &&
-                    data.accessories.length > 0 &&
-                    data.accessories.some(
-                      (acc: any) => acc.name && acc.cost > 0
-                    ) && (
-                      <div className="p-3 border-b border-gray-100">
-                        <h4 className="font-medium mb-2">Accessories:</h4>
-                        {data.accessories.map((acc: any, i: number) =>
-                          acc.name && acc.cost > 0 ? (
-                            <div
-                              key={i}
-                              className="flex justify-between items-center"
-                            >
-                              <span>{acc.name}</span>
-                              <span className="font-semibold">
-                                ${Number(acc.cost).toLocaleString()}
-                              </span>
-                            </div>
-                          ) : null
-                        )}
-                      </div>
-                    )}
-
-                  {/* Additional Items */}
-                  {data.additionalItems &&
-                    data.additionalItems.length > 0 &&
-                    data.additionalItems.some(
-                      (item: any) => item.name && item.cost > 0
-                    ) && (
-                      <div className="p-3 border-b border-gray-100">
-                        <h4 className="font-medium mb-2">Additional Items:</h4>
-                        {data.additionalItems.map((item: any, i: number) =>
-                          item.name && item.cost > 0 ? (
-                            <div
-                              key={i}
-                              className="flex justify-between items-center"
-                            >
-                              <span>{item.name}</span>
-                              <span className="font-semibold">
-                                ${Number(item.cost).toLocaleString()}
-                              </span>
-                            </div>
-                          ) : null
-                        )}
-                      </div>
-                    )}
-                </div>
-
-                <div className="flex flex-col sm:flex-row justify-end gap-2 p-3 bg-gray-50">
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => {
-                        // Use the database ID to edit the correct replacement
-                        const replacementToEdit = allReplacementData.find(
-                          (r) => r.id === data.id
-                        );
-                        setCurrentReplacementData(replacementToEdit);
-                        setShowRepairsForm(true);
-                      }}
-                      className="p-1 text-primary-600 hover:text-primary-800"
-                      aria-label="Edit replacement"
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!supabase) return;
-                        if (
-                          window.confirm(
-                            "Are you sure you want to delete this replacement?"
-                          )
-                        ) {
-                          setDeleteError(null);
-                          try {
-                            const { error } = await supabase
-                              .from("job_replacements")
-                              .delete()
-                              .eq("id", data.id);
-                            if (error) throw error;
-
-                            // Refresh replacement data and update all related states
-                            const {
-                              data: replacementData,
-                              error: replacementError,
-                            } = await supabase
-                              .from("job_replacements")
-                              .select("*")
-                              .eq("job_id", jobId);
-
-                            if (!replacementError) {
-                              console.log(
-                                "Replacement data after delete:",
-                                replacementData
-                              );
-                              // Process the updated replacement data
-                              if (
-                                replacementData &&
-                                replacementData.length > 0
-                              ) {
-                                const processedReplacements: any[] = [];
-                                const totalReplacementCostSum =
-                                  replacementData.reduce((sum, item) => {
-                                    return sum + Number(item.total_cost || 0);
-                                  }, 0);
-
-                                replacementData.forEach(
-                                  (item: any, index: number) => {
-                                    console.log(
-                                      "Processing replacement item:",
-                                      item
-                                    );
-                                    processedReplacements.push({
-                                      id: item.id,
-                                      needsCrane: item.needs_crane,
-                                      requiresPermit: item.requires_permit,
-                                      requiresBigLadder:
-                                        item.requires_big_ladder,
-                                      phase2: item.phase2,
-                                      labor: item.labor,
-                                      refrigerationRecovery:
-                                        item.refrigeration_recovery,
-                                      startUpCosts: item.start_up_costs,
-                                      accessories: item.accessories,
-                                      thermostatStartup:
-                                        item.thermostat_startup,
-                                      removalCost: item.removal_cost,
-                                      warranty: item.warranty,
-                                      additionalItems: item.additional_items,
-                                      permitCost: item.permit_cost,
-                                      selectedPhase: item.selected_phase,
-                                      totalCost: item.total_cost,
-                                      created_at: item.created_at,
-                                    });
-                                  }
+                              if (!replacementError) {
+                                console.log(
+                                  "Replacement data after delete:",
+                                  replacementData
                                 );
+                                // Process the updated replacement data
+                                if (
+                                  replacementData &&
+                                  replacementData.length > 0
+                                ) {
+                                  const processedReplacements: any[] = [];
+                                  const totalReplacementCostSum =
+                                    replacementData.reduce((sum, item) => {
+                                      return sum + Number(item.total_cost || 0);
+                                    }, 0);
 
-                                setReplacementData(processedReplacements);
-                                setAllReplacementData(replacementData);
-                                setTotalReplacementCost(
-                                  totalReplacementCostSum
-                                );
-                                setHasReplacementData(true);
-                              } else {
-                                // No replacement data left
-                                setReplacementData([]);
-                                setAllReplacementData([]);
-                                setTotalReplacementCost(0);
-                                setHasReplacementData(false);
+                                  replacementData.forEach(
+                                    (item: any, index: number) => {
+                                      console.log(
+                                        "Processing replacement item:",
+                                        item
+                                      );
+                                      processedReplacements.push({
+                                        id: item.id,
+                                        needsCrane: item.needs_crane,
+                                        requiresPermit: item.requires_permit,
+                                        requiresBigLadder:
+                                          item.requires_big_ladder,
+                                        phase2: item.phase2,
+                                        labor: item.labor,
+                                        refrigerationRecovery:
+                                          item.refrigeration_recovery,
+                                        startUpCosts: item.start_up_costs,
+                                        accessories: item.accessories,
+                                        thermostatStartup:
+                                          item.thermostat_startup,
+                                        removalCost: item.removal_cost,
+                                        warranty: item.warranty,
+                                        additionalItems: item.additional_items,
+                                        permitCost: item.permit_cost,
+                                        selectedPhase: item.selected_phase,
+                                        totalCost: item.total_cost,
+                                        created_at: item.created_at,
+                                      });
+                                    }
+                                  );
+
+                                  setReplacementData(processedReplacements);
+                                  setAllReplacementData(replacementData);
+                                  setTotalReplacementCost(
+                                    totalReplacementCostSum
+                                  );
+                                  setHasReplacementData(true);
+                                } else {
+                                  // No replacement data left
+                                  setReplacementData([]);
+                                  setAllReplacementData([]);
+                                  setTotalReplacementCost(0);
+                                  setHasReplacementData(false);
+                                }
                               }
+
+                              // Notify parent components of the update
+                              onItemsUpdated();
+                              if (onQuoteStatusChange) onQuoteStatusChange();
+
+                              // Trigger a refresh to ensure all data is properly updated
+                              setRefreshTriggerState((prev) => prev + 1);
+                            } catch (err) {
+                              setDeleteError("Failed to delete replacement");
                             }
-
-                            // Notify parent components of the update
-                            onItemsUpdated();
-                            if (onQuoteStatusChange) onQuoteStatusChange();
-
-                            // Trigger a refresh to ensure all data is properly updated
-                            setRefreshTriggerState((prev) => prev + 1);
-                          } catch (err) {
-                            setDeleteError("Failed to delete replacement");
                           }
-                        }
-                      }}
-                      className="p-1 text-error-600 hover:text-error-800"
-                      aria-label="Delete replacement"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                        }}
+                        className="p-1 text-error-600 hover:text-error-800"
+                        aria-label="Delete replacement"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
+                  {deleteError && (
+                    <div className="bg-error-50 text-error-700 p-2 rounded mb-2">
+                      {deleteError}
+                    </div>
+                  )}
                 </div>
-                {deleteError && (
-                  <div className="bg-error-50 text-error-700 p-2 rounded mb-2">
-                    {deleteError}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
 
           {replacementData.length > 0 && (
             <div className="border rounded-lg overflow-hidden mt-4 shadow-sm">
@@ -922,7 +938,12 @@ const QuoteSection = ({
 
           {/* Removed Send Replacement Quote button */}
 
-          {!hasReplacementData && (
+          {isLoadingReplacementData ? (
+            <div className="text-center py-6 bg-gray-50 rounded-lg">
+              <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-600 mx-auto mb-3"></div>
+              <p className="text-gray-500">Loading replacement data...</p>
+            </div>
+          ) : !hasReplacementData ? (
             <div className="text-center py-6 bg-gray-50 rounded-lg">
               <p className="text-gray-500 mb-3">No items added yet</p>
               <button
@@ -936,7 +957,7 @@ const QuoteSection = ({
                 Add First Replacement
               </button>
             </div>
-          )}
+          ) : null}
         </>
       )}
 
@@ -1142,38 +1163,40 @@ const QuoteSection = ({
       {/* PM Quote Section */}
       {activeTab === "pm" && (
         <>
-          <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-2">
-            <button
-              onClick={() => {
-                setSelectedPMQuote(null);
-                setShowPMQuoteModal(true);
-              }}
-              className="btn btn-primary btn-sm"
-              disabled={isPMLoading}
-            >
-              {isPMLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-1"></div>
-                  Adding...
-                </>
-              ) : (
-                <>
-                  <Plus size={14} className="mr-1" />
-                  Add PM Quote
-                </>
-              )}
-            </button>
-            <button
-              onClick={() => {
-                setSelectedQuoteType("pm");
-                setShowGenerateQuoteModal(true);
-              }}
-              className="btn btn-secondary btn-sm"
-            >
-              <FileText size={14} className="mr-1" />
-              Generate Quote
-            </button>
-          </div>
+          {pmQuotes.length > 0 ? (
+            <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-2">
+              <button
+                onClick={() => {
+                  setSelectedPMQuote(null);
+                  setShowPMQuoteModal(true);
+                }}
+                className="btn btn-primary btn-sm"
+                disabled={isPMLoading}
+              >
+                {isPMLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-1"></div>
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <Plus size={14} className="mr-1" />
+                    Add PM Quote
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedQuoteType("pm");
+                  setShowGenerateQuoteModal(true);
+                }}
+                className="btn btn-secondary btn-sm"
+              >
+                <FileText size={14} className="mr-1" />
+                Generate Quote
+              </button>
+            </div>
+          ) : null}
 
           {isPMLoading ? (
             <div className="text-center py-8">
@@ -1381,7 +1404,7 @@ const QuoteSection = ({
             </div>
           ) : (
             <div className="text-center py-6 bg-gray-50 rounded-lg">
-              <p className="text-gray-500 mb-3">No PM quotes created yet</p>
+              <p className="text-gray-500 mb-3">No items added yet</p>
               <button
                 onClick={() => {
                   setSelectedPMQuote(null);
@@ -1390,7 +1413,7 @@ const QuoteSection = ({
                 className="btn btn-primary btn-sm"
               >
                 <Plus size={14} className="mr-1" />
-                Create First PM Quote
+                Add First PM Quote
               </button>
             </div>
           )}

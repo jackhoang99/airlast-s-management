@@ -41,6 +41,8 @@ serve(async (req) => {
       pdfUrl,
       replacementDataByInspection,
       pmQuotes,
+      selectedInspectionOptions,
+      quoteData,
     } = requestData;
     if (!quoteType) {
       return new Response(
@@ -65,11 +67,24 @@ serve(async (req) => {
       totalCost: totalCost || 0,
       hasInspectionData:
         Array.isArray(inspectionData) && inspectionData.length > 0,
+      inspectionDataCount: Array.isArray(inspectionData)
+        ? inspectionData.length
+        : 0,
       hasReplacementData: !!replacementData,
       hasAllReplacementData:
         Array.isArray(allReplacementData) && allReplacementData.length > 0,
       hasPdfUrl: !!pdfUrl,
       hasPMQuotes: Array.isArray(pmQuotes) && pmQuotes.length > 0,
+      hasQuoteData: !!quoteData,
+      hasSelectedInspectionOptions: !!(
+        quoteData && quoteData.selectedInspectionOptions
+      ),
+      selectedInspectionOptionsCount:
+        quoteData?.selectedInspectionOptions?.length || 0,
+      selectedInspectionOptions: quoteData?.selectedInspectionOptions || [],
+      directSelectedInspectionOptions: selectedInspectionOptions,
+      directSelectedInspectionOptionsCount:
+        selectedInspectionOptions?.length || 0,
     });
     if (!jobId || !customerEmail || !quoteToken || !jobNumber) {
       return new Response(
@@ -91,12 +106,91 @@ serve(async (req) => {
     // Build inspection details HTML and text
     let inspectionHtml = "";
     let inspectionText = "";
-    if (Array.isArray(inspectionData) && inspectionData.length > 0) {
+
+    // Use selected inspection data from quote if available, otherwise fall back to all inspection data
+    let inspectionsToDisplay: any[] = [];
+
+    console.log("Inspection filtering logic:", {
+      hasQuoteData: !!quoteData,
+      hasSelectedInspectionOptions: !!(
+        quoteData && quoteData.selectedInspectionOptions
+      ),
+      selectedInspectionOptions: quoteData?.selectedInspectionOptions || [],
+      hasInspectionData: !!(quoteData && quoteData.inspectionData),
+      inspectionDataCount: Array.isArray(inspectionData)
+        ? inspectionData.length
+        : 0,
+      directSelectedInspectionOptions: selectedInspectionOptions,
+      directSelectedInspectionOptionsCount:
+        selectedInspectionOptions?.length || 0,
+    });
+
+    // Priority order: 1) Direct selectedInspectionOptions, 2) quoteData.selectedInspectionOptions, 3) quoteData.inspectionData, 4) all inspectionData
+    if (
+      selectedInspectionOptions &&
+      Array.isArray(selectedInspectionOptions) &&
+      selectedInspectionOptions.length > 0
+    ) {
+      // Use the directly passed selectedInspectionOptions (highest priority)
+      if (Array.isArray(inspectionData)) {
+        inspectionsToDisplay = inspectionData.filter((insp: any) =>
+          selectedInspectionOptions.includes(insp.id)
+        );
+        console.log("Using direct selectedInspectionOptions filter:", {
+          originalCount: inspectionData.length,
+          filteredCount: inspectionsToDisplay.length,
+          selectedIds: selectedInspectionOptions,
+          filteredIds: inspectionsToDisplay.map((insp: any) => insp.id),
+        });
+      }
+    } else if (
+      quoteData &&
+      quoteData.selectedInspectionOptions &&
+      Array.isArray(quoteData.selectedInspectionOptions) &&
+      quoteData.selectedInspectionOptions.length > 0
+    ) {
+      // Use only the inspections that were selected for this specific quote
+      if (Array.isArray(inspectionData)) {
+        inspectionsToDisplay = inspectionData.filter((insp: any) =>
+          quoteData.selectedInspectionOptions.includes(insp.id)
+        );
+        console.log("Using quoteData.selectedInspectionOptions filter:", {
+          originalCount: inspectionData.length,
+          filteredCount: inspectionsToDisplay.length,
+          selectedIds: quoteData.selectedInspectionOptions,
+          filteredIds: inspectionsToDisplay.map((insp: any) => insp.id),
+        });
+      }
+    } else if (
+      quoteData &&
+      quoteData.inspectionData &&
+      Array.isArray(quoteData.inspectionData) &&
+      quoteData.inspectionData.length > 0
+    ) {
+      // Fallback to quote_data.inspectionData if selectedInspectionOptions is not available
+      inspectionsToDisplay = quoteData.inspectionData;
+      console.log("Using quoteData.inspectionData fallback:", {
+        count: inspectionsToDisplay.length,
+      });
+    } else if (Array.isArray(inspectionData) && inspectionData.length > 0) {
+      // Final fallback to all inspection data
+      inspectionsToDisplay = inspectionData;
+      console.log("Using all inspectionData fallback:", {
+        count: inspectionsToDisplay.length,
+      });
+    }
+
+    console.log("Final inspectionsToDisplay:", {
+      count: inspectionsToDisplay.length,
+      ids: inspectionsToDisplay.map((insp: any) => insp.id),
+    });
+
+    if (inspectionsToDisplay.length > 0) {
       inspectionHtml = `<div style="background-color:#f9f9f9; padding:15px; border-radius:5px; margin:20px 0;">
         <h3 style="margin-top:0;">Inspection Details</h3>`;
       inspectionText = "Inspection Details:\n\n";
       // Loop through inspections (limit to first 3 for email readability)
-      const displayInspections = inspectionData.slice(0, 3);
+      const displayInspections = inspectionsToDisplay.slice(0, 3);
       displayInspections.forEach((inspection, index) => {
         // Safe access to properties with fallbacks
         const modelNumber = inspection?.model_number || "N/A";
@@ -105,6 +199,8 @@ serve(async (req) => {
         const tonnage = inspection?.tonnage || "N/A";
         const unitType = inspection?.unit_type || "N/A";
         const systemType = inspection?.system_type || "N/A";
+        const unitNumber =
+          inspection?.unit_number || inspection?.units?.unit_number || "N/A";
         inspectionHtml += `
           <div style="margin-bottom: ${
             index < displayInspections.length - 1 ? "20px" : "0"
@@ -113,6 +209,10 @@ serve(async (req) => {
         }">
             <h4 style="margin-top:0;">Inspection ${index + 1}</h4>
             <table style="width:100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Unit Number:</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">${unitNumber}</td>
+              </tr>
               <tr>
                 <td style="padding:8px; border:1px solid #ddd;"><strong>Model Number:</strong></td>
                 <td style="padding:8px; border:1px solid #ddd;">${modelNumber}</td>
@@ -140,6 +240,7 @@ serve(async (req) => {
             </table>
           </div>`;
         inspectionText += `Inspection ${index + 1}:\n`;
+        inspectionText += `- Unit Number: ${unitNumber}\n`;
         inspectionText += `- Model Number: ${modelNumber}\n`;
         inspectionText += `- Serial Number: ${serialNumber}\n`;
         inspectionText += `- Age: ${age} years\n`;
@@ -147,13 +248,13 @@ serve(async (req) => {
         inspectionText += `- Unit Type: ${unitType}\n`;
         inspectionText += `- System Type: ${systemType}\n\n`;
       });
-      if (inspectionData.length > 3) {
+      if (inspectionsToDisplay.length > 3) {
         inspectionHtml += `
           <div style="margin-top: 10px; font-style: italic; color: #666;">
-            And ${inspectionData.length - 3} more inspection(s)...
+            And ${inspectionsToDisplay.length - 3} more inspection(s)...
           </div>`;
         inspectionText += `And ${
-          inspectionData.length - 3
+          inspectionsToDisplay.length - 3
         } more inspection(s)...\n\n`;
       }
       inspectionHtml += `</div>`;

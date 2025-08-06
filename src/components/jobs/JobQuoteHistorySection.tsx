@@ -484,11 +484,18 @@ const JobQuoteHistorySection = ({
         {/* All Quotes Table */}
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-            <h3 className="text-lg font-medium text-gray-900">All Quotes</h3>
+            <h3 className="text-lg font-medium text-gray-900">
+              {activeQuoteFilter === "all"
+                ? "All Quotes"
+                : activeQuoteFilter.charAt(0).toUpperCase() +
+                  activeQuoteFilter.slice(1) +
+                  " Quotes"}
+            </h3>
           </div>
 
-          {/* All Quotes - Large Full Width Card */}
-          <div className="mb-6">
+          {/* Quote Type Cards - 5 Column Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mb-6">
+            {/* All Quotes Card */}
             <div
               className={`border rounded-lg p-4 cursor-pointer transition-colors ${
                 activeQuoteFilter === "all"
@@ -509,10 +516,6 @@ const JobQuoteHistorySection = ({
                   : `${getQuoteCounts().all} quote(s)`}
               </p>
             </div>
-          </div>
-
-          {/* Quote Type Cards - 5 Column Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mb-6">
             <div
               className={`border rounded-lg p-4 cursor-pointer transition-colors ${
                 activeQuoteFilter === "replacement"
@@ -705,9 +708,7 @@ const JobQuoteHistorySection = ({
                     </span>
                   </td>
                   <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
-                    {quote.quote_type === "pm"
-                      ? "-"
-                      : quote.confirmed_at
+                    {quote.confirmed_at
                       ? new Date(quote.confirmed_at).toLocaleDateString()
                       : "-"}
                   </td>

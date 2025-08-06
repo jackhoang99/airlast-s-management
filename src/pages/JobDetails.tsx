@@ -882,6 +882,8 @@ const JobDetails = () => {
                     job.quote_sent && setQuoteNeedsUpdate(true)
                   }
                   refreshTrigger={refreshTrigger}
+                  inspectionData={inspectionData}
+                  jobUnits={job.jobUnits}
                 />
               </div>
             )}

@@ -95,7 +95,7 @@ export default function AllQuotes() {
     any | null
   >(null);
 
-  // Calculate quote counts by type (total counts, not filtered)
+  // Calculate quote counts and amounts by type (total counts, not filtered)
   const getQuoteCounts = () => {
     const all = quotes.length;
     const replacement = quotes.filter(
@@ -107,7 +107,34 @@ export default function AllQuotes() {
     ).length;
     const pm = quotes.filter((q) => q.quote_type === "pm").length;
 
-    return { all, replacement, repair, inspection, pm };
+    // Calculate total amounts
+    const replacementAmount = quotes
+      .filter((q) => q.quote_type === "replacement")
+      .reduce((sum, q) => sum + (q.amount || 0), 0);
+    const repairAmount = quotes
+      .filter((q) => q.quote_type === "repair")
+      .reduce((sum, q) => sum + (q.amount || 0), 0);
+    const inspectionAmount = quotes
+      .filter((q) => q.quote_type === "inspection")
+      .reduce((sum, q) => sum + (q.amount || 0), 0);
+    const pmAmount = quotes
+      .filter((q) => q.quote_type === "pm")
+      .reduce((sum, q) => sum + (q.amount || 0), 0);
+    const totalAmount =
+      replacementAmount + repairAmount + inspectionAmount + pmAmount;
+
+    return {
+      all,
+      replacement,
+      repair,
+      inspection,
+      pm,
+      replacementAmount,
+      repairAmount,
+      inspectionAmount,
+      pmAmount,
+      totalAmount,
+    };
   };
 
   // Filter quotes based on active filter and status
@@ -363,7 +390,7 @@ export default function AllQuotes() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       <div className="flex items-center gap-4">
         <ArrowBack
           fallbackRoute="/"
@@ -377,7 +404,8 @@ export default function AllQuotes() {
 
       <div className="card">
         {/* Available Quote Types Summary */}
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+          {/* All Quotes Card */}
           <div
             className={`border rounded-lg p-4 cursor-pointer transition-colors ${
               activeQuoteFilter === "all"
@@ -393,10 +421,10 @@ export default function AllQuotes() {
               </div>
             </div>
             <p className="text-sm text-gray-700 mt-1">
-              {getQuoteCounts().all} quote(s)
+              {getQuoteCounts().all} quote(s) - $
+              {getQuoteCounts().totalAmount.toLocaleString()}
             </p>
           </div>
-
           <div
             className={`border rounded-lg p-4 cursor-pointer transition-colors ${
               activeQuoteFilter === "replacement"
@@ -415,7 +443,8 @@ export default function AllQuotes() {
               )}
             </div>
             <p className="text-sm text-blue-700 mt-1">
-              {getQuoteCounts().replacement} quote(s)
+              {getQuoteCounts().replacement} replacement(s) - $
+              {getQuoteCounts().replacementAmount.toLocaleString()}
             </p>
           </div>
 
@@ -437,7 +466,8 @@ export default function AllQuotes() {
               )}
             </div>
             <p className="text-sm text-green-700 mt-1">
-              {getQuoteCounts().repair} quote(s)
+              {getQuoteCounts().repair} repair(s) - $
+              {getQuoteCounts().repairAmount.toLocaleString()}
             </p>
           </div>
 
@@ -459,7 +489,7 @@ export default function AllQuotes() {
               )}
             </div>
             <p className="text-sm text-purple-700 mt-1">
-              {getQuoteCounts().inspection} quote(s)
+              {getQuoteCounts().inspection} inspection(s)
             </p>
           </div>
 
@@ -481,7 +511,7 @@ export default function AllQuotes() {
               )}
             </div>
             <p className="text-sm text-orange-700 mt-1">
-              {getQuoteCounts().pm} quote(s)
+              {getQuoteCounts().pm} PM quote(s)
             </p>
           </div>
         </div>

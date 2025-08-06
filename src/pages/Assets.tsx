@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
 import {
   Package,
@@ -21,9 +21,11 @@ import ViewAssetModal from "../components/locations/ViewAssetModal";
 
 const Assets = () => {
   const { supabase } = useSupabase();
+  const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assets, setAssets] = useState<any[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
   const [columnSearches, setColumnSearches] = useState({
     modelNumber: "",
     serialNumber: "",
@@ -127,6 +129,11 @@ const Assets = () => {
         query = query.lte("inspection_date", filters.dateTo);
       }
 
+      // Apply company filter if company parameter is provided
+      if (selectedCompany) {
+        query = query.eq("units.locations.company_id", selectedCompany);
+      }
+
       const { data, error } = await query.order("inspection_date", {
         ascending: false,
       });
@@ -140,9 +147,15 @@ const Assets = () => {
     }
   };
 
+  // Handle company URL parameter
+  useEffect(() => {
+    const companyParam = searchParams.get("company");
+    setSelectedCompany(companyParam);
+  }, [searchParams]);
+
   useEffect(() => {
     fetchAssets();
-  }, [supabase, filters]);
+  }, [supabase, filters, selectedCompany]);
 
   const handleFilterChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -251,17 +264,34 @@ const Assets = () => {
           <Link to="/" className="text-gray-500 hover:text-gray-700">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold">Inspection Assets</h1>
+          <div>
+            <h1 className="text-2xl font-bold">Inspection Assets</h1>
+            {selectedCompany && (
+              <p className="text-sm text-gray-600 mt-1">
+                Filtered by company: {selectedCompany}
+              </p>
+            )}
+          </div>
         </div>
-        <button
-          className="btn btn-primary flex items-center gap-2"
-          onClick={() => {
-            setEditingAsset(null);
-            setShowAddAssetForm(true);
-          }}
-        >
-          <Plus size={16} /> Add Asset
-        </button>
+        <div className="flex items-center gap-2">
+          {selectedCompany && (
+            <Link
+              to="/assets"
+              className="btn btn-secondary flex items-center gap-2"
+            >
+              <X size={16} /> Clear Company Filter
+            </Link>
+          )}
+          <button
+            className="btn btn-primary flex items-center gap-2"
+            onClick={() => {
+              setEditingAsset(null);
+              setShowAddAssetForm(true);
+            }}
+          >
+            <Plus size={16} /> Add Asset
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">

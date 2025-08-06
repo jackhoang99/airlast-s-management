@@ -22,6 +22,7 @@ const QuoteConfirmation = () => {
   const [quoteDetails, setQuoteDetails] = useState<any>(null);
   const [replacementData, setReplacementData] = useState<any[]>([]);
   const [approved, setApproved] = useState<boolean | null>(null);
+  const [userHasChosen, setUserHasChosen] = useState(false);
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
   const [invoiceCreated, setInvoiceCreated] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
@@ -39,18 +40,23 @@ const QuoteConfirmation = () => {
 
     console.log("URL approve parameter:", approveParam);
 
-    if (approveParam === "true") {
-      setApproved(true);
-      console.log("Setting approved to true");
-    } else if (approveParam === "false") {
-      setApproved(false);
-      console.log("Setting approved to false");
-    } else {
-      // If no approve parameter is found, default to false (denied)
-      console.log("No approve parameter found, defaulting to false");
-      setApproved(false);
+    // Only set the initial state if approved is still null and user hasn't made a choice yet
+    if (approved === null && !userHasChosen) {
+      if (approveParam === "true") {
+        setApproved(true);
+        setUserHasChosen(true);
+        console.log("Setting approved to true from URL");
+      } else if (approveParam === "false") {
+        setApproved(false);
+        setUserHasChosen(true);
+        console.log("Setting approved to false from URL");
+      } else {
+        // If no approve parameter is found, don't set a default
+        // Let the user choose via buttons
+        console.log("No approve parameter found, waiting for user choice");
+      }
     }
-  }, [location]);
+  }, [location, approved, userHasChosen]);
 
   useEffect(() => {
     const confirmQuote = async () => {
@@ -89,6 +95,7 @@ const QuoteConfirmation = () => {
             if (quoteData.confirmed) {
               setSuccess(true);
               setApproved(quoteData.approved);
+              setUserHasChosen(true);
 
               // Fetch job details for display
               const { data: jobData } = await supabase
@@ -192,6 +199,7 @@ const QuoteConfirmation = () => {
               setSuccess(true);
               // Use the quote details for approval status instead of job data
               setApproved(quoteDetails ? quoteDetails.approved : null);
+              setUserHasChosen(true);
               setIsLoading(false);
               return;
             }
@@ -221,6 +229,7 @@ const QuoteConfirmation = () => {
                     | "replacement"
                     | "repair"
                     | "inspection"
+                    | "pm"
                 );
               }
             }
@@ -271,7 +280,6 @@ const QuoteConfirmation = () => {
             }
 
             setSuccess(true);
-            setApproved(approved);
             // If quote is declined, create an inspection invoice
             if (approved === false && supabase && jobDetails) {
               setIsCreatingInvoice(true);
@@ -535,7 +543,7 @@ const QuoteConfirmation = () => {
 
           <div className="flex justify-center">
             <a
-              href="https://airlast-management.com/customer/login"
+              href="https://airlast-management.com/customer"
               className="btn btn-primary"
             >
               Return to Home
@@ -670,28 +678,57 @@ const QuoteConfirmation = () => {
               onClick={() => {
                 setIntendedQuoteType(quoteType);
                 setApproved(true);
+                setUserHasChosen(true);
               }}
               className="btn btn-success flex-1 flex justify-center items-center"
             >
               <Check className="mr-2 h-5 w-5" />
-              Approve {quoteType === "replacement" ? "Replacements" : "Repairs"}
+              Approve{" "}
+              {quoteType === "replacement"
+                ? "Replacements"
+                : quoteType === "repair"
+                ? "Repairs"
+                : quoteType === "pm"
+                ? "PM"
+                : quoteType === "inspection"
+                ? "Inspection"
+                : "Quote"}
             </button>
             <button
               onClick={() => {
                 setIntendedQuoteType(quoteType);
                 setApproved(false);
+                setUserHasChosen(true);
               }}
               className="btn btn-error flex-1 flex justify-center items-center"
             >
               <X className="mr-2 h-5 w-5" />
-              Deny {quoteType === "replacement" ? "Replacements" : "Repairs"}
+              Deny{" "}
+              {quoteType === "replacement"
+                ? "Replacements"
+                : quoteType === "repair"
+                ? "Repairs"
+                : quoteType === "pm"
+                ? "PM"
+                : quoteType === "inspection"
+                ? "Inspection"
+                : "Quote"}
             </button>
           </div>
 
           <p className="text-sm text-gray-500 text-center">
             By approving, you authorize Airlast HVAC to proceed with the
             recommended{" "}
-            {quoteType === "replacement" ? "replacements" : "repairs"}.
+            {quoteType === "replacement"
+              ? "replacements"
+              : quoteType === "repair"
+              ? "repairs"
+              : quoteType === "pm"
+              ? "PM"
+              : quoteType === "inspection"
+              ? "inspection"
+              : "quote"}
+            .
             <br />
             By denying, you will be charged $180.00 for the inspection service.
           </p>
