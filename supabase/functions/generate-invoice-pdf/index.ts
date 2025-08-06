@@ -96,6 +96,61 @@ serve(async (req) => {
     addText("INVOICE", 50, yPos, 24, helveticaBold, rgb(0.2, 0.4, 0.8));
     yPos += 40;
 
+    // Add AirLast logo to top right
+    try {
+      const logoUrl =
+        "https://ekxkjnygupehzpoyojwq.supabase.co/storage/v1/object/public/templates/quote-templates/airlast-logo%20(1).png";
+
+      // Add timeout to logo fetch
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+      const logoRes = await fetch(logoUrl, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (logoRes.ok) {
+        const logoBytes = await logoRes.arrayBuffer();
+        // Try to embed as PNG first, if that fails, use text fallback
+        try {
+          const logoImage = await pdfDoc.embedPng(logoBytes);
+
+          // Position logo in top right corner
+          const logoWidth = 100;
+          const logoHeight = 50;
+          const logoX = width - logoWidth - 50; // 50px from right edge
+          const logoY = height - logoHeight - 50; // 50px from top
+
+          page.drawImage(logoImage, {
+            x: logoX,
+            y: logoY,
+            width: logoWidth,
+            height: logoHeight,
+          });
+        } catch (embedError) {
+          console.log(
+            "Error embedding logo as PNG, using text fallback:",
+            embedError
+          );
+          throw new Error("Logo embedding failed");
+        }
+      } else {
+        throw new Error("Logo fetch failed");
+      }
+    } catch (error) {
+      console.log("Error loading AirLast logo, using fallback text:", error);
+      // Fallback to text logo
+      addText(
+        "AIRLAST",
+        width - 120,
+        70,
+        16,
+        helveticaBold,
+        rgb(0.2, 0.4, 0.8)
+      );
+    }
+
     // Company Info (Left side)
     addText("Airlast HVAC", 50, yPos, 16, helveticaBold);
     yPos += 20;

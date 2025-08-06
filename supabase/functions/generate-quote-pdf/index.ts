@@ -237,27 +237,6 @@ serve(async (req) => {
             // Half page height for line termination
             const halfHeight = height / 2;
 
-            // Draw diagonal lines from bottom-left to top-right, only up to half page height
-            // Lines will completely disappear when they reach the image area
-            for (let i = -halfHeight; i < width + halfHeight; i += spacing) {
-              // Calculate line endpoints (bottom-left to top-right)
-              const lineStartX = Math.max(i, 0);
-              const lineEndX = i + halfHeight;
-
-              // Check if line intersects with image area
-              const intersectsImage = lineEndX > imageX;
-
-              // Only draw lines that don't intersect with the image area
-              if (!intersectsImage) {
-                addedPage.drawLine({
-                  start: { x: lineStartX, y: 0 }, // Start at bottom
-                  end: { x: lineEndX, y: halfHeight }, // End at half height
-                  thickness: lineWidth,
-                  color: lineColor,
-                });
-              }
-            }
-
             // Draw date in lower left (reddish-orange)
             const currentDate = new Date();
             const monthNames = [
@@ -337,35 +316,63 @@ serve(async (req) => {
                 color: rgb(1, 1, 1),
               });
             }
-            // Draw AIRLAST logo and text in bottom right
-            // Logo (simplified as geometric shapes)
-            const logoX = width - 150;
-            const logoY = 50;
-            // Draw interlocking A shapes (simplified as rectangles)
-            // Red A shape
-            addedPage.drawRectangle({
-              x: logoX,
-              y: logoY,
-              width: 20,
-              height: 20,
-              color: rgb(0.9, 0.2, 0.2),
-            });
-            // Blue A shape
-            addedPage.drawRectangle({
-              x: logoX + 10,
-              y: logoY,
-              width: 20,
-              height: 20,
-              color: rgb(0.2, 0.6, 0.9),
-            });
-            // Draw AIRLAST text
-            addedPage.drawText("AIRLAST", {
-              x: logoX + 35,
-              y: logoY + 15,
-              size: 20,
-              font: bold,
-              color: rgb(1, 1, 1),
-            });
+
+            // Add AirLast logo to bottom right
+            try {
+              const logoUrl =
+                "https://ekxkjnygupehzpoyojwq.supabase.co/storage/v1/object/public/templates/quote-templates/Screenshot%202025-08-06%20at%202.00.14%20PM.png";
+
+              // Add timeout to logo fetch
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+              const logoRes = await fetch(logoUrl, {
+                signal: controller.signal,
+              });
+              clearTimeout(timeoutId);
+
+              if (logoRes.ok) {
+                const logoBytes = await logoRes.arrayBuffer();
+                // Try to embed as PNG first, if that fails, use text fallback
+                try {
+                  const logoImage = await newPdfDoc.embedPng(logoBytes);
+
+                  // Position logo in bottom right corner
+                  const logoWidth = 120;
+                  const logoHeight = 60;
+                  const logoX = width - logoWidth - 30; // 30px from right edge
+                  const logoY = 5; // 5px from bottom
+
+                  addedPage.drawImage(logoImage, {
+                    x: logoX,
+                    y: logoY,
+                    width: logoWidth,
+                    height: logoHeight,
+                  });
+                } catch (embedError) {
+                  console.log(
+                    "Error embedding logo as PNG, using text fallback:",
+                    embedError
+                  );
+                  throw new Error("Logo embedding failed");
+                }
+              } else {
+                throw new Error("Logo fetch failed");
+              }
+            } catch (error) {
+              console.log(
+                "Error loading AirLast logo, using fallback text:",
+                error
+              );
+              // Fallback to text logo
+              addedPage.drawText("AIRLAST", {
+                x: width - 120,
+                y: 70,
+                size: 16,
+                font: bold,
+                color: rgb(1, 1, 1),
+              });
+            }
           }
         }
       }
