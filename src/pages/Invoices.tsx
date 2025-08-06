@@ -58,6 +58,8 @@ const Invoices = () => {
   const [customerEmail, setCustomerEmail] = useState<string>("");
   const [sendLoading, setSendLoading] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   // Fetch job and job_items for selected invoice
   const fetchJobAndItems = async (invoice: JobInvoice) => {
@@ -242,6 +244,52 @@ const Invoices = () => {
         return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const generateInvoicePDF = async (invoice: JobInvoice) => {
+    if (!supabase || !jobData) return;
+
+    setIsGeneratingPdf(true);
+    try {
+      const apiUrl = `${
+        import.meta.env.VITE_SUPABASE_URL
+      }/functions/v1/generate-invoice-pdf`;
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          jobId: jobData.id,
+          invoiceId: invoice.id,
+          jobData: jobData,
+          jobItems: jobItems,
+          invoiceNumber: invoice.invoice_number,
+          amount: invoice.amount,
+          issuedDate: invoice.issued_date,
+          dueDate: invoice.due_date,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.pdfUrl) {
+          setPdfUrl(result.pdfUrl);
+        } else {
+          throw new Error("No PDF URL returned");
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate PDF");
+      }
+    } catch (error) {
+      console.error("Error generating invoice PDF:", error);
+      setPdfUrl(null);
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -547,6 +595,12 @@ const Invoices = () => {
                             setSelectedInvoice(invoice);
                             await fetchJobAndItems(invoice);
                             setShowInvoicePDF(true);
+                            // Generate PDF when viewing
+                            setTimeout(() => {
+                              if (!pdfUrl && !isGeneratingPdf) {
+                                generateInvoicePDF(invoice);
+                              }
+                            }, 100);
                           }}
                         >
                           View
@@ -596,29 +650,79 @@ const Invoices = () => {
 
       {showInvoicePDF && selectedInvoice && jobData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg max-w-3xl w-full p-6 shadow-xl overflow-auto max-h-[90vh]">
+          <div className="bg-white rounded-lg max-w-4xl w-full p-6 shadow-xl overflow-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Invoice View</h3>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setShowInvoicePDF(false)}
-              >
-                Close
-              </button>
+              <div className="flex gap-2">
+                {pdfUrl && (
+                  <>
+                    <button
+                      onClick={() => window.open(pdfUrl, "_blank")}
+                      className="btn btn-primary btn-sm"
+                    >
+                      <Eye size={16} className="mr-2" />
+                      View PDF
+                    </button>
+                    <button
+                      onClick={() => {
+                        const a = document.createElement("a");
+                        a.href = pdfUrl;
+                        a.download = `invoice-${selectedInvoice.invoice_number}.pdf`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      }}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      <Download size={16} className="mr-2" />
+                      Download PDF
+                    </button>
+                  </>
+                )}
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    setShowInvoicePDF(false);
+                    setPdfUrl(null);
+                  }}
+                >
+                  Close
+                </button>
+              </div>
             </div>
-            <InvoicePDFTemplate
-              job={jobData}
-              jobItems={jobItems}
-              invoice={selectedInvoice}
-            />
-            <div className="flex justify-end mt-4">
-              <button
-                className="btn btn-secondary"
-                onClick={() => window.print()}
-              >
-                Print Invoice
-              </button>
-            </div>
+
+            {isGeneratingPdf ? (
+              <div className="flex justify-center items-center py-20">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Generating PDF...</p>
+                </div>
+              </div>
+            ) : pdfUrl ? (
+              <div className="bg-white rounded-lg shadow-lg">
+                <iframe
+                  src={pdfUrl}
+                  className="w-full h-[800px] rounded-lg"
+                  title="Invoice PDF"
+                />
+              </div>
+            ) : (
+              <>
+                <InvoicePDFTemplate
+                  job={jobData}
+                  jobItems={jobItems}
+                  invoice={selectedInvoice}
+                />
+                <div className="flex justify-end mt-4">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => window.print()}
+                  >
+                    Print Invoice
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

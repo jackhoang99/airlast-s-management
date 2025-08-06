@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSupabase } from "../../lib/supabase-context";
 import { Database } from "../../types/supabase";
@@ -14,6 +14,7 @@ import {
   Mail,
   Check,
   Trash2,
+  Download,
 } from "lucide-react";
 import InvoicePDFTemplate from "../invoices/InvoicePDFTemplate";
 import MarkAsPaidModal from "../invoices/MarkAsPaidModal";
@@ -101,35 +102,9 @@ const JobInvoiceSection = ({
       if (!supabase || !job) return;
 
       try {
-        // First, fetch the job details to display
-        if (supabase) {
-          const { data: jobData, error: jobError } = await supabase
-            .from("jobs")
-            .select(
-              `
-              *,
-              locations (
-                name,
-                companies (
-                  name
-                )
-              ),
-              units (
-                unit_number
-              )
-            `
-            )
-            .eq("id", job.id)
-            .maybeSingle();
-
-          if (jobError) {
-            console.error("Error fetching job:", jobError);
-            throw new Error("Error fetching quote details");
-          }
-
-          if (jobData) {
-            setCustomerEmail(jobData.contact_email || "");
-          }
+        // Set customer email from existing job data
+        if (job.contact_email) {
+          setCustomerEmail(job.contact_email);
         }
 
         // Fetch invoices for this job
@@ -156,90 +131,59 @@ const JobInvoiceSection = ({
     fetchInvoices();
   }, [supabase, job]);
 
-  // Fetch repair data for all inspections
-  useEffect(() => {
-    const fetchRepairData = async () => {
-      if (!supabase || !job) return;
+  // Fetch totals only when needed (when creating invoice modal is opened)
+  const fetchTotals = async () => {
+    if (!supabase || !job) return;
 
-      try {
-        const { data: repairData, error: repairError } = await supabase
+    try {
+      // Fetch both replacement and repair totals in parallel
+      const [replacementsResult, itemsResult] = await Promise.all([
+        supabase
           .from("job_replacements")
-          .select("*")
-          .eq("job_id", job.id);
+          .select("total_cost")
+          .eq("job_id", job.id),
+        supabase.from("job_items").select("total_cost").eq("job_id", job.id),
+      ]);
 
-        if (repairError) {
-          console.error("Error fetching repair data:", repairError);
-          throw repairError;
-        }
-
-        if (repairData && repairData.length > 0) {
-          // Organize by inspection_id
-          const repairDataMap: { [key: string]: any } = {};
-          repairData.forEach((item) => {
-            if (item.inspection_id) {
-              repairDataMap[item.inspection_id] = {
-                ...item,
-                totalCost: item.total_cost,
-              };
-            } else {
-              // For backward compatibility with old data that doesn't have inspection_id
-              // This part of the logic is no longer needed as we are not calculating total cost here
-            }
-          });
-
-          // setRepairDataByInspection(repairDataMap); // This state is no longer needed
-        }
-      } catch (err) {
-        console.error("Error fetching repair data:", err);
-      }
-    };
-
-    fetchRepairData();
-  }, [supabase, job]);
-
-  useEffect(() => {
-    const fetchTotals = async () => {
-      if (!supabase || !job) return;
-      // Fetch replacement total
-      const { data: replacements, error: repError } = await supabase
-        .from("job_replacements")
-        .select("total_cost")
-        .eq("job_id", job.id);
-      if (repError) {
-        console.error("Error fetching job_replacements:", repError);
+      // Calculate replacement total
+      if (replacementsResult.error) {
+        console.error(
+          "Error fetching job_replacements:",
+          replacementsResult.error
+        );
         setReplacementTotal(0);
       } else {
-        const total = (replacements || []).reduce(
+        const total = (replacementsResult.data || []).reduce(
           (sum, row) => sum + Number(row.total_cost || 0),
           0
         );
         setReplacementTotal(total);
       }
-      // Fetch repair total
-      const { data: items, error: itemError } = await supabase
-        .from("job_items")
-        .select("total_cost")
-        .eq("job_id", job.id);
-      if (itemError) {
-        console.error("Error fetching job_items:", itemError);
+
+      // Calculate repair total
+      if (itemsResult.error) {
+        console.error("Error fetching job_items:", itemsResult.error);
         setRepairTotal(0);
       } else {
-        const total = (items || []).reduce(
+        const total = (itemsResult.data || []).reduce(
           (sum, row) => sum + Number(row.total_cost || 0),
           0
         );
         setRepairTotal(total);
       }
-    };
-    fetchTotals();
-  }, [supabase, job, refreshTrigger]);
-
-  // Set initial customer email from job
-  useEffect(() => {
-    if (job && job.contact_email) {
-      setCustomerEmail(job.contact_email);
+    } catch (err) {
+      console.error("Error fetching totals:", err);
+      setReplacementTotal(0);
+      setRepairTotal(0);
     }
-  }, [job]);
+  };
+
+  // Only fetch totals when the create invoice modal is opened
+  useEffect(() => {
+    if (showCreateInvoiceModal) {
+      fetchTotals();
+    }
+  }, [showCreateInvoiceModal, supabase, job]);
 
   // Removed getPreviewAmount and handlePreviewClick
 
@@ -290,9 +234,69 @@ const JobInvoiceSection = ({
 
       if (invoiceError) throw invoiceError;
 
-      // Update invoices list
-      setInvoices((prev) => [invoiceData, ...prev]);
-      setSelectedInvoice(invoiceData);
+      // Generate PDF immediately after creating invoice
+      try {
+        const apiUrl = `${
+          import.meta.env.VITE_SUPABASE_URL
+        }/functions/v1/generate-invoice-pdf`;
+
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            jobId: job.id,
+            invoiceId: invoiceData.id,
+            jobData: job,
+            jobItems: jobItems,
+            invoiceNumber: invoiceData.invoice_number,
+            amount: invoiceData.amount,
+            issuedDate: invoiceData.issued_date,
+            dueDate: invoiceData.due_date,
+            invoiceType: invoiceData.type,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.pdfUrl) {
+            // Update the invoice with the PDF URL
+            const { error: updateError } = await supabase
+              .from("job_invoices")
+              .update({ pdf_url: result.pdfUrl })
+              .eq("id", invoiceData.id);
+
+            if (updateError) {
+              console.error(
+                "Error updating invoice with PDF URL:",
+                updateError
+              );
+            } else {
+              // Update the local invoice data with the PDF URL
+              const updatedInvoice = { ...invoiceData, pdf_url: result.pdfUrl };
+              setInvoices((prev) => [updatedInvoice, ...prev.slice(1)]);
+              setSelectedInvoice(updatedInvoice);
+            }
+          }
+        }
+      } catch (pdfError) {
+        console.error("Error generating PDF:", pdfError);
+        // Don't fail the invoice creation if PDF generation fails
+      }
+
+      // Refresh the invoices list to show the new invoice
+      const { data: updatedInvoices, error: refreshError } = await supabase
+        .from("job_invoices")
+        .select("*")
+        .eq("job_id", job.id)
+        .order("created_at", { ascending: false });
+
+      if (!refreshError && updatedInvoices) {
+        setInvoices(updatedInvoices);
+        setSelectedInvoice(updatedInvoices[0]);
+      }
 
       // Notify parent component
       if (invoiceData) {
@@ -550,18 +554,121 @@ const JobInvoiceSection = ({
     }
   };
 
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const generateInvoicePDF = async (invoice: JobInvoice) => {
+    if (!supabase) return;
+
+    // If PDF URL already exists, use it
+    if (invoice.pdf_url) {
+      setPdfUrl(invoice.pdf_url);
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+      const apiUrl = `${
+        import.meta.env.VITE_SUPABASE_URL
+      }/functions/v1/generate-invoice-pdf`;
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          jobId: job.id,
+          invoiceId: invoice.id,
+          jobData: job,
+          jobItems: jobItems,
+          invoiceNumber: invoice.invoice_number,
+          amount: invoice.amount,
+          issuedDate: invoice.issued_date,
+          dueDate: invoice.due_date,
+          invoiceType: invoice.type,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.pdfUrl) {
+          setPdfUrl(result.pdfUrl);
+
+          // Update the invoice with the PDF URL for future use
+          const { error: updateError } = await supabase
+            .from("job_invoices")
+            .update({ pdf_url: result.pdfUrl })
+            .eq("id", invoice.id);
+
+          if (updateError) {
+            console.error("Error updating invoice with PDF URL:", updateError);
+          }
+        } else {
+          throw new Error("No PDF URL returned");
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate PDF");
+      }
+    } catch (error) {
+      console.error("Error generating invoice PDF:", error);
+      // Fallback to HTML view
+      setPdfUrl(null);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  // Generate PDF when invoice is selected for viewing
+  useEffect(() => {
+    if (showInvoicePDF && selectedInvoice && !pdfUrl && !isGeneratingPdf) {
+      generateInvoicePDF(selectedInvoice);
+    }
+  }, [showInvoicePDF, selectedInvoice, pdfUrl, isGeneratingPdf]);
+
+  // Early return for PDF view
   if (showInvoicePDF && selectedInvoice) {
     return (
       <div className="p-4">
         <div className="flex justify-between items-center mb-6">
           <button
-            onClick={() => setShowInvoicePDF(false)}
+            onClick={() => {
+              setShowInvoicePDF(false);
+              setPdfUrl(null);
+            }}
             className="flex items-center text-gray-600 hover:text-gray-900"
           >
             <AlertTriangle size={16} className="mr-1" />
             Back to Job Details
           </button>
           <div className="flex gap-2">
+            {pdfUrl && (
+              <>
+                <button
+                  onClick={() => window.open(pdfUrl, "_blank")}
+                  className="btn btn-primary"
+                >
+                  <Eye size={16} className="mr-2" />
+                  View PDF
+                </button>
+                <button
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = pdfUrl;
+                    a.download = `invoice-${selectedInvoice.invoice_number}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  }}
+                  className="btn btn-secondary"
+                >
+                  <Download size={16} className="mr-2" />
+                  Download PDF
+                </button>
+              </>
+            )}
             <button
               onClick={() => window.print()}
               className="btn btn-secondary"
@@ -571,14 +678,31 @@ const JobInvoiceSection = ({
             </button>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <InvoicePDFTemplate
-            job={job}
-            jobItems={jobItems}
-            invoice={selectedInvoice}
-            // repairData={repairData} // This state is no longer needed
-          />
-        </div>
+
+        {isGeneratingPdf ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Generating PDF...</p>
+            </div>
+          </div>
+        ) : pdfUrl ? (
+          <div className="bg-white rounded-lg shadow-lg">
+            <iframe
+              src={pdfUrl}
+              className="w-full h-[800px] rounded-lg"
+              title="Invoice PDF"
+            />
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <InvoicePDFTemplate
+              job={job}
+              jobItems={jobItems}
+              invoice={selectedInvoice}
+            />
+          </div>
+        )}
       </div>
     );
   }

@@ -296,6 +296,7 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
           <tr>
             <th className="py-2 px-4 border-b">#</th>
             <th className="py-2 px-4 border-b">Date</th>
+            <th className="py-2 px-4 border-b">Type</th>
             <th className="py-2 px-4 border-b">Description</th>
             <th className="py-2 px-4 border-b text-right">Amount</th>
           </tr>
@@ -329,17 +330,16 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
                     {formatDate(invoice.issued_date)}
                   </td>
                   <td className="py-4 px-4 border-b">
+                    {jobDetail.jobType
+                      ? jobDetail.jobType.charAt(0).toUpperCase() +
+                        jobDetail.jobType.slice(1)
+                      : "Standard"}
+                  </td>
+                  <td className="py-4 px-4 border-b">
                     <div>
                       <div className="font-medium">
                         Job #{jobDetail.jobNumber} - {jobDetail.jobName}
                       </div>
-                      {jobDetail.jobType && (
-                        <div className="text-sm text-gray-500 mt-1">
-                          Invoice Type:{" "}
-                          {jobDetail.jobType.charAt(0).toUpperCase() +
-                            jobDetail.jobType.slice(1)}
-                        </div>
-                      )}
                     </div>
                   </td>
                   <td className="py-4 px-4 border-b text-right font-medium">
@@ -353,6 +353,12 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
                 <td className="py-4 px-4 border-b">1.</td>
                 <td className="py-4 px-4 border-b">
                   {formatDate(invoice.issued_date)}
+                </td>
+                <td className="py-4 px-4 border-b">
+                  {invoice.type
+                    ? invoice.type.charAt(0).toUpperCase() +
+                      invoice.type.slice(1)
+                    : "Standard"}
                 </td>
                 <td className="py-4 px-4 border-b">
                   <div>
@@ -409,7 +415,7 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
         </tbody>
         <tfoot>
           <tr className="bg-gray-50 font-bold">
-            <td className="py-4 px-4" colSpan={3} align="right">
+            <td className="py-4 px-4" colSpan={4} align="right">
               Total
             </td>
             <td className="py-4 px-4 text-right">

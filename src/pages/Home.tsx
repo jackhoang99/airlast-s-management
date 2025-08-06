@@ -61,8 +61,10 @@ interface DashboardStats {
   totalInvoices: number;
   paidInvoices: number;
   pendingInvoices: number;
+  issuedInvoices: number;
   totalPaidAmount: number;
   totalPendingAmount: number;
+  totalIssuedAmount: number;
 }
 
 interface RecentJob {
@@ -560,62 +562,43 @@ const Home = () => {
         );
       }
 
-      // Fetch invoice statistics
-      const [
-        { count: totalInvoices, error: totalInvoicesError },
-        { count: paidInvoices, error: paidInvoicesError },
-        { count: pendingInvoices, error: pendingInvoicesError },
-        { data: draftInvoiceData, error: draftInvoiceError },
-        { data: paidInvoiceData, error: paidInvoiceError },
-        { data: pendingInvoiceData, error: pendingInvoiceError },
-      ] = await Promise.all([
-        supabase
-          .from("job_invoices")
-          .select("*", { count: "exact", head: true }),
-        supabase
-          .from("job_invoices")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "paid"),
-        supabase
-          .from("job_invoices")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "sent"),
-        supabase.from("job_invoices").select("amount").eq("status", "draft"),
-        supabase.from("job_invoices").select("amount").eq("status", "paid"),
-        supabase.from("job_invoices").select("amount").eq("status", "sent"),
-      ]);
+      // Fetch invoice statistics - optimized to reduce API calls
+      const { data: allInvoices, error: invoicesError } = await supabase
+        .from("job_invoices")
+        .select("status, amount");
 
-      if (totalInvoicesError)
-        console.error("Error fetching total invoices:", totalInvoicesError);
-      if (paidInvoicesError)
-        console.error("Error fetching paid invoices:", paidInvoicesError);
-      if (pendingInvoicesError)
-        console.error("Error fetching pending invoices:", pendingInvoicesError);
-      if (draftInvoiceError)
-        console.error("Error fetching draft invoice data:", draftInvoiceError);
-      if (paidInvoiceError)
-        console.error("Error fetching paid invoice data:", paidInvoiceError);
-      if (pendingInvoiceError)
-        console.error(
-          "Error fetching pending invoice data:",
-          pendingInvoiceError
-        );
+      if (invoicesError) {
+        console.error("Error fetching invoices:", invoicesError);
+      }
+
+      // Calculate statistics from single API call
+      const totalInvoices = allInvoices?.length || 0;
+      const paidInvoices =
+        allInvoices?.filter((inv) => inv.status === "paid").length || 0;
+      const pendingInvoices =
+        allInvoices?.filter((inv) => inv.status === "sent").length || 0;
+      const issuedInvoices =
+        allInvoices?.filter((inv) => inv.status === "issued").length || 0;
 
       const totalInvoiceValue =
-        draftInvoiceData?.reduce((sum, inv) => {
-          const amount = Number(inv.amount);
-          return sum + (isNaN(amount) ? 0 : amount);
-        }, 0) || 0;
+        allInvoices
+          ?.filter((inv) => inv.status === "draft")
+          ?.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0) || 0;
+
       const totalPaidAmount =
-        paidInvoiceData?.reduce((sum, inv) => {
-          const amount = Number(inv.amount);
-          return sum + (isNaN(amount) ? 0 : amount);
-        }, 0) || 0;
+        allInvoices
+          ?.filter((inv) => inv.status === "paid")
+          ?.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0) || 0;
+
       const totalPendingAmount =
-        pendingInvoiceData?.reduce((sum, inv) => {
-          const amount = Number(inv.amount);
-          return sum + (isNaN(amount) ? 0 : amount);
-        }, 0) || 0;
+        allInvoices
+          ?.filter((inv) => inv.status === "sent")
+          ?.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0) || 0;
+
+      const totalIssuedAmount =
+        allInvoices
+          ?.filter((inv) => inv.status === "issued")
+          ?.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0) || 0;
 
       // Fetch quote statistics
       const { data: quotesData, error: quotesError } = await supabase
@@ -657,6 +640,15 @@ const Home = () => {
         confirmedQuotes,
         deniedQuotes,
         pendingQuotes,
+        // Invoice statistics
+        totalInvoices,
+        paidInvoices,
+        pendingInvoices,
+        issuedInvoices,
+        totalInvoiceValue,
+        totalPaidAmount,
+        totalPendingAmount,
+        totalIssuedAmount,
       });
 
       setStats({
@@ -683,8 +675,10 @@ const Home = () => {
         totalInvoices: totalInvoices || 0,
         paidInvoices: paidInvoices || 0,
         pendingInvoices: pendingInvoices || 0,
+        issuedInvoices: issuedInvoices || 0,
         totalPaidAmount,
         totalPendingAmount,
+        totalIssuedAmount,
       });
 
       console.log("Manual stats fetched successfully");
@@ -715,8 +709,10 @@ const Home = () => {
         totalInvoices: 0,
         paidInvoices: 0,
         pendingInvoices: 0,
+        issuedInvoices: 0,
         totalPaidAmount: 0,
         totalPendingAmount: 0,
+        totalIssuedAmount: 0,
       });
     }
   };
@@ -1351,6 +1347,27 @@ const Home = () => {
               </div>
               <span className="text-lg font-semibold text-gray-900">
                 {formatCurrency(stats.totalPendingAmount)}
+              </span>
+            </Link>
+            <Link
+              to="/invoices?status=issued"
+              className="flex items-center justify-between p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors duration-200 cursor-pointer border border-gray-200"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <Send size={16} className="text-orange-600" />
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">
+                    Issued Invoices
+                  </span>
+                  <p className="text-xs text-gray-500">
+                    {stats.issuedInvoices} invoices
+                  </p>
+                </div>
+              </div>
+              <span className="text-lg font-semibold text-gray-900">
+                {formatCurrency(stats.totalIssuedAmount)}
               </span>
             </Link>
             <Link

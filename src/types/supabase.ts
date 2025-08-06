@@ -788,6 +788,7 @@ export interface Database {
           payment_notes: string | null;
           type: string | null;
           parent_invoice_id: string | null;
+          pdf_url: string | null;
         };
         Insert: {
           id?: string;
@@ -804,6 +805,7 @@ export interface Database {
           payment_notes?: string | null;
           type?: string | null;
           parent_invoice_id?: string | null;
+          pdf_url?: string | null;
         };
         Update: {
           id?: string;
@@ -820,6 +822,7 @@ export interface Database {
           payment_notes?: string | null;
           type?: string | null;
           parent_invoice_id?: string | null;
+          pdf_url?: string | null;
         };
       };
       permits: {
