@@ -1890,15 +1890,17 @@ serve(async (req) => {
         upsert: true,
       });
     if (uploadError) throw new Error(`Upload error: ${uploadError.message}`);
-    // Create signed URL
-    const { data: signed, error: urlError } = await supabase.storage
+    // Get public URL (no expiration)
+    const { data: urlData } = supabase.storage
       .from("quotes")
-      .createSignedUrl(filePath, 3600);
-    if (urlError) throw new Error(`Signed URL error: ${urlError.message}`);
+      .getPublicUrl(filePath);
+
+    const pdfUrl = urlData.publicUrl;
+
     return new Response(
       JSON.stringify({
         success: true,
-        pdfUrl: signed.signedUrl,
+        pdfUrl: pdfUrl,
         quoteNumber,
         quoteType,
       }),
