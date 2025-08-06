@@ -314,10 +314,22 @@ const SendEmailModal = ({
     setError(null);
 
     try {
-      // Generate a unique token for quote confirmation
+      // Check if there's an existing quote for this job and quote type
+      const { data: existingQuoteData, error: existingQuoteError } =
+        await supabase
+          .from("job_quotes")
+          .select("token")
+          .eq("job_id", jobId)
+          .eq("quote_type", quoteType)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+      // Use existing token if available, otherwise generate a new one
       const token =
+        existingQuoteData?.token ||
         Math.random().toString(36).substring(2, 15) +
-        Math.random().toString(36).substring(2, 15);
+          Math.random().toString(36).substring(2, 15);
 
       // Update job with token and quote sent status
       const { data: updatedJob, error: updateError } = await supabase

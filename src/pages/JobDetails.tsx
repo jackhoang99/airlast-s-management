@@ -34,6 +34,7 @@ import JobReminderList from "../components/jobs/JobReminderList";
 import PermitSection from "../components/permits/PermitSection";
 import MaintenanceChecklist from "../components/jobs/MaintenanceChecklist";
 import EditJobModal from "../components/jobs/EditJobModal";
+import LocationComments from "../components/locations/LocationComments";
 
 const JobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -736,12 +737,19 @@ const JobDetails = () => {
             )}
           </div>
 
-          {/* Permits Section */}
-          <PermitSection
-            locationId={job.location_id || ""}
-            companyId={job.locations?.company_id || ""}
-            title="Location Permits and Comments"
-          />
+          {/* Permits Section - Show full section for installation jobs, only comments for others */}
+          {job.type === "installation" ? (
+            <PermitSection
+              locationId={job.location_id || ""}
+              companyId={job.locations?.company_id || ""}
+              title="Location Permits and Comments"
+            />
+          ) : (
+            <LocationComments
+              locationId={job.location_id || ""}
+              title="Location Comments"
+            />
+          )}
 
           {/* Maintenance Checklist Section */}
           {job.type === "maintenance" &&

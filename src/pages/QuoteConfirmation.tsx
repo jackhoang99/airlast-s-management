@@ -32,6 +32,7 @@ const QuoteConfirmation = () => {
   const [intendedQuoteType, setIntendedQuoteType] = useState<
     "replacement" | "repair" | "inspection" | "pm"
   >("replacement");
+  const [shouldConfirm, setShouldConfirm] = useState(false);
 
   // Get the approval status from URL query parameters
   useEffect(() => {
@@ -45,10 +46,12 @@ const QuoteConfirmation = () => {
       if (approveParam === "true") {
         setApproved(true);
         setUserHasChosen(true);
+        setShouldConfirm(true);
         console.log("Setting approved to true from URL");
       } else if (approveParam === "false") {
         setApproved(false);
         setUserHasChosen(true);
+        setShouldConfirm(true);
         console.log("Setting approved to false from URL");
       } else {
         // If no approve parameter is found, don't set a default
@@ -66,15 +69,18 @@ const QuoteConfirmation = () => {
         return;
       }
 
-      // Don't proceed if approved state is not set yet
-      if (approved === null) {
-        console.log("Approved state not set yet, waiting...");
+      // Don't proceed if approved state is not set yet or if we shouldn't confirm yet
+      if (approved === null || !shouldConfirm) {
+        console.log(
+          "Approved state not set yet or should not confirm yet, waiting..."
+        );
         return;
       }
 
       try {
         // First, check if there's a quote record with this token
         if (supabase) {
+          console.log("Looking for quote with token:", token);
           const { data: quoteData, error: quoteError } = await supabase
             .from("job_quotes")
             .select("*")
@@ -82,6 +88,7 @@ const QuoteConfirmation = () => {
             .maybeSingle();
 
           if (!quoteError && quoteData) {
+            console.log("Found quote in job_quotes table:", quoteData);
             setQuoteDetails(quoteData);
             setQuoteType(
               quoteData.quote_type as
@@ -96,6 +103,7 @@ const QuoteConfirmation = () => {
               setSuccess(true);
               setApproved(quoteData.approved);
               setUserHasChosen(true);
+              setShouldConfirm(false); // Reset the confirmation flag
 
               // Fetch job details for display
               const { data: jobData } = await supabase
@@ -141,6 +149,10 @@ const QuoteConfirmation = () => {
 
         // If no quote record found or not confirmed, check the job record
         if (supabase) {
+          console.log(
+            "No quote found in job_quotes table, checking jobs table for quote_token:",
+            token
+          );
           const { data: jobData, error: jobError } = await supabase
             .from("jobs")
             .select(
@@ -171,8 +183,15 @@ const QuoteConfirmation = () => {
 
           if (!jobData) {
             console.log("No job found for token:", token);
-            throw new Error("Quote not found or has expired");
+            console.log(
+              "This could indicate a token mismatch between job_quotes.token and jobs.quote_token"
+            );
+            throw new Error(
+              "Quote not found. The quote may have expired or the link is invalid."
+            );
           }
+
+          console.log("Found job in jobs table:", jobData);
 
           setJobDetails(jobData);
 
@@ -200,6 +219,7 @@ const QuoteConfirmation = () => {
               // Use the quote details for approval status instead of job data
               setApproved(quoteDetails ? quoteDetails.approved : null);
               setUserHasChosen(true);
+              setShouldConfirm(false); // Reset the confirmation flag
               setIsLoading(false);
               return;
             }
@@ -280,6 +300,7 @@ const QuoteConfirmation = () => {
             }
 
             setSuccess(true);
+            setShouldConfirm(false); // Reset the confirmation flag
             // If quote is declined, create an inspection invoice
             if (approved === false && supabase && jobDetails) {
               setIsCreatingInvoice(true);
@@ -386,6 +407,7 @@ const QuoteConfirmation = () => {
         setError(
           err instanceof Error ? err.message : "Failed to confirm quote"
         );
+        setShouldConfirm(false); // Reset the confirmation flag on error
       } finally {
         setIsLoading(false);
       }
@@ -395,7 +417,7 @@ const QuoteConfirmation = () => {
   }, [
     supabase,
     token,
-    approved,
+    shouldConfirm,
     jobDetails,
     quoteDetails,
     quoteType,
@@ -679,6 +701,7 @@ const QuoteConfirmation = () => {
                 setIntendedQuoteType(quoteType);
                 setApproved(true);
                 setUserHasChosen(true);
+                setShouldConfirm(true);
               }}
               className="btn btn-success flex-1 flex justify-center items-center"
             >
@@ -699,6 +722,7 @@ const QuoteConfirmation = () => {
                 setIntendedQuoteType(quoteType);
                 setApproved(false);
                 setUserHasChosen(true);
+                setShouldConfirm(true);
               }}
               className="btn btn-error flex-1 flex justify-center items-center"
             >
