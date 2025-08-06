@@ -199,6 +199,8 @@ const TechnicianJobDetails = () => {
               id,
               technician_id,
               is_primary,
+              schedule_date,
+              schedule_time,
               users:technician_id (
                 first_name,
                 last_name,
@@ -565,10 +567,45 @@ const TechnicianJobDetails = () => {
               <Calendar size={14} />
               <span>Due: {job.time_period_due}</span>
             </div>
-            {job.schedule_start && (
-              <div className="flex items-center gap-1 mt-1">
-                <Clock size={14} />
-                <span>Scheduled: {formatDateTime(job.schedule_start)}</span>
+            {job.job_technicians && job.job_technicians.length > 0 && (
+              <div className="mt-2">
+                <div className="text-sm font-medium text-gray-700 mb-2">
+                  Scheduled Time:
+                </div>
+                {job.job_technicians
+                  .filter((tech) => tech.schedule_date && tech.schedule_time)
+                  .map((tech) => {
+                    const technician = tech.users;
+                    const scheduleDate = new Date(
+                      tech.schedule_date
+                    ).toLocaleDateString();
+                    const [hours, minutes] = tech.schedule_time
+                      .split(":")
+                      .map(Number);
+                    const ampm = hours >= 12 ? "PM" : "AM";
+                    const displayHours = hours % 12 || 12;
+                    const displayTime = `${displayHours}:${minutes
+                      .toString()
+                      .padStart(2, "0")} ${ampm}`;
+
+                    return (
+                      <div
+                        key={tech.id}
+                        className="flex items-center gap-2 text-sm text-gray-600"
+                      >
+                        <Clock size={14} />
+                        <span>
+                          {technician.first_name} {technician.last_name}:{" "}
+                          {scheduleDate} at {displayTime}
+                          {tech.is_primary && (
+                            <span className="ml-1 text-xs bg-primary-100 text-primary-700 px-1 py-0.5 rounded">
+                              Primary
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </div>

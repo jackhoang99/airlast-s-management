@@ -13,7 +13,6 @@ import {
 import { useSupabase } from "../../lib/supabase-context";
 import { Job } from "../../types/job";
 
-
 type EditJobModalProps = {
   open: boolean;
   onClose: () => void;
@@ -84,9 +83,6 @@ const EditJobModal = ({
     time_period_due: job.time_period_due
       ? new Date(job.time_period_due).toISOString().split("T")[0]
       : new Date().toISOString().split("T")[0],
-    schedule_date: job.schedule_date || "",
-    schedule_time: job.schedule_time || "",
-    schedule_duration: job.schedule_duration || "1:00",
   });
 
   // Fetch data on component mount
@@ -329,9 +325,6 @@ const EditJobModal = ({
         time_period_due: job.time_period_due
           ? new Date(job.time_period_due).toISOString().split("T")[0]
           : new Date().toISOString().split("T")[0],
-        schedule_date: job.schedule_date || "",
-        schedule_time: job.schedule_time || "",
-        schedule_duration: job.schedule_duration || "1:00",
       });
 
       console.log("Form data set with service_line:", serviceLineValue);
@@ -380,9 +373,6 @@ const EditJobModal = ({
           // Schedule
           time_period_start: formData.time_period_start,
           time_period_due: formData.time_period_due,
-          schedule_date: formData.schedule_date || null,
-          schedule_time: formData.schedule_time || null,
-          schedule_duration: formData.schedule_duration,
         })
         .eq("id", job.id)
         .select()
@@ -1119,55 +1109,6 @@ const EditJobModal = ({
                     className="input"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Schedule Date
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.schedule_date}
-                    onChange={(e) =>
-                      handleInputChange("schedule_date", e.target.value)
-                    }
-                    className="input"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Schedule Time
-                  </label>
-                  <input
-                    type="time"
-                    value={formData.schedule_time}
-                    onChange={(e) =>
-                      handleInputChange("schedule_time", e.target.value)
-                    }
-                    className="input"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Duration
-                  </label>
-                  <select
-                    value={formData.schedule_duration}
-                    onChange={(e) =>
-                      handleInputChange("schedule_duration", e.target.value)
-                    }
-                    className="select"
-                  >
-                    <option value="1:00">1:00 hr</option>
-                    <option value="1:30">1:30 hr</option>
-                    <option value="2:00">2:00 hr</option>
-                    <option value="2:30">2:30 hr</option>
-                    <option value="3:00">3:00 hr</option>
-                    <option value="3:30">3:30 hr</option>
-                    <option value="4:00">4:00 hr</option>
-                  </select>
-                </div>
               </div>
             </div>
 
@@ -1224,8 +1165,6 @@ const EditJobModal = ({
           </form>
         </div>
       </div>
-
-
     </Dialog>
   );
 };

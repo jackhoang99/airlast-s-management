@@ -46,6 +46,8 @@ type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
   job_technicians?: {
     technician_id: string;
     is_primary: boolean;
+    schedule_date?: string | null;
+    schedule_time?: string | null;
     users: {
       first_name: string;
       last_name: string;
@@ -111,7 +113,21 @@ const DispatchSchedule = () => {
   const isJobPastDue = (job: Job): boolean => {
     const now = new Date();
 
-    // Check if job has a scheduled start time and it's in the past
+    // Check if any technician has a scheduled time that's in the past
+    if (job.job_technicians && job.job_technicians.length > 0) {
+      for (const tech of job.job_technicians) {
+        if (tech.schedule_date && tech.schedule_time) {
+          const scheduledDateTime = new Date(
+            `${tech.schedule_date}T${tech.schedule_time}`
+          );
+          if (scheduledDateTime < now) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // Fallback to old job-level schedule_start
     if (job.schedule_start) {
       const scheduledDate = new Date(job.schedule_start);
       if (scheduledDate < now) {
@@ -201,6 +217,8 @@ const DispatchSchedule = () => {
           job_technicians (
             technician_id,
             is_primary,
+            schedule_date,
+            schedule_time,
             users:technician_id (
               first_name,
               last_name
@@ -492,74 +510,67 @@ const DispatchSchedule = () => {
         `Updating job ${jobId} schedule: technician ${technicianId}, time ${newScheduleTime}`
       );
 
-      // Get the current job to check if it has multiple technicians assigned
-      const currentJob = jobs.find((j) => j.id === jobId);
-      const hasMultipleTechnicians =
-        currentJob?.job_technicians && currentJob.job_technicians.length > 1;
+      // Parse the new schedule time to get date and time
+      const newScheduleDate = new Date(newScheduleTime);
+      const scheduleDate = newScheduleDate.toISOString().split("T")[0];
+      const scheduleTime = newScheduleDate.toTimeString().split(" ")[0];
 
-      if (hasMultipleTechnicians) {
-        // If job has multiple technicians, just update the schedule time
-        // Keep all existing technician assignments
-        console.log(
-          "Job has multiple technicians - preserving all assignments"
-        );
+      // Get the current job to check if the technician is already assigned
+      const currentJob = jobs.find((j) => j.id === jobId);
+      const existingAssignment = currentJob?.job_technicians?.find(
+        (tech) => tech.technician_id === technicianId
+      );
+
+      if (existingAssignment) {
+        // Update existing technician assignment with new schedule
+        console.log("Updating existing technician assignment");
 
         const { error: updateError } = await supabase
-          .from("jobs")
+          .from("job_technicians")
           .update({
-            schedule_start: newScheduleTime,
-            status: "scheduled",
+            schedule_date: scheduleDate,
+            schedule_time: scheduleTime,
           })
-          .eq("id", jobId);
+          .eq("job_id", jobId)
+          .eq("technician_id", technicianId);
 
         if (updateError) {
-          console.error("Error updating job schedule:", updateError);
+          console.error("Error updating technician schedule:", updateError);
           throw updateError;
         }
       } else {
-        // If job has only one technician or no technicians, reassign to the target technician
-        console.log(
-          "Job has single technician - reassigning to target technician"
-        );
+        // Add new technician assignment with schedule
+        console.log("Adding new technician assignment");
 
-        // First, remove existing technician assignments for this job
-        const { error: deleteError } = await supabase
-          .from("job_technicians")
-          .delete()
-          .eq("job_id", jobId);
-
-        if (deleteError) {
-          console.error("Error removing existing assignments:", deleteError);
-          throw deleteError;
-        }
-
-        // Add new technician assignment
         const { error: insertError } = await supabase
           .from("job_technicians")
           .insert({
             job_id: jobId,
             technician_id: technicianId,
-            is_primary: true,
+            is_primary:
+              !currentJob?.job_technicians ||
+              currentJob.job_technicians.length === 0,
+            schedule_date: scheduleDate,
+            schedule_time: scheduleTime,
           });
 
         if (insertError) {
           console.error("Error assigning technician:", insertError);
           throw insertError;
         }
+      }
 
-        // Update job schedule time and status
-        const { error: updateError } = await supabase
-          .from("jobs")
-          .update({
-            schedule_start: newScheduleTime,
-            status: "scheduled",
-          })
-          .eq("id", jobId);
+      // Update job status to scheduled
+      const { error: jobUpdateError } = await supabase
+        .from("jobs")
+        .update({
+          status: "scheduled",
+        })
+        .eq("id", jobId);
 
-        if (updateError) {
-          console.error("Error updating job schedule:", updateError);
-          throw updateError;
-        }
+      if (jobUpdateError) {
+        console.error("Error updating job status:", jobUpdateError);
+        throw jobUpdateError;
       }
 
       console.log("Job schedule update successful");

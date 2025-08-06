@@ -73,6 +73,8 @@ export interface Job {
     id: string;
     technician_id: string;
     is_primary: boolean;
+    schedule_date?: string | null;
+    schedule_time?: string | null;
     users: {
       first_name: string;
       last_name: string;

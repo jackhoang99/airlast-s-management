@@ -118,7 +118,7 @@ const TechnicianSchedule = () => {
           .select(
             `*,
               job_technicians:job_technicians!inner (
-                technician_id, is_primary, users:technician_id (first_name, last_name)
+                technician_id, is_primary, schedule_date, schedule_time, users:technician_id (first_name, last_name)
               ),
               locations (name, address, city, state, zip),
               job_units:job_units!inner (
@@ -128,9 +128,16 @@ const TechnicianSchedule = () => {
             `
           )
           .eq("job_technicians.technician_id", currentTechnician.id)
-          .gte("schedule_start", start.toISOString())
-          .lte("schedule_start", end.toISOString())
-          .order("schedule_start");
+          .not("job_technicians.schedule_date", "is", null)
+          .not("job_technicians.schedule_time", "is", null)
+          .gte(
+            "job_technicians.schedule_date",
+            start.toISOString().split("T")[0]
+          )
+          .lte("job_technicians.schedule_date", end.toISOString().split("T")[0])
+          .order(
+            "job_technicians.schedule_date, job_technicians.schedule_time"
+          );
 
         if (error) {
           console.error("Error fetching jobs:", error);
@@ -168,10 +175,17 @@ const TechnicianSchedule = () => {
 
         const { data, error } = await supabase
           .from("jobs")
-          .select("schedule_start")
+          .select("job_technicians(schedule_date)")
           .eq("job_technicians.technician_id", currentTechnician.id)
-          .gte("schedule_start", start.toISOString())
-          .lte("schedule_start", end.toISOString());
+          .not("job_technicians.schedule_date", "is", null)
+          .gte(
+            "job_technicians.schedule_date",
+            start.toISOString().split("T")[0]
+          )
+          .lte(
+            "job_technicians.schedule_date",
+            end.toISOString().split("T")[0]
+          );
 
         if (error) {
           console.error("Error fetching jobs for calendar:", error);
@@ -181,11 +195,13 @@ const TechnicianSchedule = () => {
         // Group jobs by date
         const jobsByDateMap: { [key: string]: number } = {};
         data?.forEach((job) => {
-          if (job.schedule_start) {
-            const dateKey = new Date(job.schedule_start)
-              .toISOString()
-              .split("T")[0];
-            jobsByDateMap[dateKey] = (jobsByDateMap[dateKey] || 0) + 1;
+          if (job.job_technicians && job.job_technicians.length > 0) {
+            job.job_technicians.forEach((tech: any) => {
+              if (tech.schedule_date) {
+                const dateKey = tech.schedule_date;
+                jobsByDateMap[dateKey] = (jobsByDateMap[dateKey] || 0) + 1;
+              }
+            });
           }
         });
 
@@ -420,9 +436,17 @@ const TechnicianSchedule = () => {
               {Array.from({ length: 13 }, (_, i) => i + 8).map((hour) => {
                 const timeString = `${hour.toString().padStart(2, "0")}:00`;
                 const jobsInThisHour = jobs.filter((job) => {
-                  if (!job.schedule_start) return false;
-                  const jobHour = new Date(job.schedule_start).getHours();
-                  return jobHour === hour;
+                  if (!job.job_technicians || job.job_technicians.length === 0)
+                    return false;
+                  const techSchedule = job.job_technicians.find(
+                    (tech: any) => tech.technician_id === currentTechnician?.id
+                  );
+                  if (!techSchedule || !techSchedule.schedule_time)
+                    return false;
+                  const [hours] = techSchedule.schedule_time
+                    .split(":")
+                    .map(Number);
+                  return hours === hour;
                 });
 
                 return (
@@ -482,7 +506,28 @@ const TechnicianSchedule = () => {
                                   <div className="flex items-center space-x-1">
                                     <Clock className="h-3 w-3" />
                                     <span>
-                                      {formatTime(job.schedule_start)}
+                                      {(() => {
+                                        const techSchedule =
+                                          job.job_technicians.find(
+                                            (tech: any) =>
+                                              tech.technician_id ===
+                                              currentTechnician?.id
+                                          );
+                                        if (
+                                          !techSchedule ||
+                                          !techSchedule.schedule_time
+                                        )
+                                          return "No time set";
+                                        const [hours, minutes] =
+                                          techSchedule.schedule_time
+                                            .split(":")
+                                            .map(Number);
+                                        const ampm = hours >= 12 ? "PM" : "AM";
+                                        const displayHours = hours % 12 || 12;
+                                        return `${displayHours}:${minutes
+                                          .toString()
+                                          .padStart(2, "0")} ${ampm}`;
+                                      })()}
                                     </span>
                                   </div>
 

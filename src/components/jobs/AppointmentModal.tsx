@@ -1,24 +1,39 @@
-import { useState, useEffect } from 'react';
-import { X, Users, Check } from 'lucide-react';
-import { useSupabase } from '../../lib/supabase-context';
-import { Database } from '../../types/supabase';
+import { useState, useEffect } from "react";
+import { X, Users, Check, Calendar, Clock } from "lucide-react";
+import { useSupabase } from "../../lib/supabase-context";
+import { Database } from "../../types/supabase";
 
-type User = Database['public']['Tables']['users']['Row'];
+type User = Database["public"]["Tables"]["users"]["Row"];
 
 type AppointmentModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onSave: (appointment: {
     technicianIds: string[];
+    technicianSchedules: {
+      technicianId: string;
+      scheduleDate: string;
+      scheduleTime: string;
+    }[];
   }) => void;
   selectedTechnicianIds?: string[];
 };
 
-const AppointmentModal = ({ isOpen, onClose, onSave, selectedTechnicianIds = [] }: AppointmentModalProps) => {
+const AppointmentModal = ({
+  isOpen,
+  onClose,
+  onSave,
+  selectedTechnicianIds = [],
+}: AppointmentModalProps) => {
   const { supabase } = useSupabase();
   const [technicians, setTechnicians] = useState<User[]>([]);
-  const [selectedTechs, setSelectedTechs] = useState<string[]>(selectedTechnicianIds);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTechs, setSelectedTechs] = useState<string[]>(
+    selectedTechnicianIds
+  );
+  const [searchTerm, setSearchTerm] = useState("");
+  const [technicianSchedules, setTechnicianSchedules] = useState<{
+    [technicianId: string]: { scheduleDate: string; scheduleTime: string };
+  }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,18 +44,18 @@ const AppointmentModal = ({ isOpen, onClose, onSave, selectedTechnicianIds = [] 
       try {
         setIsLoading(true);
         const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('role', 'technician')
-          .eq('status', 'active')
-          .order('first_name');
+          .from("users")
+          .select("*")
+          .eq("role", "technician")
+          .eq("status", "active")
+          .order("first_name");
 
         if (error) throw error;
         console.log("Fetched technicians:", data);
         setTechnicians(data || []);
       } catch (err) {
-        console.error('Error fetching technicians:', err);
-        setError('Failed to load technicians');
+        console.error("Error fetching technicians:", err);
+        setError("Failed to load technicians");
       } finally {
         setIsLoading(false);
       }
@@ -54,23 +69,97 @@ const AppointmentModal = ({ isOpen, onClose, onSave, selectedTechnicianIds = [] 
   useEffect(() => {
     // Update selected techs when selectedTechnicianIds prop changes
     setSelectedTechs(selectedTechnicianIds);
+
+    // Initialize schedules for newly selected technicians
+    const today = new Date().toISOString().split("T")[0];
+    const defaultTime = "09:00";
+
+    setTechnicianSchedules((prev) => {
+      const updated = { ...prev };
+      selectedTechnicianIds.forEach((techId) => {
+        if (!updated[techId]) {
+          updated[techId] = { scheduleDate: today, scheduleTime: defaultTime };
+        }
+      });
+      return updated;
+    });
   }, [selectedTechnicianIds]);
 
   const handleTechnicianToggle = (techId: string) => {
-    setSelectedTechs(prev => {
+    setSelectedTechs((prev) => {
       if (prev.includes(techId)) {
-        return prev.filter(id => id !== techId);
+        // Remove technician and their schedule
+        setTechnicianSchedules((prevSchedules) => {
+          const updated = { ...prevSchedules };
+          delete updated[techId];
+          return updated;
+        });
+        return prev.filter((id) => id !== techId);
       } else {
+        // Add technician with default schedule
+        const today = new Date().toISOString().split("T")[0];
+        setTechnicianSchedules((prevSchedules) => ({
+          ...prevSchedules,
+          [techId]: { scheduleDate: today, scheduleTime: "09:00" },
+        }));
         return [...prev, techId];
       }
     });
   };
 
-  const filteredTechnicians = technicians.filter(tech => {
-    const firstName = tech.first_name || '';
-    const lastName = tech.last_name || '';
+  const handleScheduleChange = (
+    technicianId: string,
+    field: "scheduleDate" | "scheduleTime",
+    value: string
+  ) => {
+    setTechnicianSchedules((prev) => ({
+      ...prev,
+      [technicianId]: {
+        ...prev[technicianId],
+        [field]: value,
+      },
+    }));
+  };
+
+  const setAllSameTime = () => {
+    if (selectedTechs.length === 0) return;
+
+    const firstTechId = selectedTechs[0];
+    const firstSchedule = technicianSchedules[firstTechId];
+
+    if (!firstSchedule) return;
+
+    const updatedSchedules = { ...technicianSchedules };
+    selectedTechs.forEach((techId) => {
+      updatedSchedules[techId] = {
+        scheduleDate: firstSchedule.scheduleDate,
+        scheduleTime: firstSchedule.scheduleTime,
+      };
+    });
+
+    setTechnicianSchedules(updatedSchedules);
+  };
+
+  const areSchedulesDifferent = () => {
+    if (selectedTechs.length <= 1) return false;
+
+    const schedules = selectedTechs.map(
+      (techId) => technicianSchedules[techId]
+    );
+    const firstSchedule = schedules[0];
+
+    return schedules.some(
+      (schedule) =>
+        schedule.scheduleDate !== firstSchedule.scheduleDate ||
+        schedule.scheduleTime !== firstSchedule.scheduleTime
+    );
+  };
+
+  const filteredTechnicians = technicians.filter((tech) => {
+    const firstName = tech.first_name || "";
+    const lastName = tech.last_name || "";
     const fullName = `${firstName} ${lastName}`.toLowerCase();
-    return searchTerm === '' || fullName.includes(searchTerm.toLowerCase());
+    return searchTerm === "" || fullName.includes(searchTerm.toLowerCase());
   });
 
   if (!isOpen) return null;
@@ -80,7 +169,10 @@ const AppointmentModal = ({ isOpen, onClose, onSave, selectedTechnicianIds = [] 
       <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold">Assign Technicians</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-500"
+          >
             <X size={20} />
           </button>
         </div>
@@ -100,39 +192,46 @@ const AppointmentModal = ({ isOpen, onClose, onSave, selectedTechnicianIds = [] 
               onChange={(e) => setSearchTerm(e.target.value)}
               className="input mb-4"
             />
-            
+
             {error && (
               <div className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
                 {error}
               </div>
             )}
-            
+
             <div className="max-h-60 overflow-y-auto border rounded-md">
               {isLoading ? (
                 <div className="flex justify-center py-4">
                   <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-600"></div>
                 </div>
               ) : filteredTechnicians.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">No technicians found</div>
+                <div className="p-4 text-center text-gray-500">
+                  No technicians found
+                </div>
               ) : (
                 <div className="divide-y">
-                  {filteredTechnicians.map(tech => (
-                    <div 
-                      key={tech.id} 
+                  {filteredTechnicians.map((tech) => (
+                    <div
+                      key={tech.id}
                       className={`p-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 ${
-                        selectedTechs.includes(tech.id) ? 'bg-primary-50' : ''
+                        selectedTechs.includes(tech.id) ? "bg-primary-50" : ""
                       }`}
                       onClick={() => handleTechnicianToggle(tech.id)}
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
                           <span className="text-sm font-medium">
-                            {tech.first_name?.[0] || '?'}{tech.last_name?.[0] || '?'}
+                            {tech.first_name?.[0] || "?"}
+                            {tech.last_name?.[0] || "?"}
                           </span>
                         </div>
                         <div>
-                          <div className="font-medium">{tech.first_name} {tech.last_name}</div>
-                          <div className="text-xs text-gray-500">{tech.email}</div>
+                          <div className="font-medium">
+                            {tech.first_name} {tech.last_name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {tech.email}
+                          </div>
                         </div>
                       </div>
                       {selectedTechs.includes(tech.id) && (
@@ -145,19 +244,129 @@ const AppointmentModal = ({ isOpen, onClose, onSave, selectedTechnicianIds = [] 
             </div>
           </div>
 
+          {/* Individual Technician Schedules */}
+          {selectedTechs.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={16} />
+                    Individual Schedules
+                  </div>
+                </label>
+                {selectedTechs.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    {areSchedulesDifferent() && (
+                      <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                        Different times
+                      </span>
+                    )}
+                    <button
+                      onClick={setAllSameTime}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Set All Same Time
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-3">
+                {selectedTechs.map((techId) => {
+                  const tech = technicians.find((t) => t.id === techId);
+                  const schedule = technicianSchedules[techId];
+
+                  if (!tech || !schedule) return null;
+
+                  return (
+                    <div
+                      key={techId}
+                      className="border border-gray-200 rounded-lg p-3 bg-gray-50"
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-6 h-6 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
+                          <span className="text-xs font-medium">
+                            {tech.first_name?.[0] || "?"}
+                            {tech.last_name?.[0] || "?"}
+                          </span>
+                        </div>
+                        <span className="font-medium text-sm">
+                          {tech.first_name} {tech.last_name}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">
+                            Date
+                          </label>
+                          <input
+                            type="date"
+                            value={schedule.scheduleDate}
+                            onChange={(e) =>
+                              handleScheduleChange(
+                                techId,
+                                "scheduleDate",
+                                e.target.value
+                              )
+                            }
+                            className="input w-full text-sm"
+                            min={new Date().toISOString().split("T")[0]}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">
+                            Time
+                          </label>
+                          <input
+                            type="time"
+                            value={schedule.scheduleTime}
+                            onChange={(e) =>
+                              handleScheduleChange(
+                                techId,
+                                "scheduleTime",
+                                e.target.value
+                              )
+                            }
+                            className="input w-full text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end gap-3">
-            <button
-              onClick={onClose}
-              className="btn btn-secondary"
-            >
+            <button onClick={onClose} className="btn btn-secondary">
               Cancel
             </button>
             <button
-              onClick={() => onSave({ technicianIds: selectedTechs })}
+              onClick={() => {
+                const technicianSchedulesArray = selectedTechs.map(
+                  (techId) => ({
+                    technicianId: techId,
+                    ...technicianSchedules[techId],
+                  })
+                );
+
+                onSave({
+                  technicianIds: selectedTechs,
+                  technicianSchedules: technicianSchedulesArray,
+                });
+              }}
               className="btn btn-primary"
-              disabled={selectedTechs.length === 0}
+              disabled={
+                selectedTechs.length === 0 ||
+                selectedTechs.some(
+                  (techId) =>
+                    !technicianSchedules[techId]?.scheduleDate ||
+                    !technicianSchedules[techId]?.scheduleTime
+                )
+              }
             >
-              Assign {selectedTechs.length > 0 ? `(${selectedTechs.length})` : ''}
+              Assign{" "}
+              {selectedTechs.length > 0 ? `(${selectedTechs.length})` : ""}
             </button>
           </div>
         </div>

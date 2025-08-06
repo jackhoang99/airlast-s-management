@@ -53,6 +53,7 @@ const JobDetails = () => {
   const [isDeletingJob, setIsDeletingJob] = useState(false);
   const [showEditJobModal, setShowEditJobModal] = useState(false);
   const [showQuotePDF, setShowQuotePDF] = useState(false);
+
   const [quoteNeedsUpdate, setQuoteNeedsUpdate] = useState(false);
   const [lastQuoteUpdateTime, setLastQuoteUpdateTime] = useState<string | null>(
     null
@@ -135,6 +136,8 @@ const JobDetails = () => {
               id,
               technician_id,
               is_primary,
+              schedule_date,
+              schedule_time,
               users:technician_id (
                 first_name,
                 last_name,
@@ -294,6 +297,11 @@ const JobDetails = () => {
 
   const handleScheduleAppointment = async (appointment: {
     technicianIds: string[];
+    technicianSchedules: {
+      technicianId: string;
+      scheduleDate: string;
+      scheduleTime: string;
+    }[];
   }) => {
     if (!supabase || !job) return;
 
@@ -306,12 +314,14 @@ const JobDetails = () => {
 
       if (deleteError) throw deleteError;
 
-      // Then add the new technicians
-      const technicianEntries = appointment.technicianIds.map(
-        (techId, index) => ({
+      // Create technician entries with individual schedules
+      const technicianEntries = appointment.technicianSchedules.map(
+        (schedule, index) => ({
           job_id: job.id,
-          technician_id: techId,
+          technician_id: schedule.technicianId,
           is_primary: index === 0, // First technician is primary
+          schedule_date: schedule.scheduleDate,
+          schedule_time: schedule.scheduleTime,
         })
       );
 
@@ -320,6 +330,16 @@ const JobDetails = () => {
         .insert(technicianEntries);
 
       if (insertError) throw insertError;
+
+      // Update job status to scheduled (no longer using job-level schedule fields)
+      const { error: jobUpdateError } = await supabase
+        .from("jobs")
+        .update({
+          status: "scheduled",
+        })
+        .eq("id", job.id);
+
+      if (jobUpdateError) throw jobUpdateError;
 
       // Refresh job data
       const { data: updatedJob, error: jobError } = await supabase
@@ -359,6 +379,8 @@ const JobDetails = () => {
             id,
             technician_id,
             is_primary,
+            schedule_date,
+            schedule_time,
             users:technician_id (
               first_name,
               last_name,
@@ -426,6 +448,8 @@ const JobDetails = () => {
             id,
             technician_id,
             is_primary,
+            schedule_date,
+            schedule_time,
             users:technician_id (
               first_name,
               last_name,
@@ -622,6 +646,60 @@ const JobDetails = () => {
         onEditJob={handleEditJob}
         isMaintenanceChecklistComplete={isMaintenanceChecklistComplete}
       />
+
+      {/* Scheduled Time Display */}
+      {job.job_technicians && job.job_technicians.length > 0 && (
+        <div className="card">
+          <h2 className="text-lg font-medium mb-4">Scheduled Time</h2>
+          <div className="space-y-3">
+            {job.job_technicians
+              .filter((tech) => tech.schedule_date && tech.schedule_time)
+              .map((tech) => {
+                const technician = tech.users;
+                const scheduleDate = new Date(
+                  tech.schedule_date
+                ).toLocaleDateString();
+                const [hours, minutes] = tech.schedule_time
+                  .split(":")
+                  .map(Number);
+                const ampm = hours >= 12 ? "PM" : "AM";
+                const displayHours = hours % 12 || 12;
+                const displayTime = `${displayHours}:${minutes
+                  .toString()
+                  .padStart(2, "0")} ${ampm}`;
+
+                return (
+                  <div
+                    key={tech.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium">
+                          {technician.first_name?.[0] || "?"}
+                          {technician.last_name?.[0] || "?"}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="font-medium">
+                          {technician.first_name} {technician.last_name}
+                          {tech.is_primary && (
+                            <span className="ml-2 text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded">
+                              Primary
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {scheduleDate} at {displayTime}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">

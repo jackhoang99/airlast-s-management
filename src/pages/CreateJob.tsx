@@ -109,10 +109,6 @@ const CreateJob = () => {
     // Schedule
     time_period_start: new Date().toISOString().split("T")[0],
     time_period_due: new Date().toISOString().split("T")[0],
-    schedule_date: "",
-    schedule_time: "",
-    schedule_duration: "1:00",
-    schedule_start: "",
     technician_ids: [] as string[],
 
     // Additional Details
@@ -175,10 +171,7 @@ const CreateJob = () => {
 
         // Fetch service lines
         const { data: serviceLinesData, error: serviceLinesError } =
-          await supabase
-            .from("service_lines")
-            .select("*")
-            .order("name");
+          await supabase.from("service_lines").select("*").order("name");
 
         if (serviceLinesError) throw serviceLinesError;
         setServiceLines(serviceLinesData || []);
@@ -615,14 +608,6 @@ const CreateJob = () => {
     setError(null);
 
     try {
-      // Convert schedule date and time to ISO string if both are provided
-      let scheduleStart = null;
-      if (formData.schedule_date && formData.schedule_time) {
-        scheduleStart = new Date(
-          `${formData.schedule_date}T${formData.schedule_time}`
-        ).toISOString();
-      }
-
       // Create the job
       const { data: jobData, error: insertError } = await supabase
         .from("jobs")
@@ -645,11 +630,7 @@ const CreateJob = () => {
           is_training: formData.is_training,
           time_period_start: formData.time_period_start,
           time_period_due: formData.time_period_due,
-          schedule_start: scheduleStart,
-          schedule_duration: formData.schedule_duration
-            ? `${formData.schedule_duration} hours`
-            : null,
-          status: scheduleStart ? "scheduled" : "unscheduled",
+          status: "unscheduled",
           office: formData.office,
           ...(formData.service_contract
             ? { service_contract: formData.service_contract }
@@ -1723,79 +1704,6 @@ const CreateJob = () => {
                 required
                 className="input"
               />
-            </div>
-
-            <div>
-              <label
-                htmlFor="schedule_date"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Schedule Date
-              </label>
-              <input
-                type="date"
-                id="schedule_date"
-                name="schedule_date"
-                value={formData.schedule_date}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    schedule_date: e.target.value,
-                  }))
-                }
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="schedule_time"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Schedule Time
-              </label>
-              <input
-                type="time"
-                id="schedule_time"
-                name="schedule_time"
-                value={formData.schedule_time}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    schedule_time: e.target.value,
-                  }))
-                }
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="schedule_duration"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Duration
-              </label>
-              <select
-                id="schedule_duration"
-                name="schedule_duration"
-                value={formData.schedule_duration}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    schedule_duration: e.target.value,
-                  }))
-                }
-                className="select"
-              >
-                <option value="1:00">1:00 hr</option>
-                <option value="1:30">1:30 hr</option>
-                <option value="2:00">2:00 hr</option>
-                <option value="2:30">2:30 hr</option>
-                <option value="3:00">3:00 hr</option>
-                <option value="3:30">3:30 hr</option>
-                <option value="4:00">4:00 hr</option>
-              </select>
             </div>
           </div>
 

@@ -197,6 +197,17 @@ const CustomerDashboard = () => {
               ),
               units (
                 unit_number
+              ),
+              job_technicians (
+                id,
+                technician_id,
+                is_primary,
+                schedule_date,
+                schedule_time,
+                users:technician_id (
+                  first_name,
+                  last_name
+                )
               )
             `
               )
@@ -522,8 +533,8 @@ const CustomerDashboard = () => {
             <p className="text-blue-700">
               Regular maintenance of your HVAC system can extend its lifespan by
               up to 5 years and reduce energy costs by up to 15%. Schedule
-                              maintenance twice a year - once before summer and
-              once before winter - to ensure optimal performance.
+              maintenance twice a year - once before summer and once before
+              winter - to ensure optimal performance.
             </p>
           </div>
         </div>
@@ -573,11 +584,15 @@ const CustomerDashboard = () => {
                     <div className="text-right">
                       <div className="flex items-center text-sm font-medium text-primary-600">
                         <Calendar size={14} className="mr-1" />
-                        {formatDate(job.schedule_start)}
+                        Scheduled Time
                       </div>
                       <div className="flex items-center text-xs text-gray-500 mt-1">
                         <Clock size={12} className="mr-1" />
-                        {formatTime(job.schedule_start)}
+                        {job.job_technicians && job.job_technicians.length > 0
+                          ? `${job.job_technicians.length} technician${
+                              job.job_technicians.length > 1 ? "s" : ""
+                            } assigned`
+                          : "No technicians assigned"}
                       </div>
                     </div>
                   </div>
@@ -723,8 +738,10 @@ const CustomerDashboard = () => {
                         : ""}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {job.schedule_start
-                        ? formatDate(job.schedule_start)
+                      {job.job_technicians && job.job_technicians.length > 0
+                        ? `${job.job_technicians.length} technician${
+                            job.job_technicians.length > 1 ? "s" : ""
+                          } assigned`
                         : "Not scheduled"}
                     </td>
                     <td className="px-4 py-3 text-sm">

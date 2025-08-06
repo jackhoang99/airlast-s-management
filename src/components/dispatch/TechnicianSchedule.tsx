@@ -24,6 +24,16 @@ interface Job {
       unit_number: string;
     };
   }[];
+  job_technicians?: {
+    technician_id: string;
+    is_primary: boolean;
+    schedule_date?: string | null;
+    schedule_time?: string | null;
+    users: {
+      first_name: string;
+      last_name: string;
+    };
+  }[];
 }
 
 interface User {
@@ -95,6 +105,15 @@ const TechnicianSchedule = ({
   isJobPastDue,
   ...rest
 }: TechnicianScheduleProps) => {
+  console.log("🏗️ TechnicianSchedule render:", {
+    techniciansCount: technicians.length,
+    jobsCount: jobs.length,
+    currentDate: currentDate.toDateString(),
+    technicians: technicians.map((t) => ({
+      id: t.id,
+      name: `${t.first_name} ${t.last_name}`,
+    })),
+  });
   // Time slots for the schedule (8 AM to 8 PM)
   const timeSlots = Array.from({ length: 13 }, (_, i) => i + 8); // 8 AM to 8 PM (24-hour format)
 
@@ -143,27 +162,88 @@ const TechnicianSchedule = ({
   };
 
   const getJobsForTechnician = (techId: string) => {
-    return jobs.filter((job) =>
+    const techJobs = jobs.filter((job) =>
       job.job_technicians?.some((jt: any) => jt.technician_id === techId)
     );
+    console.log(`👨‍🔧 Jobs for technician ${techId}:`, techJobs.length);
+    return techJobs;
   };
 
   const getJobsForDate = (techId: string, date: Date) => {
     const techJobs = getJobsForTechnician(techId);
+    console.log(
+      `🔍 Looking for jobs for tech ${techId} on ${date.toDateString()}`
+    );
+    console.log(`📋 Total tech jobs: ${techJobs.length}`);
+
     return techJobs.filter((job) => {
-      if (!job.schedule_start) return false;
-      const jobDate = new Date(job.schedule_start);
-      return (
-        jobDate.getDate() === date.getDate() &&
-        jobDate.getMonth() === date.getMonth() &&
-        jobDate.getFullYear() === date.getFullYear()
+      // First try to find individual technician schedule
+      const techSchedule = job.job_technicians?.find(
+        (tech) => tech.technician_id === techId
       );
+
+      console.log(`🔧 Job ${job.name}:`, {
+        jobId: job.id,
+        techSchedule: techSchedule,
+        schedule_date: techSchedule?.schedule_date,
+        schedule_time: techSchedule?.schedule_time,
+        schedule_start: job.schedule_start,
+      });
+
+      if (
+        techSchedule &&
+        techSchedule.schedule_date &&
+        techSchedule.schedule_time
+      ) {
+        // Use individual technician schedule
+        const jobDate = new Date(techSchedule.schedule_date + "T00:00:00");
+        const matches =
+          jobDate.getDate() === date.getDate() &&
+          jobDate.getMonth() === date.getMonth() &&
+          jobDate.getFullYear() === date.getFullYear();
+        console.log(
+          `✅ Individual schedule match: ${matches} (${jobDate.toDateString()} vs ${date.toDateString()})`
+        );
+        return matches;
+      }
+
+      // Fallback to old job-level schedule_start
+      if (job.schedule_start) {
+        const jobDate = new Date(job.schedule_start);
+        const matches =
+          jobDate.getDate() === date.getDate() &&
+          jobDate.getMonth() === date.getMonth() &&
+          jobDate.getFullYear() === date.getFullYear();
+        console.log(
+          `🔄 Fallback schedule match: ${matches} (${jobDate.toDateString()} vs ${date.toDateString()})`
+        );
+        return matches;
+      }
+
+      console.log(`❌ No schedule found for job ${job.name}`);
+      return false;
     });
   };
 
-  const getJobHour = (job: Job) => {
-    if (!job.schedule_start) return 6;
-    return Math.max(8, Math.min(20, new Date(job.schedule_start).getHours()));
+  const getJobHour = (job: Job, techId?: string) => {
+    // If techId is provided, try to use that technician's schedule
+    if (techId && job.job_technicians) {
+      const techSchedule = job.job_technicians.find(
+        (tech) => tech.technician_id === techId
+      );
+      if (techSchedule && techSchedule.schedule_time) {
+        const [hours] = techSchedule.schedule_time.split(":").map(Number);
+        return Math.max(8, Math.min(20, hours));
+      }
+    }
+
+    // Fallback to old schedule_start if no individual schedule found
+    if (job.schedule_start) {
+      return Math.max(8, Math.min(20, new Date(job.schedule_start).getHours()));
+    }
+
+    // Default fallback
+    return 9; // Default to 9 AM if no schedule found
   };
 
   const getJobDuration = (job: Job) => {
@@ -373,7 +453,7 @@ const TechnicianSchedule = ({
 
                     {/* Scheduled Jobs */}
                     {techJobs.map((job) => {
-                      const startHour = getJobHour(job);
+                      const startHour = getJobHour(job, tech.id);
                       const duration = getJobDuration(job);
                       const left = ((startHour - 8) / timeSlots.length) * 100;
                       const width = (duration / timeSlots.length) * 100;
@@ -486,7 +566,9 @@ const TechnicianSchedule = ({
                             width: `${Math.max(8, Math.min(width, 30))}%`,
                             minHeight: 32,
                           }}
-                          title={`${job.name} - ${job.locations?.name || ""} (Click to pan to map, double-click for details)`}
+                          title={`${job.name} - ${
+                            job.locations?.name || ""
+                          } (Click to pan to map, double-click for details)`}
                           data-job-id={job.id}
                         >
                           <div className="flex items-center justify-between">
