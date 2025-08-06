@@ -468,7 +468,7 @@ const AddJobPricingModal = ({
           )}
 
           {/* Common Fields */}
-          {!editItem && (
+          {!editItem && selectedTab !== "part" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -482,11 +482,7 @@ const AddJobPricingModal = ({
                   }
                   className="input w-full text-base sm:text-sm"
                   placeholder={
-                    selectedTab === "part"
-                      ? "PART-CODE"
-                      : selectedTab === "labor"
-                      ? "LABOR-CODE"
-                      : "ITEM-CODE"
+                    selectedTab === "labor" ? "LABOR-CODE" : "ITEM-CODE"
                   }
                   required
                   onKeyDown={(e) => {
@@ -666,7 +662,7 @@ const AddJobPricingModal = ({
           {/* Part-specific fields */}
           {selectedTab === "part" && !editItem && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Item Code *
@@ -711,6 +707,9 @@ const AddJobPricingModal = ({
                     }}
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Service Line

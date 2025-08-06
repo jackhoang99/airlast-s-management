@@ -63,6 +63,9 @@ export default function AllQuotes() {
   const { supabase } = useSupabase();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 50;
   const [activeQuoteFilter, setActiveQuoteFilter] = useState<
     "all" | "replacement" | "repair" | "inspection" | "pm"
   >("all");
@@ -149,18 +152,41 @@ export default function AllQuotes() {
     }
   };
 
-  // Fetch all quotes
-  const fetchQuotes = async () => {
+  // Fetch quotes with pagination
+  const fetchQuotes = async (reset = false) => {
     if (!supabase) return;
+
+    if (reset) {
+      setPage(0);
+      setQuotes([]);
+      setHasMore(true);
+    }
 
     setLoading(true);
     try {
-      // Fetch job_quotes
+      const currentPage = reset ? 0 : page;
+      const from = currentPage * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      // Fetch job_quotes with pagination
       const { data: jobQuotesData, error: jobQuotesError } = await supabase
         .from("job_quotes")
         .select(
           `
-          *,
+          id,
+          job_id,
+          quote_number,
+          quote_type,
+          amount,
+          status,
+          confirmed,
+          approved,
+          confirmed_at,
+          email_sent_at,
+          created_at,
+          pdf_url,
+          pdf_generated_at,
+          quote_data,
           jobs:job_id (
             number,
             name,
@@ -171,27 +197,26 @@ export default function AllQuotes() {
               companies (
                 name
               )
-            ),
-            job_units:job_units!inner (
-              unit_id,
-              units:unit_id (
-                id,
-                unit_number
-              )
             )
           )
         `
         )
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
       if (jobQuotesError) throw jobQuotesError;
 
-      // Fetch pm_quotes
+      // Fetch pm_quotes with pagination
       const { data: pmQuotesData, error: pmQuotesError } = await supabase
         .from("pm_quotes")
         .select(
           `
-          *,
+          id,
+          job_id,
+          total_cost,
+          created_at,
+          pdf_url,
+          pdf_generated_at,
           jobs:job_id (
             number,
             name,
@@ -202,29 +227,19 @@ export default function AllQuotes() {
               companies (
                 name
               )
-            ),
-            job_units:job_units!inner (
-              unit_id,
-              units:unit_id (
-                id,
-                unit_number
-              )
             )
           )
         `
         )
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
       if (pmQuotesError) throw pmQuotesError;
 
       // Transform PM quotes to match the Quote type structure
       const transformedPMQuotes = (pmQuotesData || []).map((pmQuote: any) => ({
         id: pmQuote.id,
-        quote_number: `QT-${pmQuote.jobs.number}-${Math.floor(
-          Math.random() * 10000
-        )
-          .toString()
-          .padStart(4, "0")}`,
+        quote_number: `PM-${pmQuote.jobs.number}-${pmQuote.id.slice(-8)}`,
         quote_type: "pm" as const,
         amount: pmQuote.total_cost || 0,
         status: "Created",
@@ -234,18 +249,37 @@ export default function AllQuotes() {
         email_sent_at: null,
         created_at: pmQuote.created_at,
         job_id: pmQuote.job_id,
-        quote_data: pmQuote, // Store the entire PM quote data
+        quote_data: pmQuote,
         pdf_url: pmQuote.pdf_url,
         pdf_generated_at: pmQuote.pdf_generated_at,
         jobs: pmQuote.jobs,
       }));
 
+      // Transform job quotes to match Quote type structure
+      const transformedJobQuotes = (jobQuotesData || []).map((quote: any) => ({
+        ...quote,
+        jobs: {
+          ...quote.jobs,
+          job_units: [], // Add empty job_units array since we removed the join
+        },
+      }));
+
       // Combine both types of quotes
-      const allQuotes = [...(jobQuotesData || []), ...transformedPMQuotes];
-      setQuotes(allQuotes);
+      const newQuotes = [...transformedJobQuotes, ...transformedPMQuotes];
+
+      if (reset) {
+        setQuotes(newQuotes);
+      } else {
+        setQuotes((prev) => [...prev, ...newQuotes]);
+      }
+
+      // Check if we have more data
+      setHasMore(newQuotes.length === PAGE_SIZE);
+      setPage(currentPage + 1);
 
       // Determine which quote types have been sent
-      const quoteTypes = new Set(allQuotes.map((q) => q.quote_type));
+      const allQuotesForTypes = reset ? newQuotes : [...quotes, ...newQuotes];
+      const quoteTypes = new Set(allQuotesForTypes.map((q) => q.quote_type));
       setSentQuoteTypes({
         replacement: quoteTypes.has("replacement"),
         repair: quoteTypes.has("repair"),
@@ -305,11 +339,11 @@ export default function AllQuotes() {
     setShowSendQuoteModal(false);
     setSelectedQuoteForSending(null);
     // Refresh quotes
-    fetchQuotes();
+    fetchQuotes(true);
   };
 
   useEffect(() => {
-    fetchQuotes();
+    fetchQuotes(true);
   }, [supabase]);
 
   if (showQuotePDF) {
@@ -743,6 +777,26 @@ export default function AllQuotes() {
         {deleteError && (
           <div className="bg-error-50 text-error-700 p-2 rounded mb-2">
             {deleteError}
+          </div>
+        )}
+
+        {/* Load More Button */}
+        {hasMore && getFilteredQuotes().length > 0 && (
+          <div className="flex justify-center mt-6">
+            <button
+              className="btn btn-primary"
+              onClick={() => fetchQuotes(false)}
+              disabled={loading}
+            >
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                  Loading...
+                </div>
+              ) : (
+                "Load More Quotes"
+              )}
+            </button>
           </div>
         )}
       </div>

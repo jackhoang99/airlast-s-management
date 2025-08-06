@@ -136,67 +136,63 @@ const QuoteSection = ({
   }, {} as Record<string, any[]>);
 
   // Fetch replacement data
-  useEffect(() => {
-    const fetchReplacementData = async () => {
-      if (!supabase || !jobId) return;
+  const fetchReplacementData = async () => {
+    if (!supabase || !jobId) return;
 
-      try {
-        const { data: replacementData, error: replacementError } =
-          await supabase
-            .from("job_replacements")
-            .select("*")
-            .eq("job_id", jobId);
+    try {
+      const { data: replacementData, error: replacementError } = await supabase
+        .from("job_replacements")
+        .select("*")
+        .eq("job_id", jobId);
 
-        if (replacementError) {
-          console.error("Error fetching replacement data:", replacementError);
-          throw replacementError;
-        }
-
-        if (replacementData && replacementData.length > 0) {
-          // Process all replacement data
-          const processedReplacements: any[] = [];
-          // Calculate the total cost from all replacements
-          const totalReplacementCostSum = replacementData.reduce(
-            (sum, item) => {
-              return sum + Number(item.total_cost || 0);
-            },
-            0
-          );
-
-          replacementData.forEach((item: any, index: number) => {
-            processedReplacements.push({
-              id: item.id,
-              needsCrane: item.needs_crane,
-              requiresPermit: item.requires_permit,
-              requiresBigLadder: item.requires_big_ladder,
-              phase2: item.phase2,
-              labor: item.labor,
-              refrigerationRecovery: item.refrigeration_recovery,
-              startUpCosts: item.start_up_costs,
-              accessories: item.accessories,
-              thermostatStartup: item.thermostat_startup,
-              removalCost: item.removal_cost,
-              warranty: item.warranty,
-              additionalItems: item.additional_items,
-              permitCost: item.permit_cost,
-              selectedPhase: item.selected_phase,
-              totalCost: item.total_cost,
-              created_at: item.created_at,
-            });
-          });
-
-          setReplacementData(processedReplacements);
-          setAllReplacementData(replacementData);
-          setTotalReplacementCost(totalReplacementCostSum);
-          setHasReplacementData(true);
-        } else {
-          setHasReplacementData(false);
-        }
-      } catch (err) {
-        console.error("Error fetching replacement data:", err);
+      if (replacementError) {
+        console.error("Error fetching replacement data:", replacementError);
+        throw replacementError;
       }
-    };
 
+      if (replacementData && replacementData.length > 0) {
+        // Process all replacement data
+        const processedReplacements: any[] = [];
+        // Calculate the total cost from all replacements
+        const totalReplacementCostSum = replacementData.reduce((sum, item) => {
+          return sum + Number(item.total_cost || 0);
+        }, 0);
+
+        replacementData.forEach((item: any, index: number) => {
+          processedReplacements.push({
+            id: item.id,
+            needsCrane: item.needs_crane,
+            requiresPermit: item.requires_permit,
+            requiresBigLadder: item.requires_big_ladder,
+            phase2: item.phase2,
+            labor: item.labor,
+            refrigerationRecovery: item.refrigeration_recovery,
+            startUpCosts: item.start_up_costs,
+            accessories: item.accessories,
+            thermostatStartup: item.thermostat_startup,
+            removalCost: item.removal_cost,
+            warranty: item.warranty,
+            additionalItems: item.additional_items,
+            permitCost: item.permit_cost,
+            selectedPhase: item.selected_phase,
+            totalCost: item.total_cost,
+            created_at: item.created_at,
+          });
+        });
+
+        setReplacementData(processedReplacements);
+        setAllReplacementData(replacementData);
+        setTotalReplacementCost(totalReplacementCostSum);
+        setHasReplacementData(true);
+      } else {
+        setHasReplacementData(false);
+      }
+    } catch (err) {
+      console.error("Error fetching replacement data:", err);
+    }
+  };
+
+  useEffect(() => {
     fetchReplacementData();
   }, [supabase, jobId, refreshTrigger]);
 
@@ -1427,6 +1423,8 @@ const QuoteSection = ({
             setCurrentReplacementData(null);
             setRefreshTriggerState((prev) => prev + 1); // Trigger a refresh
             onItemsUpdated();
+            // Refresh replacement data specifically
+            fetchReplacementData();
             if (onQuoteStatusChange) onQuoteStatusChange();
           }}
           onClose={() => {
@@ -1504,6 +1502,8 @@ const QuoteSection = ({
                   setShowGenerateQuoteModal(false);
                   // Refresh data
                   onItemsUpdated();
+                  // Refresh replacement data specifically
+                  fetchReplacementData();
                   if (onQuoteStatusChange) onQuoteStatusChange();
                 }}
                 onPreviewQuote={(quoteType) => {

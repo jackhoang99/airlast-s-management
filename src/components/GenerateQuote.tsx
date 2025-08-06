@@ -71,9 +71,7 @@ type ReplacementData = {
   id: string;
   job_id: string;
   needs_crane: boolean;
-  phase1: any;
   phase2: any;
-  phase3: any;
   labor: number;
   refrigeration_recovery: number;
   start_up_costs: number;
@@ -87,9 +85,38 @@ type ReplacementData = {
   updated_at: string;
   selected_phase: string | null;
   total_cost: number | null;
-  inspection_id: string | null;
   requires_permit?: boolean;
   requires_big_ladder?: boolean;
+};
+
+type PMQuoteData = {
+  id: string;
+  job_id: string;
+  checklist_types: string[];
+  number_of_visits: number;
+  cost_per_visit: number;
+  total_cost: number;
+  notes: string | null;
+  comprehensive_visit_cost: number;
+  filter_visit_cost: number;
+  comprehensive_visit_description: string | null;
+  filter_visit_description: string | null;
+  unit_count: number;
+  service_period: string | null;
+  filter_visit_period: string | null;
+  comprehensive_visits_count: number;
+  filter_visits_count: number;
+  total_comprehensive_cost: number;
+  total_filter_cost: number;
+  client_name: string | null;
+  property_address: string | null;
+  scope_of_work: string | null;
+  service_breakdown: string | null;
+  preventative_maintenance_services: string[] | null;
+  include_comprehensive_service: boolean;
+  include_filter_change_service: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 const GenerateQuote = ({
@@ -123,7 +150,7 @@ const GenerateQuote = ({
   const [availableReplacements, setAvailableReplacements] = useState<
     ReplacementData[]
   >([]);
-  const [availablePMQuotes, setAvailablePMQuotes] = useState<any[]>([]);
+  const [availablePMQuotes, setAvailablePMQuotes] = useState<PMQuoteData[]>([]);
   const [job, setJob] = useState<any | null>(null);
   const [location, setLocation] = useState<any | null>(null);
   const [unit, setUnit] = useState<any | null>(null);
@@ -151,12 +178,16 @@ const GenerateQuote = ({
 
       setIsLoading(true);
       try {
-        // Fetch job details
+        // Fetch job details (optimized)
         const { data: jobData, error: jobError } = await supabase
           .from("jobs")
           .select(
             `
-            *,
+            id,
+            number,
+            name,
+            contact_name,
+            contact_email,
             locations (
               name,
               address,
@@ -186,36 +217,31 @@ const GenerateQuote = ({
         const units = (jobData.job_units || []).map((ju: any) => ju.units);
         setUnit(units?.[0] || null);
 
-        // Fetch available inspections
+        // Fetch available inspections (optimized)
         const { data: inspData, error: inspError } = await supabase
           .from("job_inspections")
-          .select("*")
+          .select(
+            "id, model_number, serial_number, age, tonnage, unit_type, system_type, comment, completed"
+          )
           .eq("job_id", jobId)
           .eq("completed", true);
 
         if (inspError) throw inspError;
         setAvailableInspections(inspData || []);
 
-        // Fetch available replacements
+        // Fetch available replacements (optimized - only fetch phase2 since that's what's being used)
         const { data: replacementData, error: replacementError } =
           await supabase
             .from("job_replacements")
-            .select("*")
+            .select(
+              "id, needs_crane, phase2, labor, refrigeration_recovery, start_up_costs, accessories, thermostat_startup, removal_cost, warranty, additional_items, permit_cost, selected_phase, total_cost, requires_permit, requires_big_ladder"
+            )
             .eq("job_id", jobId);
 
         if (replacementError) throw replacementError;
         setAvailableReplacements(replacementData || []);
 
-        // Fetch existing quotes to check what's already been used
-        const { data: quotesData, error: quotesError } = await supabase
-          .from("job_quotes")
-          .select("*")
-          .eq("job_id", jobId);
-
-        if (quotesError) throw quotesError;
-        setExistingQuotes(quotesData || []);
-
-        // Fetch available PM quotes
+        // Fetch available PM quotes (all fields)
         const { data: pmQuotesData, error: pmQuotesError } = await supabase
           .from("pm_quotes")
           .select("*")
@@ -223,6 +249,22 @@ const GenerateQuote = ({
 
         if (pmQuotesError) throw pmQuotesError;
         setAvailablePMQuotes(pmQuotesData || []);
+
+        // Fetch existing quotes to check what's already been used (non-blocking)
+        supabase
+          .from("job_quotes")
+          .select(
+            "id, quote_type, selected_inspection_options, selected_replacement_options, selected_repair_options"
+          )
+          .eq("job_id", jobId)
+          .then(({ data: quotesData, error: quotesError }) => {
+            if (!quotesError && quotesData) {
+              setExistingQuotes(quotesData);
+            }
+          })
+          .catch((err) => {
+            console.error("Error fetching existing quotes:", err);
+          });
       } catch (err: any) {
         console.error("Error loading available data:", err);
         setQuoteError(err.message || "Failed to load available data");
@@ -270,39 +312,67 @@ const GenerateQuote = ({
 
   // Check if inspection has been used in previous quotes
   const isInspectionUsedInQuotes = (inspectionId: string) => {
-    return existingQuotes.some(
-      (quote) =>
-        quote.quote_type === "inspection" ||
+    return existingQuotes.some((quote) => {
+      if (quote.quote_type === "inspection") {
+        return quote.selected_inspection_options?.includes(inspectionId);
+      } else if (
         quote.quote_type === "replacement" ||
         quote.quote_type === "repair"
-    );
+      ) {
+        return quote.selected_inspection_options?.includes(inspectionId);
+      }
+      return false;
+    });
   };
 
   // Check if replacement has been used in previous quotes
   const isReplacementUsedInQuotes = (replacementId: string) => {
-    return existingQuotes.some((quote) => quote.quote_type === "replacement");
+    return existingQuotes.some((quote) => {
+      if (quote.quote_type === "replacement") {
+        return quote.selected_replacement_options?.includes(replacementId);
+      }
+      return false;
+    });
   };
 
   // Check if repair item has been used in previous repair quotes
   const isRepairItemUsedInQuotes = (itemId: string) => {
-    return existingQuotes.some((quote) => quote.quote_type === "repair");
+    return existingQuotes.some((quote) => {
+      if (quote.quote_type === "repair") {
+        return quote.selected_repair_options?.includes(itemId);
+      }
+      return false;
+    });
   };
 
   // Get the most recent quote that used this item
   const getMostRecentQuoteForItem = (
-    itemType: "inspection" | "replacement",
+    itemType: "inspection" | "replacement" | "repair",
     itemId: string
   ) => {
     const relevantQuotes = existingQuotes.filter((quote) => {
       if (itemType === "inspection") {
-        return (
-          quote.quote_type === "inspection" ||
+        if (quote.quote_type === "inspection") {
+          return quote.selected_inspection_options?.includes(itemId);
+        } else if (
           quote.quote_type === "replacement" ||
           quote.quote_type === "repair"
-        );
-      } else {
-        return quote.quote_type === "replacement";
+        ) {
+          return quote.selected_inspection_options?.includes(itemId);
+        }
+        return false;
+      } else if (itemType === "replacement") {
+        if (quote.quote_type === "replacement") {
+          return quote.selected_replacement_options?.includes(itemId);
+        }
+        return false;
+      } else if (itemType === "repair") {
+        if (quote.quote_type === "repair") {
+          return quote.selected_repair_options?.includes(itemId);
+        }
+        return false;
       }
+      return false;
     });
 
     if (relevantQuotes.length === 0) return null;
@@ -428,10 +498,10 @@ const GenerateQuote = ({
       // Generate quote number
       const quoteNumber = `QUOTE-${Date.now()}`;
 
-      // Fetch template
+      // Fetch template (optimized)
       const { data: templates } = await supabase!
         .from("quote_templates")
-        .select("*")
+        .select("id, template_data")
         .eq("template_data->>templateType", selectedQuoteType)
         .limit(1);
 
@@ -518,9 +588,7 @@ const GenerateQuote = ({
           needs_crane: rep.needs_crane,
           requires_permit: rep.requires_permit,
           requires_big_ladder: rep.requires_big_ladder,
-          phase1: rep.phase1,
           phase2: rep.phase2,
-          phase3: rep.phase3,
         })
       );
 
@@ -531,9 +599,7 @@ const GenerateQuote = ({
           needsCrane: rep.needs_crane || false,
           requiresPermit: rep.requires_permit || false,
           requiresBigLadder: rep.requires_big_ladder || false,
-          phase1: rep.phase1 || {},
           phase2: rep.phase2 || {},
-          phase3: rep.phase3 || {},
           labor: rep.labor || 0,
           refrigerationRecovery: rep.refrigeration_recovery || 0,
           startUpCosts: rep.start_up_costs || 0,
@@ -726,8 +792,16 @@ const GenerateQuote = ({
   if (isLoading) {
     return (
       <div className={`card ${className}`}>
-        <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+        <div className="mb-6">
+          <h2 className="text-lg font-medium text-gray-900">{title}</h2>
+        </div>
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mb-4"></div>
+          <p className="text-gray-600 mb-2">Loading quote data...</p>
+          <p className="text-sm text-gray-400">
+            Please wait while we fetch available inspections, replacements, and
+            quotes
+          </p>
         </div>
       </div>
     );
@@ -748,6 +822,9 @@ const GenerateQuote = ({
 
   return (
     <div className={`card ${className}`}>
+      <div className="mb-6">
+        <h2 className="text-lg font-medium text-gray-900">{title}</h2>
+      </div>
       {generatedQuoteData && (
         <div className="flex flex-col sm:flex-row justify-end items-start sm:items-center mb-6 gap-3">
           <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
@@ -972,12 +1049,8 @@ const GenerateQuote = ({
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">
-                        {replacement.selected_phase === "phase1" &&
-                          "Economy Option"}
                         {replacement.selected_phase === "phase2" &&
                           "Standard Option"}
-                        {replacement.selected_phase === "phase3" &&
-                          "Premium Option"}
                       </span>
                       <div className="flex items-center gap-2">
                         {isReplacementUsedInQuotes(replacement.id) && (
@@ -1126,6 +1199,17 @@ const GenerateQuote = ({
                         {item.description}
                       </div>
                     )}
+                    {isRepairItemUsedInQuotes(item.id) && (
+                      <div className="text-xs text-orange-600 mt-1">
+                        <strong>Note:</strong> This repair item was included in
+                        a previous{" "}
+                        {
+                          getMostRecentQuoteForItem("repair", item.id)
+                            ?.quote_type
+                        }{" "}
+                        quote
+                      </div>
+                    )}
                   </div>
                 </label>
               ))}
@@ -1167,22 +1251,42 @@ const GenerateQuote = ({
                       </div>
                     </div>
                     <div className="text-sm text-gray-600">
-                      Units: {pmQuote.unit_count || 0} •
+                      Units: {pmQuote.unit_count || 0} • Visits:{" "}
+                      {pmQuote.number_of_visits || 0} • Cost per visit: $
+                      {pmQuote.cost_per_visit || 0}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
                       {pmQuote.include_comprehensive_service && (
-                        <span className="ml-2">
+                        <span className="mr-2">
                           Comprehensive:{" "}
-                          {pmQuote.comprehensive_visits_count || 0} visits
+                          {pmQuote.comprehensive_visits_count || 0} visits ($
+                          {pmQuote.total_comprehensive_cost || 0})
                         </span>
                       )}
                       {pmQuote.include_filter_change_service && (
-                        <span className="ml-2">
-                          Filter: {pmQuote.filter_visits_count || 0} visits
+                        <span className="mr-2">
+                          Filter: {pmQuote.filter_visits_count || 0} visits ($
+                          {pmQuote.total_filter_cost || 0})
                         </span>
                       )}
                     </div>
+                    {pmQuote.checklist_types &&
+                      pmQuote.checklist_types.length > 0 && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          <strong>Services:</strong>{" "}
+                          {pmQuote.checklist_types.join(", ")}
+                        </div>
+                      )}
                     {pmQuote.scope_of_work && (
                       <div className="text-xs text-gray-500 mt-1">
+                        <strong>Scope:</strong>{" "}
                         {pmQuote.scope_of_work.substring(0, 100)}...
+                      </div>
+                    )}
+                    {pmQuote.notes && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        <strong>Notes:</strong>{" "}
+                        {pmQuote.notes.substring(0, 100)}...
                       </div>
                     )}
                   </div>

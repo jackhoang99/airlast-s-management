@@ -79,6 +79,19 @@ const JobQuoteHistorySection = ({
   const [inspectionData, setInspectionData] = useState<any[]>([]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeletingQuote, setIsDeletingQuote] = useState<string | null>(null);
+  const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
+  const [emailTemplate, setEmailTemplate] = useState({
+    subject: "",
+    greeting: "",
+    introText: "",
+    approvalText: "",
+    approveButtonText: "",
+    denyButtonText: "",
+    approvalNote: "",
+    denialNote: "",
+    closingText: "",
+    signature: "",
+  });
 
   // Calculate total replacement cost from all replacement data
   const calculateTotalReplacementCost = () => {
@@ -128,15 +141,31 @@ const JobQuoteHistorySection = ({
     }
   };
 
-  // Function to fetch quotes for this job
+  // Function to fetch quotes for this job (optimized)
   const fetchQuotes = async () => {
     if (!supabase || !job) return;
 
+    setIsLoadingQuotes(true);
     try {
-      // Fetch job_quotes only
+      // Fetch job_quotes with specific fields only
       const { data: jobQuotesData, error: jobQuotesError } = await supabase
         .from("job_quotes")
-        .select("*")
+        .select(
+          `
+          id,
+          quote_number,
+          quote_type,
+          amount,
+          status,
+          confirmed,
+          approved,
+          confirmed_at,
+          email_sent_at,
+          created_at,
+          pdf_url,
+          pdf_generated_at
+        `
+        )
         .eq("job_id", job.id)
         .order("created_at", { ascending: false });
 
@@ -147,25 +176,22 @@ const JobQuoteHistorySection = ({
       // Set quotes from job_quotes table only
       setAllQuotes(jobQuotesData || []);
 
-      // Check if we have sent quotes by type
-      const sentReplacement = (jobQuotesData || []).some(
-        (q) => q.quote_type === "replacement"
+      // Check if we have sent quotes by type (optimized)
+      const quoteTypes = new Set(
+        (jobQuotesData || []).map((q) => q.quote_type)
       );
-      const sentRepair = (jobQuotesData || []).some(
-        (q) => q.quote_type === "repair"
-      );
-      const sentPM = (jobQuotesData || []).some((q) => q.quote_type === "pm");
-
       setSentQuoteTypes({
-        replacement: sentReplacement,
-        repair: sentRepair,
-        pm: sentPM,
+        replacement: quoteTypes.has("replacement"),
+        repair: quoteTypes.has("repair"),
+        pm: quoteTypes.has("pm"),
       });
 
       // Set PM quotes for backward compatibility (empty since we're not fetching from pm_quotes)
       setPmQuotes([]);
     } catch (err) {
       console.error("Error fetching quotes:", err);
+    } finally {
+      setIsLoadingQuotes(false);
     }
   };
 
@@ -405,6 +431,13 @@ const JobQuoteHistorySection = ({
     checkJobData();
   }, [supabase, job, selectedQuoteType, jobItems, refreshTrigger]);
 
+  // Fetch quotes when component mounts or job changes
+  useEffect(() => {
+    if (supabase && job) {
+      fetchQuotes();
+    }
+  }, [supabase, job, refreshTrigger]);
+
   // Calculate repair cost from part items
   useEffect(() => {
     if (jobItems && jobItems.length > 0) {
@@ -471,7 +504,9 @@ const JobQuoteHistorySection = ({
                 </div>
               </div>
               <p className="text-sm text-gray-700 mt-1">
-                {getQuoteCounts().all} quote(s)
+                {isLoadingQuotes
+                  ? "Loading..."
+                  : `${getQuoteCounts().all} quote(s)`}
               </p>
             </div>
           </div>
@@ -754,8 +789,19 @@ const JobQuoteHistorySection = ({
           </table>
         </div>
 
+        {/* Loading State */}
+        {isLoadingQuotes && (
+          <div className="text-center py-8 text-gray-500">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mx-auto mb-3"></div>
+            <p className="text-gray-500 mb-2">Loading quotes...</p>
+            <p className="text-sm text-gray-400">
+              Please wait while we fetch your quote history
+            </p>
+          </div>
+        )}
+
         {/* No Data Message */}
-        {getFilteredQuotes().length === 0 && (
+        {!isLoadingQuotes && getFilteredQuotes().length === 0 && (
           <div className="text-center py-8 text-gray-500">
             <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 mb-2">
