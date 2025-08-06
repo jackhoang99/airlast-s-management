@@ -371,15 +371,6 @@ const SendEmailModal = ({
         .single();
       if (jobFetchError) throw jobFetchError;
 
-      // Fetch all inspection data
-      const { data: allInspectionData, error: allInspectionError } =
-        await supabase
-          .from("job_inspections")
-          .select("*")
-          .eq("job_id", jobId)
-          .eq("completed", true);
-      if (allInspectionError) throw allInspectionError;
-
       // Fetch all replacement data
       const { data: allReplacementData, error: allReplacementError } =
         await supabase.from("job_replacements").select("*").eq("job_id", jobId);
@@ -483,7 +474,7 @@ const SendEmailModal = ({
             quoteNumber,
             templateId: templateToUse.id,
             jobData: fullJobData,
-            inspectionData: allInspectionData,
+            inspectionData: inspectionData,
             replacementData:
               allReplacementData && allReplacementData.length > 0
                 ? allReplacementData[0]
@@ -691,13 +682,8 @@ const SendEmailModal = ({
           ? allJobItems.filter((item) => item.type === "part")
           : [];
 
-      // Filter inspection data based on selected inspections
-      const filteredInspectionData =
-        selectedInspectionOptions && selectedInspectionOptions.length > 0
-          ? allInspectionData.filter((insp: any) =>
-              selectedInspectionOptions.includes(insp.id)
-            )
-          : allInspectionData;
+      // Use inspection data from the quote itself, not from database
+      const filteredInspectionData: any[] = [];
 
       console.log("=== SEND EMAIL MODAL DEBUG ===");
       console.log(
@@ -709,10 +695,13 @@ const SendEmailModal = ({
         selectedInspectionOptions?.length
       );
       console.log(
-        "filteredInspectionData.length:",
-        filteredInspectionData.length
+        "quoteData.inspectionData.length:",
+        quoteData?.quote_data?.inspectionData?.length || 0
       );
-      console.log("allInspectionData.length:", allInspectionData.length);
+      console.log(
+        "quoteData.inspectionData:",
+        quoteData?.quote_data?.inspectionData || []
+      );
 
       requestBody = {
         jobId,
@@ -736,7 +725,7 @@ const SendEmailModal = ({
         replacementDataById:
           quoteType === "replacement" ? filteredReplacementData : {},
         repairItems: quoteType === "repair" ? repairItems : [],
-        inspectionData: filteredInspectionData,
+        inspectionData: quoteData?.quote_data?.inspectionData || [],
         pmQuotes: quoteType === "pm" ? pmQuotes : [],
         selectedInspectionOptions: selectedInspectionOptions,
         quoteData: quoteData?.quote_data || null,

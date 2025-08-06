@@ -910,6 +910,7 @@ export interface Database {
           selected_replacement_options: string[] | null;
           selected_inspection_options: string[] | null;
           selected_repair_options: string[] | null;
+          inspection_chosen: string[] | null;
           quote_data: Json;
           email_sent_at: string | null;
           created_at: string;
@@ -928,6 +929,7 @@ export interface Database {
           selected_replacement_options?: string[] | null;
           selected_inspection_options?: string[] | null;
           selected_repair_options?: string[] | null;
+          inspection_chosen?: string[] | null;
           quote_data?: Json;
           email_sent_at?: string | null;
           created_at?: string;
@@ -946,6 +948,7 @@ export interface Database {
           selected_replacement_options?: string[] | null;
           selected_inspection_options?: string[] | null;
           selected_repair_options?: string[] | null;
+          inspection_chosen?: string[] | null;
           quote_data?: Json;
           email_sent_at?: string | null;
           created_at?: string;

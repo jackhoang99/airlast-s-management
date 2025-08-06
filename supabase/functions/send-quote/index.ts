@@ -1,6 +1,7 @@
 // supabase/functions/send-quote/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import sgMail from "npm:@sendgrid/mail";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -107,32 +108,87 @@ serve(async (req) => {
     let inspectionHtml = "";
     let inspectionText = "";
 
-    // Use selected inspection data from quote if available, otherwise fall back to all inspection data
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Fetch inspection data using the inspection_chosen column from the quote
     let inspectionsToDisplay: any[] = [];
 
-    console.log("Inspection filtering logic:", {
+    console.log("Fetching inspection data using inspection_chosen column:", {
+      jobId,
+      quoteType,
       hasQuoteData: !!quoteData,
-      hasSelectedInspectionOptions: !!(
-        quoteData && quoteData.selectedInspectionOptions
-      ),
-      selectedInspectionOptions: quoteData?.selectedInspectionOptions || [],
-      hasInspectionData: !!(quoteData && quoteData.inspectionData),
+      hasInspectionData:
+        Array.isArray(inspectionData) && inspectionData.length > 0,
       inspectionDataCount: Array.isArray(inspectionData)
         ? inspectionData.length
         : 0,
-      directSelectedInspectionOptions: selectedInspectionOptions,
-      directSelectedInspectionOptionsCount:
-        selectedInspectionOptions?.length || 0,
     });
 
-    // Priority order: 1) Direct selectedInspectionOptions, 2) quoteData.selectedInspectionOptions, 3) quoteData.inspectionData, 4) all inspectionData
-    if (
-      selectedInspectionOptions &&
-      Array.isArray(selectedInspectionOptions) &&
-      selectedInspectionOptions.length > 0
-    ) {
-      // Use the directly passed selectedInspectionOptions (highest priority)
-      if (Array.isArray(inspectionData)) {
+    // First, try to get the quote record to access inspection_chosen
+    if (jobId && quoteToken) {
+      try {
+        const { data: quoteRecord, error: quoteError } = await supabase
+          .from("job_quotes")
+          .select("inspection_chosen")
+          .eq("job_id", jobId)
+          .eq("token", quoteToken)
+          .maybeSingle();
+
+        if (quoteError) {
+          console.error("Error fetching quote record:", quoteError);
+        } else if (
+          quoteRecord &&
+          quoteRecord.inspection_chosen &&
+          quoteRecord.inspection_chosen.length > 0
+        ) {
+          console.log(
+            "Found inspection_chosen in quote record:",
+            quoteRecord.inspection_chosen
+          );
+
+          // Fetch the actual inspection data using the IDs from inspection_chosen
+          const { data: fetchedInspections, error: inspectionError } =
+            await supabase
+              .from("job_inspections")
+              .select("*")
+              .in("id", quoteRecord.inspection_chosen);
+
+          if (inspectionError) {
+            console.error("Error fetching inspection data:", inspectionError);
+          } else {
+            inspectionsToDisplay = fetchedInspections || [];
+            console.log(
+              "Successfully fetched inspection data from inspection_chosen:",
+              {
+                count: inspectionsToDisplay.length,
+                ids: inspectionsToDisplay.map((insp: any) => insp.id),
+              }
+            );
+          }
+        } else {
+          console.log(
+            "No inspection_chosen found in quote record, falling back to other methods"
+          );
+        }
+      } catch (error) {
+        console.error("Error in inspection data fetching:", error);
+      }
+    }
+
+    // Fallback to other methods if inspection_chosen didn't work
+    if (inspectionsToDisplay.length === 0) {
+      console.log("Falling back to other inspection data sources");
+
+      if (
+        selectedInspectionOptions &&
+        Array.isArray(selectedInspectionOptions) &&
+        selectedInspectionOptions.length > 0 &&
+        Array.isArray(inspectionData)
+      ) {
+        // Use the directly passed selectedInspectionOptions with the provided inspectionData
         inspectionsToDisplay = inspectionData.filter((insp: any) =>
           selectedInspectionOptions.includes(insp.id)
         );
@@ -142,42 +198,25 @@ serve(async (req) => {
           selectedIds: selectedInspectionOptions,
           filteredIds: inspectionsToDisplay.map((insp: any) => insp.id),
         });
-      }
-    } else if (
-      quoteData &&
-      quoteData.selectedInspectionOptions &&
-      Array.isArray(quoteData.selectedInspectionOptions) &&
-      quoteData.selectedInspectionOptions.length > 0
-    ) {
-      // Use only the inspections that were selected for this specific quote
-      if (Array.isArray(inspectionData)) {
-        inspectionsToDisplay = inspectionData.filter((insp: any) =>
-          quoteData.selectedInspectionOptions.includes(insp.id)
-        );
-        console.log("Using quoteData.selectedInspectionOptions filter:", {
-          originalCount: inspectionData.length,
-          filteredCount: inspectionsToDisplay.length,
-          selectedIds: quoteData.selectedInspectionOptions,
-          filteredIds: inspectionsToDisplay.map((insp: any) => insp.id),
+      } else if (
+        quoteData &&
+        quoteData.inspectionData &&
+        Array.isArray(quoteData.inspectionData) &&
+        quoteData.inspectionData.length > 0
+      ) {
+        // Use the inspection data that was stored in the quote when it was generated
+        inspectionsToDisplay = quoteData.inspectionData;
+        console.log("Using quoteData.inspectionData (from quote):", {
+          count: inspectionsToDisplay.length,
+          inspectionIds: inspectionsToDisplay.map((insp: any) => insp.id),
+        });
+      } else if (Array.isArray(inspectionData) && inspectionData.length > 0) {
+        // Final fallback to all inspection data
+        inspectionsToDisplay = inspectionData;
+        console.log("Using all inspectionData fallback:", {
+          count: inspectionsToDisplay.length,
         });
       }
-    } else if (
-      quoteData &&
-      quoteData.inspectionData &&
-      Array.isArray(quoteData.inspectionData) &&
-      quoteData.inspectionData.length > 0
-    ) {
-      // Fallback to quote_data.inspectionData if selectedInspectionOptions is not available
-      inspectionsToDisplay = quoteData.inspectionData;
-      console.log("Using quoteData.inspectionData fallback:", {
-        count: inspectionsToDisplay.length,
-      });
-    } else if (Array.isArray(inspectionData) && inspectionData.length > 0) {
-      // Final fallback to all inspection data
-      inspectionsToDisplay = inspectionData;
-      console.log("Using all inspectionData fallback:", {
-        count: inspectionsToDisplay.length,
-      });
     }
 
     console.log("Final inspectionsToDisplay:", {
@@ -199,8 +238,18 @@ serve(async (req) => {
         const tonnage = inspection?.tonnage || "N/A";
         const unitType = inspection?.unit_type || "N/A";
         const systemType = inspection?.system_type || "N/A";
-        const unitNumber =
-          inspection?.unit_number || inspection?.units?.unit_number || "N/A";
+        // Handle unit number from the new structure with job_units relationship
+        let unitNumber = "N/A";
+        if (
+          inspection?.job_units &&
+          Array.isArray(inspection.job_units) &&
+          inspection.job_units.length > 0
+        ) {
+          unitNumber = inspection.job_units[0]?.units?.unit_number || "N/A";
+        } else if (inspection?.unit_number) {
+          // Fallback to direct unit_number if available
+          unitNumber = inspection.unit_number;
+        }
         inspectionHtml += `
           <div style="margin-bottom: ${
             index < displayInspections.length - 1 ? "20px" : "0"

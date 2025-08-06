@@ -729,6 +729,8 @@ const GenerateQuote = ({
                   selectedQuoteType === "inspection"
                     ? selectedInspections
                     : null,
+                inspection_chosen:
+                  selectedInspections.length > 0 ? selectedInspections : null,
                 selected_pm_options:
                   selectedQuoteType === "pm" ? selectedPMQuotes : null,
                 pdf_url: result.pdfUrl, // Store the PDF URL
