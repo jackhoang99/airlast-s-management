@@ -33,6 +33,14 @@ type Location = Database["public"]["Tables"]["locations"]["Row"] & {
     zip: string;
     phone: string;
   };
+  location_contacts?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    phone: string | null;
+    email: string | null;
+    type: string | null;
+  }[];
 };
 
 const LocationDetails = () => {
@@ -97,6 +105,14 @@ const LocationDetails = () => {
               state,
               zip,
               phone
+            ),
+            location_contacts (
+              id,
+              first_name,
+              last_name,
+              phone,
+              email,
+              type
             )
           `
           )
@@ -234,6 +250,143 @@ const LocationDetails = () => {
                 </div>
               </div>
             </div>
+
+            {/* Contact Information */}
+            {(location.contact_name ||
+              location.contact_phone ||
+              location.contact_email ||
+              location.contact_type ||
+              (location.location_contacts &&
+                location.location_contacts.length > 0)) && (
+              <>
+                <hr className="my-6" />
+                <div>
+                  <h3 className="text-lg font-medium mb-4">
+                    Contact Information
+                  </h3>
+                  <div className="space-y-4">
+                    {/* Primary Contact */}
+                    {(location.contact_name ||
+                      location.contact_phone ||
+                      location.contact_email ||
+                      location.contact_type) && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="font-medium text-gray-900 mb-2">
+                          Primary Contact
+                        </h4>
+                        <div className="space-y-2">
+                          {location.contact_name && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Name:
+                              </span>
+                              <span>{location.contact_name}</span>
+                            </div>
+                          )}
+                          {location.contact_type && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Type:
+                              </span>
+                              <span>{location.contact_type}</span>
+                            </div>
+                          )}
+                          {location.contact_phone && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Phone:
+                              </span>
+                              <a
+                                href={`tel:${location.contact_phone}`}
+                                className="text-primary-600 hover:text-primary-800"
+                              >
+                                {location.contact_phone}
+                              </a>
+                            </div>
+                          )}
+                          {location.contact_email && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Email:
+                              </span>
+                              <a
+                                href={`mailto:${location.contact_email}`}
+                                className="text-primary-600 hover:text-primary-800"
+                              >
+                                {location.contact_email}
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Additional Contacts */}
+                    {location.location_contacts &&
+                      location.location_contacts.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2">
+                            Additional Contacts
+                          </h4>
+                          <div className="space-y-3">
+                            {location.location_contacts.map((contact) => (
+                              <div
+                                key={contact.id}
+                                className="bg-gray-50 rounded-lg p-4"
+                              >
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-gray-700">
+                                      Name:
+                                    </span>
+                                    <span>
+                                      {contact.first_name} {contact.last_name}
+                                    </span>
+                                  </div>
+                                  {contact.type && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium text-gray-700">
+                                        Type:
+                                      </span>
+                                      <span>{contact.type}</span>
+                                    </div>
+                                  )}
+                                  {contact.phone && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium text-gray-700">
+                                        Phone:
+                                      </span>
+                                      <a
+                                        href={`tel:${contact.phone}`}
+                                        className="text-primary-600 hover:text-primary-800"
+                                      >
+                                        {contact.phone}
+                                      </a>
+                                    </div>
+                                  )}
+                                  {contact.email && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium text-gray-700">
+                                        Email:
+                                      </span>
+                                      <a
+                                        href={`mailto:${contact.email}`}
+                                        className="text-primary-600 hover:text-primary-800"
+                                      >
+                                        {contact.email}
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                  </div>
+                </div>
+              </>
+            )}
 
             <hr className="my-6" />
 

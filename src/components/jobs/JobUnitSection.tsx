@@ -10,6 +10,7 @@ import {
 import { Job } from "../../types/job";
 import { useEffect, useState } from "react";
 import QuickAssetViewModal from "../locations/QuickAssetViewModal";
+import { useSupabase } from "../../lib/supabase-context";
 
 type JobUnitSectionProps = {
   job: Job;
@@ -22,8 +23,49 @@ function getSharedValue(units: any[], field: string) {
 }
 
 const JobUnitSection = ({ job }: JobUnitSectionProps) => {
+  const { supabase } = useSupabase();
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
+  const [unitContacts, setUnitContacts] = useState<{ [key: string]: any[] }>(
+    {}
+  );
+
+  // Fetch additional contacts for all units
+  useEffect(() => {
+    const fetchUnitContacts = async () => {
+      if (!job.units || job.units.length === 0) return;
+
+      const unitIds = job.units.map((unit: any) => unit.id);
+
+      try {
+        const { data, error } = await supabase
+          .from("unit_contacts")
+          .select("*")
+          .in("unit_id", unitIds)
+          .order("created_at", { ascending: true });
+
+        if (error) {
+          console.error("Error fetching unit contacts:", error);
+          return;
+        }
+
+        // Group contacts by unit_id
+        const contactsByUnit: { [key: string]: any[] } = {};
+        data?.forEach((contact) => {
+          if (!contactsByUnit[contact.unit_id]) {
+            contactsByUnit[contact.unit_id] = [];
+          }
+          contactsByUnit[contact.unit_id].push(contact);
+        });
+
+        setUnitContacts(contactsByUnit);
+      } catch (err) {
+        console.error("Error fetching unit contacts:", err);
+      }
+    };
+
+    fetchUnitContacts();
+  }, [job.units]);
 
   if (!job.units || job.units.length === 0) {
     return (
@@ -74,7 +116,10 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
           Shared Unit Details
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {(sharedContactType || sharedContactEmail || sharedContactPhone) && (
+          {(sharedContactType ||
+            sharedContactEmail ||
+            sharedContactPhone ||
+            Object.keys(unitContacts).length > 0) && (
             <div>
               <div className="font-semibold text-gray-800 mb-2">
                 Contact Information
@@ -106,6 +151,62 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
                     >
                       {sharedContactPhone}
                     </a>
+                  </div>
+                )}
+
+                {/* Additional Contacts */}
+                {Object.keys(unitContacts).length > 0 && (
+                  <div className="mt-3">
+                    <div className="font-medium text-gray-700 mb-2">
+                      Additional Contacts:
+                    </div>
+                    {Object.entries(unitContacts).map(([unitId, contacts]) => {
+                      // Find the unit information
+                      const unit = units.find((u: any) => u.id === unitId);
+                      return (
+                        <div key={unitId} className="ml-2 space-y-2">
+                          <div className="text-sm font-medium text-gray-600 border-l-2 border-gray-300 pl-2">
+                            Unit {unit?.unit_number}
+                          </div>
+                          {contacts.map((contact) => (
+                            <div key={contact.id} className="text-sm ml-4">
+                              <div className="flex items-center gap-2 text-gray-700">
+                                <span className="font-medium">
+                                  {contact.first_name} {contact.last_name}
+                                </span>
+                                {contact.type && (
+                                  <span className="text-gray-500">
+                                    ({contact.type})
+                                  </span>
+                                )}
+                              </div>
+                              {contact.phone && (
+                                <div className="flex items-center gap-2 text-gray-700 ml-4">
+                                  <Phone className="h-3 w-3 text-gray-400" />
+                                  <a
+                                    href={`tel:${contact.phone}`}
+                                    className="text-primary-600 hover:text-primary-800 text-sm"
+                                  >
+                                    {contact.phone}
+                                  </a>
+                                </div>
+                              )}
+                              {contact.email && (
+                                <div className="flex items-center gap-2 text-gray-700 ml-4">
+                                  <Mail className="h-3 w-3 text-gray-400" />
+                                  <a
+                                    href={`mailto:${contact.email}`}
+                                    className="text-primary-600 hover:text-primary-800 text-sm"
+                                  >
+                                    {contact.email}
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -209,7 +310,7 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
               className="bg-white rounded-lg border border-gray-200 p-4 flex flex-col gap-2 shadow-sm"
               aria-label={`Unit ${unit.unit_number} Details`}
             >
-                            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-gray-400" />
                   <Link
@@ -228,8 +329,8 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
                     {unit.status}
                   </span>
                 </div>
-                <ViewAssetButton 
-                  unit={unit} 
+                <ViewAssetButton
+                  unit={unit}
                   onViewAsset={() => {
                     setSelectedUnit(unit);
                     setShowAssetModal(true);

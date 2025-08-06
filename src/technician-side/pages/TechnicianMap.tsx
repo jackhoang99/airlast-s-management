@@ -47,6 +47,7 @@ const TechnicianMap = () => {
   // State
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [jobs, setJobs] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentUserLocation, setCurrentUserLocation] = useState<{
     lat: number;
     lng: number;
@@ -101,6 +102,24 @@ const TechnicianMap = () => {
         setError("Failed to update status");
       });
   }
+
+  // Get current user
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      if (!supabase) return;
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          setCurrentUser(user);
+        }
+      } catch (err) {
+        console.error("Error fetching current user:", err);
+      }
+    };
+    fetchCurrentUser();
+  }, [supabase]);
 
   // Get current user location
   useEffect(() => {

@@ -1,9 +1,18 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Plus, X } from "lucide-react";
 import ArrowBack from "../components/ui/ArrowBack";
 import { useSupabase } from "../lib/supabase-context";
 import type { Database } from "../types/supabase";
+
+type UnitContact = {
+  id?: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email: string;
+  type: string;
+};
 
 type Unit = Database["public"]["Tables"]["units"]["Row"];
 type Location = Database["public"]["Tables"]["locations"]["Row"] & {
@@ -24,6 +33,9 @@ const EditUnit = () => {
   const [location, setLocation] = useState<Location | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [additionalContacts, setAdditionalContacts] = useState<UnitContact[]>(
+    []
+  );
 
   const [formData, setFormData] = useState({
     unitNumber: "",
@@ -81,6 +93,19 @@ const EditUnit = () => {
 
         if (locationError) throw locationError;
         setLocation(locationData);
+
+        // Load additional contacts
+        const { data: contactsData, error: contactsError } = await supabase
+          .from("unit_contacts")
+          .select("*")
+          .eq("unit_id", id)
+          .order("created_at", { ascending: true });
+
+        if (contactsError) {
+          console.error("Error loading additional contacts:", contactsError);
+        } else {
+          setAdditionalContacts(contactsData || []);
+        }
       } catch (err) {
         console.error("Error fetching unit details:", err);
         setError("Failed to fetch unit details");
@@ -118,13 +143,65 @@ const EditUnit = () => {
         .eq("id", unit.id);
 
       if (updateError) throw updateError;
-      navigate(`/locations/${unit.location_id}`);
+
+      // Handle additional contacts
+      // Delete existing contacts
+      await supabase.from("unit_contacts").delete().eq("unit_id", unit.id);
+
+      // Insert new contacts
+      const contactsToInsert = additionalContacts.filter(
+        (contact) => contact.first_name.trim() || contact.last_name.trim()
+      );
+
+      if (contactsToInsert.length > 0) {
+        const { error: contactsError } = await supabase
+          .from("unit_contacts")
+          .insert(
+            contactsToInsert.map((contact) => ({
+              ...contact,
+              unit_id: unit.id,
+            }))
+          );
+
+        if (contactsError) throw contactsError;
+      }
+
+      navigate(`/units/${unit.id}`);
     } catch (err) {
       console.error("Error updating unit:", err);
       setError("Failed to update unit. Please try again.");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const addContact = () => {
+    setAdditionalContacts([
+      ...additionalContacts,
+      {
+        first_name: "",
+        last_name: "",
+        phone: "",
+        email: "",
+        type: "",
+      },
+    ]);
+  };
+
+  const removeContact = (index: number) => {
+    setAdditionalContacts(additionalContacts.filter((_, i) => i !== index));
+  };
+
+  const updateContact = (
+    index: number,
+    field: keyof UnitContact,
+    value: string
+  ) => {
+    setAdditionalContacts(
+      additionalContacts.map((contact, i) =>
+        i === index ? { ...contact, [field]: value } : contact
+      )
+    );
   };
 
   const handleDelete = async () => {
@@ -193,268 +270,390 @@ const EditUnit = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Location
-              </label>
-              <div className="text-gray-900 p-3 bg-gray-50 rounded-md">
-                <div className="font-medium">{location.name}</div>
-                <div className="text-sm text-gray-500">
-                  {location.address}, {location.city}, {location.state}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  {location.companies?.name}
+          {/* Unit Information */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-medium mb-6">Unit Information</h2>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Location
+                </label>
+                <div className="text-gray-900 p-3 bg-gray-50 rounded-md">
+                  <div className="font-medium">{location.name}</div>
+                  <div className="text-sm text-gray-500">
+                    {location.address}, {location.city}, {location.state}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {location.companies?.name}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div>
-              <label
-                htmlFor="unitNumber"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Unit Number *
-              </label>
-              <input
-                type="text"
-                id="unitNumber"
-                value={formData.unitNumber}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    unitNumber: e.target.value,
-                  }))
-                }
-                className="input"
-                required
-              />
-            </div>
+              <div>
+                <label
+                  htmlFor="unitNumber"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Unit Number *
+                </label>
+                <input
+                  type="text"
+                  id="unitNumber"
+                  value={formData.unitNumber}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      unitNumber: e.target.value,
+                    }))
+                  }
+                  className="input"
+                  required
+                />
+              </div>
 
-            <div>
-              <label
-                htmlFor="status"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Status
-              </label>
-              <select
-                id="status"
-                value={formData.status}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    status: e.target.value as "active" | "inactive",
-                  }))
-                }
-                className="select"
-              >
-                <option value="active">active</option>
-                <option value="inactive">inactive</option>
-              </select>
+              <div>
+                <label
+                  htmlFor="status"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Status
+                </label>
+                <select
+                  id="status"
+                  value={formData.status}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      status: e.target.value as "active" | "inactive",
+                    }))
+                  }
+                  className="select"
+                >
+                  <option value="active">active</option>
+                  <option value="inactive">inactive</option>
+                </select>
+              </div>
             </div>
+          </div>
 
-            <div>
-              <label
-                htmlFor="primary_contact_type"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Primary Contact Type
-              </label>
-              <select
-                id="primary_contact_type"
-                value={formData.primary_contact_type}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    primary_contact_type: e.target.value,
-                  }))
-                }
-                className="select"
-              >
-                <option value="Management">Management</option>
-                <option value="Owner">Owner</option>
-                <option value="Business Owner">Business Owner</option>
-                <option value="Tenant">Tenant</option>
-              </select>
-            </div>
+          {/* Primary Contact Information */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-medium mb-6">Primary Contact</h2>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="primary_contact_type"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Contact Type
+                </label>
+                <select
+                  id="primary_contact_type"
+                  value={formData.primary_contact_type}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      primary_contact_type: e.target.value,
+                    }))
+                  }
+                  className="select"
+                >
+                  <option value="Management">Management</option>
+                  <option value="Owner">Owner</option>
+                  <option value="Business Owner">Business Owner</option>
+                  <option value="Tenant">Tenant</option>
+                </select>
+              </div>
 
-            <div>
-              <label
-                htmlFor="primary_contact_email"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Primary Contact Email
-              </label>
-              <input
-                type="email"
-                id="primary_contact_email"
-                value={formData.primary_contact_email}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    primary_contact_email: e.target.value,
-                  }))
-                }
-                className="input"
-                placeholder="contact@example.com"
-              />
-            </div>
+              <div>
+                <label
+                  htmlFor="primary_contact_phone"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  id="primary_contact_phone"
+                  value={formData.primary_contact_phone}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      primary_contact_phone: e.target.value,
+                    }))
+                  }
+                  className="input"
+                  placeholder="(123) 456-7890"
+                />
+              </div>
 
-            <div>
-              <label
-                htmlFor="primary_contact_phone"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Primary Contact Phone
-              </label>
-              <input
-                type="tel"
-                id="primary_contact_phone"
-                value={formData.primary_contact_phone}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    primary_contact_phone: e.target.value,
-                  }))
-                }
-                className="input"
-                placeholder="(123) 456-7890"
-              />
+              <div className="sm:col-span-2">
+                <label
+                  htmlFor="primary_contact_email"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Email
+                </label>
+                <input
+                  type="email"
+                  id="primary_contact_email"
+                  value={formData.primary_contact_email}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      primary_contact_email: e.target.value,
+                    }))
+                  }
+                  className="input"
+                  placeholder="contact@example.com"
+                />
+              </div>
             </div>
+          </div>
 
-            {/* Billing Information */}
-            <div className="md:col-span-2">
-              <h3 className="text-md font-medium text-gray-900 mb-3">
-                Billing Information
-              </h3>
-            </div>
+          {/* Billing Information */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-medium mb-6">Billing Information</h2>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="billing_entity"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Billing Entity
+                </label>
+                <input
+                  type="text"
+                  id="billing_entity"
+                  value={formData.billing_entity}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      billing_entity: e.target.value,
+                    }))
+                  }
+                  className="input"
+                  placeholder="Billing Entity Name"
+                />
+              </div>
 
-            <div>
-              <label
-                htmlFor="billing_entity"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Billing Entity
-              </label>
-              <input
-                type="text"
-                id="billing_entity"
-                value={formData.billing_entity}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    billing_entity: e.target.value,
-                  }))
-                }
-                className="input"
-                placeholder="Billing Entity Name"
-              />
-            </div>
+              <div>
+                <label
+                  htmlFor="billing_email"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Billing Email
+                </label>
+                <input
+                  type="email"
+                  id="billing_email"
+                  value={formData.billing_email}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      billing_email: e.target.value,
+                    }))
+                  }
+                  className="input"
+                  placeholder="billing@example.com"
+                />
+              </div>
 
-            <div>
-              <label
-                htmlFor="billing_email"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Billing Email
-              </label>
-              <input
-                type="email"
-                id="billing_email"
-                value={formData.billing_email}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    billing_email: e.target.value,
-                  }))
-                }
-                className="input"
-                placeholder="billing@example.com"
-              />
-            </div>
+              <div>
+                <label
+                  htmlFor="billing_city"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Billing City
+                </label>
+                <input
+                  type="text"
+                  id="billing_city"
+                  value={formData.billing_city}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      billing_city: e.target.value,
+                    }))
+                  }
+                  className="input"
+                />
+              </div>
 
-            <div>
-              <label
-                htmlFor="billing_city"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Billing City
-              </label>
-              <input
-                type="text"
-                id="billing_city"
-                value={formData.billing_city}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    billing_city: e.target.value,
-                  }))
-                }
-                className="input"
-              />
-            </div>
+              <div>
+                <label
+                  htmlFor="billing_state"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Billing State
+                </label>
+                <input
+                  type="text"
+                  id="billing_state"
+                  value={formData.billing_state}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      billing_state: e.target.value,
+                    }))
+                  }
+                  className="input"
+                  maxLength={2}
+                />
+              </div>
 
-            <div>
-              <label
-                htmlFor="billing_state"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Billing State
-              </label>
-              <input
-                type="text"
-                id="billing_state"
-                value={formData.billing_state}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    billing_state: e.target.value,
-                  }))
-                }
-                className="input"
-                maxLength={2}
-              />
-            </div>
+              <div>
+                <label
+                  htmlFor="billing_zip"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Billing Zip
+                </label>
+                <input
+                  type="text"
+                  id="billing_zip"
+                  value={formData.billing_zip}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      billing_zip: e.target.value,
+                    }))
+                  }
+                  className="input"
+                />
+              </div>
 
-            <div>
-              <label
-                htmlFor="billing_zip"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Billing Zip
-              </label>
-              <input
-                type="text"
-                id="billing_zip"
-                value={formData.billing_zip}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    billing_zip: e.target.value,
-                  }))
-                }
-                className="input"
-              />
+              <div>
+                <label
+                  htmlFor="office"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Office
+                </label>
+                <input
+                  type="text"
+                  id="office"
+                  value={formData.office}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, office: e.target.value }))
+                  }
+                  className="input"
+                />
+              </div>
             </div>
+          </div>
 
-            <div>
-              <label
-                htmlFor="office"
-                className="block text-sm font-medium text-gray-700 mb-1"
+          {/* Additional Contacts */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-medium mb-6 flex items-center justify-between">
+              Additional Contacts
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={addContact}
               >
-                Office
-              </label>
-              <input
-                type="text"
-                id="office"
-                value={formData.office}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, office: e.target.value }))
-                }
-                className="input"
-              />
-            </div>
+                <Plus size={16} className="mr-1" /> Add Contact
+              </button>
+            </h2>
+
+            {additionalContacts.length === 0 && (
+              <p className="text-gray-500">No additional contacts added.</p>
+            )}
+
+            {additionalContacts.map((contact, idx) => (
+              <div
+                key={idx}
+                className="border border-gray-200 rounded-lg p-4 mb-4"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-md font-medium">Contact {idx + 1}</h3>
+                  <button
+                    type="button"
+                    onClick={() => removeContact(idx)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      First Name
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={contact.first_name}
+                      onChange={(e) =>
+                        updateContact(idx, "first_name", e.target.value)
+                      }
+                      placeholder="First name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={contact.last_name}
+                      onChange={(e) =>
+                        updateContact(idx, "last_name", e.target.value)
+                      }
+                      placeholder="Last name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Type
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={contact.type}
+                      onChange={(e) =>
+                        updateContact(idx, "type", e.target.value)
+                      }
+                      placeholder="Contact Type"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone
+                    </label>
+                    <input
+                      type="tel"
+                      className="input"
+                      value={contact.phone}
+                      onChange={(e) =>
+                        updateContact(idx, "phone", e.target.value)
+                      }
+                      placeholder="(123) 456-7890"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      className="input"
+                      value={contact.email}
+                      onChange={(e) =>
+                        updateContact(idx, "email", e.target.value)
+                      }
+                      placeholder="contact@example.com"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">

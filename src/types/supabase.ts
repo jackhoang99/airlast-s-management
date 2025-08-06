@@ -51,6 +51,10 @@ export interface Database {
           city: string;
           state: string;
           zip: string;
+          contact_name: string | null;
+          contact_phone: string | null;
+          contact_email: string | null;
+          contact_type: string | null;
           created_at: string;
         };
         Insert: {
@@ -62,6 +66,10 @@ export interface Database {
           city: string;
           state: string;
           zip: string;
+          contact_name?: string | null;
+          contact_phone?: string | null;
+          contact_email?: string | null;
+          contact_type?: string | null;
           created_at?: string;
         };
         Update: {
@@ -73,6 +81,42 @@ export interface Database {
           city?: string;
           state?: string;
           zip?: string;
+          contact_name?: string | null;
+          contact_phone?: string | null;
+          contact_email?: string | null;
+          contact_type?: string | null;
+          created_at?: string;
+        };
+      };
+      location_contacts: {
+        Row: {
+          id: string;
+          location_id: string;
+          first_name: string;
+          last_name: string;
+          phone: string | null;
+          email: string | null;
+          type: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          location_id: string;
+          first_name: string;
+          last_name: string;
+          phone?: string | null;
+          email?: string | null;
+          type?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          location_id?: string;
+          first_name?: string;
+          last_name?: string;
+          phone?: string | null;
+          email?: string | null;
+          type?: string | null;
           created_at?: string;
         };
       };
@@ -82,6 +126,15 @@ export interface Database {
           location_id: string;
           unit_number: string;
           status: string;
+          primary_contact_type: string | null;
+          primary_contact_email: string | null;
+          primary_contact_phone: string | null;
+          billing_entity: string | null;
+          billing_email: string | null;
+          billing_city: string | null;
+          billing_state: string | null;
+          billing_zip: string | null;
+          office: string | null;
           created_at: string;
         };
         Insert: {
@@ -89,6 +142,15 @@ export interface Database {
           location_id: string;
           unit_number: string;
           status?: string;
+          primary_contact_type?: string | null;
+          primary_contact_email?: string | null;
+          primary_contact_phone?: string | null;
+          billing_entity?: string | null;
+          billing_email?: string | null;
+          billing_city?: string | null;
+          billing_state?: string | null;
+          billing_zip?: string | null;
+          office?: string | null;
           created_at?: string;
         };
         Update: {
@@ -96,6 +158,47 @@ export interface Database {
           location_id?: string;
           unit_number?: string;
           status?: string;
+          primary_contact_type?: string | null;
+          primary_contact_email?: string | null;
+          primary_contact_phone?: string | null;
+          billing_entity?: string | null;
+          billing_email?: string | null;
+          billing_city?: string | null;
+          billing_state?: string | null;
+          billing_zip?: string | null;
+          office?: string | null;
+          created_at?: string;
+        };
+      };
+      unit_contacts: {
+        Row: {
+          id: string;
+          unit_id: string;
+          first_name: string;
+          last_name: string;
+          phone: string | null;
+          email: string | null;
+          type: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          unit_id: string;
+          first_name: string;
+          last_name: string;
+          phone?: string | null;
+          email?: string | null;
+          type?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          unit_id?: string;
+          first_name?: string;
+          last_name?: string;
+          phone?: string | null;
+          email?: string | null;
+          type?: string | null;
           created_at?: string;
         };
       };

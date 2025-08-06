@@ -37,6 +37,14 @@ type Unit = Database["public"]["Tables"]["units"]["Row"] & {
       name: string;
     };
   };
+  unit_contacts?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    phone: string | null;
+    email: string | null;
+    type: string | null;
+  }[];
 };
 
 type Asset = {
@@ -100,6 +108,14 @@ const UnitDetails = () => {
               companies (
                 name
               )
+            ),
+            unit_contacts (
+              id,
+              first_name,
+              last_name,
+              phone,
+              email,
+              type
             )
           `
           )
@@ -229,27 +245,134 @@ const UnitDetails = () => {
                       </span>
                     </p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">
-                      Primary Contact Type
-                    </label>
-                    <p>{unit.primary_contact_type || "Not specified"}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">
-                      Primary Contact Email
-                    </label>
-                    <p>{unit.primary_contact_email || "Not specified"}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">
-                      Primary Contact Phone
-                    </label>
-                    <p>{unit.primary_contact_phone || "Not specified"}</p>
-                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Contact Information */}
+            {(unit.primary_contact_type ||
+              unit.primary_contact_email ||
+              unit.primary_contact_phone ||
+              (unit.unit_contacts && unit.unit_contacts.length > 0)) && (
+              <>
+                <hr className="my-6" />
+                <div>
+                  <h3 className="text-lg font-medium mb-4">
+                    Contact Information
+                  </h3>
+                  <div className="space-y-4">
+                    {/* Primary Contact */}
+                    {(unit.primary_contact_type ||
+                      unit.primary_contact_email ||
+                      unit.primary_contact_phone) && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="font-medium text-gray-900 mb-2">
+                          Primary Contact
+                        </h4>
+                        <div className="space-y-2">
+                          {unit.primary_contact_type && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Type:
+                              </span>
+                              <span>{unit.primary_contact_type}</span>
+                            </div>
+                          )}
+                          {unit.primary_contact_phone && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Phone:
+                              </span>
+                              <a
+                                href={`tel:${unit.primary_contact_phone}`}
+                                className="text-primary-600 hover:text-primary-800"
+                              >
+                                {unit.primary_contact_phone}
+                              </a>
+                            </div>
+                          )}
+                          {unit.primary_contact_email && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Email:
+                              </span>
+                              <a
+                                href={`mailto:${unit.primary_contact_email}`}
+                                className="text-primary-600 hover:text-primary-800"
+                              >
+                                {unit.primary_contact_email}
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Additional Contacts */}
+                    {unit.unit_contacts && unit.unit_contacts.length > 0 && (
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-2">
+                          Additional Contacts
+                        </h4>
+                        <div className="space-y-3">
+                          {unit.unit_contacts.map((contact) => (
+                            <div
+                              key={contact.id}
+                              className="bg-gray-50 rounded-lg p-4"
+                            >
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-gray-700">
+                                    Name:
+                                  </span>
+                                  <span>
+                                    {contact.first_name} {contact.last_name}
+                                  </span>
+                                </div>
+                                {contact.type && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-gray-700">
+                                      Type:
+                                    </span>
+                                    <span>{contact.type}</span>
+                                  </div>
+                                )}
+                                {contact.phone && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-gray-700">
+                                      Phone:
+                                    </span>
+                                    <a
+                                      href={`tel:${contact.phone}`}
+                                      className="text-primary-600 hover:text-primary-800"
+                                    >
+                                      {contact.phone}
+                                    </a>
+                                  </div>
+                                )}
+                                {contact.email && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-gray-700">
+                                      Email:
+                                    </span>
+                                    <a
+                                      href={`mailto:${contact.email}`}
+                                      className="text-primary-600 hover:text-primary-800"
+                                    >
+                                      {contact.email}
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
 
             <hr className="my-6" />
 
@@ -423,8 +546,6 @@ const UnitDetails = () => {
 
           {/* QR Code Section */}
           <UnitQRCode unitId={unit.id} unitNumber={unit.unit_number} />
-
-
         </div>
       </div>
 

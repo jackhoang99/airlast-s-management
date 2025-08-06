@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle } from 'lucide-react';
-import { useSupabase } from '../lib/supabase-context';
-import LocationForm from '../components/locations/LocationForm';
-import type { Database } from '../types/supabase';
+import { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { useSupabase } from "../lib/supabase-context";
+import LocationForm from "../components/locations/LocationForm";
+import type { Database } from "../types/supabase";
 
-type Location = Database['public']['Tables']['locations']['Row'];
+type Location = Database["public"]["Tables"]["locations"]["Row"];
 
 const EditLocation = () => {
   const { id, companyId } = useParams<{ id: string; companyId?: string }>();
@@ -23,16 +23,16 @@ const EditLocation = () => {
 
       try {
         const { data, error: fetchError } = await supabase
-          .from('locations')
-          .select('*')
-          .eq('id', id)
+          .from("locations")
+          .select("*")
+          .eq("id", id)
           .single();
 
         if (fetchError) throw fetchError;
         setLocation(data);
       } catch (err) {
-        console.error('Error fetching location:', err);
-        setError('Failed to fetch location details');
+        console.error("Error fetching location:", err);
+        setError("Failed to fetch location details");
       } finally {
         setIsLoading(false);
       }
@@ -47,15 +47,15 @@ const EditLocation = () => {
     setIsDeleting(true);
     try {
       const { error: deleteError } = await supabase
-        .from('locations')
+        .from("locations")
         .delete()
-        .eq('id', location.id);
+        .eq("id", location.id);
 
       if (deleteError) throw deleteError;
-      navigate(companyId ? `/companies/${companyId}` : '/locations');
+      navigate(companyId ? `/companies/${companyId}` : "/locations");
     } catch (err) {
-      console.error('Error deleting location:', err);
-      setError('Failed to delete location. Please try again.');
+      console.error("Error deleting location:", err);
+      setError("Failed to delete location. Please try again.");
       setShowDeleteModal(false);
     } finally {
       setIsDeleting(false);
@@ -73,12 +73,12 @@ const EditLocation = () => {
   if (error || !location) {
     return (
       <div className="text-center py-12">
-        <p className="text-error-600 mb-4">{error || 'Location not found'}</p>
-        <Link 
-          to={companyId ? `/companies/${companyId}` : '/locations'} 
+        <p className="text-error-600 mb-4">{error || "Location not found"}</p>
+        <Link
+          to={companyId ? `/companies/${companyId}` : "/locations"}
           className="text-primary-600 hover:text-primary-800"
         >
-          Back to {companyId ? 'Company' : 'Locations'}
+          Back to {companyId ? "Company" : "Locations"}
         </Link>
       </div>
     );
@@ -88,8 +88,8 @@ const EditLocation = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link 
-            to={companyId ? `/companies/${companyId}` : '/locations'} 
+          <Link
+            to={companyId ? `/companies/${companyId}` : "/locations"}
             className="text-gray-500 hover:text-gray-700"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -105,9 +105,9 @@ const EditLocation = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
-        <LocationForm 
+        <LocationForm
           initialData={location}
-          onSuccess={() => navigate(companyId ? `/companies/${companyId}` : '/locations')}
+          onSuccess={() => navigate(`/locations/${location.id}`)}
         />
       </div>
 
@@ -122,18 +122,18 @@ const EditLocation = () => {
               Delete Location
             </h3>
             <p className="text-center text-gray-600 mb-6">
-              Are you sure you want to delete <strong>{location.name}</strong>? 
+              Are you sure you want to delete <strong>{location.name}</strong>?
               This will also delete all associated units and cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
-              <button 
+              <button
                 className="btn btn-secondary"
                 onClick={() => setShowDeleteModal(false)}
                 disabled={isDeleting}
               >
                 Cancel
               </button>
-              <button 
+              <button
                 className="btn btn-error"
                 onClick={handleDelete}
                 disabled={isDeleting}
@@ -144,7 +144,7 @@ const EditLocation = () => {
                     Deleting...
                   </>
                 ) : (
-                  'Delete'
+                  "Delete"
                 )}
               </button>
             </div>
