@@ -33,8 +33,8 @@ const TechnicianJobs = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("uncompleted");
   const [filterType, setFilterType] = useState("all");
-  const [filterDateRange, setFilterDateRange] = useState("all");
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterDateRange, setFilterDateRange] = useState("week");
+  const [showFilters, setShowFilters] = useState(true);
   const [showCompletedJobs, setShowCompletedJobs] = useState(false);
   const [sortBy, setSortBy] = useState<"date" | "name" | "status">("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
