@@ -176,8 +176,6 @@ const TechnicianMap = () => {
               id,
               name,
               status,
-              schedule_start,
-              schedule_duration,
               locations (
                 name,
                 address,
@@ -210,8 +208,8 @@ const TechnicianMap = () => {
             .filter((job) => job && job.status === "scheduled")
             .sort(
               (a, b) =>
-                new Date(a.schedule_start).getTime() -
-                new Date(b.schedule_start).getTime()
+                new Date(a.created_at).getTime() -
+                new Date(b.created_at).getTime()
             )[0];
 
           // Get technician's real location from technician_locations table
@@ -226,7 +224,7 @@ const TechnicianMap = () => {
             current_job_id: currentJob?.id,
             current_job_name: currentJob?.name,
             job_count: jobCount,
-            next_job_time: nextJob?.schedule_start,
+            next_job_time: nextJob?.created_at,
             location: {
               lat: 33.749 + (Math.random() - 0.5) * 0.1, // Random position around Atlanta (fallback)
               lng: -84.388 + (Math.random() - 0.5) * 0.1,
@@ -287,8 +285,8 @@ const TechnicianMap = () => {
             name,
             status,
             type,
-            schedule_start,
-            schedule_duration,
+    
+            
             locations (
               name,
               address,

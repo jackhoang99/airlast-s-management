@@ -11,6 +11,13 @@ import {
 } from "lucide-react";
 import QuickAssetViewModal from "../locations/QuickAssetViewModal";
 import AppointmentModal from "./AppointmentModal";
+import {
+  formatJobDate,
+  formatJobTime,
+  formatJobDateTime,
+  getScheduledDate,
+  getScheduledTime,
+} from "../../utils/dateUtils";
 
 interface JobDetailsModalProps {
   isOpen: boolean;
@@ -22,7 +29,9 @@ interface JobDetailsModalProps {
     status: string;
     type: string;
     additional_type?: string;
-    schedule_start?: string;
+    time_period_start?: string;
+    time_period_due?: string;
+
     description?: string;
     locations?: {
       id?: string;
@@ -38,6 +47,7 @@ interface JobDetailsModalProps {
     job_technicians?: {
       technician_id: string;
       is_primary: boolean;
+      scheduled_at?: string | null; // Single timestamp field
       users: {
         first_name: string;
         last_name: string;
@@ -75,6 +85,10 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
 
     return colorMap[type.toLowerCase()] || "bg-gray-100 text-gray-800";
   };
+
+  // Using centralized date utilities instead of local formatting functions
+  const formatDate = (dateString: string) => formatJobDate(dateString);
+  const formatTime = (timeString: string) => formatJobTime(timeString);
 
   if (!isOpen) return null;
 
@@ -186,17 +200,23 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                 </div>
               </div>
             )}
-          {job.schedule_start && (
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Scheduled</p>
+          <div>
+            <p className="text-sm text-gray-500 mb-1">Start & Due</p>
+            <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <Calendar size={16} className="text-gray-400" />
                 <span className="text-sm">
-                  {new Date(job.schedule_start).toLocaleString()}
+                  Start: {job.time_period_start || "Not set"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar size={16} className="text-gray-400" />
+                <span className="text-sm">
+                  Due: {job.time_period_due || "Not set"}
                 </span>
               </div>
             </div>
-          )}
+          </div>
           {job.job_technicians && job.job_technicians.length > 0 && (
             <div>
               <p className="text-sm text-gray-500 mb-1">Assigned Technicians</p>
@@ -212,6 +232,12 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                       {tech.is_primary && (
                         <span className="ml-1 text-xs bg-primary-100 text-primary-700 px-1 py-0.5 rounded">
                           Primary
+                        </span>
+                      )}
+                      {tech.scheduled_at && (
+                        <span className="text-xs text-gray-500">
+                          • {getScheduledDate(tech.scheduled_at)} at{" "}
+                          {getScheduledTime(tech.scheduled_at)}
                         </span>
                       )}
                     </span>

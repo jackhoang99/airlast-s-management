@@ -77,8 +77,7 @@ const CustomerJobDetails = () => {
               id,
               technician_id,
               is_primary,
-              schedule_date,
-              schedule_time,
+                          scheduled_at,
               users:technician_id (
                 first_name,
                 last_name,
@@ -313,17 +312,14 @@ const CustomerJobDetails = () => {
                         Scheduled Time:
                       </div>
                       {job.job_technicians
-                        .filter(
-                          (tech) => tech.schedule_date && tech.schedule_time
-                        )
+                        .filter((tech) => tech.scheduled_at)
                         .map((tech) => {
                           const technician = tech.users;
-                          const scheduleDate = new Date(
-                            tech.schedule_date
-                          ).toLocaleDateString();
-                          const [hours, minutes] = tech.schedule_time
-                            .split(":")
-                            .map(Number);
+                          const scheduledDate = new Date(tech.scheduled_at);
+                          const scheduleDate =
+                            scheduledDate.toLocaleDateString();
+                          const hours = scheduledDate.getHours();
+                          const minutes = scheduledDate.getMinutes();
                           const ampm = hours >= 12 ? "PM" : "AM";
                           const displayHours = hours % 12 || 12;
                           const displayTime = `${displayHours}:${minutes

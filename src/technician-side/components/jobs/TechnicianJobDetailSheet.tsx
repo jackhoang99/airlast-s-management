@@ -9,6 +9,7 @@ import {
   Mail,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { formatScheduledAt } from "../../../utils/dateUtils";
 
 interface TechnicianJobDetailSheetProps {
   job: any;
@@ -67,20 +68,16 @@ const TechnicianJobDetailSheet = ({
             </span>
           </div>
         )}
-        {job.schedule_start && (
-          <div className="flex items-center gap-2 mt-2">
-            <Calendar size={14} />
-            <span>
-              {new Date(job.schedule_start).toLocaleString([], {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
-          </div>
-        )}
+        {job.job_technicians &&
+          job.job_technicians.length > 0 &&
+          job.job_technicians[0].scheduled_at && (
+            <div className="flex items-center gap-2 mt-2">
+              <Calendar size={14} />
+              <span>
+                {formatScheduledAt(job.job_technicians[0].scheduled_at)}
+              </span>
+            </div>
+          )}
         {job.contact_name && (
           <div className="flex items-center gap-2 mt-2">
             <User size={14} />

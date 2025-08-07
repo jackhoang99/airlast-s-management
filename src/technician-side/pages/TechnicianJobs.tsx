@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSupabase } from "../../lib/supabase-context";
+import { getScheduledDate, getScheduledTime } from "../../utils/dateUtils";
 import {
   Briefcase,
   Search,
@@ -30,12 +31,13 @@ const TechnicianJobs = () => {
     null
   );
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("uncompleted");
   const [filterType, setFilterType] = useState("all");
   const [filterDateRange, setFilterDateRange] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [showCompletedJobs, setShowCompletedJobs] = useState(false);
   const [sortBy, setSortBy] = useState<"date" | "name" | "status">("date");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
     const fetchTechnicianInfo = async () => {
@@ -193,6 +195,17 @@ const TechnicianJobs = () => {
               state,
               zip
             ),
+            job_technicians (
+              id,
+              technician_id,
+              is_primary,
+              scheduled_at,
+              scheduled_at,
+              users:technician_id (
+                first_name,
+                last_name
+              )
+            ),
             job_units:job_units!inner (
               id,
               unit_id,
@@ -215,8 +228,10 @@ const TechnicianJobs = () => {
           )
           .in("id", jobIds);
 
-        // Apply status filter if not 'all'
-        if (filterStatus !== "all") {
+        // Apply status filter - respect showCompletedJobs setting
+        if (filterStatus === "uncompleted" && !showCompletedJobs) {
+          query = query.not("status", "eq", "completed");
+        } else if (filterStatus !== "all") {
           query = query.eq("status", filterStatus);
         }
 
@@ -225,36 +240,11 @@ const TechnicianJobs = () => {
           query = query.eq("type", filterType);
         }
 
-        // Apply date range filter
-        if (filterDateRange !== "all") {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-
-          if (filterDateRange === "today") {
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            query = query
-              .gte("schedule_start", today.toISOString())
-              .lt("schedule_start", tomorrow.toISOString());
-          } else if (filterDateRange === "week") {
-            const nextWeek = new Date(today);
-            nextWeek.setDate(nextWeek.getDate() + 7);
-            query = query
-              .gte("schedule_start", today.toISOString())
-              .lt("schedule_start", nextWeek.toISOString());
-          } else if (filterDateRange === "month") {
-            const nextMonth = new Date(today);
-            nextMonth.setMonth(nextMonth.getMonth() + 1);
-            query = query
-              .gte("schedule_start", today.toISOString())
-              .lt("schedule_start", nextMonth.toISOString());
-          }
-        }
-
         // Order by selected field
         if (sortBy === "date") {
-          query = query.order("time_period_due", { ascending: sortDirection === "asc" })
-                      .order("time_period_start", { ascending: sortDirection === "asc" });
+          query = query
+            .order("time_period_due", { ascending: sortDirection === "asc" })
+            .order("time_period_start", { ascending: sortDirection === "asc" });
         } else if (sortBy === "name") {
           query = query.order("name", { ascending: sortDirection === "asc" });
         } else if (sortBy === "status") {
@@ -269,8 +259,69 @@ const TechnicianJobs = () => {
         }
 
         console.log("Found jobs:", jobsData);
+
+        // Apply date range filtering in JavaScript since we can't filter by scheduled_at in the query
+        let filteredJobsData = jobsData || [];
+
+        if (filterDateRange !== "all") {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          filteredJobsData = filteredJobsData.filter((job: any) => {
+            const scheduledAt = job.job_technicians?.[0]?.scheduled_at;
+            if (!scheduledAt) return false;
+
+            const jobDate = new Date(scheduledAt);
+            jobDate.setHours(0, 0, 0, 0);
+
+            switch (filterDateRange) {
+              case "today":
+                return jobDate.getTime() === today.getTime();
+              case "week":
+                const weekStart = new Date(today);
+                weekStart.setDate(today.getDate() - today.getDay());
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekStart.getDate() + 6);
+                return jobDate >= weekStart && jobDate <= weekEnd;
+              case "month":
+                return (
+                  jobDate.getMonth() === today.getMonth() &&
+                  jobDate.getFullYear() === today.getFullYear()
+                );
+              default:
+                return true;
+            }
+          });
+        }
+
+        // Apply completed jobs filter
+        if (!showCompletedJobs) {
+          filteredJobsData = filteredJobsData.filter(
+            (job: any) => job.status !== "completed"
+          );
+        }
+
+        // Sort by scheduled time if date sorting is selected
+        if (sortBy === "date") {
+          filteredJobsData.sort((a: any, b: any) => {
+            const aScheduledAt = a.job_technicians?.[0]?.scheduled_at;
+            const bScheduledAt = b.job_technicians?.[0]?.scheduled_at;
+
+            if (!aScheduledAt && !bScheduledAt) return 0;
+            if (!aScheduledAt) return 1;
+            if (!bScheduledAt) return -1;
+
+            const aDate = new Date(aScheduledAt);
+            const bDate = new Date(bScheduledAt);
+
+            return sortDirection === "asc"
+              ? aDate.getTime() - bDate.getTime()
+              : bDate.getTime() - aDate.getTime();
+          });
+        }
+
         // Flatten units from job_units
-        const jobsWithUnits = (jobsData || []).map((job: any) => ({
+        const jobsWithUnits = filteredJobsData.map((job: any) => ({
           ...job,
           units: (job.job_units || []).map((ju: any) => ju.units),
         }));
@@ -294,22 +345,17 @@ const TechnicianJobs = () => {
     filterDateRange,
     sortBy,
     sortDirection,
+    showCompletedJobs,
   ]);
 
-  const formatTime = (dateString: string) => {
-    if (!dateString) return "Unscheduled";
-    const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const formatTime = (timeString: string) => {
+    if (!timeString) return "Unscheduled";
+    return getScheduledTime(timeString);
   };
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "";
-    const date = new Date(dateString);
-    return date.toLocaleDateString([], {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
+    return getScheduledDate(dateString);
   };
 
   const filteredJobs = jobs.filter((job) => {
@@ -384,6 +430,22 @@ const TechnicianJobs = () => {
             />
           </div>
           <button
+            onClick={() => {
+              const newShowCompleted = !showCompletedJobs;
+              setShowCompletedJobs(newShowCompleted);
+              // Update filterStatus to "all" when showing completed jobs to avoid conflicts
+              if (newShowCompleted && filterStatus === "uncompleted") {
+                setFilterStatus("all");
+              }
+            }}
+            className={`btn h-12 text-base px-4 ${
+              showCompletedJobs ? "btn-primary" : "btn-secondary"
+            }`}
+          >
+            <CheckSquare size={18} className="mr-2" />
+            {showCompletedJobs ? "Hide Completed" : "Show Completed"}
+          </button>
+          <button
             onClick={() => setShowFilters(!showFilters)}
             className="btn btn-secondary h-12 text-base px-4"
           >
@@ -405,6 +467,7 @@ const TechnicianJobs = () => {
                   className="select w-full text-base h-12"
                 >
                   <option value="all">All Statuses</option>
+                  <option value="uncompleted">Uncompleted</option>
                   <option value="scheduled">Scheduled</option>
                   <option value="unscheduled">Unscheduled</option>
                   <option value="completed">Completed</option>
@@ -483,11 +546,12 @@ const TechnicianJobs = () => {
 
               <button
                 onClick={() => {
-                  setFilterStatus("all");
+                  setFilterStatus("uncompleted");
                   setFilterType("all");
                   setFilterDateRange("all");
                   setSortBy("date");
-                  setSortDirection("asc");
+                  setSortDirection("desc");
+                  setShowCompletedJobs(false);
                 }}
                 className="text-sm text-primary-600 hover:text-primary-800"
               >
@@ -524,8 +588,9 @@ const TechnicianJobs = () => {
               ? "Try adjusting your search terms"
               : filterStatus !== "all" ||
                 filterType !== "all" ||
-                filterDateRange !== "all"
-              ? "Try adjusting your filters"
+                filterDateRange !== "all" ||
+                !showCompletedJobs
+              ? "Try adjusting your filters or show completed jobs"
               : technicianUsername
               ? `No jobs are currently assigned to ${technicianUsername}`
               : "You don't have any jobs assigned yet"}
@@ -598,15 +663,15 @@ const TechnicianJobs = () => {
                       <CheckSquare size={14} className="mr-1" />
                       Completed
                     </div>
-                  ) : job.schedule_start ? (
+                  ) : job.job_technicians && job.job_technicians.length > 0 ? (
                     <>
                       <div className="flex items-center text-sm font-medium text-primary-600">
                         <Calendar size={14} className="mr-1" />
-                        {formatDate(job.schedule_start)}
+                        {formatDate(job.job_technicians[0].scheduled_at || "")}
                       </div>
                       <div className="flex items-center text-xs text-gray-500 mt-1">
                         <Clock size={12} className="mr-1" />
-                        {formatTime(job.schedule_start)}
+                        {formatTime(job.job_technicians[0].scheduled_at || "")}
                       </div>
                     </>
                   ) : (

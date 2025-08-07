@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { MapPin, Calendar, Clock, Navigation } from "lucide-react";
+import { getScheduledDate, getScheduledTime } from "../../../utils/dateUtils";
 import {
   getJobTypeBorderColor,
   getJobTypeBackgroundColor,
@@ -107,19 +108,20 @@ const TechnicianJobList = ({
                 <div className="text-right">
                   <div className="flex items-center text-xs text-gray-600">
                     <Calendar size={12} className="mr-1" />
-                    {job.schedule_start
-                      ? new Date(job.schedule_start).toLocaleDateString()
+                    {job.job_technicians &&
+                    job.job_technicians.length > 0 &&
+                    job.job_technicians[0].scheduled_at
+                      ? getScheduledDate(job.job_technicians[0].scheduled_at)
                       : "Unscheduled"}
                   </div>
-                  {job.schedule_start && (
-                    <div className="flex items-center text-xs text-gray-600 mt-1">
-                      <Clock size={12} className="mr-1" />
-                      {new Date(job.schedule_start).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </div>
-                  )}
+                  {job.job_technicians &&
+                    job.job_technicians.length > 0 &&
+                    job.job_technicians[0].scheduled_at && (
+                      <div className="flex items-center text-xs text-gray-600 mt-1">
+                        <Clock size={12} className="mr-1" />
+                        {getScheduledTime(job.job_technicians[0].scheduled_at)}
+                      </div>
+                    )}
                 </div>
               </div>
               <div className="mt-2 flex justify-between">
@@ -143,10 +145,9 @@ const TechnicianJobList = ({
                     )}`}
                   >
                     {job.type}
-                                    {job.type === "maintenance" &&
-                  job.additional_type && (
-                    <span className="ml-1">• {job.additional_type}</span>
-                  )}
+                    {job.type === "maintenance" && job.additional_type && (
+                      <span className="ml-1">• {job.additional_type}</span>
+                    )}
                   </span>
                 </div>
                 <div className="flex gap-2">

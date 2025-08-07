@@ -1,5 +1,12 @@
 import { Calendar, Clock } from "lucide-react";
 import { Job } from "../../types/job";
+import {
+  formatJobDate,
+  formatJobTime,
+  formatJobDateTime,
+  getScheduledDate,
+  getScheduledTime,
+} from "../../utils/dateUtils";
 
 type JobDetailsCardProps = {
   job: Job;
@@ -38,16 +45,10 @@ const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
     }
   };
 
-  const formatDateTime = (date: string) => {
-    return new Date(date).toLocaleString("en-US", {
-      month: "2-digit",
-      day: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
+  // Using centralized date utilities instead of local formatting functions
+  const formatDateTime = (date: string) => formatJobDateTime(date);
+  const formatTime = (timeString: string) => formatJobTime(timeString);
+  const formatDate = (dateString: string) => formatJobDate(dateString);
 
   return (
     <div className="card">
@@ -104,6 +105,36 @@ const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
               <p className="text-gray-700">{job.problem_description}</p>
             </div>
           )}
+          {job.job_technicians && job.job_technicians.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-medium text-gray-500">
+                Assigned Technicians
+              </h3>
+              <div className="space-y-1">
+                {job.job_technicians.map((tech, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 text-sm text-gray-700"
+                  >
+                    <span>
+                      {tech.users.first_name} {tech.users.last_name}
+                      {tech.is_primary && (
+                        <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">
+                          Primary
+                        </span>
+                      )}
+                    </span>
+                    {tech.scheduled_at && (
+                      <span className="text-xs text-gray-500">
+                        • {getScheduledDate(tech.scheduled_at)} at{" "}
+                        {getScheduledTime(tech.scheduled_at)}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="text-right">
           <div className="text-sm">
@@ -115,12 +146,6 @@ const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
               <Calendar size={14} />
               <span>Due: {job.time_period_due}</span>
             </div>
-            {job.schedule_start && (
-              <div className="flex items-center justify-end gap-1 text-gray-500">
-                <Clock size={14} />
-                <span>Scheduled: {formatDateTime(job.schedule_start)}</span>
-              </div>
-            )}
           </div>
         </div>
       </div>

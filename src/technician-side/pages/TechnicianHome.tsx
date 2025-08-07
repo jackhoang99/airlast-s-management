@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSupabase } from "../../lib/supabase-context";
+import { getScheduledDate, getScheduledTime } from "../../utils/dateUtils";
 import {
   Briefcase,
   Calendar,
@@ -381,6 +382,21 @@ const TechnicianHome = () => {
           return;
         }
 
+        // First, get job IDs that have today's schedule
+        const { data: todayJobIds, error: todayJobIdsError } = await supabase
+          .from("job_technicians")
+          .select("job_id")
+          .eq("technician_id", technicianId)
+          .gte("scheduled_at", todayStr + "T00:00:00Z")
+          .lt("scheduled_at", tomorrowStr + "T00:00:00Z");
+
+        if (todayJobIdsError) {
+          console.error("Error fetching today's job IDs:", todayJobIdsError);
+          throw todayJobIdsError;
+        }
+
+        const todayJobIdList = todayJobIds?.map((jt) => jt.job_id) || [];
+
         // Fetch today's jobs
         const { data: todayJobsData, error: todayError } = await supabase
           .from("jobs")
@@ -394,6 +410,16 @@ const TechnicianHome = () => {
               state,
               zip
             ),
+            job_technicians (
+              id,
+              technician_id,
+              is_primary,
+              scheduled_at,
+              users:technician_id (
+                first_name,
+                last_name
+              )
+            ),
             job_units:job_units!inner (
               unit_id,
               units:unit_id (
@@ -403,12 +429,10 @@ const TechnicianHome = () => {
             )
           `
           )
-          .in("id", jobIds)
-          .gte("schedule_start", todayStr)
-          .lt("schedule_start", tomorrowStr)
+          .in("id", todayJobIdList)
           .neq("status", "completed")
           .neq("status", "cancelled")
-          .order("schedule_start");
+          .order("created_at", { ascending: true });
 
         if (todayError) {
           console.error("Error fetching today's jobs:", todayError);
@@ -423,6 +447,25 @@ const TechnicianHome = () => {
         }));
         setTodayJobs(todayJobsWithUnits);
 
+        // First, get job IDs that have upcoming schedule
+        const { data: upcomingJobIds, error: upcomingJobIdsError } =
+          await supabase
+            .from("job_technicians")
+            .select("job_id")
+            .eq("technician_id", technicianId)
+            .gte("scheduled_at", tomorrowStr + "T00:00:00Z")
+            .lt("scheduled_at", nextWeekStr + "T00:00:00Z");
+
+        if (upcomingJobIdsError) {
+          console.error(
+            "Error fetching upcoming job IDs:",
+            upcomingJobIdsError
+          );
+          throw upcomingJobIdsError;
+        }
+
+        const upcomingJobIdList = upcomingJobIds?.map((jt) => jt.job_id) || [];
+
         // Fetch upcoming jobs
         const { data: upcomingJobsData, error: upcomingError } = await supabase
           .from("jobs")
@@ -436,6 +479,16 @@ const TechnicianHome = () => {
               state,
               zip
             ),
+            job_technicians (
+              id,
+              technician_id,
+              is_primary,
+              scheduled_at,
+              users:technician_id (
+                first_name,
+                last_name
+              )
+            ),
             job_units:job_units!inner (
               unit_id,
               units:unit_id (
@@ -445,9 +498,7 @@ const TechnicianHome = () => {
             )
           `
           )
-          .in("id", jobIds)
-          .gte("schedule_start", tomorrowStr)
-          .lt("schedule_start", nextWeekStr)
+          .in("id", upcomingJobIdList)
           .neq("status", "completed")
           .neq("status", "cancelled")
           .order("time_period_due", { ascending: false })
@@ -482,6 +533,16 @@ const TechnicianHome = () => {
               city,
               state,
               zip
+            ),
+            job_technicians (
+              id,
+              technician_id,
+              is_primary,
+                          scheduled_at,
+              users:technician_id (
+                first_name,
+                last_name
+              )
             ),
             job_units:job_units!inner (
               unit_id,
@@ -524,18 +585,14 @@ const TechnicianHome = () => {
     }
   }, [supabase, technicianId]);
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const formatTime = (timeString: string) => {
+    if (!timeString) return "";
+    return getScheduledTime(timeString);
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString([], {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
+    if (!dateString) return "";
+    return getScheduledDate(dateString);
   };
 
   return (
@@ -653,12 +710,24 @@ const TechnicianHome = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="flex items-center text-sm font-medium text-primary-600">
-                          <Clock size={14} className="mr-1" />
-                          {job.schedule_start
-                            ? formatTime(job.schedule_start)
-                            : "Unscheduled"}
-                        </div>
+                        {job.job_technicians &&
+                        job.job_technicians.length > 0 &&
+                        job.job_technicians[0].scheduled_at ? (
+                          <>
+                            <div className="flex items-center text-sm font-medium text-primary-600">
+                              <Calendar size={14} className="mr-1" />
+                              {formatDate(job.job_technicians[0].scheduled_at)}
+                            </div>
+                            <div className="flex items-center text-xs text-gray-500 mt-1">
+                              <Clock size={12} className="mr-1" />
+                              {formatTime(job.job_technicians[0].scheduled_at)}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-sm text-gray-500">
+                            Unscheduled
+                          </div>
+                        )}
                         <span
                           className={`text-xs px-2 py-1 rounded-full mt-1 inline-block
                           ${
@@ -796,13 +865,17 @@ const TechnicianHome = () => {
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-medium text-gray-900">
-                          {job.schedule_start
-                            ? formatDate(job.schedule_start)
+                          {job.job_technicians && job.job_technicians.length > 0
+                            ? formatDate(
+                                job.job_technicians[0].scheduled_at || ""
+                              )
                             : "Unscheduled"}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {job.schedule_start
-                            ? formatTime(job.schedule_start)
+                          {job.job_technicians && job.job_technicians.length > 0
+                            ? formatTime(
+                                job.job_technicians[0].scheduled_at || ""
+                              )
                             : ""}
                         </div>
                       </div>

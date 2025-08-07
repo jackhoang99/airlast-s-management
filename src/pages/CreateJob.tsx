@@ -65,6 +65,9 @@ const CreateJob = () => {
   const [presetName, setPresetName] = useState("");
   const [presets, setPresets] = useState<any[]>([]);
   const [selectedTechnicians, setSelectedTechnicians] = useState<User[]>([]);
+  const [technicianSchedules, setTechnicianSchedules] = useState<{
+    [technicianId: string]: { scheduleDate: string; scheduleTime: string };
+  }>({});
   const [jobTypes, setJobTypes] = useState<any[]>([]);
   const [validationErrors, setValidationErrors] = useState<{
     [key: string]: string;
@@ -77,6 +80,28 @@ const CreateJob = () => {
   const [additionalContacts, setAdditionalContacts] = useState([
     { first_name: "", last_name: "", phone: "", email: "", type: "" },
   ]);
+
+  // Helper function to format schedule display
+  const formatScheduleDisplay = (
+    scheduleDate: string,
+    scheduleTime: string
+  ) => {
+    try {
+      const date = new Date(scheduleDate);
+      const time = new Date(`2000-01-01T${scheduleTime}`);
+
+      return {
+        date: date.toLocaleDateString(),
+        time: time.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        }),
+      };
+    } catch (error) {
+      return { date: scheduleDate, time: scheduleTime };
+    }
+  };
 
   const [formData, setFormData] = useState({
     // Service Location
@@ -527,6 +552,11 @@ const CreateJob = () => {
 
   const handleScheduleAppointment = async (appointment: {
     technicianIds: string[];
+    technicianSchedules: {
+      technicianId: string;
+      scheduleDate: string;
+      scheduleTime: string;
+    }[];
   }) => {
     if (!supabase) return;
 
@@ -539,6 +569,19 @@ const CreateJob = () => {
 
       if (techError) throw techError;
       setSelectedTechnicians(techData || []);
+
+      // Convert technicianSchedules array to object for easier access
+      const schedulesObject: {
+        [technicianId: string]: { scheduleDate: string; scheduleTime: string };
+      } = {};
+      appointment.technicianSchedules.forEach((schedule) => {
+        schedulesObject[schedule.technicianId] = {
+          scheduleDate: schedule.scheduleDate,
+          scheduleTime: schedule.scheduleTime,
+        };
+      });
+      setTechnicianSchedules(schedulesObject);
+
       setFormData((prev) => ({
         ...prev,
         technician_ids: appointment.technicianIds,
@@ -612,7 +655,7 @@ const CreateJob = () => {
       const { data: jobData, error: insertError } = await supabase
         .from("jobs")
         .insert({
-          name: `inspection-${formData.service_zip}-${formData.service_line}`.trim(),
+          name: `${formData.type}-${formData.service_zip}-${formData.service_line}`.trim(),
           type: formData.type,
           additional_type:
             formData.type === "maintenance" ? formData.additional_type : null,
@@ -630,7 +673,7 @@ const CreateJob = () => {
           is_training: formData.is_training,
           time_period_start: formData.time_period_start,
           time_period_due: formData.time_period_due,
-          status: "unscheduled",
+          status: "unscheduled", // Will be updated after technician assignment
           office: formData.office,
           ...(formData.service_contract
             ? { service_contract: formData.service_contract }
@@ -642,21 +685,75 @@ const CreateJob = () => {
 
       if (insertError) throw insertError;
 
-      // If there are technicians, add them to the job_technicians table
-      if (formData.technician_ids.length > 0 && jobData) {
-        const technicianEntries = formData.technician_ids.map(
-          (techId, index) => ({
-            job_id: jobData.id,
-            technician_id: techId,
-            is_primary: index === 0, // First technician is primary
-          })
-        );
+      // Handle technician assignments
+      if (jobData) {
+        if (formData.technician_ids.length > 0) {
+          // Add technicians to the job_technicians table
+          const technicianEntries = formData.technician_ids.map(
+            (techId, index) => {
+              const schedule = technicianSchedules[techId];
+              return {
+                job_id: jobData.id,
+                technician_id: techId,
+                is_primary: index === 0, // First technician is primary
+                scheduled_at:
+                  schedule?.scheduleDate && schedule?.scheduleTime
+                    ? (() => {
+                        // Parse the date and time
+                        const [year, month, day] = schedule.scheduleDate
+                          .split("-")
+                          .map(Number);
+                        const [hours, minutes] = schedule.scheduleTime
+                          .split(":")
+                          .map(Number);
 
-        const { error: techError } = await supabase
-          .from("job_technicians")
-          .insert(technicianEntries);
+                        // Create a date object in Eastern Time
+                        const easternDate = new Date(
+                          year,
+                          month - 1,
+                          day,
+                          hours,
+                          minutes
+                        );
 
-        if (techError) throw techError;
+                        // Convert to ISO string for storage
+                        return easternDate.toISOString();
+                      })()
+                    : null,
+              };
+            }
+          );
+
+          const { error: techError } = await supabase
+            .from("job_technicians")
+            .insert(technicianEntries);
+
+          if (techError) throw techError;
+
+          // Update job status to scheduled
+          const { error: statusError } = await supabase
+            .from("jobs")
+            .update({ status: "scheduled" })
+            .eq("id", jobData.id);
+
+          if (statusError) throw statusError;
+        } else {
+          // Remove all technicians from this job
+          const { error: deleteError } = await supabase
+            .from("job_technicians")
+            .delete()
+            .eq("job_id", jobData.id);
+
+          if (deleteError) throw deleteError;
+
+          // Update job status to unscheduled
+          const { error: statusError } = await supabase
+            .from("jobs")
+            .update({ status: "unscheduled" })
+            .eq("id", jobData.id);
+
+          if (statusError) throw statusError;
+        }
       }
 
       if (jobData && additionalContacts.length > 0) {
@@ -1713,31 +1810,54 @@ const CreateJob = () => {
                 Assigned Technicians
               </h3>
               <div className="space-y-3">
-                {selectedTechnicians.map((tech) => (
-                  <div key={tech.id} className="flex items-start gap-4">
-                    <div className="w-10 h-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium">
-                        {tech.first_name?.[0] || "?"}
-                        {tech.last_name?.[0] || "?"}
-                      </span>
-                    </div>
-                    <div>
-                      <div className="font-medium">
-                        {tech.first_name} {tech.last_name}
+                {selectedTechnicians.map((tech) => {
+                  const schedule = technicianSchedules[tech.id];
+                  return (
+                    <div key={tech.id} className="flex items-start gap-4">
+                      <div className="w-10 h-10 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium">
+                          {tech.first_name?.[0] || "?"}
+                          {tech.last_name?.[0] || "?"}
+                        </span>
                       </div>
-                      <div className="text-sm text-gray-500 space-y-1 mt-1">
-                        <div className="flex items-center gap-2">
-                          <Phone size={14} />
-                          {tech.phone || "No phone"}
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          {tech.first_name} {tech.last_name}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Mail size={14} />
-                          {tech.email}
+                        <div className="text-sm text-gray-500 space-y-1 mt-1">
+                          <div className="flex items-center gap-2">
+                            <Phone size={14} />
+                            {tech.phone || "No phone"}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Mail size={14} />
+                            {tech.email}
+                          </div>
+                          {schedule && (
+                            <div className="flex items-center gap-2">
+                              <Calendar size={14} />
+                              <span>
+                                {
+                                  formatScheduleDisplay(
+                                    schedule.scheduleDate,
+                                    schedule.scheduleTime
+                                  ).date
+                                }{" "}
+                                at{" "}
+                                {
+                                  formatScheduleDisplay(
+                                    schedule.scheduleDate,
+                                    schedule.scheduleTime
+                                  ).time
+                                }
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

@@ -110,6 +110,9 @@ const TechnicianLogin = () => {
           sessionStorage.setItem("isTechAuthenticated", "true");
           sessionStorage.setItem("techUsername", credentials.username);
 
+          // Clear any auth attempts from previous failed refreshes
+          sessionStorage.removeItem("authAttempts");
+
           // Wait a moment for the session to be properly established
           await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -142,6 +145,9 @@ const TechnicianLogin = () => {
         console.log("Login successful, setting session storage");
         sessionStorage.setItem("isTechAuthenticated", "true");
         sessionStorage.setItem("techUsername", credentials.username);
+
+        // Clear any auth attempts from previous failed refreshes
+        sessionStorage.removeItem("authAttempts");
 
         // Wait a moment for the session to be properly established
         await new Promise((resolve) => setTimeout(resolve, 500));

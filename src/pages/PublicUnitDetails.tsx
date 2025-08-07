@@ -45,7 +45,7 @@ type Job = {
   additional_type: string | null;
   is_agreement_customer: boolean | null;
   service_line: string | null;
-  schedule_start: string | null;
+
   schedule_duration: string | null;
   time_period_start: string;
   time_period_due: string;
@@ -171,7 +171,7 @@ const PublicUnitDetails = () => {
                 status,
                 type,
                 service_line,
-                schedule_start,
+        
                 schedule_duration,
                 time_period_start,
                 time_period_due,
@@ -576,16 +576,15 @@ const PublicUnitDetails = () => {
                         <span className="sm:hidden">D: </span>
                         {formatDate(job.time_period_due)}
                       </div>
-                      {job.schedule_start && (
-                        <div className="text-gray-500">
-                          <span className="hidden sm:inline">Schedule: </span>
-                          <span className="sm:hidden">Sch: </span>
-                          {formatDate(job.schedule_start)}
-                          {job.schedule_duration && (
-                            <span> ({job.schedule_duration})</span>
-                          )}
-                        </div>
-                      )}
+                      {job.job_technicians &&
+                        job.job_technicians.length > 0 &&
+                        job.job_technicians[0].scheduled_at && (
+                          <div className="text-gray-500">
+                            <span className="hidden sm:inline">Schedule: </span>
+                            <span className="sm:hidden">Sch: </span>
+                            {formatDate(job.job_technicians[0].scheduled_at)}
+                          </div>
+                        )}
                     </div>
                   </div>
                 </div>

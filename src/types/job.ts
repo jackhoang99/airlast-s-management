@@ -31,8 +31,6 @@ export interface Job {
   problem_description: string | null;
   customer_po: string | null;
   service_contract: string | null;
-  schedule_date: string | null;
-  schedule_time: string | null;
   additional_type: string | null;
   is_agreement_customer: boolean | null;
   // Remove unit_id and units?: Unit
@@ -73,8 +71,7 @@ export interface Job {
     id: string;
     technician_id: string;
     is_primary: boolean;
-    schedule_date?: string | null;
-    schedule_time?: string | null;
+    scheduled_at?: string | null; // Single timestamp field
     users: {
       first_name: string;
       last_name: string;

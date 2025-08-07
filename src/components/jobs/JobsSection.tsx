@@ -7,6 +7,12 @@ import {
   getJobTypeBackgroundColor,
   getJobTypeHoverColor,
 } from "./JobTypeColors";
+import {
+  formatJobDate,
+  formatJobTime,
+  getScheduledDate,
+  getScheduledTime,
+} from "../../utils/dateUtils";
 
 type Job = {
   id: string;
@@ -15,7 +21,7 @@ type Job = {
   status: string;
   type: string;
   service_line: string | null;
-  schedule_start: string | null;
+
   schedule_duration: string | null;
   time_period_start: string;
   time_period_due: string;
@@ -45,6 +51,7 @@ type Job = {
     };
   };
   job_technicians?: {
+    scheduled_at?: string | null; // Single timestamp field
     users: {
       first_name: string | null;
       last_name: string | null;
@@ -101,7 +108,7 @@ const JobsSection: React.FC<JobsSectionProps> = ({
             status,
             type,
             service_line,
-            schedule_start,
+    
             schedule_duration,
             time_period_start,
             time_period_due,
@@ -134,6 +141,7 @@ const JobsSection: React.FC<JobsSectionProps> = ({
               )
             ),
             job_technicians (
+              scheduled_at,
               users (
                 first_name,
                 last_name,
@@ -258,15 +266,10 @@ const JobsSection: React.FC<JobsSectionProps> = ({
     );
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  // Using centralized date utilities instead of local formatting functions
+  const formatDateTime = (dateString: string) => formatJobDate(dateString);
+  const formatTime = (timeString: string) => formatJobTime(timeString);
+  const formatDate = (dateString: string) => formatJobDate(dateString);
 
   const getTechnicianNames = (job: Job) => {
     return (
@@ -451,7 +454,23 @@ const JobsSection: React.FC<JobsSectionProps> = ({
                     )}
                     {job.job_technicians && job.job_technicians.length > 0 && (
                       <div className="text-sm text-gray-500 mt-1">
-                        Technicians: {getTechnicianNames(job)}
+                        <div className="font-medium">Technicians:</div>
+                        {job.job_technicians.map((tech, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-2 mt-1"
+                          >
+                            <span>
+                              {tech.users.first_name} {tech.users.last_name}
+                            </span>
+                            {tech.scheduled_at && (
+                              <span className="text-xs text-gray-400">
+                                • {getScheduledDate(tech.scheduled_at)} at{" "}
+                                {getScheduledTime(tech.scheduled_at)}
+                              </span>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                     {job.description && (
@@ -468,14 +487,6 @@ const JobsSection: React.FC<JobsSectionProps> = ({
                       <div className="text-sm text-gray-500">
                         Due: {job.time_period_due}
                       </div>
-                      {job.schedule_start && (
-                        <div className="text-sm text-gray-500">
-                          Schedule: {formatDateTime(job.schedule_start)}
-                          {job.schedule_duration && (
-                            <span> ({job.schedule_duration})</span>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>

@@ -511,12 +511,16 @@ const PMHistory = () => {
                                   {job.problem_description}
                                 </p>
                               )}
-                              {job.schedule_start && (
-                                <p className="text-gray-600 mt-1">
-                                  <strong>Scheduled:</strong>{" "}
-                                  {formatDateTime(job.schedule_start)}
-                                </p>
-                              )}
+                              {job.job_technicians &&
+                                job.job_technicians.length > 0 &&
+                                job.job_technicians[0].scheduled_at && (
+                                  <p className="text-gray-600 mt-1">
+                                    <strong>Scheduled:</strong>{" "}
+                                    {formatDateTime(
+                                      job.job_technicians[0].scheduled_at
+                                    )}
+                                  </p>
+                                )}
                             </div>
                             <div>
                               {job.units && job.units.length > 0 && (

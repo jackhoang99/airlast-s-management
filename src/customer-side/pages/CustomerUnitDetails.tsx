@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useSupabase } from "../../lib/supabase-context";
+import { getScheduledDate, getScheduledTime } from "../../utils/dateUtils";
 import {
   Building2,
   MapPin,
@@ -77,7 +78,23 @@ const CustomerUnitDetails = () => {
         // Fetch jobs for this unit via job_units join table
         const { data: jobUnitsData, error: jobUnitsError } = await supabase
           .from("job_units")
-          .select("job_id, jobs:job_id(*)")
+          .select(
+            `
+            job_id, 
+            jobs:job_id(
+              *,
+              job_technicians (
+                technician_id,
+                is_primary,
+                scheduled_at,
+                users:technician_id (
+                  first_name,
+                  last_name
+                )
+              )
+            )
+          `
+          )
           .eq("unit_id", id);
         if (jobUnitsError) throw jobUnitsError;
         const jobs = (jobUnitsData || []).map((ju: any) => ju.jobs);
@@ -354,11 +371,32 @@ const CustomerUnitDetails = () => {
                     </div>
 
                     <div className="mt-2 text-sm text-gray-600">
-                      {job.schedule_start ? (
-                        <div className="flex items-center">
-                          <Calendar size={14} className="mr-1" />
-                          {formatDate(job.schedule_start)}
-                        </div>
+                      {job.job_technicians && job.job_technicians.length > 0 ? (
+                        job.job_technicians
+                          .filter((tech) => tech.scheduled_at)
+                          .map((tech, index) => (
+                            <div
+                              key={tech.technician_id}
+                              className={index > 0 ? "mt-1" : ""}
+                            >
+                              <div className="flex items-center">
+                                <Calendar size={14} className="mr-1" />
+                                <span className="font-medium">
+                                  {tech.users?.first_name}{" "}
+                                  {tech.users?.last_name}
+                                  {tech.is_primary && (
+                                    <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1 py-0.5 rounded">
+                                      Primary
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-500 ml-5">
+                                {getScheduledDate(tech.scheduled_at)} at{" "}
+                                {getScheduledTime(tech.scheduled_at)}
+                              </div>
+                            </div>
+                          ))
                       ) : (
                         <div className="text-yellow-600">Not scheduled</div>
                       )}

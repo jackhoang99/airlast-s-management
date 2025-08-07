@@ -70,15 +70,19 @@ const AppointmentModal = ({
     // Update selected techs when selectedTechnicianIds prop changes
     setSelectedTechs(selectedTechnicianIds);
 
-    // Initialize schedules for newly selected technicians
-    const today = new Date().toISOString().split("T")[0];
-    const defaultTime = "09:00";
+    // Initialize schedules for newly selected technicians with current date and time
+    const now = new Date();
+    const currentDate = now.toISOString().split("T")[0];
+    const currentTime = now.toTimeString().slice(0, 5); // Format as HH:MM
 
     setTechnicianSchedules((prev) => {
       const updated = { ...prev };
       selectedTechnicianIds.forEach((techId) => {
         if (!updated[techId]) {
-          updated[techId] = { scheduleDate: today, scheduleTime: defaultTime };
+          updated[techId] = {
+            scheduleDate: currentDate,
+            scheduleTime: currentTime,
+          };
         }
       });
       return updated;
@@ -96,11 +100,13 @@ const AppointmentModal = ({
         });
         return prev.filter((id) => id !== techId);
       } else {
-        // Add technician with default schedule
-        const today = new Date().toISOString().split("T")[0];
+        // Add technician with current date and time
+        const now = new Date();
+        const currentDate = now.toISOString().split("T")[0];
+        const currentTime = now.toTimeString().slice(0, 5); // Format as HH:MM
         setTechnicianSchedules((prevSchedules) => ({
           ...prevSchedules,
-          [techId]: { scheduleDate: today, scheduleTime: "09:00" },
+          [techId]: { scheduleDate: currentDate, scheduleTime: currentTime },
         }));
         return [...prev, techId];
       }
@@ -309,7 +315,6 @@ const AppointmentModal = ({
                               )
                             }
                             className="input w-full text-sm"
-                            min={new Date().toISOString().split("T")[0]}
                           />
                         </div>
                         <div>
@@ -357,7 +362,7 @@ const AppointmentModal = ({
               }}
               className="btn btn-primary"
               disabled={
-                selectedTechs.length === 0 ||
+                selectedTechs.length > 0 &&
                 selectedTechs.some(
                   (techId) =>
                     !technicianSchedules[techId]?.scheduleDate ||
@@ -366,7 +371,9 @@ const AppointmentModal = ({
               }
             >
               Assign{" "}
-              {selectedTechs.length > 0 ? `(${selectedTechs.length})` : ""}
+              {selectedTechs.length > 0
+                ? `(${selectedTechs.length})`
+                : "(Remove All)"}
             </button>
           </div>
         </div>

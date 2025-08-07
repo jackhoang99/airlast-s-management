@@ -46,8 +46,7 @@ type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
   job_technicians?: {
     technician_id: string;
     is_primary: boolean;
-    schedule_date?: string | null;
-    schedule_time?: string | null;
+    scheduled_at?: string | null; // Single timestamp field
     users: {
       first_name: string;
       last_name: string;
@@ -116,22 +115,12 @@ const DispatchSchedule = () => {
     // Check if any technician has a scheduled time that's in the past
     if (job.job_technicians && job.job_technicians.length > 0) {
       for (const tech of job.job_technicians) {
-        if (tech.schedule_date && tech.schedule_time) {
-          const scheduledDateTime = new Date(
-            `${tech.schedule_date}T${tech.schedule_time}`
-          );
+        if (tech.scheduled_at) {
+          const scheduledDateTime = new Date(tech.scheduled_at);
           if (scheduledDateTime < now) {
             return true;
           }
         }
-      }
-    }
-
-    // Fallback to old job-level schedule_start
-    if (job.schedule_start) {
-      const scheduledDate = new Date(job.schedule_start);
-      if (scheduledDate < now) {
-        return true;
       }
     }
 
@@ -217,8 +206,7 @@ const DispatchSchedule = () => {
           job_technicians (
             technician_id,
             is_primary,
-            schedule_date,
-            schedule_time,
+            scheduled_at,
             users:technician_id (
               first_name,
               last_name
@@ -303,8 +291,7 @@ const DispatchSchedule = () => {
         return (a.locations?.zip || "").localeCompare(b.locations?.zip || "");
       case "date":
         return (
-          new Date(a.schedule_start || a.created_at).getTime() -
-          new Date(b.schedule_start || b.created_at).getTime()
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
       default:
         return 0;
@@ -314,10 +301,17 @@ const DispatchSchedule = () => {
   // Compute jobsByDate for the calendar
   const jobsByDate: Record<string, number> = {};
   sortedJobs.forEach((job) => {
-    const date = job.schedule_start ? new Date(job.schedule_start) : null;
-    if (date) {
-      const key = date.toISOString().slice(0, 10);
-      jobsByDate[key] = (jobsByDate[key] || 0) + 1;
+    // Get the earliest technician schedule date
+    if (job.job_technicians && job.job_technicians.length > 0) {
+      const scheduledDates = job.job_technicians
+        .filter((tech) => tech.scheduled_at)
+        .map((tech) => new Date(tech.scheduled_at!))
+        .sort((a, b) => a.getTime() - b.getTime());
+
+      if (scheduledDates.length > 0) {
+        const key = scheduledDates[0].toISOString().slice(0, 10);
+        jobsByDate[key] = (jobsByDate[key] || 0) + 1;
+      }
     }
   });
 
@@ -392,46 +386,23 @@ const DispatchSchedule = () => {
       if (to.type === "technician") {
         console.log(`Assigning job ${draggedJob.id} to technician ${to.id}`);
 
-        // First, remove existing technician assignments for this job
-        const { error: deleteError } = await supabase
-          .from("job_technicians")
-          .delete()
-          .eq("job_id", draggedJob.id);
+        // Check if job already has technicians assigned
+        const currentTechnicians = draggedJob.job_technicians || [];
+        const fromTechId = draggedFrom.id;
 
-        if (deleteError) {
-          console.error("Error removing existing assignments:", deleteError);
-          throw deleteError;
-        }
-        // Add new technician assignment
-        const { error: insertError } = await supabase
-          .from("job_technicians")
-          .insert({
-            job_id: draggedJob.id,
-            technician_id: to.id,
-            is_primary: true,
+        if (currentTechnicians.length > 0 && fromTechId !== to.id) {
+          // Show confirmation modal for assignment type
+          setPendingAssignment({
+            job: draggedJob,
+            fromTechId: fromTechId,
+            toTechId: to.id,
           });
-
-        if (insertError) {
-          console.error("Error assigning technician:", insertError);
-          throw insertError;
+          setShowAssignmentModal(true);
+        } else {
+          // No existing technicians or same technician, just switch
+          await handleJobAssignment(draggedJob, fromTechId, to.id, "switch");
         }
-
-        // Update job status if needed
-        const { error: updateError } = await supabase
-          .from("jobs")
-          .update({ status: "scheduled" })
-          .eq("id", draggedJob.id);
-
-        if (updateError) {
-          console.error("Error updating job status:", updateError);
-          throw updateError;
-        }
-
-        console.log("Job assignment successful");
-
-        // Refresh the jobs data to reflect changes
-        await fetchJobs();
-        setDragModeActive(false); // Exit drag mode after drop
+      } else if (to.type === "column") {
       } else if (to.type === "column") {
         // Handle dropping job back to unassigned columns
         if (to.id === "unassigned") {
@@ -510,11 +481,6 @@ const DispatchSchedule = () => {
         `Updating job ${jobId} schedule: technician ${technicianId}, time ${newScheduleTime}`
       );
 
-      // Parse the new schedule time to get date and time
-      const newScheduleDate = new Date(newScheduleTime);
-      const scheduleDate = newScheduleDate.toISOString().split("T")[0];
-      const scheduleTime = newScheduleDate.toTimeString().split(" ")[0];
-
       // Get the current job to check if the technician is already assigned
       const currentJob = jobs.find((j) => j.id === jobId);
       const existingAssignment = currentJob?.job_technicians?.find(
@@ -528,8 +494,7 @@ const DispatchSchedule = () => {
         const { error: updateError } = await supabase
           .from("job_technicians")
           .update({
-            schedule_date: scheduleDate,
-            schedule_time: scheduleTime,
+            scheduled_at: newScheduleTime,
           })
           .eq("job_id", jobId)
           .eq("technician_id", technicianId);
@@ -550,8 +515,7 @@ const DispatchSchedule = () => {
             is_primary:
               !currentJob?.job_technicians ||
               currentJob.job_technicians.length === 0,
-            schedule_date: scheduleDate,
-            schedule_time: scheduleTime,
+            scheduled_at: newScheduleTime,
           });
 
         if (insertError) {
@@ -584,6 +548,78 @@ const DispatchSchedule = () => {
   };
 
   // Handle job reassignment between technicians
+  const handleJobAssignment = async (
+    job: Job,
+    fromTechId: string,
+    toTechId: string,
+    action: "switch" | "share"
+  ) => {
+    if (!supabase) return;
+
+    try {
+      if (action === "switch") {
+        // Remove existing technician assignments and assign to new technician
+        const { error: deleteError } = await supabase
+          .from("job_technicians")
+          .delete()
+          .eq("job_id", job.id);
+
+        if (deleteError) {
+          console.error("Error removing existing assignments:", deleteError);
+          throw deleteError;
+        }
+
+        // Add new technician assignment
+        const { error: insertError } = await supabase
+          .from("job_technicians")
+          .insert({
+            job_id: job.id,
+            technician_id: toTechId,
+            is_primary: true,
+          });
+
+        if (insertError) {
+          console.error("Error assigning technician:", insertError);
+          throw insertError;
+        }
+      } else if (action === "share") {
+        // Add new technician to existing assignments
+        const { error: insertError } = await supabase
+          .from("job_technicians")
+          .insert({
+            job_id: job.id,
+            technician_id: toTechId,
+            is_primary: false, // Keep existing primary technician
+          });
+
+        if (insertError) {
+          console.error("Error adding technician:", insertError);
+          throw insertError;
+        }
+      }
+
+      // Update job status if needed
+      const { error: updateError } = await supabase
+        .from("jobs")
+        .update({ status: "scheduled" })
+        .eq("id", job.id);
+
+      if (updateError) {
+        console.error("Error updating job status:", updateError);
+        throw updateError;
+      }
+
+      console.log(`Job assignment successful: ${action}`);
+
+      // Refresh the jobs data to reflect changes
+      await fetchJobs();
+      setDragModeActive(false); // Exit drag mode after assignment
+    } catch (err) {
+      console.error("Error updating job assignment:", err);
+      alert("Failed to update job assignment. Please try again.");
+    }
+  };
+
   const handleJobReassign = async (
     jobId: string,
     fromTechId: string,
@@ -640,6 +676,30 @@ const DispatchSchedule = () => {
         }
       }
 
+      // Check if job has any technicians assigned and update status accordingly
+      const { data: technicianCount, error: countError } = await supabase
+        .from("job_technicians")
+        .select("technician_id", { count: "exact", head: true })
+        .eq("job_id", jobId);
+
+      if (countError) {
+        console.error("Error checking technician count:", countError);
+        throw countError;
+      }
+
+      const hasTechnicians = (technicianCount || 0) > 0;
+      const newStatus = hasTechnicians ? "scheduled" : "unscheduled";
+
+      const { error: updateError } = await supabase
+        .from("jobs")
+        .update({ status: newStatus })
+        .eq("id", jobId);
+
+      if (updateError) {
+        console.error("Error updating job status:", updateError);
+        throw updateError;
+      }
+
       console.log("Job reassignment successful");
 
       // Refresh the jobs data to reflect changes
@@ -678,11 +738,26 @@ const DispatchSchedule = () => {
         })
       );
 
-      const { error: insertError } = await supabase
-        .from("job_technicians")
-        .insert(technicianEntries);
+      if (appointment.technicianIds.length > 0) {
+        const { error: insertError } = await supabase
+          .from("job_technicians")
+          .insert(technicianEntries);
 
-      if (insertError) throw insertError;
+        if (insertError) throw insertError;
+      }
+
+      // Update job status based on whether technicians are assigned
+      const newStatus =
+        appointment.technicianIds.length > 0 ? "scheduled" : "unscheduled";
+      const { error: updateError } = await supabase
+        .from("jobs")
+        .update({ status: newStatus })
+        .eq("id", selectedJobForModal.id);
+
+      if (updateError) {
+        console.error("Error updating job status:", updateError);
+        throw updateError;
+      }
 
       console.log("Technician assignment successful");
 
@@ -793,16 +868,27 @@ const DispatchSchedule = () => {
   const handleJobCardDoubleClick = (jobId: string) => {
     const job = jobs.find((j) => j.id === jobId);
     if (job) {
-      // If the job has a schedule_start, move the calendar to that date
-      if (job.schedule_start) {
-        const jobDate = new Date(job.schedule_start);
-        // Only change the date if it's different from the current calendar date
-        if (
-          jobDate.getFullYear() !== currentDate.getFullYear() ||
-          jobDate.getMonth() !== currentDate.getMonth() ||
-          jobDate.getDate() !== currentDate.getDate()
-        ) {
-          setCurrentDate(jobDate);
+      // If the job has technician schedules, move the calendar to the earliest date
+      if (job.job_technicians && job.job_technicians.length > 0) {
+        const scheduledDates = job.job_technicians
+          .filter((tech) => tech.scheduled_at)
+          .map((tech) => {
+            // Use scheduled_at timestamp directly
+            const scheduledDate = new Date(tech.scheduled_at!);
+            return scheduledDate;
+          })
+          .sort((a, b) => a.getTime() - b.getTime());
+
+        if (scheduledDates.length > 0) {
+          const jobDate = scheduledDates[0];
+          // Only change the date if it's different from the current calendar date
+          if (
+            jobDate.getFullYear() !== currentDate.getFullYear() ||
+            jobDate.getMonth() !== currentDate.getMonth() ||
+            jobDate.getDate() !== currentDate.getDate()
+          ) {
+            setCurrentDate(jobDate);
+          }
         }
       }
       setSelectedJobId(jobId);
@@ -855,6 +941,14 @@ const DispatchSchedule = () => {
     lng?: number;
   } | null>(null);
   const [assetModalUnits, setAssetModalUnits] = useState<any[] | null>(null);
+
+  // Confirmation modal state for job assignment
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+  const [pendingAssignment, setPendingAssignment] = useState<{
+    job: Job;
+    fromTechId: string;
+    toTechId: string;
+  } | null>(null);
 
   if (isLoading) {
     return (
@@ -1042,6 +1136,71 @@ const DispatchSchedule = () => {
         unit={assetModalUnit}
         units={assetModalUnits}
       />
+
+      {/* Job Assignment Confirmation Modal */}
+      {showAssignmentModal && pendingAssignment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-center mb-4">
+              Technician Assignment
+            </h3>
+            <p className="text-center text-gray-600 mb-6">
+              Do you want to switch the assigned technician or add this
+              technician?
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                className="btn btn-primary flex items-center justify-center"
+                onClick={async () => {
+                  await handleJobAssignment(
+                    pendingAssignment.job,
+                    pendingAssignment.fromTechId,
+                    pendingAssignment.toTechId,
+                    "switch"
+                  );
+                  setShowAssignmentModal(false);
+                  setPendingAssignment(null);
+                }}
+              >
+                Switch
+              </button>
+              <p className="text-xs text-gray-500 text-center -mt-2">
+                Remove the current technician's schedule and assign the job to
+                the new technician.
+              </p>
+              <button
+                className="btn btn-secondary flex items-center justify-center"
+                onClick={async () => {
+                  await handleJobAssignment(
+                    pendingAssignment.job,
+                    pendingAssignment.fromTechId,
+                    pendingAssignment.toTechId,
+                    "share"
+                  );
+                  setShowAssignmentModal(false);
+                  setPendingAssignment(null);
+                }}
+              >
+                Add
+              </button>
+              <p className="text-xs text-gray-500 text-center -mt-2">
+                Keep the current technician assigned and add the new technician
+                to the job.
+              </p>
+              <button
+                className="btn btn-outline flex items-center justify-center"
+                onClick={() => {
+                  setShowAssignmentModal(false);
+                  setPendingAssignment(null);
+                  setDragModeActive(false);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

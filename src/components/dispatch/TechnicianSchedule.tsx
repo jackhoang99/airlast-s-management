@@ -7,8 +7,6 @@ interface Job {
   name: string;
   type: string;
   additional_type?: string;
-  schedule_start?: string;
-  schedule_duration?: string;
   locations?: {
     name: string;
     zip: string;
@@ -27,8 +25,7 @@ interface Job {
   job_technicians?: {
     technician_id: string;
     is_primary: boolean;
-    schedule_date?: string | null;
-    schedule_time?: string | null;
+    scheduled_at?: string | null; // Single timestamp field
     users: {
       first_name: string;
       last_name: string;
@@ -185,37 +182,19 @@ const TechnicianSchedule = ({
       console.log(`🔧 Job ${job.name}:`, {
         jobId: job.id,
         techSchedule: techSchedule,
-        schedule_date: techSchedule?.schedule_date,
-        schedule_time: techSchedule?.schedule_time,
+        scheduled_at: techSchedule?.scheduled_at,
         schedule_start: job.schedule_start,
       });
 
-      if (
-        techSchedule &&
-        techSchedule.schedule_date &&
-        techSchedule.schedule_time
-      ) {
+      if (techSchedule && techSchedule.scheduled_at) {
         // Use individual technician schedule
-        const jobDate = new Date(techSchedule.schedule_date + "T00:00:00");
+        const jobDate = new Date(techSchedule.scheduled_at);
         const matches =
           jobDate.getDate() === date.getDate() &&
           jobDate.getMonth() === date.getMonth() &&
           jobDate.getFullYear() === date.getFullYear();
         console.log(
           `✅ Individual schedule match: ${matches} (${jobDate.toDateString()} vs ${date.toDateString()})`
-        );
-        return matches;
-      }
-
-      // Fallback to old job-level schedule_start
-      if (job.schedule_start) {
-        const jobDate = new Date(job.schedule_start);
-        const matches =
-          jobDate.getDate() === date.getDate() &&
-          jobDate.getMonth() === date.getMonth() &&
-          jobDate.getFullYear() === date.getFullYear();
-        console.log(
-          `🔄 Fallback schedule match: ${matches} (${jobDate.toDateString()} vs ${date.toDateString()})`
         );
         return matches;
       }
@@ -231,15 +210,11 @@ const TechnicianSchedule = ({
       const techSchedule = job.job_technicians.find(
         (tech) => tech.technician_id === techId
       );
-      if (techSchedule && techSchedule.schedule_time) {
-        const [hours] = techSchedule.schedule_time.split(":").map(Number);
+      if (techSchedule && techSchedule.scheduled_at) {
+        const scheduledDate = new Date(techSchedule.scheduled_at);
+        const hours = scheduledDate.getHours();
         return Math.max(8, Math.min(20, hours));
       }
-    }
-
-    // Fallback to old schedule_start if no individual schedule found
-    if (job.schedule_start) {
-      return Math.max(8, Math.min(20, new Date(job.schedule_start).getHours()));
     }
 
     // Default fallback
@@ -247,9 +222,8 @@ const TechnicianSchedule = ({
   };
 
   const getJobDuration = (job: Job) => {
-    if (!job.schedule_duration) return 1;
-    const match = job.schedule_duration.toString().match(/(\d+)/);
-    return Math.min(4, match ? parseInt(match[1]) : 1); // Max 4 hours for display
+    // Default duration for display purposes
+    return 1; // Default to 1 hour for display
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -627,12 +601,12 @@ const TechnicianSchedule = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-center mb-4">
-              Reassign Job
+              Technician Assignment
             </h3>
             <div className="mb-6">
               <p className="text-gray-600 mb-4">
-                Would you like to reassign the job to this technician, or share
-                it with another technician?
+                Do you want to switch the assigned technician or add this
+                technician?
               </p>
 
               <div className="bg-gray-50 p-4 rounded-md mb-4">
@@ -659,16 +633,24 @@ const TechnicianSchedule = ({
                 className="btn btn-primary w-full flex items-center justify-center"
               >
                 <UserCheck size={16} className="mr-2" />
-                Reassign this job to {reassignData.toTechName}
+                Switch
               </button>
+              <p className="text-xs text-gray-500 text-center -mt-2">
+                Remove the current technician's schedule and assign the job to
+                the new technician.
+              </p>
 
               <button
                 onClick={() => handleReassignAction("share")}
                 className="btn btn-secondary w-full flex items-center justify-center"
               >
                 <Users size={16} className="mr-2" />
-                Share this job with another technician
+                Add
               </button>
+              <p className="text-xs text-gray-500 text-center -mt-2">
+                Keep the current technician assigned and add the new technician
+                to the job.
+              </p>
 
               <button
                 onClick={handleReassignCancel}

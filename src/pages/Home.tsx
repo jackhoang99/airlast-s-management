@@ -74,7 +74,15 @@ interface RecentJob {
   status: string;
   type: string;
   additional_type?: string;
-  schedule_start: string;
+  job_technicians?: {
+    technician_id: string;
+    is_primary: boolean;
+    scheduled_at?: string | null;
+    users: {
+      first_name: string;
+      last_name: string;
+    };
+  }[];
   locations: {
     name: string;
     companies: {
@@ -105,7 +113,7 @@ interface ScheduledJob {
   status: string;
   type: string;
   additional_type?: string;
-  schedule_start: string;
+  time_period_due?: string;
   locations: {
     name: string;
     companies: {
@@ -115,6 +123,7 @@ interface ScheduledJob {
   job_technicians?: {
     technician_id: string;
     is_primary: boolean;
+    scheduled_at?: string | null;
     users: {
       first_name: string;
       last_name: string;
@@ -308,7 +317,15 @@ const Home = () => {
           status,
           type,
           additional_type,
-          schedule_start,
+          job_technicians (
+            technician_id,
+            is_primary,
+            scheduled_at,
+            users:technician_id (
+              first_name,
+              last_name
+            )
+          ),
           locations (
             name,
             companies (

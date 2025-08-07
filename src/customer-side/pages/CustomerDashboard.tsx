@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { useSupabase } from "../../lib/supabase-context";
+import { getScheduledDate, getScheduledTime } from "../../utils/dateUtils";
 import {
   Building,
   MapPin,
@@ -149,7 +150,7 @@ const CustomerDashboard = () => {
           pendingInvoices: pendingInvoicesCount,
         });
 
-        // Fetch recent jobs
+        // Fetch recent jobs (completed only)
         if (locationIds.length > 0) {
           const { data: recentJobsData, error: recentJobsError } =
             await supabase
@@ -170,18 +171,27 @@ const CustomerDashboard = () => {
                   id,
                   unit_number
                 )
+              ),
+              job_technicians (
+                technician_id,
+                is_primary,
+                scheduled_at,
+                users:technician_id (
+                  first_name,
+                  last_name
+                )
               )
             `
               )
               .in("location_id", locationIds)
+              .eq("status", "completed")
               .order("updated_at", { ascending: false })
               .limit(5);
 
           if (recentJobsError) throw recentJobsError;
           setRecentJobs(recentJobsData || []);
 
-          // Fetch upcoming jobs
-          const today = new Date();
+          // Fetch upcoming jobs (not completed)
           const { data: upcomingJobsData, error: upcomingJobsError } =
             await supabase
               .from("jobs")
@@ -195,15 +205,18 @@ const CustomerDashboard = () => {
                 state,
                 zip
               ),
-              units (
-                unit_number
+              job_units:job_units!inner (
+                unit_id,
+                units:unit_id (
+                  id,
+                  unit_number
+                )
               ),
               job_technicians (
                 id,
                 technician_id,
                 is_primary,
-                schedule_date,
-                schedule_time,
+                scheduled_at,
                 users:technician_id (
                   first_name,
                   last_name
@@ -212,10 +225,9 @@ const CustomerDashboard = () => {
             `
               )
               .in("location_id", locationIds)
-              .gt("schedule_start", today.toISOString())
               .not("status", "eq", "completed")
               .not("status", "eq", "cancelled")
-              .order("schedule_start")
+              .order("created_at", { ascending: false })
               .limit(5);
 
           if (upcomingJobsError) throw upcomingJobsError;
@@ -310,6 +322,65 @@ const CustomerDashboard = () => {
       default:
         return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const formatTechnicians = (technicians: any[]) => {
+    if (!technicians || technicians.length === 0) {
+      return "No technicians assigned";
+    }
+
+    const scheduledTechs = technicians.filter((tech) => tech.scheduled_at);
+    const unscheduledTechs = technicians.filter((tech) => !tech.scheduled_at);
+
+    let result = "";
+
+    if (scheduledTechs.length > 0) {
+      result += scheduledTechs
+        .map((tech) => {
+          let name = `${tech.users?.first_name} ${tech.users?.last_name}`;
+          if (tech.is_primary) {
+            name += " (Primary)";
+          }
+          return name;
+        })
+        .join(", ");
+    }
+
+    if (unscheduledTechs.length > 0) {
+      if (result) result += ", ";
+      result += unscheduledTechs
+        .map((tech) => {
+          let name = `${tech.users?.first_name} ${tech.users?.last_name}`;
+          if (tech.is_primary) {
+            name += " (Primary)";
+          }
+          return name;
+        })
+        .join(", ");
+    }
+
+    return result || "No technicians assigned";
+  };
+
+  const formatSchedules = (technicians: any[]) => {
+    if (!technicians || technicians.length === 0) {
+      return "Not scheduled";
+    }
+
+    const scheduledTechs = technicians.filter((tech) => tech.scheduled_at);
+
+    if (scheduledTechs.length === 0) {
+      return "Not scheduled";
+    }
+
+    return scheduledTechs
+      .map(
+        (tech) =>
+          `${getScheduledDate(tech.scheduled_at)} at ${getScheduledTime(
+            tech.scheduled_at
+          )}`
+      )
+      .join(", ");
   };
 
   if (isLoading) {
@@ -541,12 +612,12 @@ const CustomerDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming Service */}
+        {/* Pending Service */}
         <div className="card">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold flex items-center">
               <Calendar className="h-5 w-5 text-primary-600 mr-2" />
-              Upcoming Service
+              Pending Service
             </h2>
             <Link
               to="/customer/jobs"
@@ -559,7 +630,7 @@ const CustomerDashboard = () => {
           {upcomingJobs.length === 0 ? (
             <div className="text-center py-8 bg-gray-50 rounded-lg">
               <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No upcoming service scheduled</p>
+              <p className="text-gray-500">No pending service</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -574,9 +645,9 @@ const CustomerDashboard = () => {
                       <h3 className="font-medium">{job.name}</h3>
                       <p className="text-sm text-gray-500">
                         {job.locations?.name}
-                        {job.units && job.units.length > 0
-                          ? ` • Units ${job.units
-                              .map((unit) => unit.unit_number)
+                        {job.job_units && job.job_units.length > 0
+                          ? ` • Units ${job.job_units
+                              .map((ju) => ju.units?.unit_number || ju.unit_id)
                               .join(", ")}`
                           : ""}
                       </p>
@@ -584,15 +655,11 @@ const CustomerDashboard = () => {
                     <div className="text-right">
                       <div className="flex items-center text-sm font-medium text-primary-600">
                         <Calendar size={14} className="mr-1" />
-                        Scheduled Time
+                        <span>{formatTechnicians(job.job_technicians)}</span>
                       </div>
                       <div className="flex items-center text-xs text-gray-500 mt-1">
                         <Clock size={12} className="mr-1" />
-                        {job.job_technicians && job.job_technicians.length > 0
-                          ? `${job.job_technicians.length} technician${
-                              job.job_technicians.length > 1 ? "s" : ""
-                            } assigned`
-                          : "No technicians assigned"}
+                        <span>{formatSchedules(job.job_technicians)}</span>
                       </div>
                     </div>
                   </div>
@@ -670,15 +737,15 @@ const CustomerDashboard = () => {
         </div>
       </div>
 
-      {/* Recent Service History */}
+      {/* Completed Service History */}
       <div className="card">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold flex items-center">
             <FileText className="h-5 w-5 text-primary-600 mr-2" />
-            Recent Service History
+            Completed Service History
           </h2>
           <Link
-            to="/customer/jobs"
+            to="/customer/jobs?status=completed"
             className="text-sm text-primary-600 hover:text-primary-800 flex items-center"
           >
             View All <ArrowRight size={16} className="ml-1" />
@@ -688,7 +755,7 @@ const CustomerDashboard = () => {
         {recentJobs.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-lg">
             <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No service history found</p>
+            <p className="text-gray-500">No completed service history found</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -705,7 +772,10 @@ const CustomerDashboard = () => {
                     LOCATION
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
-                    DATE
+                    UNIT
+                  </th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
+                    TECHNICIAN & SCHEDULE
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
                     STATUS
@@ -729,20 +799,57 @@ const CustomerDashboard = () => {
                         {job.name}
                       </Link>
                     </td>
+                    <td className="px-4 py-3 text-sm">{job.locations?.name}</td>
                     <td className="px-4 py-3 text-sm">
-                      {job.locations?.name}
-                      {job.units && job.units.length > 0
-                        ? ` • Units ${job.units
-                            .map((unit) => unit.unit_number)
-                            .join(", ")}`
-                        : ""}
+                      {job.job_units && job.job_units.length > 0 ? (
+                        <div className="flex items-center">
+                          <Building2 size={14} className="text-gray-400 mr-1" />
+                          <span className="flex items-center">
+                            {job.job_units.map((ju) => (
+                              <span key={ju.unit_id} className="mr-1">
+                                Unit {ju.units?.unit_number || ju.unit_id}
+                              </span>
+                            ))}
+                          </span>
+                        </div>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {job.job_technicians && job.job_technicians.length > 0
-                        ? `${job.job_technicians.length} technician${
-                            job.job_technicians.length > 1 ? "s" : ""
-                          } assigned`
-                        : "Not scheduled"}
+                        ? job.job_technicians.map((tech, index) => (
+                            <div
+                              key={tech.technician_id}
+                              className={index > 0 ? "mt-2" : ""}
+                            >
+                              <div className="flex items-center">
+                                <Calendar
+                                  size={14}
+                                  className="text-gray-400 mr-1"
+                                />
+                                <span className="font-medium">
+                                  {tech.users?.first_name}{" "}
+                                  {tech.users?.last_name}
+                                  {tech.is_primary && (
+                                    <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1 py-0.5 rounded">
+                                      Primary
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                              {tech.scheduled_at && (
+                                <div className="flex items-center text-xs text-gray-500 mt-1">
+                                  <Clock size={12} className="mr-1" />
+                                  <span>
+                                    {getScheduledDate(tech.scheduled_at)} at{" "}
+                                    {getScheduledTime(tech.scheduled_at)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        : "No technicians assigned"}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span

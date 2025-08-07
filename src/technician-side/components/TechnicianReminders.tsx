@@ -41,7 +41,7 @@ const TechnicianReminders = ({ technicianId }: TechnicianRemindersProps) => {
             id,
             number,
             name,
-            schedule_start,
+    
             locations (
               name,
               address,

@@ -1,14 +1,14 @@
 import { useState, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMediaQuery } from "react-responsive";
+import { getScheduledTime } from "../../../utils/dateUtils";
 
 interface Job {
   id: string;
   name: string;
   type: string;
   additional_type?: string;
-  schedule_start?: string;
-  schedule_duration?: string;
+
   job_technicians?: any[];
   locations?: { name: string; zip: string };
   units?: { id: string; unit_number: string }[];
@@ -82,13 +82,7 @@ const TechnicianScheduleMobile = ({
       day: "numeric",
     });
   const formatTime = (date: string) => {
-    const d = new Date(date);
-    let h = d.getHours();
-    const m = d.getMinutes();
-    const ampm = h >= 12 ? "PM" : "AM";
-    h = h % 12;
-    h = h ? h : 12;
-    return `${h}:${m.toString().padStart(2, "0")} ${ampm}`;
+    return getScheduledTime(date);
   };
 
   const formatHour = (hour: number) => {
@@ -102,12 +96,14 @@ const TechnicianScheduleMobile = ({
       .filter(
         (job) =>
           job.job_technicians?.some((jt: any) => jt.technician_id === techId) &&
-          job.schedule_start
+          job.job_technicians &&
+          job.job_technicians.length > 0 &&
+          job.job_technicians[0].scheduled_at
       )
       .sort(
         (a, b) =>
-          new Date(a.schedule_start!).getTime() -
-          new Date(b.schedule_start!).getTime()
+          new Date(a.job_technicians[0].scheduled_at!).getTime() -
+          new Date(b.job_technicians[0].scheduled_at!).getTime()
       );
   };
 
@@ -117,8 +113,14 @@ const TechnicianScheduleMobile = ({
       const assigned = job.job_technicians?.some(
         (jt: any) => jt.technician_id === techId
       );
-      if (!assigned || !job.schedule_start) return false;
-      const jobDate = new Date(job.schedule_start);
+      if (
+        !assigned ||
+        !job.job_technicians ||
+        job.job_technicians.length === 0 ||
+        !job.job_technicians[0].scheduled_at
+      )
+        return false;
+      const jobDate = new Date(job.job_technicians[0].scheduled_at);
       return (
         jobDate.getDate() === currentDate.getDate() &&
         jobDate.getMonth() === currentDate.getMonth() &&
@@ -217,8 +219,10 @@ const TechnicianScheduleMobile = ({
                       </span>
                     </div>
                     <div className="text-gray-600 text-sm">
-                      {job.schedule_start
-                        ? formatTime(job.schedule_start)
+                      {job.job_technicians &&
+                      job.job_technicians.length > 0 &&
+                      job.job_technicians[0].scheduled_at
+                        ? formatTime(job.job_technicians[0].scheduled_at)
                         : "Unscheduled"}
                     </div>
                     {job.locations?.name && (

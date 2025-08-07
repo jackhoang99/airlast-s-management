@@ -18,7 +18,7 @@ interface Job {
   type: string;
   status: string;
   additional_type?: string;
-  schedule_start?: string;
+
   time_period_due?: string;
   description?: string;
   locations?: {
@@ -328,25 +328,30 @@ const JobQueue = ({
         <div className="text-xs text-gray-400 mt-1">{job.type}</div>
       )}
       {/* Display start and due dates */}
-      {(job.schedule_start || job.time_period_due) && (
-        <div className="text-xs text-gray-500 mt-1 space-y-0.5">
-          {job.schedule_start && (
-            <div className="flex items-center">
-              <Calendar size={10} className="mr-1 text-gray-400" />
-              <span>
-                Start: {formatDate(job.schedule_start)}{" "}
-                {formatTime(job.schedule_start)}
-              </span>
-            </div>
-          )}
-          {job.time_period_due && (
-            <div className="flex items-center">
-              <Clock size={10} className="mr-1 text-gray-400" />
-              <span>Due: {formatDate(job.time_period_due)}</span>
-            </div>
-          )}
-        </div>
-      )}
+      {(job.job_technicians &&
+        job.job_technicians.length > 0 &&
+        job.job_technicians[0].scheduled_at) ||
+        (job.time_period_due && (
+          <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+            {job.job_technicians &&
+              job.job_technicians.length > 0 &&
+              job.job_technicians[0].scheduled_at && (
+                <div className="flex items-center">
+                  <Calendar size={10} className="mr-1 text-gray-400" />
+                  <span>
+                    Start: {formatDate(job.job_technicians[0].scheduled_at)}{" "}
+                    {formatTime(job.job_technicians[0].scheduled_at)}
+                  </span>
+                </div>
+              )}
+            {job.time_period_due && (
+              <div className="flex items-center">
+                <Clock size={10} className="mr-1 text-gray-400" />
+                <span>Due: {formatDate(job.time_period_due)}</span>
+              </div>
+            )}
+          </div>
+        ))}
     </div>
   );
 

@@ -29,9 +29,14 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     const initializeSupabase = async () => {
+      // Prevent multiple initializations
+      if (isInitialized) {
+        return;
+      }
       try {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -52,21 +57,50 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
               autoRefreshToken: true,
               detectSessionInUrl: true,
               flowType: "pkce",
+              storage: {
+                getItem: (key) => {
+                  try {
+                    return localStorage.getItem(key);
+                  } catch (error) {
+                    console.warn("Error reading from localStorage:", error);
+                    return null;
+                  }
+                },
+                setItem: (key, value) => {
+                  try {
+                    localStorage.setItem(key, value);
+                  } catch (error) {
+                    console.warn("Error writing to localStorage:", error);
+                  }
+                },
+                removeItem: (key) => {
+                  try {
+                    localStorage.removeItem(key);
+                  } catch (error) {
+                    console.warn("Error removing from localStorage:", error);
+                  }
+                },
+              },
             },
           }
         );
 
         setSupabase(supabaseClient);
+        setIsInitialized(true);
 
         // Check what's in localStorage before getting session
         const storedAuth = localStorage.getItem("supabase.auth.token");
 
         // Get initial session with retry logic
         let retryCount = 0;
-        const maxRetries = 3;
+        const maxRetries = 3; // Reduced from 5 to 3
 
         const getInitialSession = async (): Promise<Session | null> => {
           try {
+            console.log(
+              `Session restoration attempt ${retryCount + 1}/${maxRetries}`
+            );
+
             const {
               data: { session },
               error: sessionError,
@@ -77,6 +111,12 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
               throw sessionError;
             }
 
+            if (session) {
+              console.log("Session found:", session.user.email);
+            } else {
+              console.log("No session found in attempt", retryCount + 1);
+            }
+
             return session;
           } catch (err) {
             console.error(
@@ -85,8 +125,11 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
             );
             if (retryCount < maxRetries) {
               retryCount++;
-              // Wait a bit before retrying
-              await new Promise((resolve) => setTimeout(resolve, 1000));
+              // Wait longer between retries for page refresh scenarios
+              console.log(
+                `Waiting 2 seconds before retry ${retryCount + 1}...`
+              );
+              await new Promise((resolve) => setTimeout(resolve, 2000));
               return getInitialSession();
             }
             throw err;
@@ -97,6 +140,14 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
           const initialSession = await getInitialSession();
           if (initialSession) {
             console.log("Session restored for:", initialSession.user.email);
+            // Set session storage immediately for technician auth
+            sessionStorage.setItem("isAuthenticated", "true");
+            sessionStorage.setItem(
+              "username",
+              initialSession.user.email?.split("@")[0] || "user"
+            );
+          } else {
+            console.log("No session restored after all attempts");
           }
           setSession(initialSession);
         } catch (sessionErr) {

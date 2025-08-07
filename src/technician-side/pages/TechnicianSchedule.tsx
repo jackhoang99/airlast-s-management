@@ -118,7 +118,7 @@ const TechnicianSchedule = () => {
           .select(
             `*,
               job_technicians:job_technicians!inner (
-                technician_id, is_primary, schedule_date, schedule_time, users:technician_id (first_name, last_name)
+                technician_id, is_primary, scheduled_at, users:technician_id (first_name, last_name)
               ),
               locations (name, address, city, state, zip),
               job_units:job_units!inner (
@@ -128,16 +128,10 @@ const TechnicianSchedule = () => {
             `
           )
           .eq("job_technicians.technician_id", currentTechnician.id)
-          .not("job_technicians.schedule_date", "is", null)
-          .not("job_technicians.schedule_time", "is", null)
-          .gte(
-            "job_technicians.schedule_date",
-            start.toISOString().split("T")[0]
-          )
-          .lte("job_technicians.schedule_date", end.toISOString().split("T")[0])
-          .order(
-            "job_technicians.schedule_date, job_technicians.schedule_time"
-          );
+          .not("job_technicians.scheduled_at", "is", null)
+          .gte("job_technicians.scheduled_at", start.toISOString())
+          .lte("job_technicians.scheduled_at", end.toISOString())
+          .order("created_at", { ascending: true });
 
         if (error) {
           console.error("Error fetching jobs:", error);
@@ -175,17 +169,12 @@ const TechnicianSchedule = () => {
 
         const { data, error } = await supabase
           .from("jobs")
-          .select("job_technicians(schedule_date)")
+          .select("job_technicians(scheduled_at)")
           .eq("job_technicians.technician_id", currentTechnician.id)
-          .not("job_technicians.schedule_date", "is", null)
-          .gte(
-            "job_technicians.schedule_date",
-            start.toISOString().split("T")[0]
-          )
-          .lte(
-            "job_technicians.schedule_date",
-            end.toISOString().split("T")[0]
-          );
+          .not("job_technicians.scheduled_at", "is", null)
+          .gte("job_technicians.scheduled_at", start.toISOString())
+          .lte("job_technicians.scheduled_at", end.toISOString())
+          .order("created_at", { ascending: true });
 
         if (error) {
           console.error("Error fetching jobs for calendar:", error);
@@ -197,8 +186,10 @@ const TechnicianSchedule = () => {
         data?.forEach((job) => {
           if (job.job_technicians && job.job_technicians.length > 0) {
             job.job_technicians.forEach((tech: any) => {
-              if (tech.schedule_date) {
-                const dateKey = tech.schedule_date;
+              if (tech.scheduled_at) {
+                const dateKey = new Date(tech.scheduled_at)
+                  .toISOString()
+                  .split("T")[0];
                 jobsByDateMap[dateKey] = (jobsByDateMap[dateKey] || 0) + 1;
               }
             });
@@ -441,11 +432,9 @@ const TechnicianSchedule = () => {
                   const techSchedule = job.job_technicians.find(
                     (tech: any) => tech.technician_id === currentTechnician?.id
                   );
-                  if (!techSchedule || !techSchedule.schedule_time)
-                    return false;
-                  const [hours] = techSchedule.schedule_time
-                    .split(":")
-                    .map(Number);
+                  if (!techSchedule || !techSchedule.scheduled_at) return false;
+                  const scheduledDate = new Date(techSchedule.scheduled_at);
+                  const hours = scheduledDate.getHours();
                   return hours === hour;
                 });
 
@@ -515,13 +504,15 @@ const TechnicianSchedule = () => {
                                           );
                                         if (
                                           !techSchedule ||
-                                          !techSchedule.schedule_time
+                                          !techSchedule.scheduled_at
                                         )
                                           return "No time set";
-                                        const [hours, minutes] =
-                                          techSchedule.schedule_time
-                                            .split(":")
-                                            .map(Number);
+                                        const scheduledDate = new Date(
+                                          techSchedule.scheduled_at
+                                        );
+                                        const hours = scheduledDate.getHours();
+                                        const minutes =
+                                          scheduledDate.getMinutes();
                                         const ampm = hours >= 12 ? "PM" : "AM";
                                         const displayHours = hours % 12 || 12;
                                         return `${displayHours}:${minutes

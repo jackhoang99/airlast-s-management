@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import ArrowBack from "../../components/ui/ArrowBack";
 import { useSupabase } from "../../lib/supabase-context";
+import { getScheduledDate, getScheduledTime } from "../../utils/dateUtils";
 import {
   ArrowLeft,
   Building,
@@ -80,6 +81,15 @@ const CustomerLocationDetails = () => {
               units:unit_id (
                 id,
                 unit_number
+              )
+            ),
+            job_technicians (
+              technician_id,
+              is_primary,
+              scheduled_at,
+              users:technician_id (
+                first_name,
+                last_name
               )
             )
           `
@@ -313,7 +323,7 @@ const CustomerLocationDetails = () => {
                     UNIT
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
-                    DATE
+                    TECHNICIAN & SCHEDULE
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
                     STATUS
@@ -354,8 +364,37 @@ const CustomerLocationDetails = () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {job.schedule_start
-                        ? formatDate(job.schedule_start)
+                      {job.job_technicians && job.job_technicians.length > 0
+                        ? job.job_technicians
+                            .filter((tech) => tech.scheduled_at)
+                            .map((tech, index) => (
+                              <div
+                                key={tech.technician_id}
+                                className={index > 0 ? "mt-2" : ""}
+                              >
+                                <div className="flex items-center">
+                                  <Calendar
+                                    size={14}
+                                    className="text-gray-400 mr-1"
+                                  />
+                                  <span className="font-medium">
+                                    {tech.users?.first_name}{" "}
+                                    {tech.users?.last_name}
+                                    {tech.is_primary && (
+                                      <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1 py-0.5 rounded">
+                                        Primary
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                                <div className="flex items-center text-xs text-gray-500 mt-1">
+                                  <span>
+                                    {getScheduledDate(tech.scheduled_at)} at{" "}
+                                    {getScheduledTime(tech.scheduled_at)}
+                                  </span>
+                                </div>
+                              </div>
+                            ))
                         : "Not scheduled"}
                     </td>
                     <td className="px-4 py-3 text-sm">

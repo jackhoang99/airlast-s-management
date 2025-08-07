@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
+import {
+  formatJobDate,
+  formatJobTime,
+  formatJobDateTime,
+} from "../utils/dateUtils";
 import BackLink from "../components/ui/BackLink";
 import ArrowBack from "../components/ui/ArrowBack";
 import {
@@ -136,8 +141,7 @@ const JobDetails = () => {
               id,
               technician_id,
               is_primary,
-              schedule_date,
-              schedule_time,
+              scheduled_at,
               users:technician_id (
                 first_name,
                 last_name,
@@ -316,26 +320,53 @@ const JobDetails = () => {
 
       // Create technician entries with individual schedules
       const technicianEntries = appointment.technicianSchedules.map(
-        (schedule, index) => ({
-          job_id: job.id,
-          technician_id: schedule.technicianId,
-          is_primary: index === 0, // First technician is primary
-          schedule_date: schedule.scheduleDate,
-          schedule_time: schedule.scheduleTime,
-        })
+        (schedule, index) => {
+          let scheduledAt = null;
+
+          if (schedule.scheduleDate && schedule.scheduleTime) {
+            // Parse the date and time
+            const [year, month, day] = schedule.scheduleDate
+              .split("-")
+              .map(Number);
+            const [hours, minutes] = schedule.scheduleTime
+              .split(":")
+              .map(Number);
+
+            // Create a date object in Eastern Time
+            // Since the user is selecting time in Eastern Time, we need to ensure it's stored correctly
+            const easternDate = new Date(year, month - 1, day, hours, minutes);
+
+            // Convert to ISO string for storage
+            // This will store the time as UTC but represent the Eastern time correctly
+            scheduledAt = easternDate.toISOString();
+          }
+
+          return {
+            job_id: job.id,
+            technician_id: schedule.technicianId,
+            is_primary: index === 0, // First technician is primary
+            scheduled_at: scheduledAt,
+          };
+        }
       );
 
-      const { error: insertError } = await supabase
-        .from("job_technicians")
-        .insert(technicianEntries);
+      if (appointment.technicianSchedules.length > 0) {
+        const { error: insertError } = await supabase
+          .from("job_technicians")
+          .insert(technicianEntries);
 
-      if (insertError) throw insertError;
+        if (insertError) throw insertError;
+      }
 
-      // Update job status to scheduled (no longer using job-level schedule fields)
+      // Update job status based on whether technicians are assigned
+      const newStatus =
+        appointment.technicianSchedules.length > 0
+          ? "scheduled"
+          : "unscheduled";
       const { error: jobUpdateError } = await supabase
         .from("jobs")
         .update({
-          status: "scheduled",
+          status: newStatus,
         })
         .eq("id", job.id);
 
@@ -379,8 +410,7 @@ const JobDetails = () => {
             id,
             technician_id,
             is_primary,
-            schedule_date,
-            schedule_time,
+            scheduled_at,
             users:technician_id (
               first_name,
               last_name,
@@ -423,6 +453,30 @@ const JobDetails = () => {
 
       if (deleteError) throw deleteError;
 
+      // Check if job has any remaining technicians and update status accordingly
+      const { data: technicianCount, error: countError } = await supabase
+        .from("job_technicians")
+        .select("technician_id", { count: "exact", head: true })
+        .eq("job_id", job.id);
+
+      if (countError) {
+        console.error("Error checking technician count:", countError);
+        throw countError;
+      }
+
+      const hasTechnicians = (technicianCount || 0) > 0;
+      const newStatus = hasTechnicians ? "scheduled" : "unscheduled";
+
+      const { error: updateError } = await supabase
+        .from("jobs")
+        .update({ status: newStatus })
+        .eq("id", job.id);
+
+      if (updateError) {
+        console.error("Error updating job status:", updateError);
+        throw updateError;
+      }
+
       // Refresh job data
       const { data: updatedJob, error: jobError } = await supabase
         .from("jobs")
@@ -448,8 +502,7 @@ const JobDetails = () => {
             id,
             technician_id,
             is_primary,
-            schedule_date,
-            schedule_time,
+            scheduled_at,
             users:technician_id (
               first_name,
               last_name,
@@ -653,15 +706,13 @@ const JobDetails = () => {
           <h2 className="text-lg font-medium mb-4">Scheduled Time</h2>
           <div className="space-y-3">
             {job.job_technicians
-              .filter((tech) => tech.schedule_date && tech.schedule_time)
+              .filter((tech) => tech.scheduled_at)
               .map((tech) => {
                 const technician = tech.users;
-                const scheduleDate = new Date(
-                  tech.schedule_date
-                ).toLocaleDateString();
-                const [hours, minutes] = tech.schedule_time
-                  .split(":")
-                  .map(Number);
+                const scheduledDate = new Date(tech.scheduled_at);
+                const scheduleDate = scheduledDate.toLocaleDateString();
+                const hours = scheduledDate.getHours();
+                const minutes = scheduledDate.getMinutes();
                 const ampm = hours >= 12 ? "PM" : "AM";
                 const displayHours = hours % 12 || 12;
                 const displayTime = `${displayHours}:${minutes
