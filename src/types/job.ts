@@ -33,6 +33,11 @@ export interface Job {
   service_contract: string | null;
   additional_type: string | null;
   is_agreement_customer: boolean | null;
+  vendor: string | null;
+  date_ordered: string | null;
+  estimated_arrival_date: string | null;
+  part_number: string | null;
+  po_number: string | null;
   // Remove unit_id and units?: Unit
   // unit_id: string | null;
   quote_sent: boolean | null;

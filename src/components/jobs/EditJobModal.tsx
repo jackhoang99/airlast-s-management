@@ -83,6 +83,13 @@ const EditJobModal = ({
     time_period_due: job.time_period_due
       ? new Date(job.time_period_due).toISOString().split("T")[0]
       : new Date().toISOString().split("T")[0],
+
+    // Parts Ordered Fields
+    vendor: job.vendor || "",
+    date_ordered: job.date_ordered || "",
+    estimated_arrival_date: job.estimated_arrival_date || "",
+    part_number: job.part_number || "",
+    po_number: job.po_number || "",
   });
 
   // Fetch data on component mount
@@ -232,6 +239,14 @@ const EditJobModal = ({
       console.log("Job data for editing:", job);
       console.log("Available service lines:", serviceLines);
       console.log("Available job types:", jobTypes);
+      console.log("Parts ordered data:", {
+        vendor: job.vendor,
+        date_ordered: job.date_ordered,
+        estimated_arrival_date: job.estimated_arrival_date,
+        part_number: job.part_number,
+        po_number: job.po_number,
+        type: job.type,
+      });
 
       // Handle service line - job might have code or name, we need to find the code
       let serviceLineValue = job.service_line || "";
@@ -373,6 +388,15 @@ const EditJobModal = ({
           // Schedule
           time_period_start: formData.time_period_start,
           time_period_due: formData.time_period_due,
+
+          // Parts Ordered Fields
+          ...(formData.type === "parts ordered" && {
+            vendor: formData.vendor || null,
+            date_ordered: formData.date_ordered || null,
+            estimated_arrival_date: formData.estimated_arrival_date || null,
+            part_number: formData.part_number || null,
+            po_number: formData.po_number || null,
+          }),
         })
         .eq("id", job.id)
         .select()
@@ -1040,6 +1064,94 @@ const EditJobModal = ({
                           </>
                         )}
                       </select>
+                    </div>
+                  </>
+                )}
+
+                {/* Parts Ordered Fields */}
+                {console.log("EditJobModal - Current job type:", formData.type)}
+                {formData.type === "parts ordered" && (
+                  <>
+                    <div className="md:col-span-2">
+                      <h3 className="text-md font-medium text-gray-700 mb-4 border-b pb-2">
+                        Parts Order Information
+                      </h3>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Vendor
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.vendor}
+                        onChange={(e) =>
+                          handleInputChange("vendor", e.target.value)
+                        }
+                        className="input"
+                        placeholder="Vendor/Supplier name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Date Ordered
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.date_ordered}
+                        onChange={(e) =>
+                          handleInputChange("date_ordered", e.target.value)
+                        }
+                        className="input"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Estimated Arrival Date
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.estimated_arrival_date}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "estimated_arrival_date",
+                            e.target.value
+                          )
+                        }
+                        className="input"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Part Number
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.part_number}
+                        onChange={(e) =>
+                          handleInputChange("part_number", e.target.value)
+                        }
+                        className="input"
+                        placeholder="Part number"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        PO Number
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.po_number}
+                        onChange={(e) =>
+                          handleInputChange("po_number", e.target.value)
+                        }
+                        className="input"
+                        placeholder="Purchase order number"
+                      />
                     </div>
                   </>
                 )}

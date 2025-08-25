@@ -550,6 +550,11 @@ export interface Database {
           quote_confirmed_at: string | null;
           additional_type: string | null;
           is_agreement_customer: boolean | null;
+          vendor: string | null;
+          date_ordered: string | null;
+          estimated_arrival_date: string | null;
+          part_number: string | null;
+          po_number: string | null;
         };
         Insert: {
           id?: string;
@@ -588,6 +593,11 @@ export interface Database {
           quote_confirmed_at?: string | null;
           additional_type?: string | null;
           is_agreement_customer?: boolean | null;
+          vendor?: string | null;
+          date_ordered?: string | null;
+          estimated_arrival_date?: string | null;
+          part_number?: string | null;
+          po_number?: string | null;
         };
         Update: {
           id?: string;
@@ -626,6 +636,11 @@ export interface Database {
           quote_confirmed_at?: string | null;
           additional_type?: string | null;
           is_agreement_customer?: boolean | null;
+          vendor?: string | null;
+          date_ordered?: string | null;
+          estimated_arrival_date?: string | null;
+          part_number?: string | null;
+          po_number?: string | null;
         };
       };
       job_replacements: {

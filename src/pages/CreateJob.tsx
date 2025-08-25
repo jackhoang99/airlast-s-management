@@ -142,6 +142,13 @@ const CreateJob = () => {
     is_agreement_customer: false,
     is_training: false,
     status: "unscheduled",
+
+    // Parts Ordered Fields
+    vendor: "",
+    date_ordered: "",
+    estimated_arrival_date: "",
+    part_number: "",
+    po_number: "",
   });
 
   // Filter locations based on selected company
@@ -209,6 +216,7 @@ const CreateJob = () => {
 
         if (jobTypesError) throw jobTypesError;
         setJobTypes(jobTypesData || []);
+        console.log("Available job types:", jobTypesData);
 
         // Fetch presets
         const { data: presetsData, error: presetsError } = await supabase
@@ -464,6 +472,12 @@ const CreateJob = () => {
       ...preset.data,
       time_period_start: formData.time_period_start,
       time_period_due: formData.time_period_due,
+      // Ensure parts ordered fields are included
+      vendor: preset.data.vendor || "",
+      date_ordered: preset.data.date_ordered || "",
+      estimated_arrival_date: preset.data.estimated_arrival_date || "",
+      part_number: preset.data.part_number || "",
+      po_number: preset.data.po_number || "",
     });
 
     if (preset.data.location_id) {
@@ -679,6 +693,13 @@ const CreateJob = () => {
             ? { service_contract: formData.service_contract }
             : {}),
           is_agreement_customer: formData.is_agreement_customer,
+          ...(formData.type === "parts ordered" && {
+            vendor: formData.vendor || null,
+            date_ordered: formData.date_ordered || null,
+            estimated_arrival_date: formData.estimated_arrival_date || null,
+            part_number: formData.part_number || null,
+            po_number: formData.po_number || null,
+          }),
         })
         .select()
         .single();
@@ -1739,6 +1760,131 @@ const CreateJob = () => {
                 className="input"
               />
             </div>
+
+            {/* Parts Ordered Fields */}
+            {console.log("Current job type:", formData.type)}
+            {formData.type === "parts ordered" && (
+              <>
+                <div className="md:col-span-2">
+                  <h3 className="text-md font-medium text-gray-700 mb-4 border-b pb-2">
+                    Parts Order Information
+                  </h3>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="vendor"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Vendor
+                  </label>
+                  <input
+                    type="text"
+                    id="vendor"
+                    name="vendor"
+                    value={formData.vendor}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        vendor: e.target.value,
+                      }))
+                    }
+                    className="input"
+                    placeholder="Vendor/Supplier name"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="date_ordered"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Date Ordered
+                  </label>
+                  <input
+                    type="date"
+                    id="date_ordered"
+                    name="date_ordered"
+                    value={formData.date_ordered}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        date_ordered: e.target.value,
+                      }))
+                    }
+                    className="input"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="estimated_arrival_date"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Estimated Arrival Date
+                  </label>
+                  <input
+                    type="date"
+                    id="estimated_arrival_date"
+                    name="estimated_arrival_date"
+                    value={formData.estimated_arrival_date}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        estimated_arrival_date: e.target.value,
+                      }))
+                    }
+                    className="input"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="part_number"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Part Number
+                  </label>
+                  <input
+                    type="text"
+                    id="part_number"
+                    name="part_number"
+                    value={formData.part_number}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        part_number: e.target.value,
+                      }))
+                    }
+                    className="input"
+                    placeholder="Part number"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="po_number"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    PO Number
+                  </label>
+                  <input
+                    type="text"
+                    id="po_number"
+                    name="po_number"
+                    value={formData.po_number}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        po_number: e.target.value,
+                      }))
+                    }
+                    className="input"
+                    placeholder="Purchase order number"
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
 

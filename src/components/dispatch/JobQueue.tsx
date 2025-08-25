@@ -165,7 +165,7 @@ const JobQueue = ({
     .filter(
       (job) =>
         job.status === "unscheduled" &&
-        (job.type === "repair" || job.name.toLowerCase().includes("parts")) &&
+        job.type === "parts ordered" &&
         // Exclude past dates jobs from parts ordered (they go to unassigned)
         (!isJobPastDue || !isJobPastDue(job))
     )

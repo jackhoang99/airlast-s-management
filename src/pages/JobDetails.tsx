@@ -18,6 +18,7 @@ import {
   Phone,
   Mail,
   User,
+  Package,
 } from "lucide-react";
 import { Job, JobItem } from "../types/job";
 import JobHeader from "../components/jobs/JobHeader";
@@ -30,6 +31,7 @@ import JobQuoteHistorySection from "../components/jobs/JobQuoteHistorySection";
 import JobInvoiceSection from "../components/jobs/JobInvoiceSection";
 import JobSidebar from "../components/jobs/JobSidebar";
 import JobUnitSection from "../components/jobs/JobUnitSection";
+import JobPartsOrderedSection from "../components/jobs/JobPartsOrderedSection";
 import AppointmentModal from "../components/jobs/AppointmentModal";
 import QuotePDFViewer from "../components/quotes/QuotePDFViewer";
 import JobReminderBanner from "../components/jobs/JobReminderBanner";
@@ -80,6 +82,7 @@ const JobDetails = () => {
   const [isLoadingInspectionData, setIsLoadingInspectionData] = useState(false);
   const [showLocationSection, setShowLocationSection] = useState(true);
   const [showUnitSection, setShowUnitSection] = useState(true);
+  const [showPartsOrderedSection, setShowPartsOrderedSection] = useState(true);
   const [showMaintenanceChecklist, setShowMaintenanceChecklist] =
     useState(true);
   const [isMaintenanceChecklistComplete, setIsMaintenanceChecklistComplete] =
@@ -865,6 +868,40 @@ const JobDetails = () => {
               </div>
             )}
           </div>
+
+          {/* Parts Ordered Section */}
+          {job.type === "parts ordered" && (
+            <div className="card mt-6">
+              <div
+                className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
+                onClick={() =>
+                  setShowPartsOrderedSection(!showPartsOrderedSection)
+                }
+              >
+                <h2 className="text-lg font-medium flex items-center">
+                  <Package className="h-5 w-5 mr-2 text-blue-600" />
+                  Parts Order Information
+                </h2>
+                <span className="text-blue-600 bg-blue-50 px-3 py-1 rounded-full text-sm flex items-center">
+                  {showPartsOrderedSection ? (
+                    <>
+                      Hide <ChevronUp size={16} className="ml-1" />
+                    </>
+                  ) : (
+                    <>
+                      Show <ChevronDown size={16} className="ml-1" />
+                    </>
+                  )}
+                </span>
+              </div>
+
+              {showPartsOrderedSection && (
+                <div className="mt-4">
+                  <JobPartsOrderedSection job={job} />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Permits Section - Show full section for installation jobs, only comments for others */}
           {job.type === "installation" ? (
