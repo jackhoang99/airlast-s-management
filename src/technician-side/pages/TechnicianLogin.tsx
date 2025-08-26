@@ -1,6 +1,7 @@
 import { useState, FormEvent } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useSupabase } from "../../lib/supabase-context";
+import { clearUserRoleCache } from "../components/auth/RequireTechAuth";
 import { Wind, AlertCircle } from "lucide-react";
 
 const TechnicianLogin = () => {
@@ -30,6 +31,9 @@ const TechnicianLogin = () => {
       sessionStorage.removeItem("isTechAuthenticated");
       sessionStorage.removeItem("techUsername");
       sessionStorage.removeItem("username");
+
+      // Clear the user role cache
+      clearUserRoleCache();
 
       // First check if the user exists in the users table
       const { data: userData, error: userError } = await supabase

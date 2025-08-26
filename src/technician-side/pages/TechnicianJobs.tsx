@@ -206,6 +206,12 @@ const TechnicianJobs = () => {
                 last_name
               )
             ),
+            job_technician_status (
+              id,
+              technician_id,
+              status,
+              updated_at
+            ),
             job_units:job_units!inner (
               id,
               unit_id,
@@ -402,6 +408,17 @@ const TechnicianJobs = () => {
     };
 
     return colorMap[type.toLowerCase()] || "bg-gray-500 text-white";
+  };
+
+  // Check if current technician has marked their status as completed
+  const getTechnicianCompletionStatus = (job: any) => {
+    if (!technicianId || !job.job_technician_status) return null;
+
+    const techStatus = job.job_technician_status.find(
+      (status: any) => status.technician_id === technicianId
+    );
+
+    return techStatus?.status || null;
   };
 
   return (
@@ -673,6 +690,19 @@ const TechnicianJobs = () => {
                         <Clock size={12} className="mr-1" />
                         {formatTime(job.job_technicians[0].scheduled_at || "")}
                       </div>
+                      {/* Show technician completion status */}
+                      {(() => {
+                        const techStatus = getTechnicianCompletionStatus(job);
+                        if (techStatus === "completed") {
+                          return (
+                            <div className="flex items-center text-xs text-green-600 mt-1">
+                              <CheckSquare size={12} className="mr-1" />
+                              Tech Complete
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                     </>
                   ) : (
                     <div className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">

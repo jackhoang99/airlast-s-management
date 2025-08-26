@@ -91,9 +91,9 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
         // Check what's in localStorage before getting session
         const storedAuth = localStorage.getItem("supabase.auth.token");
 
-        // Get initial session with retry logic
+        // Get initial session with improved retry logic
         let retryCount = 0;
-        const maxRetries = 3; // Reduced from 5 to 3
+        const maxRetries = 5;
 
         const getInitialSession = async (): Promise<Session | null> => {
           try {
@@ -113,11 +113,11 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
 
             if (session) {
               console.log("Session found:", session.user.email);
+              return session;
             } else {
               console.log("No session found in attempt", retryCount + 1);
+              return null;
             }
-
-            return session;
           } catch (err) {
             console.error(
               `Session restoration attempt ${retryCount + 1} failed:`,
@@ -125,11 +125,12 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
             );
             if (retryCount < maxRetries) {
               retryCount++;
-              // Wait longer between retries for page refresh scenarios
+              // Exponential backoff for retries
+              const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 5000);
               console.log(
-                `Waiting 2 seconds before retry ${retryCount + 1}...`
+                `Waiting ${delay}ms before retry ${retryCount + 1}...`
               );
-              await new Promise((resolve) => setTimeout(resolve, 2000));
+              await new Promise((resolve) => setTimeout(resolve, delay));
               return getInitialSession();
             }
             throw err;

@@ -42,6 +42,7 @@ import JobUnitSection from "../../components/jobs/JobUnitSection";
 import PermitSectionMobile from "../../components/permits/PermitSectionMobile";
 import MaintenanceChecklist from "../../components/jobs/MaintenanceChecklist";
 import LocationComments from "../../components/locations/LocationComments";
+import TechStatusDropdown from "../../components/jobs/TechStatusDropdown";
 
 const TechnicianJobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -57,8 +58,7 @@ const TechnicianJobDetails = () => {
   const [repairData, setRepairData] = useState<any | null>(null);
   const [technicianId, setTechnicianId] = useState<string | null>(null);
   const [technicianName, setTechnicianName] = useState("");
-  const [isCompletingJob, setIsCompletingJob] = useState(false);
-  const [showCompleteJobModal, setShowCompleteJobModal] = useState(false);
+
   const [jobStatus, setJobStatus] = useState<
     "scheduled" | "unscheduled" | "completed" | "cancelled"
   >("scheduled");
@@ -71,6 +71,7 @@ const TechnicianJobDetails = () => {
     null
   );
   const [additionalContacts, setAdditionalContacts] = useState<any[]>([]);
+  const [timeTrackingRefreshKey, setTimeTrackingRefreshKey] = useState(0);
 
   // Collapsible section states
   const [showQuoteSection, setShowQuoteSection] = useState(false);
@@ -353,46 +354,6 @@ const TechnicianJobDetails = () => {
     }
   }, [supabase, id, technicianId]);
 
-  const handleCompleteJob = async () => {
-    if (!supabase || !id || !technicianId) return;
-
-    setIsCompletingJob(true);
-
-    try {
-      // First check if the technician is clocked in
-      if (currentClockStatus === "clocked_in") {
-        // Clock out automatically
-        await supabase.from("job_clock_events").insert({
-          job_id: id,
-          user_id: technicianId,
-          event_type: "clock_out",
-          event_time: new Date().toISOString(),
-          notes: "Auto clock-out on job completion",
-        });
-      }
-
-      // Update job status to completed
-      const { error: updateError } = await supabase
-        .from("jobs")
-        .update({
-          status: "completed",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
-
-      if (updateError) throw updateError;
-
-      setJobStatus("completed");
-      setShowCompleteJobModal(false);
-      setCurrentClockStatus("clocked_out");
-    } catch (err) {
-      console.error("Error completing job:", err);
-      setError("Failed to complete job. Please try again.");
-    } finally {
-      setIsCompletingJob(false);
-    }
-  };
-
   const handleItemsUpdated = async () => {
     if (!supabase || !id) return;
 
@@ -478,8 +439,6 @@ const TechnicianJobDetails = () => {
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
-
-  const [timeTrackingRefreshKey, setTimeTrackingRefreshKey] = useState(0);
 
   if (isLoading) {
     return (
@@ -601,48 +560,6 @@ const TechnicianJobDetails = () => {
             )}
           </div>
           <div className="flex flex-col gap-2 w-full sm:flex-row sm:w-auto mt-4 sm:mt-0">
-            {jobStatus !== "completed" && jobStatus !== "cancelled" && (
-              <button
-                onClick={() => setShowCompleteJobModal(true)}
-                disabled={
-                  job?.type === "maintenance" &&
-                  (job?.additional_type === "PM Cleaning AC" ||
-                    job?.additional_type === "ONE Cleaning AC" ||
-                    job?.additional_type === "PM Cleaning HEAT" ||
-                    job?.additional_type === "ONE Cleaning HEAT" ||
-                    job?.additional_type === "PM Filter Change" ||
-                    job?.additional_type === "ONE Filter Change") &&
-                  !isMaintenanceChecklistComplete
-                }
-                className={`btn w-full sm:w-auto ${
-                  job?.type === "maintenance" &&
-                  (job?.additional_type === "PM Cleaning AC" ||
-                    job?.additional_type === "ONE Cleaning AC" ||
-                    job?.additional_type === "PM Cleaning HEAT" ||
-                    job?.additional_type === "ONE Cleaning HEAT" ||
-                    job?.additional_type === "PM Filter Change" ||
-                    job?.additional_type === "ONE Filter Change") &&
-                  !isMaintenanceChecklistComplete
-                    ? "btn-secondary cursor-not-allowed"
-                    : "btn-success"
-                }`}
-                title={
-                  job?.type === "maintenance" &&
-                  (job?.additional_type === "PM Cleaning AC" ||
-                    job?.additional_type === "ONE Cleaning AC" ||
-                    job?.additional_type === "PM Cleaning HEAT" ||
-                    job?.additional_type === "ONE Cleaning HEAT" ||
-                    job?.additional_type === "PM Filter Change" ||
-                    job?.additional_type === "ONE Filter Change") &&
-                  !isMaintenanceChecklistComplete
-                    ? "PM Checklist must be completed first"
-                    : ""
-                }
-              >
-                <CheckSquare size={16} className="mr-2" />
-                Complete Job
-              </button>
-            )}
             <button
               onClick={() => setShowNavigationModal(true)}
               className="btn btn-primary w-full sm:w-auto"
@@ -653,6 +570,42 @@ const TechnicianJobDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* Tech Status Section */}
+      {job.job_technicians && job.job_technicians.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
+          <h2 className="text-lg font-semibold mb-4 flex items-center">
+            <User className="h-5 w-5 mr-2 text-primary-600" />
+            Technician Status
+          </h2>
+          <div className="space-y-3">
+            {job.job_technicians
+              .filter((tech) => tech.scheduled_at)
+              .map((tech) => {
+                const technician = tech.users;
+                const scheduleDate = getScheduledDate(tech.scheduled_at);
+                const displayTime = getScheduledTime(tech.scheduled_at);
+                const scheduledTime = `${scheduleDate} at ${displayTime}`;
+
+                return (
+                  <TechStatusDropdown
+                    key={tech.id}
+                    jobId={id || ""}
+                    technicianId={tech.technician_id}
+                    technicianName={`${technician.first_name} ${technician.last_name}`}
+                    isPrimary={tech.is_primary}
+                    scheduledTime={scheduledTime}
+                    showClockInOut={tech.technician_id === technicianId}
+                    currentClockStatus={currentClockStatus}
+                    onClockStatusChange={setCurrentClockStatus}
+                    onTimeEvent={() => setTimeTrackingRefreshKey((k) => k + 1)}
+                  />
+                );
+              })}
+          </div>
+        </div>
+      )}
+
       <hr className="my-2 border-gray-200" />
       {/* Location and Contact */}
       <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
@@ -859,21 +812,7 @@ const TechnicianJobDetails = () => {
           />
         </div>
       )}
-      <hr className="my-2 border-gray-200" />
-      {/* Clock In/Out Section */}
-      {technicianId && (
-        <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
-          <ClockInOut
-            jobId={id || ""}
-            technicianId={technicianId}
-            currentClockStatus={currentClockStatus}
-            jobStatus={jobStatus}
-            onStatusChange={setCurrentClockStatus}
-            onTimeEvent={() => setTimeTrackingRefreshKey((k) => k + 1)}
-          />
-        </div>
-      )}
-      <hr className="my-2 border-gray-200" />
+
       {/* Maintenance Checklist Section */}
       {job?.type === "maintenance" &&
         (job?.additional_type === "PM Cleaning AC" ||
@@ -1078,62 +1017,7 @@ const TechnicianJobDetails = () => {
       <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
         <JobComments jobId={id || ""} />
       </div>
-      {/* Complete Job Modal */}
-      {showCompleteJobModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-            <div className="flex items-center justify-center text-success-600 mb-4">
-              <CheckSquare size={40} />
-            </div>
-            <h3 className="text-lg font-semibold text-center mb-4">
-              Complete Job
-            </h3>
-            <p className="text-center text-gray-600 mb-6">
-              Are you sure you want to mark Job #{job.number} as completed? This
-              will update the job status and notify the office.
-            </p>
-            {job?.type === "maintenance" &&
-              (job?.additional_type === "PM Cleaning AC" ||
-                job?.additional_type === "ONE Cleaning AC" ||
-                job?.additional_type === "PM Cleaning HEAT" ||
-                job?.additional_type === "ONE Cleaning HEAT" ||
-                job?.additional_type === "PM Filter Change" ||
-                job?.additional_type === "ONE Filter Change") &&
-              !isMaintenanceChecklistComplete && (
-                <div className="bg-warning-50 border border-warning-200 rounded-md p-3 mb-6">
-                  <p className="text-warning-700 text-sm text-center">
-                    ⚠️ PM Checklist is not complete. Please ensure all
-                    maintenance tasks are completed before marking this job as
-                    complete.
-                  </p>
-                </div>
-              )}
-            <div className="flex justify-end space-x-3">
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowCompleteJobModal(false)}
-                disabled={isCompletingJob}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-success"
-                onClick={handleCompleteJob}
-                disabled={isCompletingJob}
-              >
-                {isCompletingJob ? (
-                  <>
-                    <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-                    Completing...
-                  </>
-                ) : (
-                  "Complete Job"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
       {/* Navigation Modal */}
       {showNavigationModal && job.locations && (
         <TechnicianNavigation

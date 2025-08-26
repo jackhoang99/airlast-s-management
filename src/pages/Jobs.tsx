@@ -175,6 +175,12 @@ const Jobs = () => {
                 last_name
               )
             ),
+            job_technician_status (
+              id,
+              technician_id,
+              status,
+              updated_at
+            ),
             job_items!job_items_job_id_fkey (
               id,
               total_cost
@@ -644,91 +650,17 @@ const Jobs = () => {
     return job.service_contract !== "Non-Contract";
   };
 
-  // Function to update all job names to the new format
-  const updateAllJobNames = async () => {
-    if (!supabase) return;
+  // Check if a technician has marked their status as completed
+  const getTechnicianCompletionStatus = (job: any, technicianId: string) => {
+    if (!job.job_technician_status) return null;
 
-    setIsLoading(true);
-    setError(null);
+    const techStatus = job.job_technician_status.find(
+      (status: any) => status.technician_id === technicianId
+    );
 
-    try {
-      // Fetch all jobs
-      const { data: allJobs, error: fetchError } = await supabase
-        .from("jobs")
-        .select("*");
-
-      if (fetchError) throw fetchError;
-
-      // Update each job with the new name format
-      for (const job of allJobs || []) {
-        // Extract zip code from location
-        const { data: locationData } = await supabase
-          .from("locations")
-          .select("zip")
-          .eq("id", job.location_id)
-          .single();
-
-        const zipCode = locationData?.zip || "";
-
-        // Create new job name
-        const newName = `${job.type}-${zipCode}-${
-          job.service_line || ""
-        }`.trim();
-
-        // Update job name
-        await supabase.from("jobs").update({ name: newName }).eq("id", job.id);
-      }
-
-      // Refresh jobs list
-      const { data: updatedJobs, error: refreshError } = await supabase.from(
-        "jobs"
-      ).select(`
-          *,
-          locations (
-            name,
-            address,
-            city,
-            state,
-            companies (
-              name
-            )
-          ),
-          job_technicians (
-            technician_id,
-            is_primary,
-            users:technician_id (
-              first_name,
-              last_name
-            )
-          ),
-          job_items!job_items_job_id_fkey (
-            id,
-            total_cost
-          ),
-                      job_replacements (
-              id,
-              total_cost
-            ),
-          job_units:job_units!inner (
-            unit_id,
-            units:unit_id (
-              id,
-              unit_number
-            )
-          )
-        `);
-
-      if (refreshError) throw refreshError;
-      setJobs(updatedJobs || []);
-
-      alert("All job names have been updated to the new format.");
-    } catch (err) {
-      console.error("Error updating job names:", err);
-      setError("Failed to update job names. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+    return techStatus?.status || null;
   };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -763,13 +695,6 @@ const Jobs = () => {
             </button>
           </div>
           <button className="btn btn-secondary">Export to Spreadsheet</button>
-          <button
-            className="btn btn-secondary"
-            onClick={updateAllJobNames}
-            disabled={isLoading}
-          >
-            {isLoading ? "Updating..." : "Update Job Names"}
-          </button>
           <Link to="/jobs/create" className="btn btn-primary">
             <Plus size={16} className="mr-2" />
             Create Job
@@ -1215,28 +1140,40 @@ const Jobs = () => {
                           job.job_technicians.length > 0 && (
                             <div className="text-sm text-gray-500 mt-1">
                               <div className="font-medium">Technicians:</div>
-                              {job.job_technicians.map((tech, index) => (
-                                <div
-                                  key={index}
-                                  className="flex items-center gap-2 mt-1"
-                                >
-                                  <span>
-                                    {tech.users.first_name}{" "}
-                                    {tech.users.last_name}
-                                    {tech.is_primary && (
-                                      <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">
-                                        Primary
+                              {job.job_technicians.map((tech, index) => {
+                                const techStatus =
+                                  getTechnicianCompletionStatus(
+                                    job,
+                                    tech.technician_id
+                                  );
+                                return (
+                                  <div
+                                    key={index}
+                                    className="flex items-center gap-2 mt-1"
+                                  >
+                                    <span>
+                                      {tech.users.first_name}{" "}
+                                      {tech.users.last_name}
+                                      {tech.is_primary && (
+                                        <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">
+                                          Primary
+                                        </span>
+                                      )}
+                                    </span>
+                                    {tech.scheduled_at && (
+                                      <span className="text-xs text-gray-400">
+                                        • {getScheduledDate(tech.scheduled_at)}{" "}
+                                        at {getScheduledTime(tech.scheduled_at)}
                                       </span>
                                     )}
-                                  </span>
-                                  {tech.scheduled_at && (
-                                    <span className="text-xs text-gray-400">
-                                      • {getScheduledDate(tech.scheduled_at)} at{" "}
-                                      {getScheduledTime(tech.scheduled_at)}
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
+                                    {techStatus === "completed" && (
+                                      <span className="text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded">
+                                        Tech Complete
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         {job.description && (

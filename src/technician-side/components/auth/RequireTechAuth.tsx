@@ -1,154 +1,249 @@
-import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { Navigate, useLocation, Outlet } from "react-router-dom";
 import { useSupabase } from "../../../lib/supabase-context";
 
-const RequireTechAuth = () => {
-  const location = useLocation();
-  const { supabase, session, isLoading: supabaseLoading } = useSupabase();
-  const [isLoading, setIsLoading] = useState(true);
+// Cache for user role to avoid repeated database queries
+const userRoleCache = new Map<
+  string,
+  { role: string; username: string; auth_id: string | null }
+>();
+
+// Function to clear cache (useful for logout)
+export const clearUserRoleCache = () => {
+  userRoleCache.clear();
+};
+
+// Custom hook for technician profile data
+const useTechProfile = (userEmail: string | undefined) => {
+  const { supabase } = useSupabase();
+  const [techData, setTechData] = useState<{
+    role: string;
+    username: string;
+    auth_id: string | null;
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isTechnician, setIsTechnician] = useState(false);
-  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
+  const [hasAttempted, setHasAttempted] = useState(false);
 
   useEffect(() => {
-    const ensureAuthenticated = async () => {
-      if (!supabase) {
-        console.log("No Supabase client available");
-        setIsLoading(false);
-        return;
-      }
+    if (!userEmail || !supabase) {
+      setTechData(null);
+      setIsLoading(false);
+      setHasAttempted(false);
+      return;
+    }
 
-      // Wait for Supabase to finish loading
-      if (supabaseLoading) {
-        return;
-      }
-
-      // If we've already checked auth and confirmed technician status, don't check again
-      if (hasCheckedAuth && isTechnician) {
-        return;
-      }
-
-      // Add a small delay to ensure session is fully restored
-      await new Promise((resolve) => setTimeout(resolve, 200));
+    const fetchTechProfile = async () => {
+      setIsLoading(true);
+      setError(null);
+      setHasAttempted(false);
 
       try {
-        setIsLoading(true);
-
-        // Double-check session from Supabase directly
-        const {
-          data: { session: directSession },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        // Use the session from context or direct check
-        const currentSession = session || directSession;
-
-        // Check if we have a session
-        if (currentSession) {
-          console.log(
-            "Checking technician role for:",
-            currentSession.user.email
-          );
-
-          // Check if user exists in users table and is a technician
-          const { data: userData, error: userError } = await supabase
-            .from("users")
-            .select("id, role, auth_id, username")
-            .eq("email", currentSession.user.email)
-            .maybeSingle();
-
-          if (userError && !userError.message.includes("contains 0 rows")) {
-            console.error("Error checking user role:", userError);
-            setError("Error checking user role");
-            setIsLoading(false);
-            setHasCheckedAuth(true);
-            return;
-          }
-
-          if (userData && userData.role === "technician") {
-            // Check if user has auth_id, if not, they need to sign up first
-            if (!userData.auth_id) {
-              console.log(
-                "User is technician but has no auth_id, redirecting to login"
-              );
-              setIsTechnician(false);
-              setIsLoading(false);
-              setHasCheckedAuth(true);
-              return;
-            }
-
-            console.log("User confirmed as technician:", userData.username);
-
-            // Update session storage for consistency
-            sessionStorage.setItem("isTechAuthenticated", "true");
-            sessionStorage.setItem(
-              "techUsername",
-              userData.username ||
-                currentSession.user.email?.split("@")[0] ||
-                "user"
-            );
-
-            setIsTechnician(true);
-            setIsLoading(false);
-            setHasCheckedAuth(true);
-            return;
-          }
-
-          console.log("User found but not a technician, role:", userData?.role);
-          setIsTechnician(false);
+        // Check cache first
+        const cachedUser = userRoleCache.get(userEmail);
+        if (cachedUser) {
+          console.log("Using cached technician data:", cachedUser);
+          setTechData(cachedUser);
           setIsLoading(false);
-          setHasCheckedAuth(true);
+          setHasAttempted(true);
           return;
         }
 
-        // No session: not authenticated
-        console.log("No session found, redirecting to login");
+        console.log("Fetching technician profile for:", userEmail);
 
-        setIsTechnician(false);
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("id, role, auth_id, username")
+          .eq("email", userEmail)
+          .maybeSingle();
+
+        if (userError && !userError.message.includes("contains 0 rows")) {
+          console.error("Error fetching user profile:", userError);
+          setError("Error fetching user profile");
+          setIsLoading(false);
+          setHasAttempted(true);
+          return;
+        }
+
+        if (!userData) {
+          console.log("No user data found for:", userEmail);
+          setTechData(null);
+          setIsLoading(false);
+          setHasAttempted(true);
+          return;
+        }
+
+        const profileData = {
+          role: userData.role,
+          username: userData.username || userEmail?.split("@")[0] || "user",
+          auth_id: userData.auth_id,
+        };
+
+        // Cache the data
+        userRoleCache.set(userEmail, profileData);
+
+        console.log("Technician profile loaded:", profileData);
+        setTechData(profileData);
         setIsLoading(false);
-        setHasCheckedAuth(true);
+        setHasAttempted(true);
       } catch (err) {
-        console.error("Authentication error:", err);
-        setError("Authentication error");
-        setIsTechnician(false);
+        console.error("Error in fetchTechProfile:", err);
+        setError("Error fetching technician profile");
         setIsLoading(false);
-        setHasCheckedAuth(true);
+        setHasAttempted(true);
       }
     };
 
-    ensureAuthenticated();
-  }, [supabase, session, supabaseLoading, hasCheckedAuth, isTechnician]);
+    fetchTechProfile();
+  }, [userEmail, supabase]);
 
-  // Show loading while Supabase is initializing or we're checking authentication
-  if (supabaseLoading || isLoading) {
+  return { techData, isLoading: isLoading || !hasAttempted, error };
+};
+
+const RequireTechAuth = () => {
+  const { supabase, session, isLoading: authLoading } = useSupabase();
+  const location = useLocation();
+
+  const [authState, setAuthState] = useState<"loading" | "allowed" | "denied">(
+    "loading"
+  );
+  const [error, setError] = useState<string | null>(null);
+  const hasDecidedRef = useRef<string | null>(null);
+
+  // Get technician profile data
+  const {
+    techData,
+    isLoading: techLoading,
+    error: techError,
+  } = useTechProfile(session?.user?.email);
+
+  useEffect(() => {
+    console.log("Auth state effect running:", {
+      authLoading,
+      hasSession: !!session,
+      techLoading,
+      hasTechData: !!techData,
+      techError,
+      currentAuthState: authState,
+      hasDecided: hasDecidedRef.current,
+    });
+
+    // Reset decision flag when session changes or when tech data changes
+    const currentUser = session?.user?.email;
+    if (
+      currentUser !== hasDecidedRef.current ||
+      (techData && hasDecidedRef.current === "no-session")
+    ) {
+      hasDecidedRef.current = null;
+      setAuthState("loading");
+    }
+
+    // Prevent multiple decisions for the same user
+    if (hasDecidedRef.current === currentUser) {
+      console.log("Already made decision for this user, skipping");
+      return;
+    }
+
+    // Don't make any decisions while auth is still loading
+    if (authLoading) {
+      console.log("Auth still loading, waiting...");
+      return;
+    }
+
+    // If no session, user is not authenticated
+    if (!session) {
+      console.log("No session found, access denied");
+      hasDecidedRef.current = "no-session";
+      setAuthState("denied");
+      return;
+    }
+
+    // If we have a session but tech profile is still loading, wait
+    if (techLoading) {
+      console.log("Session exists but tech profile loading, waiting...");
+      return;
+    }
+
+    // If there was an error fetching tech profile
+    if (techError) {
+      console.log("Error fetching tech profile:", techError);
+      hasDecidedRef.current = session.user.email;
+      setError(techError);
+      setAuthState("denied");
+      return;
+    }
+
+    // If no tech data found, user is not a technician
+    if (!techData) {
+      console.log("No technician profile found for user");
+      hasDecidedRef.current = session.user.email;
+      setAuthState("denied");
+      return;
+    }
+
+    // Check if user is a technician
+    if (techData.role !== "technician") {
+      console.log("User is not a technician, role:", techData.role);
+      hasDecidedRef.current = session.user.email;
+      setAuthState("denied");
+      return;
+    }
+
+    // Check if user has auth_id (required for technician access)
+    if (!techData.auth_id) {
+      console.log("Technician has no auth_id, access denied");
+      hasDecidedRef.current = session.user.email;
+      setAuthState("denied");
+      return;
+    }
+
+    // User is authenticated and is a technician
+    console.log("User authenticated as technician:", techData.username);
+
+    // Update session storage for consistency
+    sessionStorage.setItem("isTechAuthenticated", "true");
+    sessionStorage.setItem("techUsername", techData.username);
+
+    hasDecidedRef.current = session.user.email;
+    setAuthState("allowed");
+  }, [session, authLoading, techData, techLoading, techError]);
+
+  // Cleanup function to reset ref when component unmounts
+  useEffect(() => {
+    return () => {
+      hasDecidedRef.current = null;
+    };
+  }, []);
+
+  // Show loading while auth or tech profile is loading
+  if (authLoading || techLoading || authState === "loading") {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
-        <p className="ml-2 text-gray-600">Verifying authentication...</p>
+        <p className="ml-2 text-gray-600">Verifying technician access...</p>
       </div>
     );
   }
 
-  // Only redirect to login if we're sure there's no valid session
-  if (!session || !isTechnician) {
-    console.log(
-      "Redirecting to login - session:",
-      !!session,
-      "isTechnician:",
-      isTechnician,
-      "hasCheckedAuth:",
-      hasCheckedAuth,
-      "pathname:",
-      location.pathname
-    );
-
-    return <Navigate to="/tech/login" state={{ from: location }} replace />;
-  }
-
+  // Show error if there was a problem
   if (error) {
-    console.warn("Auth warning:", error);
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Authentication Error</p>
+          <p className="text-gray-600">{error}</p>
+        </div>
+      </div>
+    );
   }
 
+  // Redirect based on auth state
+  if (authState === "denied") {
+    console.log("Access denied, redirecting to login");
+    return <Navigate to="/tech/login" replace state={{ from: location }} />;
+  }
+
+  // User is authenticated and authorized
   return <Outlet />;
 };
 

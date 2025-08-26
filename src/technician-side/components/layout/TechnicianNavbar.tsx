@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSupabase } from "../../../lib/supabase-context";
+import { clearUserRoleCache } from "../auth/RequireTechAuth";
 
 type TechnicianNavbarProps = {
   open: boolean;
@@ -42,6 +43,9 @@ const TechnicianNavbar = ({ open, setOpen }: TechnicianNavbarProps) => {
     sessionStorage.removeItem("isAuthenticated"); // Also clear admin auth if present
     sessionStorage.removeItem("username");
 
+    // Clear the user role cache
+    clearUserRoleCache();
+
     // Force redirect to technician login
     navigate("/tech/login");
   };
@@ -70,16 +74,19 @@ const TechnicianNavbar = ({ open, setOpen }: TechnicianNavbarProps) => {
             // Try with username from session storage
             const username = sessionStorage.getItem("techUsername");
             if (username) {
-              const { data: usernameData, error: usernameError } = await supabase
-                .from("users")
-                .select("first_name, last_name")
-                .eq("username", username)
-                .maybeSingle();
-                
+              const { data: usernameData, error: usernameError } =
+                await supabase
+                  .from("users")
+                  .select("first_name, last_name")
+                  .eq("username", username)
+                  .maybeSingle();
+
               if (!usernameError && usernameData) {
                 setFirstName(usernameData.first_name || "");
                 setLastName(usernameData.last_name || "");
-                setTechnicianName(`${usernameData.first_name} ${usernameData.last_name}`);
+                setTechnicianName(
+                  `${usernameData.first_name} ${usernameData.last_name}`
+                );
               }
             }
           }

@@ -42,6 +42,8 @@ import PermitSection from "../components/permits/PermitSection";
 import MaintenanceChecklist from "../components/jobs/MaintenanceChecklist";
 import EditJobModal from "../components/jobs/EditJobModal";
 import LocationComments from "../components/locations/LocationComments";
+import TechStatusDropdown from "../components/jobs/TechStatusDropdown";
+import TechnicianActivityHistory from "../components/jobs/TechnicianActivityHistory";
 
 const JobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -749,6 +751,32 @@ const JobDetails = () => {
                       </div>
                     </div>
                   </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* Technician Activity History Section */}
+      {job.job_technicians && job.job_technicians.length > 0 && (
+        <div className="card">
+          <h2 className="text-lg font-medium mb-4">
+            Technician Activity & Time Tracking
+          </h2>
+          <div className="space-y-6">
+            {job.job_technicians
+              .filter((tech) => tech.scheduled_at)
+              .map((tech) => {
+                const technician = tech.users;
+
+                return (
+                  <TechnicianActivityHistory
+                    key={tech.id}
+                    jobId={id || ""}
+                    technicianId={tech.technician_id}
+                    technicianName={`${technician.first_name} ${technician.last_name}`}
+                    isPrimary={tech.is_primary}
+                  />
                 );
               })}
           </div>
