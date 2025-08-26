@@ -17,6 +17,7 @@ type AppointmentModalProps = {
     }[];
   }) => void;
   selectedTechnicianIds?: string[];
+  jobId?: string;
 };
 
 const AppointmentModal = ({
@@ -24,6 +25,7 @@ const AppointmentModal = ({
   onClose,
   onSave,
   selectedTechnicianIds = [],
+  jobId,
 }: AppointmentModalProps) => {
   const { supabase } = useSupabase();
   const [technicians, setTechnicians] = useState<User[]>([]);
@@ -66,28 +68,83 @@ const AppointmentModal = ({
     }
   }, [supabase, isOpen]);
 
-  useEffect(() => {
-    // Update selected techs when selectedTechnicianIds prop changes
-    setSelectedTechs(selectedTechnicianIds);
+  // Function to fetch existing scheduled times for technicians
+  const fetchExistingSchedules = async () => {
+    if (!supabase || !jobId) return;
 
-    // Initialize schedules for newly selected technicians with current date and time
-    const now = new Date();
-    const currentDate = now.toISOString().split("T")[0];
-    const currentTime = now.toTimeString().slice(0, 5); // Format as HH:MM
+    try {
+      const { data: existingSchedules, error } = await supabase
+        .from("job_technicians")
+        .select("technician_id, scheduled_at")
+        .eq("job_id", jobId);
 
-    setTechnicianSchedules((prev) => {
-      const updated = { ...prev };
-      selectedTechnicianIds.forEach((techId) => {
-        if (!updated[techId]) {
-          updated[techId] = {
-            scheduleDate: currentDate,
-            scheduleTime: currentTime,
+      if (error) throw error;
+
+      const schedules: {
+        [technicianId: string]: { scheduleDate: string; scheduleTime: string };
+      } = {};
+
+      existingSchedules?.forEach((schedule) => {
+        if (schedule.scheduled_at) {
+          const scheduledDate = new Date(schedule.scheduled_at);
+          const scheduleDate = scheduledDate.toISOString().split("T")[0];
+
+          // Convert to 24-hour format for the time input (HH:MM)
+          const hours = scheduledDate.getHours();
+          const minutes = scheduledDate.getMinutes();
+          const scheduleTime = `${hours.toString().padStart(2, "0")}:${minutes
+            .toString()
+            .padStart(2, "0")}`;
+
+          schedules[schedule.technician_id] = {
+            scheduleDate,
+            scheduleTime,
           };
         }
       });
-      return updated;
-    });
-  }, [selectedTechnicianIds]);
+
+      return schedules;
+    } catch (err) {
+      console.error("Error fetching existing schedules:", err);
+      return {};
+    }
+  };
+
+  useEffect(() => {
+    const initializeSchedules = async () => {
+      // Update selected techs when selectedTechnicianIds prop changes
+      setSelectedTechs(selectedTechnicianIds);
+
+      // Get existing schedules for technicians already assigned to this job
+      const existingSchedules = await fetchExistingSchedules();
+
+      // Initialize schedules for newly selected technicians
+      const now = new Date();
+      const currentDate = now.toISOString().split("T")[0];
+      const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now
+        .getMinutes()
+        .toString()
+        .padStart(2, "0")}`; // Format as HH:MM
+
+      setTechnicianSchedules((prev) => {
+        const updated = { ...prev };
+        selectedTechnicianIds.forEach((techId) => {
+          if (!updated[techId]) {
+            // Use existing schedule if available, otherwise use current time
+            updated[techId] = existingSchedules[techId] || {
+              scheduleDate: currentDate,
+              scheduleTime: currentTime,
+            };
+          }
+        });
+        return updated;
+      });
+    };
+
+    if (isOpen) {
+      initializeSchedules();
+    }
+  }, [selectedTechnicianIds, jobId, isOpen]);
 
   const handleTechnicianToggle = (techId: string) => {
     setSelectedTechs((prev) => {
@@ -103,7 +160,10 @@ const AppointmentModal = ({
         // Add technician with current date and time
         const now = new Date();
         const currentDate = now.toISOString().split("T")[0];
-        const currentTime = now.toTimeString().slice(0, 5); // Format as HH:MM
+        const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now
+          .getMinutes()
+          .toString()
+          .padStart(2, "0")}`; // Format as HH:MM
         setTechnicianSchedules((prevSchedules) => ({
           ...prevSchedules,
           [techId]: { scheduleDate: currentDate, scheduleTime: currentTime },
@@ -154,8 +214,20 @@ const AppointmentModal = ({
     );
     const firstSchedule = schedules[0];
 
+    // Check if firstSchedule exists and has required properties
+    if (
+      !firstSchedule ||
+      !firstSchedule.scheduleDate ||
+      !firstSchedule.scheduleTime
+    ) {
+      return false;
+    }
+
     return schedules.some(
       (schedule) =>
+        !schedule ||
+        !schedule.scheduleDate ||
+        !schedule.scheduleTime ||
         schedule.scheduleDate !== firstSchedule.scheduleDate ||
         schedule.scheduleTime !== firstSchedule.scheduleTime
     );

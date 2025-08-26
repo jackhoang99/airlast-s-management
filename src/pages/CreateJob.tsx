@@ -2116,6 +2116,7 @@ const CreateJob = () => {
         onClose={() => setShowAppointmentModal(false)}
         onSave={handleScheduleAppointment}
         selectedTechnicianIds={formData.technician_ids}
+        jobId={undefined}
       />
     </div>
   );

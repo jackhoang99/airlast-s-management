@@ -285,7 +285,7 @@ const PublicUnitDetails = () => {
               alt="Airlast HVAC"
               className="h-8 mr-3"
             />
-            <h1 className="text-xl font-bold">Unit Information</h1>
+            <h1 className="text-xl font-bold">Suite Information</h1>
           </div>
           <a
             href="/"

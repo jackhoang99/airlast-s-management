@@ -328,6 +328,7 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
         selectedTechnicianIds={
           job.job_technicians?.map((jt) => jt.technician_id) || []
         }
+        jobId={job.id}
       />
     </div>
   );

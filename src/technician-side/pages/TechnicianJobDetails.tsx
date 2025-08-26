@@ -43,6 +43,7 @@ import PermitSectionMobile from "../../components/permits/PermitSectionMobile";
 import MaintenanceChecklist from "../../components/jobs/MaintenanceChecklist";
 import LocationComments from "../../components/locations/LocationComments";
 import TechStatusDropdown from "../../components/jobs/TechStatusDropdown";
+import AttachmentSectionMobile from "../../components/jobs/AttachmentSectionMobile";
 
 const TechnicianJobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -792,7 +793,7 @@ const TechnicianJobDetails = () => {
         </div>
       </div>
       <hr className="my-2 border-gray-200" />
-      {/* Unit Information Section */}
+      {/* Suite Information Section */}
       <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
         <JobUnitSection job={job} />
       </div>
@@ -1013,6 +1014,8 @@ const TechnicianJobDetails = () => {
       <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
         <JobTimeTracking jobId={id || ""} key={timeTrackingRefreshKey} />
       </div>
+      {/* Attachments */}
+      <AttachmentSectionMobile jobId={id || ""} title="Job Attachments" />
       {/* Comments */}
       <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
         <JobComments jobId={id || ""} />

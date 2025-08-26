@@ -70,7 +70,7 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
   if (!job.units || job.units.length === 0) {
     return (
       <div className="card">
-        <h2 className="text-lg font-medium mb-4">Unit Information</h2>
+        <h2 className="text-lg font-medium mb-4">Suite Information</h2>
         <p className="text-gray-500">No unit assigned to this job.</p>
       </div>
     );
@@ -106,7 +106,7 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
 
   return (
     <div className="card">
-      <h2 className="text-lg font-medium mb-6">Unit Information</h2>
+      <h2 className="text-lg font-medium mb-6">Suite Information</h2>
       {/* Shared Info */}
       <div
         className="bg-gray-50 rounded-lg p-5 mb-6 border border-gray-200"
@@ -161,7 +161,7 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
                       Additional Contacts:
                     </div>
                     {Object.entries(unitContacts).map(([unitId, contacts]) => {
-                      // Find the unit information
+                      // Find the suite information
                       const unit = units.find((u: any) => u.id === unitId);
                       return (
                         <div key={unitId} className="ml-2 space-y-2">

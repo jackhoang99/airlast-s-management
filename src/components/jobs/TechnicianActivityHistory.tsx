@@ -154,54 +154,6 @@ const TechnicianActivityHistory = ({
     return date.toLocaleString();
   };
 
-  const calculateTimeSpent = () => {
-    if (clockEvents.length < 2) return "0h 0m";
-
-    let totalMilliseconds = 0;
-    let clockInTime: Date | null = null;
-
-    // Sort events by time (oldest first)
-    const sortedEvents = [...clockEvents].sort(
-      (a, b) =>
-        new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
-    );
-
-    sortedEvents.forEach((event) => {
-      if (event.event_type === "clock_in") {
-        clockInTime = new Date(event.event_time);
-      } else if (
-        (event.event_type === "clock_out" ||
-          event.event_type === "break_start") &&
-        clockInTime
-      ) {
-        const clockOutTime = new Date(event.event_time);
-        const duration = clockOutTime.getTime() - clockInTime.getTime();
-        if (duration > 0) {
-          totalMilliseconds += duration;
-        }
-        clockInTime = null;
-      } else if (event.event_type === "break_end") {
-        clockInTime = new Date(event.event_time);
-      }
-    });
-
-    // If still clocked in, add time up to now
-    if (clockInTime) {
-      const now = new Date();
-      const duration = now.getTime() - clockInTime.getTime();
-      if (duration > 0) {
-        totalMilliseconds += duration;
-      }
-    }
-
-    const hours = Math.floor(totalMilliseconds / (1000 * 60 * 60));
-    const minutes = Math.floor(
-      (totalMilliseconds % (1000 * 60 * 60)) / (1000 * 60)
-    );
-
-    return `${hours}h ${minutes}m`;
-  };
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-4">
@@ -239,9 +191,6 @@ const TechnicianActivityHistory = ({
                   Primary
                 </span>
               )}
-            </div>
-            <div className="text-sm text-gray-600">
-              Total Time: {calculateTimeSpent()}
             </div>
           </div>
         </div>

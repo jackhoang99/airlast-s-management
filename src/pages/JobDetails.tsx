@@ -39,16 +39,20 @@ import AdminTimeTracking from "../components/jobs/AdminTimeTracking";
 import JobComments from "../components/jobs/JobComments";
 import JobReminderList from "../components/jobs/JobReminderList";
 import PermitSection from "../components/permits/PermitSection";
+import AttachmentSection from "../components/jobs/AttachmentSection";
 import MaintenanceChecklist from "../components/jobs/MaintenanceChecklist";
 import EditJobModal from "../components/jobs/EditJobModal";
 import LocationComments from "../components/locations/LocationComments";
 import TechStatusDropdown from "../components/jobs/TechStatusDropdown";
 import TechnicianActivityHistory from "../components/jobs/TechnicianActivityHistory";
+import AdminStatusHistory from "../components/jobs/AdminStatusHistory";
+import { useUserRole } from "../hooks/useUserRole";
 
 const JobDetails = () => {
   const { id } = useParams<{ id: string }>();
   const { supabase } = useSupabase();
   const navigate = useNavigate();
+  const { isAdmin } = useUserRole();
 
   const [job, setJob] = useState<Job | null>(null);
   const [jobItems, setJobItems] = useState<JobItem[]>([]);
@@ -757,32 +761,6 @@ const JobDetails = () => {
         </div>
       )}
 
-      {/* Technician Activity History Section */}
-      {job.job_technicians && job.job_technicians.length > 0 && (
-        <div className="card">
-          <h2 className="text-lg font-medium mb-4">
-            Technician Activity & Time Tracking
-          </h2>
-          <div className="space-y-6">
-            {job.job_technicians
-              .filter((tech) => tech.scheduled_at)
-              .map((tech) => {
-                const technician = tech.users;
-
-                return (
-                  <TechnicianActivityHistory
-                    key={tech.id}
-                    jobId={id || ""}
-                    technicianId={tech.technician_id}
-                    technicianName={`${technician.first_name} ${technician.last_name}`}
-                    isPrimary={tech.is_primary}
-                  />
-                );
-              })}
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
           {/* Job Details Card */}
@@ -874,13 +852,16 @@ const JobDetails = () => {
             )}
           </div>
 
+          {/* Attachment Section */}
+          <AttachmentSection jobId={job.id} title="Job Attachments" />
+
           {/* Unit Section - Collapsible */}
           <div className="card">
             <div
               className="flex justify-between items-center cursor-pointer"
               onClick={() => setShowUnitSection(!showUnitSection)}
             >
-              <h2 className="text-lg font-medium">Unit Information</h2>
+              <h2 className="text-lg font-medium">Suite Information</h2>
               <span className="text-gray-500">
                 {showUnitSection ? (
                   <ChevronUp size={20} />
@@ -896,6 +877,39 @@ const JobDetails = () => {
               </div>
             )}
           </div>
+
+          {/* Technician Activity Section */}
+          {job.job_technicians && job.job_technicians.length > 0 && (
+            <div className="card">
+              <h2 className="text-lg font-medium mb-4">Technician Activity</h2>
+              <div className="space-y-6">
+                {job.job_technicians
+                  .filter((tech) => tech.scheduled_at)
+                  .map((tech) => {
+                    const technician = tech.users;
+
+                    return isAdmin ? (
+                      <AdminStatusHistory
+                        key={tech.id}
+                        jobId={id || ""}
+                        technicianId={tech.technician_id}
+                        technicianName={`${technician.first_name} ${technician.last_name}`}
+                        isPrimary={tech.is_primary}
+                        onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
+                      />
+                    ) : (
+                      <TechnicianActivityHistory
+                        key={tech.id}
+                        jobId={id || ""}
+                        technicianId={tech.technician_id}
+                        technicianName={`${technician.first_name} ${technician.last_name}`}
+                        isPrimary={tech.is_primary}
+                      />
+                    );
+                  })}
+              </div>
+            </div>
+          )}
 
           {/* Parts Ordered Section */}
           {job.type === "parts ordered" && (
@@ -1194,6 +1208,7 @@ const JobDetails = () => {
         selectedTechnicianIds={
           job.job_technicians?.map((jt) => jt.technician_id) || []
         }
+        jobId={id}
       />
 
       {/* Complete Job Confirmation Modal */}

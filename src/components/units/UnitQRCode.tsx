@@ -58,7 +58,7 @@ const UnitQRCode = ({ unitId, unitNumber }: UnitQRCodeProps) => {
           <p>
             This QR code provides quick access to this unit's complete
             information including location details, assets, and service history.
-            Anyone can scan this code to view comprehensive unit information
+            Anyone can scan this code to view comprehensive suite information
             without needing to log in.
           </p>
           <p className="mt-2">

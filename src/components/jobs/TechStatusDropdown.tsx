@@ -381,29 +381,6 @@ const TechStatusDropdown = ({
     });
   };
 
-  const calculateDuration = (startTime: string, endTime?: string) => {
-    const start = new Date(startTime);
-    const end = endTime ? new Date(endTime) : new Date();
-    const diffMs = end.getTime() - start.getTime();
-
-    // Handle negative durations (shouldn't happen but just in case)
-    if (diffMs < 0) {
-      return "0s";
-    }
-
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${seconds}s`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${seconds}s`;
-    } else {
-      return `${seconds}s`;
-    }
-  };
-
   const renderStatusHistory = () => {
     if (statusHistory.length === 0) {
       return (
@@ -418,50 +395,22 @@ const TechStatusDropdown = ({
       (history) => !history.notes || !history.notes.includes("Status ended")
     );
 
-    return startEntries.map((history, index) => {
-      // The most recent entry (index 0) is always the current/active status
-      // All previous entries are completed/paused statuses
-      const isCurrentStatus = index === 0;
-      const nextHistory = startEntries[index + 1];
-
-      let duration;
-      // Don't show duration for "tech completed" status
-      if (history.status === "tech completed") {
-        duration = null;
-      } else if (isCurrentStatus && history.status !== "tech completed") {
-        // Current status (but not tech completed): calculate from start to now (live)
-        duration = calculateDuration(history.created_at);
-      } else if (nextHistory) {
-        // Previous status: calculate from start to next status change (paused/fixed)
-        duration = calculateDuration(
-          history.created_at,
-          nextHistory.created_at
-        );
-      } else {
-        // Last status in history: calculate from start to now
-        duration = calculateDuration(history.created_at);
-      }
-
-      return (
-        <div
-          key={history.id}
-          className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs"
-        >
-          <div className="flex items-center space-x-2">
-            {getStatusIcon(history.status)}
-            <span className="font-medium capitalize">{history.status}</span>
-          </div>
-          <div className="text-right">
-            <div className="text-gray-500">
-              {formatDateTime(history.created_at)}
-            </div>
-            {duration && (
-              <div className="text-gray-400 text-xs">{duration}</div>
-            )}
+    return startEntries.map((history) => (
+      <div
+        key={history.id}
+        className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs"
+      >
+        <div className="flex items-center space-x-2">
+          {getStatusIcon(history.status)}
+          <span className="font-medium capitalize">{history.status}</span>
+        </div>
+        <div className="text-right">
+          <div className="text-gray-500">
+            {formatDateTime(history.created_at)}
           </div>
         </div>
-      );
-    });
+      </div>
+    ));
   };
 
   const renderCompletionOptions = () => {
