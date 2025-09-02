@@ -628,7 +628,7 @@ const TechnicianJobs = () => {
               <div className="flex justify-between items-start gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center flex-wrap gap-2">
-                    <h3 className="font-medium text-gray-900 text-lg truncate max-w-[70vw]">
+                    <h3 className="font-medium text-gray-900 text-lg break-words max-w-[70vw]">
                       {job.name}
                     </h3>
                     <span
@@ -646,7 +646,7 @@ const TechnicianJobs = () => {
                       {job.status}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1 truncate">
+                  <p className="text-sm text-gray-500 mt-1 break-words">
                     Job #{job.number} •{" "}
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full ${getJobTypeBadgeClass(
@@ -659,7 +659,7 @@ const TechnicianJobs = () => {
                       )}
                     </span>
                   </p>
-                  <p className="text-sm text-gray-500 truncate">
+                  <p className="text-sm text-gray-500 break-words">
                     {job.locations?.name}
                     {job.units && job.units.length > 0
                       ? ` • Units ${job.units
@@ -667,7 +667,7 @@ const TechnicianJobs = () => {
                           .join(", ")}`
                       : ""}
                   </p>
-                  <div className="flex items-center mt-1 text-xs text-gray-500 truncate">
+                  <div className="flex items-center mt-1 text-xs text-gray-500 break-words">
                     <MapPin size={12} className="mr-1" />
                     <span>
                       {job.locations?.address}, {job.locations?.city}

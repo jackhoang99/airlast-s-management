@@ -403,7 +403,7 @@ const CustomerUnitDetails = () => {
                     </div>
 
                     {job.description && (
-                      <div className="mt-2 text-sm text-gray-500 line-clamp-2">
+                      <div className="mt-2 text-sm text-gray-500 break-words whitespace-pre-wrap">
                         {job.description}
                       </div>
                     )}

@@ -34,6 +34,7 @@ serve(async (req) => {
       issuedDate,
       dueDate,
       invoiceType,
+      description,
     } = await req.json();
 
     if (!jobId || !invoiceNumber) {
@@ -154,9 +155,9 @@ serve(async (req) => {
     // Company Info (Left side)
     addText("Airlast HVAC", 50, yPos, 16, helveticaBold);
     yPos += 20;
-    addText("1650 Marietta Boulevard Northwest", 50, yPos, 10);
+    addText("332 Chinquapin Drive SW", 50, yPos, 10);
     yPos += 15;
-    addText("Atlanta, GA 30318", 50, yPos, 10);
+    addText("Marietta, Ga 30064", 50, yPos, 10);
     yPos += 15;
     addText("(404) 632-9074", 50, yPos, 10);
     yPos += 15;
@@ -190,12 +191,28 @@ serve(async (req) => {
     // Bill To Section
     addText("Bill to", 50, yPos, 12, helveticaBold);
     yPos += 20;
-    if (jobData?.locations?.companies?.name) {
-      addText(jobData.locations.companies.name, 50, yPos, 10, helveticaBold);
+
+    // Debug logging for billing entity
+    console.log("Edge function - jobData:", jobData);
+    console.log("Edge function - jobData.units:", jobData?.units);
+    console.log(
+      "Edge function - jobData.units?.billing_entity:",
+      jobData?.units?.billing_entity
+    );
+    console.log(
+      "Edge function - jobData.locations?.companies?.name:",
+      jobData?.locations?.companies?.name
+    );
+    console.log(
+      "Edge function - Final billing name:",
+      jobData?.units?.billing_entity || jobData?.locations?.companies?.name
+    );
+
+    if (jobData?.units?.[0]?.billing_entity) {
+      addText(jobData.units[0].billing_entity, 50, yPos, 10, helveticaBold);
       yPos += 15;
-    }
-    if (jobData?.locations?.address) {
-      addText(jobData.locations.address, 50, yPos, 10);
+    } else if (jobData?.locations?.companies?.name) {
+      addText(jobData.locations.companies.name, 50, yPos, 10, helveticaBold);
       yPos += 15;
     }
     if (
@@ -210,10 +227,6 @@ serve(async (req) => {
         10
       );
       yPos += 15;
-    }
-    if (jobData?.contact_name) {
-      addText(`Attn: ${jobData.contact_name}`, 50, yPos, 10);
-      yPos += 20;
     }
 
     // Service Location
@@ -240,8 +253,15 @@ serve(async (req) => {
       );
       yPos += 15;
     }
-    if (jobData?.units?.unit_number) {
-      addText(`Unit: ${jobData.units.unit_number}`, 50, yPos, 10);
+    if (jobData?.units && jobData.units.length > 0) {
+      if (jobData.units.length === 1) {
+        addText(`Unit: ${jobData.units[0].unit_number}`, 50, yPos, 10);
+      } else {
+        const unitNumbers = jobData.units
+          .map((unit: any) => unit.unit_number)
+          .join(", ");
+        addText(`Units: ${unitNumbers}`, 50, yPos, 10);
+      }
       yPos += 20;
     }
 
@@ -299,7 +319,10 @@ serve(async (req) => {
         yPos,
         10
       );
-      addText(jobData?.name || "HVAC Service", 280, yPos, 10);
+
+      // Use custom description if provided, otherwise fall back to job name
+      const displayDescription = description || jobData?.name || "HVAC Service";
+      addText(displayDescription, 280, yPos, 10);
       addText(`$${Number(amount || 0).toFixed(2)}`, 500, yPos, 10);
       yPos += 15;
     }

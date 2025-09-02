@@ -395,11 +395,13 @@ const InspectionSection = ({
                           : "N/A"}
                       </p>
                     </div>
-                    <div>
+                    <div className="sm:col-span-2">
                       <p className="text-xs font-medium text-gray-500">
                         Comment
                       </p>
-                      <p className="text-sm">{inspection.comment || "N/A"}</p>
+                      <p className="text-sm break-words whitespace-pre-wrap">
+                        {inspection.comment || "N/A"}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -432,7 +434,11 @@ const InspectionSection = ({
                 }}
                 className="text-blue-600 hover:text-blue-800 text-sm"
               >
-                {currentSummaryComment ? <Edit size={14} /> : <Plus size={14} />}
+                {currentSummaryComment ? (
+                  <Edit size={14} />
+                ) : (
+                  <Plus size={14} />
+                )}
               </button>
             </div>
             {currentSummaryComment ? (

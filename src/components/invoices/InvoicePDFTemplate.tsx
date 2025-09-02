@@ -12,9 +12,10 @@ type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
       name: string;
     };
   };
-  units?: {
+  units?: Array<{
     unit_number: string;
-  };
+    billing_entity?: string | null;
+  }>;
   job_technicians?: {
     id: string;
     technician_id: string;
@@ -37,6 +38,7 @@ interface InvoicePDFTemplateProps {
   jobItems: JobItem[];
   invoice: JobInvoice;
   replacementData?: ReplacementData;
+  description?: string;
   consolidatedJobDetails?: Array<{
     jobId: string;
     jobNumber: string;
@@ -50,8 +52,32 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
   jobItems,
   invoice,
   replacementData,
+  description,
   consolidatedJobDetails = [],
 }) => {
+  // Debug logging for billing entity
+  React.useEffect(() => {
+    console.log("InvoicePDFTemplate - job:", job);
+    console.log("InvoicePDFTemplate - job.units:", job.units);
+    console.log("InvoicePDFTemplate - job.units[0]:", job.units?.[0]);
+    console.log(
+      "InvoicePDFTemplate - job.units[0]?.billing_entity:",
+      job.units?.[0]?.billing_entity
+    );
+    const billingEntity = job.units?.[0]?.billing_entity;
+    console.log(
+      "InvoicePDFTemplate - job.units?.billing_entity:",
+      billingEntity
+    );
+    console.log(
+      "InvoicePDFTemplate - job.locations?.companies.name:",
+      job.locations?.companies.name
+    );
+    console.log(
+      "InvoicePDFTemplate - Final billing name:",
+      billingEntity || job.locations?.companies.name
+    );
+  }, [job]);
   // Determine invoice type based on amount and items
   const isInspectionInvoice =
     invoice.amount === 180.0 &&
@@ -233,8 +259,8 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
         <div>
           <h1 className="text-2xl font-bold text-blue-700">INVOICE</h1>
           <h2 className="text-xl font-bold">Airlast HVAC</h2>
-          <p>1650 Marietta Boulevard Northwest</p>
-          <p>Atlanta, GA 30318</p>
+          <p>332 Chinquapin Drive SW</p>
+          <p>Marietta, Ga 30064</p>
           <p>(404) 632-9074</p>
           <p>www.airlast.com</p>
         </div>
@@ -251,12 +277,12 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
       <div className="grid grid-cols-2 gap-8 mb-8">
         <div>
           <h3 className="text-gray-500 font-medium mb-2">Bill to</h3>
-          <p className="font-bold">{job.locations?.companies.name}</p>
-          <p>{job.locations?.address}</p>
+          <p className="font-bold">
+            {job.units?.[0]?.billing_entity || job.locations?.companies.name}
+          </p>
           <p>
             {job.locations?.city}, {job.locations?.state} {job.locations?.zip}
           </p>
-          {job.contact_name && <p>Attn: {job.contact_name}</p>}
         </div>
         <div>
           <h3 className="text-gray-500 font-medium mb-2">Invoice details</h3>
@@ -287,7 +313,15 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
         <p>
           {job.locations?.city}, {job.locations?.state} {job.locations?.zip}
         </p>
-        {job.units && <p>Unit: {job.units.unit_number}</p>}
+        {job.units && job.units.length > 0 && (
+          <p>
+            {job.units.length === 1
+              ? `Unit: ${job.units[0].unit_number}`
+              : `Units: ${job.units
+                  .map((unit) => unit.unit_number)
+                  .join(", ")}`}
+          </p>
+        )}
       </div>
 
       {/* Items Table */}
@@ -330,9 +364,9 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
                     {formatDate(invoice.issued_date)}
                   </td>
                   <td className="py-4 px-4 border-b">
-                    {jobDetail.jobType
-                      ? jobDetail.jobType.charAt(0).toUpperCase() +
-                        jobDetail.jobType.slice(1)
+                    {invoice.type
+                      ? invoice.type.charAt(0).toUpperCase() +
+                        invoice.type.slice(1)
                       : "Standard"}
                   </td>
                   <td className="py-4 px-4 border-b">
@@ -362,8 +396,10 @@ const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
                 </td>
                 <td className="py-4 px-4 border-b">
                   <div>
-                    {job.name}
-                    {job.units && <span> - Unit {job.units.unit_number}</span>}
+                    {description || job.name}
+                    {job.units?.[0] && (
+                      <span> - Unit {job.units[0].unit_number}</span>
+                    )}
 
                     {invoice.type === "replacement" ? (
                       renderReplacementDetails()

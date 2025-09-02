@@ -271,6 +271,8 @@ const Invoices = () => {
           amount: invoice.amount,
           issuedDate: invoice.issued_date,
           dueDate: invoice.due_date,
+          invoiceType: invoice.type,
+          description: invoice.description || null,
         }),
       });
 

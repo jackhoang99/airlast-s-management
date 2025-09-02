@@ -303,7 +303,7 @@ const JobQueue = ({
       }}
     >
       <div className="flex items-center justify-between">
-        <div className="font-medium truncate text-lg">{job.name}</div>
+        <div className="font-medium break-words text-lg">{job.name}</div>
         {isJobPastDue && isJobPastDue(job) && (
           <div className="flex-shrink-0 ml-2">
             <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -313,7 +313,7 @@ const JobQueue = ({
           </div>
         )}
       </div>
-      <div className="text-gray-600 truncate">{job.locations?.name}</div>
+      <div className="text-gray-600 break-words">{job.locations?.name}</div>
       <div className="text-gray-500">{job.locations?.zip}</div>
       {/* Display unit information */}
       {job.units && job.units.length > 0 && (

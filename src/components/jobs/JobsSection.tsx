@@ -474,7 +474,7 @@ const JobsSection: React.FC<JobsSectionProps> = ({
                       </div>
                     )}
                     {job.description && (
-                      <div className="text-sm text-gray-600 mt-2 line-clamp-2">
+                      <div className="text-sm text-gray-600 mt-2 break-words whitespace-pre-wrap">
                         {job.description}
                       </div>
                     )}

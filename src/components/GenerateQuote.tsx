@@ -154,6 +154,7 @@ const GenerateQuote = ({
   const [job, setJob] = useState<any | null>(null);
   const [location, setLocation] = useState<any | null>(null);
   const [unit, setUnit] = useState<any | null>(null);
+  const [allUnits, setAllUnits] = useState<any[]>([]);
   const [existingQuotes, setExistingQuotes] = useState<any[]>([]);
 
   // Selected data for quote generation
@@ -188,6 +189,7 @@ const GenerateQuote = ({
             name,
             contact_name,
             contact_email,
+            inspection_summary_comment,
             locations (
               name,
               address,
@@ -216,6 +218,8 @@ const GenerateQuote = ({
         // Flatten units from job_units
         const units = (jobData.job_units || []).map((ju: any) => ju.units);
         setUnit(units?.[0] || null);
+        // Store all units for PDF generation
+        setAllUnits(units || []);
 
         // Fetch available inspections (optimized)
         const { data: inspData, error: inspError } = await supabase
@@ -588,6 +592,7 @@ const GenerateQuote = ({
               unit_number: unitNumber,
             }
           : null,
+        units: allUnits.length > 0 ? allUnits : unit ? [unit] : [],
         inspection_summary_comment: job?.inspection_summary_comment || null,
       };
 

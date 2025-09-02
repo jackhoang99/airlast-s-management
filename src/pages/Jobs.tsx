@@ -266,10 +266,8 @@ const Jobs = () => {
           query = query.neq("status", "completed");
         }
 
-        // Sort by due date and start date (newest first)
-        query = query
-          .order("time_period_due", { ascending: false })
-          .order("time_period_start", { ascending: false });
+        // Sort by creation date (latest created first)
+        query = query.order("created_at", { ascending: false });
 
         const { data, error } = await query;
         if (error) throw error;
@@ -1177,7 +1175,7 @@ const Jobs = () => {
                             </div>
                           )}
                         {job.description && (
-                          <div className="text-sm text-gray-600 mt-2 line-clamp-2">
+                          <div className="text-sm text-gray-600 mt-2 break-words whitespace-pre-wrap">
                             {job.description}
                           </div>
                         )}

@@ -546,7 +546,7 @@ const TechnicianSchedule = ({
                           data-job-id={job.id}
                         >
                           <div className="flex items-center justify-between">
-                            <div className="font-medium truncate flex-1">
+                            <div className="font-medium break-words flex-1">
                               {job.name}
                               {isJobPastDue && isJobPastDue(job) && (
                                 <span className="ml-1 text-red-600 font-bold">
@@ -558,7 +558,7 @@ const TechnicianSchedule = ({
                           {/* Show units if available */}
                           {(job.units && job.units.length > 0) ||
                           (job.job_units && job.job_units.length > 0) ? (
-                            <div className="truncate text-xs text-gray-500">
+                            <div className="break-words text-xs text-gray-500">
                               Units:{" "}
                               {job.units
                                 ? job.units
@@ -570,7 +570,7 @@ const TechnicianSchedule = ({
                                     .join(", ")}
                             </div>
                           ) : null}
-                          <div className="truncate text-xs opacity-75">
+                          <div className="break-words text-xs opacity-75">
                             {job.locations?.zip}
                             {job.type === "maintenance" &&
                               job.additional_type && (

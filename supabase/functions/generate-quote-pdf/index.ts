@@ -61,6 +61,7 @@ serve(async (req) => {
       hasPMQuotes: !!pmQuotes,
       pmQuotesCount: Array.isArray(pmQuotes) ? pmQuotes.length : 0,
     });
+
     // Debug the repair condition
     console.log("Repair condition check:", {
       quoteType,
@@ -260,6 +261,8 @@ serve(async (req) => {
             const titleText =
               quoteType === "pm"
                 ? "Proposal for Preventative Maintenance"
+                : quoteType === "inspection"
+                ? "Inspection Report"
                 : `${
                     quoteType.charAt(0).toUpperCase() + quoteType.slice(1)
                   } Quote`;
@@ -278,43 +281,137 @@ serve(async (req) => {
               font: bold,
               color: rgb(0.9, 0.4, 0.2),
             });
-            // Draw customer company and location if available (under the heading)
-            console.log("JobData for customer info:", {
-              hasJobData: !!jobData,
-              jobDataKeys: jobData ? Object.keys(jobData) : null,
-              location: jobData?.location,
-              locationKeys: jobData?.location
-                ? Object.keys(jobData.location)
-                : null,
-              name: jobData?.location?.name,
-              address: jobData?.location?.address,
-            });
-            // Try different ways to access customer data
-            const customerName =
-              jobData?.location?.name ||
-              jobData?.location?.company_name ||
-              jobData?.company?.name ||
-              "Customer Information";
-            const customerAddress =
-              jobData?.location?.address ||
-              jobData?.location?.street_address ||
-              jobData?.address ||
-              "";
-            addedPage.drawText(customerName, {
-              x: 50,
-              y: 120,
-              size: 16,
-              font: bold,
-              color: rgb(1, 1, 1),
-            });
-            if (customerAddress && customerAddress !== "Customer Information") {
-              addedPage.drawText(customerAddress, {
+            // Draw customer company and location information
+            console.log(
+              "First Page - Full jobData:",
+              JSON.stringify(jobData, null, 2)
+            );
+            console.log("First Page - jobData.job:", jobData?.job);
+            console.log("First Page - jobData.location:", jobData?.location);
+            console.log("First Page - jobData.unit:", jobData?.unit);
+
+            let customerY = 120;
+
+            // Company name - check both structures
+            const companyName =
+              jobData?.locations?.companies?.name ||
+              jobData?.location?.companies?.name ||
+              "N/A";
+            if (companyName && companyName !== "N/A") {
+              console.log("First Page - Drawing company name:", companyName);
+              addedPage.drawText(companyName, {
                 x: 50,
-                y: 100,
+                y: customerY,
+                size: 16,
+                font: bold,
+                color: rgb(1, 1, 1),
+              });
+              customerY -= 20;
+            } else {
+              console.log("First Page - No company name found");
+            }
+
+            // Location name - check both structures
+            const locationName =
+              jobData?.locations?.name || jobData?.location?.name || "N/A";
+            if (locationName && locationName !== "N/A") {
+              console.log("First Page - Drawing location name:", locationName);
+              addedPage.drawText(locationName, {
+                x: 50,
+                y: customerY,
+                size: 14,
+                font: bold,
+                color: rgb(1, 1, 1),
+              });
+              customerY -= 18;
+            } else {
+              console.log("First Page - No location name found");
+            }
+
+            // Address - check both structures
+            const address =
+              jobData?.locations?.address ||
+              jobData?.location?.address ||
+              "N/A";
+            if (address && address !== "N/A") {
+              console.log("First Page - Drawing address:", address);
+              addedPage.drawText(address, {
+                x: 50,
+                y: customerY,
                 size: 14,
                 font,
                 color: rgb(1, 1, 1),
               });
+              customerY -= 18;
+            } else {
+              console.log("First Page - No address found");
+            }
+
+            // City, State, ZIP - check both structures
+            const city = jobData?.locations?.city || jobData?.location?.city;
+            const state = jobData?.locations?.state || jobData?.location?.state;
+            const zip = jobData?.locations?.zip || jobData?.location?.zip;
+
+            if (city || state || zip) {
+              const cityStateZip = [city, state, zip]
+                .filter(Boolean)
+                .join(", ");
+
+              console.log("First Page - Drawing city/state/zip:", cityStateZip);
+              addedPage.drawText(cityStateZip, {
+                x: 50,
+                y: customerY,
+                size: 14,
+                font,
+                color: rgb(1, 1, 1),
+              });
+              customerY -= 18;
+            } else {
+              console.log("First Page - No city/state/zip found");
+            }
+
+            // Unit number - check both structures
+            console.log("First Page - jobData.units:", jobData?.units);
+            console.log("First Page - jobData.unit:", jobData?.unit);
+
+            const units =
+              jobData?.units || (jobData?.unit ? [jobData.unit] : []);
+            console.log("First Page - Final units array:", units);
+
+            if (units && units.length > 0) {
+              if (units.length === 1) {
+                const unitNumber = units[0]?.unit_number;
+                if (unitNumber) {
+                  console.log("First Page - Drawing single unit:", unitNumber);
+                  addedPage.drawText(`Unit: ${unitNumber}`, {
+                    x: 50,
+                    y: customerY,
+                    size: 14,
+                    font: bold,
+                    color: rgb(1, 1, 1),
+                  });
+                }
+              } else {
+                const unitNumbers = units
+                  .map((unit) => unit.unit_number)
+                  .filter(Boolean)
+                  .join(", ");
+                if (unitNumbers) {
+                  console.log(
+                    "First Page - Drawing multiple units:",
+                    unitNumbers
+                  );
+                  addedPage.drawText(`Units: ${unitNumbers}`, {
+                    x: 50,
+                    y: customerY,
+                    size: 14,
+                    font: bold,
+                    color: rgb(1, 1, 1),
+                  });
+                }
+              }
+            } else {
+              console.log("First Page - No units found");
             }
 
             // Add AirLast logo to bottom right
@@ -413,7 +510,10 @@ serve(async (req) => {
     const minY = 100; // Minimum Y position before creating a new page
     let y = height - 80;
     // Draw header
-    const headerText = `${quoteType.toUpperCase()} QUOTE`;
+    const headerText =
+      quoteType === "inspection"
+        ? "INSPECTION REPORT"
+        : `${quoteType.toUpperCase()} QUOTE`;
     dynamicPage.drawText(headerText, {
       x: margin,
       y,
@@ -436,8 +536,132 @@ serve(async (req) => {
       size: fontSize,
       font,
     });
-    y -= lineHeight * 2;
-    // Draw customer info
+    y -= lineHeight;
+
+    // Add customer information under the date
+    console.log("Second Page - Adding customer info under date");
+    console.log("Second Page - jobData.job:", jobData?.job);
+    console.log("Second Page - jobData.location:", jobData?.location);
+    console.log("Second Page - jobData.unit:", jobData?.unit);
+
+    // Check both data structures for customer information
+    const hasLocations = jobData?.locations || jobData?.location;
+
+    if (hasLocations) {
+      // Company name - check both structures
+      const companyName =
+        jobData?.locations?.companies?.name ||
+        jobData?.location?.companies?.name;
+      if (companyName) {
+        console.log("Second Page - Drawing company name:", companyName);
+        dynamicPage.drawText(companyName, {
+          x: margin,
+          y,
+          size: fontSize,
+          font: bold,
+        });
+        y -= lineHeight;
+      } else {
+        console.log("Second Page - No company name found");
+      }
+
+      // Location name - check both structures
+      const locationName = jobData?.locations?.name || jobData?.location?.name;
+      if (locationName) {
+        console.log("Second Page - Drawing location name:", locationName);
+        dynamicPage.drawText(locationName, {
+          x: margin,
+          y,
+          size: fontSize,
+          font: bold,
+        });
+        y -= lineHeight;
+      } else {
+        console.log("Second Page - No location name found");
+      }
+
+      // Address - check both structures
+      const address = jobData?.locations?.address || jobData?.location?.address;
+      if (address) {
+        console.log("Second Page - Drawing address:", address);
+        dynamicPage.drawText(address, {
+          x: margin,
+          y,
+          size: fontSize,
+          font,
+        });
+        y -= lineHeight;
+      } else {
+        console.log("Second Page - No address found");
+      }
+
+      // City, State, ZIP - check both structures
+      const city = jobData?.locations?.city || jobData?.location?.city;
+      const state = jobData?.locations?.state || jobData?.location?.state;
+      const zip = jobData?.locations?.zip || jobData?.location?.zip;
+
+      if (city || state || zip) {
+        const cityStateZip = [city, state, zip].filter(Boolean).join(", ");
+
+        console.log("Second Page - Drawing city/state/zip:", cityStateZip);
+        dynamicPage.drawText(cityStateZip, {
+          x: margin,
+          y,
+          size: fontSize,
+          font,
+        });
+        y -= lineHeight;
+      } else {
+        console.log("Second Page - No city/state/zip found");
+      }
+
+      // Unit information - check both structures
+      console.log("Second Page - jobData.units:", jobData?.units);
+      console.log("Second Page - jobData.unit:", jobData?.unit);
+
+      const units = jobData?.units || (jobData?.unit ? [jobData.unit] : []);
+      console.log("Second Page - Final units array:", units);
+
+      if (units && units.length > 0) {
+        if (units.length === 1) {
+          const unitNumber = units[0]?.unit_number;
+          if (unitNumber) {
+            console.log("Second Page - Drawing single unit:", unitNumber);
+            dynamicPage.drawText(`Unit: ${unitNumber}`, {
+              x: margin,
+              y,
+              size: fontSize,
+              font: bold,
+            });
+          }
+        } else {
+          const unitNumbers = units
+            .map((unit) => unit.unit_number)
+            .filter(Boolean)
+            .join(", ");
+          if (unitNumbers) {
+            console.log("Second Page - Drawing multiple units:", unitNumbers);
+            dynamicPage.drawText(`Units: ${unitNumbers}`, {
+              x: margin,
+              y,
+              size: fontSize,
+              font: bold,
+            });
+          }
+        }
+        y -= lineHeight;
+      } else {
+        console.log("Second Page - No units found");
+      }
+
+      y -= lineHeight; // Add extra space before the next section
+    } else {
+      console.log(
+        "Second Page - No jobData.locations or jobData.location found"
+      );
+    }
+
+    // Draw customer info section header
     if (jobData?.locations) {
       dynamicPage.drawText("Customer:", {
         x: margin,
@@ -481,12 +705,24 @@ serve(async (req) => {
       // Add unit information if available
       if (jobData.units) {
         y -= lineHeight;
-        dynamicPage.drawText(`Unit: ${jobData.units.unit_number || ""}`, {
-          x: margin,
-          y,
-          size: fontSize,
-          font,
-        });
+        if (jobData.units.length === 1) {
+          dynamicPage.drawText(`Unit: ${jobData.units[0].unit_number}`, {
+            x: margin,
+            y,
+            size: fontSize,
+            font,
+          });
+        } else {
+          const unitNumbers = jobData.units
+            .map((unit) => unit.unit_number)
+            .join(", ");
+          dynamicPage.drawText(`Units: ${unitNumbers}`, {
+            x: margin,
+            y,
+            size: fontSize,
+            font,
+          });
+        }
       }
       y -= lineHeight * 2;
     }
@@ -655,6 +891,22 @@ serve(async (req) => {
         // Draw left column
         let leftY = y;
         for (const detail of leftColumn) {
+          // Check if we need a new page before drawing detail
+          if (leftY < 150) {
+            dynamicPage = newPdfDoc.addPage();
+            leftY = height - margin;
+            y = leftY; // Update main y position
+            // Add background to new page if available
+            if (bgImage) {
+              dynamicPage.drawImage(bgImage, {
+                x: 0,
+                y: 0,
+                width,
+                height,
+              });
+            }
+          }
+
           dynamicPage.drawText(detail, {
             x: margin,
             y: leftY,
@@ -666,6 +918,22 @@ serve(async (req) => {
         // Draw right column
         let rightY = y;
         for (const detail of rightColumn) {
+          // Check if we need a new page before drawing detail
+          if (rightY < 150) {
+            dynamicPage = newPdfDoc.addPage();
+            rightY = height - margin;
+            y = rightY; // Update main y position
+            // Add background to new page if available
+            if (bgImage) {
+              dynamicPage.drawImage(bgImage, {
+                x: 0,
+                y: 0,
+                width,
+                height,
+              });
+            }
+          }
+
           dynamicPage.drawText(detail, {
             x: margin + 250,
             y: rightY,
@@ -678,21 +946,218 @@ serve(async (req) => {
         y = Math.min(leftY, rightY);
         // Add comment if available
         if (insp.comment) {
-          dynamicPage.drawText(`Comment: ${insp.comment}`, {
+          // Check if we need a new page before drawing comment
+          if (y < 150) {
+            dynamicPage = newPdfDoc.addPage();
+            y = height - margin;
+            // Add background to new page if available
+            if (bgImage) {
+              dynamicPage.drawImage(bgImage, {
+                x: 0,
+                y: 0,
+                width,
+                height,
+              });
+            }
+          }
+
+          // Split comment into lines if it's too long
+          const commentText = insp.comment;
+          const maxWidth = width - margin * 2;
+          const words = commentText.split(" ");
+          let currentLine = "";
+          let isFirstLine = true;
+
+          for (const word of words) {
+            const testLine = currentLine ? `${currentLine} ${word}` : word;
+            const testWidth = font.widthOfTextAtSize(testLine, fontSize);
+
+            if (testWidth > maxWidth && currentLine) {
+              // Check if we need a new page
+              if (y < 150) {
+                dynamicPage = newPdfDoc.addPage();
+                y = height - margin;
+                // Add background to new page if available
+                if (bgImage) {
+                  dynamicPage.drawImage(bgImage, {
+                    x: 0,
+                    y: 0,
+                    width,
+                    height,
+                  });
+                }
+              }
+
+              // Draw current line - only add "Comment:" prefix on first line
+              const lineText = isFirstLine
+                ? `Comment: ${currentLine}`
+                : currentLine;
+              dynamicPage.drawText(lineText, {
+                x: margin,
+                y,
+                size: fontSize,
+                font,
+              });
+              y -= lineHeight;
+              currentLine = word;
+              isFirstLine = false;
+            } else {
+              currentLine = testLine;
+            }
+          }
+
+          // Draw the last line
+          if (currentLine) {
+            // Check if we need a new page
+            if (y < 150) {
+              dynamicPage = newPdfDoc.addPage();
+              y = height - margin;
+              // Add background to new page if available
+              if (bgImage) {
+                dynamicPage.drawImage(bgImage, {
+                  x: 0,
+                  y: 0,
+                  width,
+                  height,
+                });
+              }
+            }
+
+            // Only add "Comment:" prefix if this is the first (and only) line
+            const lineText = isFirstLine
+              ? `Comment: ${currentLine}`
+              : currentLine;
+            dynamicPage.drawText(lineText, {
+              x: margin,
+              y,
+              size: fontSize,
+              font,
+            });
+            y -= lineHeight;
+          }
+        }
+        y -= lineHeight;
+      }
+
+      // Add summary comment section if available (skip for inspection quotes to avoid duplication)
+      if (
+        quoteType !== "inspection" &&
+        jobData &&
+        jobData.inspection_summary_comment &&
+        jobData.inspection_summary_comment.trim()
+      ) {
+        // Check if we need a new page for the summary comment
+        if (y < 150) {
+          dynamicPage = newPdfDoc.addPage();
+          y = height - margin;
+          // Add background to new page if available
+          if (bgImage) {
+            dynamicPage.drawImage(bgImage, {
+              x: 0,
+              y: 0,
+              width,
+              height,
+            });
+          }
+        }
+
+        y -= lineHeight; // Add some spacing before summary comment
+
+        dynamicPage.drawText("Summary Comment:", {
+          x: margin,
+          y,
+          size: fontSize + 1,
+          font: bold,
+        });
+        y -= lineHeight * 1.5;
+
+        // Split summary comment into lines if it's too long
+        const summaryText = jobData.inspection_summary_comment;
+        const maxWidth = width - margin * 2;
+        const words = summaryText.split(" ");
+        let currentLine = "";
+
+        for (const word of words) {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const testWidth = font.widthOfTextAtSize(testLine, fontSize);
+
+          if (testWidth > maxWidth && currentLine) {
+            // Check if we need a new page
+            if (y < 150) {
+              dynamicPage = newPdfDoc.addPage();
+              y = height - margin;
+              // Add background to new page if available
+              if (bgImage) {
+                dynamicPage.drawImage(bgImage, {
+                  x: 0,
+                  y: 0,
+                  width,
+                  height,
+                });
+              }
+            }
+
+            // Draw current line and start new line
+            dynamicPage.drawText(currentLine, {
+              x: margin,
+              y,
+              size: fontSize,
+              font,
+            });
+            y -= lineHeight;
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        }
+
+        // Draw the last line
+        if (currentLine) {
+          // Check if we need a new page
+          if (y < 150) {
+            dynamicPage = newPdfDoc.addPage();
+            y = height - margin;
+            // Add background to new page if available
+            if (bgImage) {
+              dynamicPage.drawImage(bgImage, {
+                x: 0,
+                y: 0,
+                width,
+                height,
+              });
+            }
+          }
+
+          dynamicPage.drawText(currentLine, {
             x: margin,
             y,
             size: fontSize,
             font,
           });
-          y -= lineHeight;
+          y -= lineHeight * 2;
         }
-        y -= lineHeight;
       }
+
       y -= lineHeight * 2; // Add extra space after inspection results
     }
 
     // Draw replacement summary header (only for replacement quotes)
     if (quoteType === "replacement") {
+      // Check if we need a new page before drawing replacement summary
+      if (y < 150) {
+        dynamicPage = newPdfDoc.addPage();
+        y = height - margin;
+        // Add background to new page if available
+        if (bgImage) {
+          dynamicPage.drawImage(bgImage, {
+            x: 0,
+            y: 0,
+            width,
+            height,
+          });
+        }
+      }
+
       dynamicPage.drawText("Replacement Summary:", {
         x: margin,
         y,
@@ -711,6 +1176,21 @@ serve(async (req) => {
       );
       // If multiple replacements, show them as a consolidated list
       if (replacementsToProcess.length > 1) {
+        // Check if we need a new page before drawing multiple options header
+        if (y < 150) {
+          dynamicPage = newPdfDoc.addPage();
+          y = height - margin;
+          // Add background to new page if available
+          if (bgImage) {
+            dynamicPage.drawImage(bgImage, {
+              x: 0,
+              y: 0,
+              width,
+              height,
+            });
+          }
+        }
+
         // Draw consolidated header
         dynamicPage.drawText("Multiple Replacement Options:", {
           x: margin,
@@ -724,6 +1204,22 @@ serve(async (req) => {
           let entry = replacementsToProcess[i];
           const totalCost = Number(entry.totalCost || entry.total_cost || 0);
           combinedTotal += totalCost;
+
+          // Check if we need a new page before drawing option header
+          if (y < 150) {
+            dynamicPage = newPdfDoc.addPage();
+            y = height - margin;
+            // Add background to new page if available
+            if (bgImage) {
+              dynamicPage.drawImage(bgImage, {
+                x: 0,
+                y: 0,
+                width,
+                height,
+              });
+            }
+          }
+
           // Draw replacement option header
           dynamicPage.drawText(
             `Option ${entry.replacementNumber}: $${totalCost.toLocaleString()}`,
@@ -770,16 +1266,142 @@ serve(async (req) => {
               `Permit: $${Number(entry.permitCost).toLocaleString()}`
             );
           }
-          // Display components in a compact format
+
+          // Add accessories if available
+          if (
+            entry.accessories &&
+            Array.isArray(entry.accessories) &&
+            entry.accessories.length > 0
+          ) {
+            const accessoriesCost = entry.accessories.reduce(
+              (sum: number, acc: any) => {
+                // Handle both object format and direct cost format
+                if (typeof acc === "object" && acc.cost !== undefined) {
+                  return sum + (Number(acc.cost) || 0);
+                } else if (typeof acc === "number") {
+                  return sum + Number(acc);
+                } else if (typeof acc === "string" && !isNaN(Number(acc))) {
+                  return sum + Number(acc);
+                }
+                return sum;
+              },
+              0
+            );
+            if (accessoriesCost > 0) {
+              components.push(
+                `Accessories: $${accessoriesCost.toLocaleString()}`
+              );
+            }
+          }
+
+          // Add additional items if available
+          if (
+            entry.additionalItems &&
+            Array.isArray(entry.additionalItems) &&
+            entry.additionalItems.length > 0
+          ) {
+            const additionalItemsCost = entry.additionalItems.reduce(
+              (sum: number, item: any) => {
+                // Handle both object format and direct cost format
+                if (typeof item === "object" && item.cost !== undefined) {
+                  return sum + (Number(item.cost) || 0);
+                } else if (typeof item === "number") {
+                  return sum + Number(item);
+                } else if (typeof item === "string" && !isNaN(Number(item))) {
+                  return sum + Number(item);
+                }
+                return sum;
+              },
+              0
+            );
+            if (additionalItemsCost > 0) {
+              components.push(
+                `Additional Items: $${additionalItemsCost.toLocaleString()}`
+              );
+            }
+          }
+          // Display components in a compact format with word wrapping
           if (components.length > 0) {
+            // Check if we need a new page before drawing components
+            if (y < 150) {
+              dynamicPage = newPdfDoc.addPage();
+              y = height - margin;
+              // Add background to new page if available
+              if (bgImage) {
+                dynamicPage.drawImage(bgImage, {
+                  x: 0,
+                  y: 0,
+                  width,
+                  height,
+                });
+              }
+            }
+
             const componentsText = components.join(" • ");
-            dynamicPage.drawText(componentsText, {
-              x: margin + 20,
-              y,
-              size: fontSize - 1,
-              font,
-            });
-            y -= lineHeight;
+            // Split components into lines if they're too long
+            const maxWidth = width - margin * 2 - 20; // Account for left margin offset
+            const words = componentsText.split(" ");
+            let currentLine = "";
+
+            for (const word of words) {
+              const testLine = currentLine ? `${currentLine} ${word}` : word;
+              const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
+
+              if (testWidth > maxWidth && currentLine) {
+                // Check if we need a new page
+                if (y < 150) {
+                  dynamicPage = newPdfDoc.addPage();
+                  y = height - margin;
+                  // Add background to new page if available
+                  if (bgImage) {
+                    dynamicPage.drawImage(bgImage, {
+                      x: 0,
+                      y: 0,
+                      width,
+                      height,
+                    });
+                  }
+                }
+
+                // Draw current line and start new line
+                dynamicPage.drawText(currentLine, {
+                  x: margin + 20,
+                  y,
+                  size: fontSize - 1,
+                  font,
+                });
+                y -= lineHeight;
+                currentLine = word;
+              } else {
+                currentLine = testLine;
+              }
+            }
+
+            // Draw the last line
+            if (currentLine) {
+              // Check if we need a new page
+              if (y < 150) {
+                dynamicPage = newPdfDoc.addPage();
+                y = height - margin;
+                // Add background to new page if available
+                if (bgImage) {
+                  dynamicPage.drawImage(bgImage, {
+                    x: 0,
+                    y: 0,
+                    width,
+                    height,
+                  });
+                }
+              }
+
+              dynamicPage.drawText(currentLine, {
+                x: margin + 20,
+                y,
+                size: fontSize - 1,
+                font,
+              });
+              y -= lineHeight;
+            }
           }
           // Add requirements if any
           const requirements = [];
@@ -793,19 +1415,64 @@ serve(async (req) => {
             requirements.push("Big Ladder Required");
           }
           if (requirements.length > 0) {
-            dynamicPage.drawText(`Requirements: ${requirements.join(", ")}`, {
-              x: margin + 20,
-              y,
-              size: fontSize - 1,
-              font,
-              color: rgb(0.8, 0.4, 0),
-            });
-            y -= lineHeight;
+            // Split requirements into lines if they're too long
+            const requirementsText = `Requirements: ${requirements.join(", ")}`;
+            const maxWidth = width - margin * 2 - 20; // Account for left margin offset
+            const words = requirementsText.split(" ");
+            let currentLine = "";
+
+            for (const word of words) {
+              const testLine = currentLine ? `${currentLine} ${word}` : word;
+              const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
+
+              if (testWidth > maxWidth && currentLine) {
+                // Draw current line and start new line
+                dynamicPage.drawText(currentLine, {
+                  x: margin + 20,
+                  y,
+                  size: fontSize - 1,
+                  font,
+                  color: rgb(0.8, 0.4, 0),
+                });
+                y -= lineHeight;
+                currentLine = word;
+              } else {
+                currentLine = testLine;
+              }
+            }
+
+            // Draw the last line
+            if (currentLine) {
+              dynamicPage.drawText(currentLine, {
+                x: margin + 20,
+                y,
+                size: fontSize - 1,
+                font,
+                color: rgb(0.4, 0.4, 0.4),
+              });
+              y -= lineHeight;
+            }
           }
           y -= lineHeight * 0.5; // Small spacing between options
         }
         // Draw total line
         y -= lineHeight;
+
+        // Check if we need a new page before drawing total
+        if (y < 150) {
+          dynamicPage = newPdfDoc.addPage();
+          y = height - margin;
+          // Add background to new page if available
+          if (bgImage) {
+            dynamicPage.drawImage(bgImage, {
+              x: 0,
+              y: 0,
+              width,
+              height,
+            });
+          }
+        }
+
         dynamicPage.drawLine({
           start: {
             x: margin,
@@ -837,6 +1504,22 @@ serve(async (req) => {
         let entry = replacementsToProcess[0];
         const totalCost = Number(entry.totalCost || entry.total_cost || 0);
         combinedTotal = totalCost;
+
+        // Check if we need a new page before drawing single replacement details
+        if (y < 150) {
+          dynamicPage = newPdfDoc.addPage();
+          y = height - margin;
+          // Add background to new page if available
+          if (bgImage) {
+            dynamicPage.drawImage(bgImage, {
+              x: 0,
+              y: 0,
+              width,
+              height,
+            });
+          }
+        }
+
         // Draw replacement header
         dynamicPage.drawText("Replacement Details:", {
           x: margin,
@@ -888,16 +1571,113 @@ serve(async (req) => {
             `Permit Cost: $${Number(entry.permitCost).toLocaleString()}`
           );
         }
+
+        // Add accessories if available
+        if (
+          entry.accessories &&
+          Array.isArray(entry.accessories) &&
+          entry.accessories.length > 0
+        ) {
+          const accessoriesCost = entry.accessories.reduce(
+            (sum: number, acc: any) => {
+              // Handle both object format and direct cost format
+              if (typeof acc === "object" && acc.cost !== undefined) {
+                return sum + (Number(acc.cost) || 0);
+              } else if (typeof acc === "number") {
+                return sum + Number(acc);
+              } else if (typeof acc === "string" && !isNaN(Number(acc))) {
+                return sum + Number(acc);
+              }
+              return sum;
+            },
+            0
+          );
+          if (accessoriesCost > 0) {
+            components.push(
+              `Accessories: $${accessoriesCost.toLocaleString()}`
+            );
+          }
+        }
+
+        // Add additional items if available
+        if (
+          entry.additionalItems &&
+          Array.isArray(entry.additionalItems) &&
+          entry.additionalItems.length > 0
+        ) {
+          const additionalItemsCost = entry.additionalItems.reduce(
+            (sum: number, item: any) => {
+              // Handle both object format and direct cost format
+              if (typeof item === "object" && item.cost !== undefined) {
+                return sum + (Number(item.cost) || 0);
+              } else if (typeof item === "number") {
+                return sum + Number(item);
+              } else if (typeof item === "string" && !isNaN(Number(item))) {
+                return sum + Number(item);
+              }
+              return sum;
+            },
+            0
+          );
+          if (additionalItemsCost > 0) {
+            components.push(
+              `Additional Items: $${additionalItemsCost.toLocaleString()}`
+            );
+          }
+        }
+
         // Display components
         if (components.length > 0) {
           for (const component of components) {
-            dynamicPage.drawText(`• ${component}`, {
-              x: margin + 20,
-              y,
-              size: fontSize - 1,
-              font,
-            });
-            y -= lineHeight;
+            // Check if we need a new page before drawing component
+            if (y < 150) {
+              dynamicPage = newPdfDoc.addPage();
+              y = height - margin;
+              // Add background to new page if available
+              if (bgImage) {
+                dynamicPage.drawImage(bgImage, {
+                  x: 0,
+                  y: 0,
+                  width,
+                  height,
+                });
+              }
+            }
+            // Split component into lines if it's too long
+            const componentText = `• ${component}`;
+            const maxWidth = width - margin * 2 - 20; // Account for left margin offset
+            const words = componentText.split(" ");
+            let currentLine = "";
+
+            for (const word of words) {
+              const testLine = currentLine ? `${currentLine} ${word}` : word;
+              const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
+
+              if (testWidth > maxWidth && currentLine) {
+                // Draw current line and start new line
+                dynamicPage.drawText(currentLine, {
+                  x: margin + 20,
+                  y,
+                  size: fontSize - 1,
+                  font,
+                });
+                y -= lineHeight;
+                currentLine = word;
+              } else {
+                currentLine = testLine;
+              }
+            }
+
+            // Draw the last line
+            if (currentLine) {
+              dynamicPage.drawText(currentLine, {
+                x: margin + 20,
+                y,
+                size: fontSize - 1,
+                font,
+              });
+              y -= lineHeight;
+            }
           }
         }
         // Add requirements if any
@@ -912,14 +1692,57 @@ serve(async (req) => {
           requirements.push("Big Ladder Required");
         }
         if (requirements.length > 0) {
-          dynamicPage.drawText(`Requirements: ${requirements.join(", ")}`, {
-            x: margin + 20,
-            y,
-            size: fontSize - 1,
-            font,
-            color: rgb(0.8, 0.4, 0),
-          });
-          y -= lineHeight;
+          // Check if we need a new page before drawing requirements
+          if (y < 150) {
+            dynamicPage = newPdfDoc.addPage();
+            y = height - margin;
+            // Add background to new page if available
+            if (bgImage) {
+              dynamicPage.drawImage(bgImage, {
+                x: 0,
+                y: 0,
+                width,
+                height,
+              });
+            }
+          }
+          // Split requirements into lines if they're too long
+          const requirementsText = `Requirements: ${requirements.join(", ")}`;
+          const maxWidth = width - margin * 2 - 20; // Account for left margin offset
+          const words = requirementsText.split(" ");
+          let currentLine = "";
+
+          for (const word of words) {
+            const testLine = currentLine ? `${currentLine} ${word}` : word;
+            const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
+
+            if (testWidth > maxWidth && currentLine) {
+              // Draw current line and start new line
+              dynamicPage.drawText(currentLine, {
+                x: margin + 20,
+                y,
+                size: fontSize - 1,
+                font,
+                color: rgb(0.8, 0.4, 0),
+              });
+              y -= lineHeight;
+              currentLine = word;
+            } else {
+              currentLine = testLine;
+            }
+          }
+
+          // Draw the last line
+          if (currentLine) {
+            dynamicPage.drawText(currentLine, {
+              x: margin + 20,
+              y,
+              size: fontSize - 1,
+              font,
+              color: rgb(0.8, 0.4, 0),
+            });
+            y -= lineHeight;
+          }
         }
         y -= lineHeight;
       }
@@ -931,18 +1754,70 @@ serve(async (req) => {
       // Handle inspection quotes
       console.log("=== INSPECTION QUOTE SECTION ENTERED ===");
       console.log("Processing inspection quote");
-      // Check if we need a new page
-      if (y < 200) {
-        dynamicPage = newPdfDoc.addPage();
-        y = height - margin;
-        // Add background to new page if available
-        if (bgImage) {
-          dynamicPage.drawImage(bgImage, {
-            x: 0,
-            y: 0,
-            width,
-            height,
+
+      // Add summary comment section if available
+      if (
+        jobData &&
+        jobData.inspection_summary_comment &&
+        jobData.inspection_summary_comment.trim()
+      ) {
+        // Check if we need a new page for the summary comment
+        if (y < 150) {
+          dynamicPage = newPdfDoc.addPage();
+          y = height - margin;
+          // Add background to new page if available
+          if (bgImage) {
+            dynamicPage.drawImage(bgImage, {
+              x: 0,
+              y: 0,
+              width,
+              height,
+            });
+          }
+        }
+
+        dynamicPage.drawText("Summary Comment:", {
+          x: margin,
+          y,
+          size: fontSize + 1,
+          font: bold,
+        });
+        y -= lineHeight * 1.5;
+
+        // Split comment into lines if it's too long
+        const commentText = jobData.inspection_summary_comment;
+        const maxWidth = width - margin * 2;
+        const words = commentText.split(" ");
+        let currentLine = "";
+
+        for (const word of words) {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
+
+          if (testWidth > maxWidth && currentLine) {
+            // Draw current line and start new line
+            dynamicPage.drawText(currentLine, {
+              x: margin,
+              y,
+              size: fontSize - 1,
+              font,
+            });
+            y -= lineHeight;
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        }
+
+        // Draw the last line
+        if (currentLine) {
+          dynamicPage.drawText(currentLine, {
+            x: margin,
+            y,
+            size: fontSize - 1,
+            font,
           });
+          y -= lineHeight * 2;
         }
       }
     } else if (quoteType === "pm") {
@@ -1295,13 +2170,44 @@ serve(async (req) => {
             );
             y -= lineHeight;
             if (pmQuote.service_period) {
-              dynamicPage.drawText(`Schedule: ${pmQuote.service_period}`, {
-                x: margin + 20,
-                y,
-                size: fontSize - 1,
-                font,
-              });
-              y -= lineHeight;
+              // Split service period into lines if it's too long
+              const scheduleText = `Schedule: ${pmQuote.service_period}`;
+              const maxWidth = width - margin * 2 - 20;
+              const words = scheduleText.split(" ");
+              let currentLine = "";
+
+              for (const word of words) {
+                const testLine = currentLine ? `${currentLine} ${word}` : word;
+                const testWidth = font.widthOfTextAtSize(
+                  testLine,
+                  fontSize - 1
+                );
+
+                if (testWidth > maxWidth && currentLine) {
+                  // Draw current line and start new line
+                  dynamicPage.drawText(currentLine, {
+                    x: margin + 20,
+                    y,
+                    size: fontSize - 1,
+                    font,
+                  });
+                  y -= lineHeight;
+                  currentLine = word;
+                } else {
+                  currentLine = testLine;
+                }
+              }
+
+              // Draw the last line
+              if (currentLine) {
+                dynamicPage.drawText(currentLine, {
+                  x: margin + 20,
+                  y,
+                  size: fontSize - 1,
+                  font,
+                });
+                y -= lineHeight;
+              }
             }
             const comprehensiveDesc =
               pmQuote.comprehensive_visit_description ||
@@ -1414,13 +2320,45 @@ serve(async (req) => {
                   });
                 }
               }
-              dynamicPage.drawText(`• ${task}`, {
-                x: margin + 30,
-                y,
-                size: fontSize - 2,
-                font,
-              });
-              y -= lineHeight;
+
+              // Split task into lines if it's too long
+              const taskText = `• ${task}`;
+              const maxWidth = width - margin * 2 - 30; // Account for left margin offset
+              const words = taskText.split(" ");
+              let currentLine = "";
+
+              for (const word of words) {
+                const testLine = currentLine ? `${currentLine} ${word}` : word;
+                const testWidth = font.widthOfTextAtSize(
+                  testLine,
+                  fontSize - 2
+                );
+
+                if (testWidth > maxWidth && currentLine) {
+                  // Draw current line and start new line
+                  dynamicPage.drawText(currentLine, {
+                    x: margin + 30,
+                    y,
+                    size: fontSize - 2,
+                    font,
+                  });
+                  y -= lineHeight;
+                  currentLine = word;
+                } else {
+                  currentLine = testLine;
+                }
+              }
+
+              // Draw the last line
+              if (currentLine) {
+                dynamicPage.drawText(currentLine, {
+                  x: margin + 30,
+                  y,
+                  size: fontSize - 2,
+                  font,
+                });
+                y -= lineHeight;
+              }
             });
             y -= lineHeight;
           }
@@ -1448,13 +2386,44 @@ serve(async (req) => {
             );
             y -= lineHeight;
             if (pmQuote.filter_visit_period) {
-              dynamicPage.drawText(`Schedule: ${pmQuote.filter_visit_period}`, {
-                x: margin + 20,
-                y,
-                size: fontSize - 1,
-                font,
-              });
-              y -= lineHeight;
+              // Split filter visit period into lines if it's too long
+              const scheduleText = `Schedule: ${pmQuote.filter_visit_period}`;
+              const maxWidth = width - margin * 2 - 20;
+              const words = scheduleText.split(" ");
+              let currentLine = "";
+
+              for (const word of words) {
+                const testLine = currentLine ? `${currentLine} ${word}` : word;
+                const testWidth = font.widthOfTextAtSize(
+                  testLine,
+                  fontSize - 1
+                );
+
+                if (testWidth > maxWidth && currentLine) {
+                  // Draw current line and start new line
+                  dynamicPage.drawText(currentLine, {
+                    x: margin + 20,
+                    y,
+                    size: fontSize - 1,
+                    font,
+                  });
+                  y -= lineHeight;
+                  currentLine = word;
+                } else {
+                  currentLine = testLine;
+                }
+              }
+
+              // Draw the last line
+              if (currentLine) {
+                dynamicPage.drawText(currentLine, {
+                  x: margin + 20,
+                  y,
+                  size: fontSize - 1,
+                  font,
+                });
+                y -= lineHeight;
+              }
             }
             const filterDesc =
               pmQuote.filter_visit_description ||
@@ -1549,13 +2518,45 @@ serve(async (req) => {
                   });
                 }
               }
-              dynamicPage.drawText(`• ${task}`, {
-                x: margin + 30,
-                y,
-                size: fontSize - 2,
-                font,
-              });
-              y -= lineHeight;
+
+              // Split task into lines if it's too long
+              const taskText = `• ${task}`;
+              const maxWidth = width - margin * 2 - 30; // Account for left margin offset
+              const words = taskText.split(" ");
+              let currentLine = "";
+
+              for (const word of words) {
+                const testLine = currentLine ? `${currentLine} ${word}` : word;
+                const testWidth = font.widthOfTextAtSize(
+                  testLine,
+                  fontSize - 2
+                );
+
+                if (testWidth > maxWidth && currentLine) {
+                  // Draw current line and start new line
+                  dynamicPage.drawText(currentLine, {
+                    x: margin + 30,
+                    y,
+                    size: fontSize - 2,
+                    font,
+                  });
+                  y -= lineHeight;
+                  currentLine = word;
+                } else {
+                  currentLine = testLine;
+                }
+              }
+
+              // Draw the last line
+              if (currentLine) {
+                dynamicPage.drawText(currentLine, {
+                  x: margin + 30,
+                  y,
+                  size: fontSize - 2,
+                  font,
+                });
+                y -= lineHeight;
+              }
             });
             y -= lineHeight;
           }
@@ -1607,13 +2608,41 @@ serve(async (req) => {
                 });
               }
             }
-            dynamicPage.drawText(`• ${service}`, {
-              x: margin,
-              y,
-              size: fontSize - 1,
-              font: bold,
-            });
-            y -= lineHeight;
+            // Split service into lines if it's too long
+            const serviceText = `• ${service}`;
+            const maxWidth = width - margin * 2;
+            const words = serviceText.split(" ");
+            let currentLine = "";
+
+            for (const word of words) {
+              const testLine = currentLine ? `${currentLine} ${word}` : word;
+              const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
+
+              if (testWidth > maxWidth && currentLine) {
+                // Draw current line and start new line
+                dynamicPage.drawText(currentLine, {
+                  x: margin,
+                  y,
+                  size: fontSize - 1,
+                  font: bold,
+                });
+                y -= lineHeight;
+                currentLine = word;
+              } else {
+                currentLine = testLine;
+              }
+            }
+
+            // Draw the last line
+            if (currentLine) {
+              dynamicPage.drawText(currentLine, {
+                x: margin,
+                y,
+                size: fontSize - 1,
+                font: bold,
+              });
+              y -= lineHeight;
+            }
             // Add description based on service type
             let description = "";
             if (service.toLowerCase().includes("filter")) {

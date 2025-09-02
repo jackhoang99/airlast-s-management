@@ -91,6 +91,7 @@ const JobInvoiceSection = ({
   const [selectedInvoiceType, setSelectedInvoiceType] = useState<
     "replacement" | "repair" | "pm" | "inspection" | null
   >(null);
+  const [invoiceDescription, setInvoiceDescription] = useState("");
   const [consolidatedJobDetails, setConsolidatedJobDetails] = useState<
     Array<{
       jobId: string;
@@ -260,6 +261,22 @@ const JobInvoiceSection = ({
           import.meta.env.VITE_SUPABASE_URL
         }/functions/v1/generate-invoice-pdf`;
 
+        // Debug logging for billing entity
+        console.log(
+          "JobInvoiceSection - job data being sent to edge function:",
+          job
+        );
+        console.log("JobInvoiceSection - job.units:", job.units);
+        console.log("JobInvoiceSection - job.units[0]:", job.units?.[0]);
+        console.log(
+          "JobInvoiceSection - job.units[0]?.billing_entity:",
+          job.units?.[0]?.billing_entity
+        );
+        console.log(
+          "JobInvoiceSection - job.units?.billing_entity:",
+          job.units?.billing_entity
+        );
+
         const response = await fetch(apiUrl, {
           method: "POST",
           headers: {
@@ -276,6 +293,7 @@ const JobInvoiceSection = ({
             issuedDate: invoiceData.issued_date,
             dueDate: invoiceData.due_date,
             invoiceType: invoiceData.type,
+            description: invoiceDescription,
           }),
         });
 
@@ -690,6 +708,7 @@ const JobInvoiceSection = ({
           issuedDate: invoice.issued_date,
           dueDate: invoice.due_date,
           invoiceType: invoice.type,
+          description: invoice.description || null,
         }),
       });
 
@@ -802,6 +821,7 @@ const JobInvoiceSection = ({
               job={job}
               jobItems={jobItems}
               invoice={selectedInvoice}
+              description={invoiceDescription}
             />
           </div>
         )}
@@ -898,23 +918,28 @@ const JobInvoiceSection = ({
                           </td>
                           <td className="px-4 py-3 align-middle">
                             {invoice.type === "replacement" && (
-                              <span className="inline-block px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-xs font-semibold">
+                              <span className="inline-block px-2 py-0.5 rounded bg-blue-100 text-blue-900 text-xs font-semibold">
                                 Replacement
                               </span>
                             )}
                             {invoice.type === "repair" && (
-                              <span className="inline-block px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-semibold">
+                              <span className="inline-block px-2 py-0.5 rounded bg-green-100 text-green-900 text-xs font-semibold">
                                 Repair
                               </span>
                             )}
                             {invoice.type === "all" && (
-                              <span className="inline-block px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-xs font-semibold">
+                              <span className="inline-block px-2 py-0.5 rounded bg-gray-100 text-gray-900 text-xs font-semibold">
                                 All
                               </span>
                             )}
                             {invoice.type === "inspection" && (
-                              <span className="inline-block px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 text-xs font-semibold">
+                              <span className="inline-block px-2 py-0.5 rounded bg-purple-100 text-purple-900 text-xs font-semibold">
                                 Inspection
+                              </span>
+                            )}
+                            {invoice.type === "pm" && (
+                              <span className="inline-block px-2 py-0.5 rounded bg-orange-100 text-orange-900 text-xs font-semibold">
+                                PM
                               </span>
                             )}
                             {!invoice.type && (
@@ -1036,6 +1061,7 @@ const JobInvoiceSection = ({
                     job={job}
                     jobItems={jobItems}
                     invoice={selectedInvoice}
+                    description={invoiceDescription}
                     consolidatedJobDetails={consolidatedJobDetails}
                   />
                   <div className="flex justify-end mt-4">
@@ -1326,6 +1352,18 @@ const JobInvoiceSection = ({
                     className="input w-full"
                     placeholder="Customer Name"
                     required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={invoiceDescription}
+                    onChange={(e) => setInvoiceDescription(e.target.value)}
+                    className="input w-full"
+                    placeholder="Enter invoice description..."
+                    rows={3}
                   />
                 </div>
                 <div>
