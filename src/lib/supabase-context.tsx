@@ -1,12 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { createClient, Session, SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../types/supabase";
 
@@ -16,9 +8,6 @@ type SupabaseCtx = {
   isLoading: boolean;
   error: string | null;
   isAuthenticated: boolean;
-  // Keep helpers, but make them stable & non-rerendering:
-  canCheckAuth: () => boolean;
-  setTabSwitchCooldown: () => void;
 };
 
 const SupabaseContext = createContext<SupabaseCtx>({
@@ -27,13 +16,83 @@ const SupabaseContext = createContext<SupabaseCtx>({
   isLoading: true,
   error: null,
   isAuthenticated: false,
-  canCheckAuth: () => false,
-  setTabSwitchCooldown: () => {},
 });
 
 export const useSupabase = () => useContext(SupabaseContext);
 
 type Props = { children: React.ReactNode };
+
+// Module-level singleton - this ensures only one client ever exists
+let globalSupabaseClient: SupabaseClient<Database> | null = null;
+let globalClientPromise: Promise<SupabaseClient<Database>> | null = null;
+
+const createSupabaseClient = async (): Promise<SupabaseClient<Database>> => {
+  // If we already have a client, return it
+  if (globalSupabaseClient) {
+    console.log("🔍 Returning existing Supabase client instance");
+    return globalSupabaseClient;
+  }
+
+  // If we're already creating a client, wait for it
+  if (globalClientPromise) {
+    console.log("🔍 Waiting for existing Supabase client creation");
+    return globalClientPromise;
+  }
+
+  // Create the client
+  console.log("🔍 Creating new Supabase client instance");
+  globalClientPromise = (async () => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error("Supabase credentials missing");
+    }
+
+    const client = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        storageKey: "supabase.auth.token",
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: "pkce",
+        storage: {
+          getItem: (k) => {
+            try {
+              return localStorage.getItem(k);
+            } catch (e) {
+              console.warn("localStorage.getItem error:", e);
+              return null;
+            }
+          },
+          setItem: (k, v) => {
+            try {
+              localStorage.setItem(k, v);
+            } catch (e) {
+              console.warn("localStorage.setItem error:", e);
+            }
+          },
+          removeItem: (k) => {
+            try {
+              localStorage.removeItem(k);
+            } catch (e) {
+              console.warn("localStorage.removeItem error:", e);
+            }
+          },
+        },
+      },
+    });
+
+    // Store the client globally
+    globalSupabaseClient = client;
+    globalClientPromise = null;
+
+    console.log("🔍 Supabase client created and stored globally");
+    return client;
+  })();
+
+  return globalClientPromise;
+};
 
 export const SupabaseProvider = ({ children }: Props) => {
   // Keep these as state because consumers actually care about them:
@@ -44,77 +103,27 @@ export const SupabaseProvider = ({ children }: Props) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Use REFs for throttling so we don't rerender the whole tree
-  const lastAuthCheckRef = useRef<number>(0);
-  const tabCooldownRef = useRef<boolean>(false);
+  // No throttling needed - Supabase handles token refresh automatically
 
-  const canCheckAuth = useCallback((): boolean => {
-    const now = Date.now();
-    if (now - lastAuthCheckRef.current < 5000) return false;
-    if (tabCooldownRef.current) return false;
-    lastAuthCheckRef.current = now;
-    return true;
-  }, []);
-
-  const setTabSwitchCooldown = useCallback(() => {
-    tabCooldownRef.current = true;
-    // Use a single timer; no state updates here → no app-wide rerender
-    setTimeout(() => {
-      tabCooldownRef.current = false;
-    }, 2000);
+  // Track component mounting
+  useEffect(() => {
+    console.log("🔍 SupabaseProvider mounted");
+    return () => {
+      console.log("🔍 SupabaseProvider unmounted");
+    };
   }, []);
 
   useEffect(() => {
     let mounted = true;
     let unsubscribeAuth: (() => void) | null = null;
 
-    const handleVisibilityChange = () => {
-      // Only start cooldown when the tab becomes VISIBLE (focus returns)
-      if (!document.hidden) setTabSwitchCooldown();
-    };
+    // No visibility change handling needed - tokens persist naturally
 
     const init = async () => {
       try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        if (!supabaseUrl || !supabaseAnonKey) {
-          throw new Error("Supabase credentials missing");
-        }
-
-        // Create client ONCE
-        const client = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-          auth: {
-            persistSession: true,
-            storageKey: "supabase.auth.token",
-            autoRefreshToken: true,
-            detectSessionInUrl: true,
-            flowType: "pkce",
-            storage: {
-              getItem: (k) => {
-                try {
-                  return localStorage.getItem(k);
-                } catch (e) {
-                  console.warn("localStorage.getItem error:", e);
-                  return null;
-                }
-              },
-              setItem: (k, v) => {
-                try {
-                  localStorage.setItem(k, v);
-                } catch (e) {
-                  console.warn("localStorage.setItem error:", e);
-                }
-              },
-              removeItem: (k) => {
-                try {
-                  localStorage.removeItem(k);
-                } catch (e) {
-                  console.warn("localStorage.removeItem error:", e);
-                }
-              },
-            },
-          },
-        });
+        console.log("🔍 Initializing Supabase in provider");
+        // Get or create the singleton client
+        const client = await createSupabaseClient();
 
         if (!mounted) return;
         setSupabase(client);
@@ -139,48 +148,58 @@ export const SupabaseProvider = ({ children }: Props) => {
         if (!mounted) return;
 
         setSession(initial);
-        if (initial) {
-          sessionStorage.setItem("isAuthenticated", "true");
-          sessionStorage.setItem(
-            "username",
-            initial.user.email?.split("@")[0] || "user"
-          );
-        }
 
         // Subscribe to auth events
         const { data } = client.auth.onAuthStateChange((event, newSession) => {
-          // Always process SIGNED_IN / SIGNED_OUT immediately
-          const highPriority = event === "SIGNED_IN" || event === "SIGNED_OUT";
-          if (!highPriority && !canCheckAuth()) {
-            // throttle low-priority events like TOKEN_REFRESHED
-            return;
-          }
+          if (!mounted) return;
 
-          setSession((prev) => {
-            // If you want to always reflect token refresh, just return newSession ?? null;
-            if (prev?.user?.id === newSession?.user?.id)
-              return newSession ?? prev;
-            return newSession ?? null;
-          });
+          console.log("🔍 Auth state change:", event, newSession?.user?.email);
 
-          if (newSession) {
-            sessionStorage.setItem("isAuthenticated", "true");
-            sessionStorage.setItem(
-              "username",
-              newSession.user.email?.split("@")[0] || "user"
-            );
-          } else if (event === "SIGNED_OUT") {
-            sessionStorage.removeItem("isAuthenticated");
-            sessionStorage.removeItem("username");
-            sessionStorage.removeItem("isTechAuthenticated");
-            sessionStorage.removeItem("techUsername");
+          // Handle different auth events appropriately
+          switch (event) {
+            case "SIGNED_IN":
+              console.log("🔍 User signed in, updating session");
+              setSession(newSession);
+              break;
+
+            case "SIGNED_OUT":
+              console.log("🔍 User signed out, clearing session");
+              setSession(null);
+              break;
+
+            case "TOKEN_REFRESHED":
+              console.log("🔍 Token refreshed, updating session");
+              setSession(newSession);
+              break;
+
+            case "USER_UPDATED":
+              console.log("🔍 User updated, updating session");
+              setSession(newSession);
+              break;
+
+            default:
+              // For other events, only update if user ID changes
+              setSession((prev) => {
+                if (prev?.user?.id === newSession?.user?.id) {
+                  console.log(
+                    "🔍 Session updated (same user):",
+                    newSession?.user?.email
+                  );
+                  return newSession ?? prev;
+                }
+                console.log(
+                  "🔍 Session updated (different user):",
+                  newSession?.user?.email
+                );
+                return newSession ?? null;
+              });
+              break;
           }
         });
 
         unsubscribeAuth = () => data.subscription.unsubscribe();
 
-        // Visibility listener AFTER client is ready
-        document.addEventListener("visibilitychange", handleVisibilityChange);
+        // No visibility change listener - tokens persist across tab switches
       } catch (e: any) {
         if (mounted) setError(e?.message ?? "Failed to initialize Supabase");
       } finally {
@@ -193,11 +212,10 @@ export const SupabaseProvider = ({ children }: Props) => {
     return () => {
       mounted = false;
       if (unsubscribeAuth) unsubscribeAuth();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [canCheckAuth, setTabSwitchCooldown]);
+  }, []);
 
-  // Keep the Provider value STABLE so children don’t remount:
+  // Keep the Provider value STABLE so children don't remount:
   const ctxValue = useMemo(
     () => ({
       supabase,
@@ -205,10 +223,8 @@ export const SupabaseProvider = ({ children }: Props) => {
       isLoading,
       error,
       isAuthenticated: !!session,
-      canCheckAuth,
-      setTabSwitchCooldown,
     }),
-    [supabase, session, isLoading, error, canCheckAuth, setTabSwitchCooldown]
+    [supabase, session, isLoading, error]
   );
 
   return (

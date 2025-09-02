@@ -4,124 +4,90 @@ import { useSupabase } from "../../lib/supabase-context";
 
 const RequireAuth = () => {
   const location = useLocation();
-  const { supabase, session, canCheckAuth } = useSupabase();
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    sessionStorage.getItem("isAuthenticated") === "true"
-  );
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
+  const { supabase, session, isLoading: supabaseLoading } = useSupabase();
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Initialize authentication state once when component mounts
   useEffect(() => {
-    const ensureAuthenticated = async () => {
-      // Prevent excessive auth checks
-      if (!canCheckAuth() && hasCheckedAuth) {
-        console.log("Skipping auth check - too recent or already checked");
-        return;
-      }
-
-      if (!supabase) {
-        setIsLoading(false);
-        return;
-      }
+    const initializeAuth = async () => {
+      if (!supabase || supabaseLoading) return;
 
       try {
-        setIsLoading(true);
-        setHasCheckedAuth(true);
-
-        // Check if we already have a session
+        // If we have a session, check user role once
         if (session) {
-          // Check if this user is a technician trying to access admin
+          console.log("Session found, checking user role...");
+
           const { data: userData, error: userError } = await supabase
             .from("users")
             .select("role")
             .eq("email", session.user.email)
             .maybeSingle();
 
-          if (!userError && userData && userData.role === "technician") {
-            // This is a technician trying to access admin area
-            console.log(
-              "Technician trying to access admin area, redirecting to tech portal"
-            );
-            sessionStorage.removeItem("isAuthenticated");
-            sessionStorage.setItem("isTechAuthenticated", "true");
-            sessionStorage.setItem(
-              "techUsername",
-              session.user.email?.split("@")[0] || "tech"
-            );
-            setIsAuthenticated(false);
-            setIsLoading(false);
-            return;
+          if (userError) {
+            console.error("Error fetching user role:", userError);
+            setUserRole(null);
+          } else if (userData) {
+            console.log("User role determined:", userData.role);
+            setUserRole(userData.role);
           }
-
-          // Not a technician, proceed with admin authentication
-          setIsAuthenticated(true);
-          sessionStorage.setItem("isAuthenticated", "true");
-          sessionStorage.setItem(
-            "username",
-            session.user.email?.split("@")[0] || "user"
-          );
-          setIsLoading(false);
-          return;
-        }
-
-        // If session storage says we're authenticated but Supabase doesn't have a session,
-        // try to sign in with stored credentials
-        if (sessionStorage.getItem("isAuthenticated") === "true" && !session) {
-          const username = sessionStorage.getItem("username") || "user";
-          const email = `${username}@airlast-demo.com`;
-
-          // Try to sign in with demo credentials
-          const { data, error: signInError } =
-            await supabase.auth.signInWithPassword({
-              email: email,
-              password: "hvac123",
-            });
-
-          if (signInError) {
-            console.warn("Auto-authentication failed:", signInError);
-            setError("Failed to authenticate automatically");
-            setIsAuthenticated(false);
-            sessionStorage.removeItem("isAuthenticated");
-          } else if (data.session) {
-            // Successfully signed in
-            setIsAuthenticated(true);
-          }
-        } else {
-          // No session and not in session storage
-          setIsAuthenticated(false);
         }
       } catch (err) {
-        console.error("Error during auto-authentication:", err);
-        setError(err instanceof Error ? err.message : "Authentication error");
-        setIsAuthenticated(false);
-        sessionStorage.removeItem("isAuthenticated");
+        console.error("Error initializing auth:", err);
+        setUserRole(null);
       } finally {
-        setIsLoading(false);
+        setIsInitialized(true);
       }
     };
 
-    ensureAuthenticated();
-  }, [supabase, session, canCheckAuth, hasCheckedAuth]);
+    initializeAuth();
+  }, [supabase, session, supabaseLoading]);
 
-  if (isLoading) {
+  // Show loading only during initial Supabase setup
+  if (supabaseLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
-        <p className="ml-2 text-gray-600">Verifying authentication...</p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Initializing application...</p>
+        </div>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
+  // Show loading while we're checking the user role
+  if (!isInitialized) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Verifying user permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // No session - redirect to login
+  if (!session) {
+    console.log("No session, redirecting to login");
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (error) {
-    console.warn("Auth warning:", error);
+  // User is a technician - redirect to tech portal
+  if (userRole === "technician") {
+    console.log("Technician detected, redirecting to tech portal");
+    return <Navigate to="/tech" replace />;
   }
 
-  return <Outlet />;
+  // User is admin or other role - allow access
+  if (userRole === "admin" || userRole === "user") {
+    console.log("Access granted for role:", userRole);
+    return <Outlet />;
+  }
+
+  // Unknown role - redirect to login
+  console.log("Unknown role, redirecting to login");
+  return <Navigate to="/login" state={{ from: location }} replace />;
 };
 
 export default RequireAuth;

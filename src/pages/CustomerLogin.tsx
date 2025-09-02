@@ -9,7 +9,7 @@ const CustomerLogin = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [logoUrl, setLogoUrl] = useState<string | null>('/airlast-logo.svg');
+  const [logoUrl, setLogoUrl] = useState<string | null>("/airlast-logo.svg");
   const [credentials, setCredentials] = useState({
     companyName: "",
     password: "",
@@ -24,7 +24,7 @@ const CustomerLogin = () => {
       if (!supabase) throw new Error("Supabase client not initialized");
 
       // Clear any existing auth data to prevent conflicts
-      sessionStorage.removeItem('customerPortalCompanyId');
+      sessionStorage.removeItem("customerPortalCompanyId");
 
       // Check if the company exists
       const { data: companyData, error: companyError } = await supabase
@@ -36,7 +36,9 @@ const CustomerLogin = () => {
       if (companyError) throw companyError;
 
       if (!companyData || companyData.length === 0) {
-        throw new Error("Company not found. Please check the company name and try again.");
+        throw new Error(
+          "Company not found. Please check the company name and try again."
+        );
       }
 
       // For demo purposes, we're using a fixed password
@@ -45,13 +47,15 @@ const CustomerLogin = () => {
       }
 
       // Store company ID in session storage
-      sessionStorage.setItem('customerPortalCompanyId', companyData[0].id);
-      
+      sessionStorage.setItem("customerPortalCompanyId", companyData[0].id);
+
       // Navigate to customer portal
-      navigate('/customer');
+      navigate("/customer");
     } catch (err) {
       console.error("Login error:", err);
-      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+      setError(
+        err instanceof Error ? err.message : "Login failed. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }

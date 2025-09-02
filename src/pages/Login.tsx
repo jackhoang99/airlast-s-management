@@ -20,39 +20,32 @@ const Login = () => {
   // Check if user is already logged in
   useEffect(() => {
     const checkAuthStatus = async () => {
-      // If already authenticated in session storage, redirect
-      if (sessionStorage.getItem("isAuthenticated") === "true") {
-        navigate(from, { replace: true });
-        return;
-      }
-
-      // If supabase is available and we have a session, set as authenticated
+      // If supabase is available and we have a session, check role and redirect
       if (supabase && session) {
-        // Check if this is a technician
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("role")
-          .eq("email", session.user.email)
-          .maybeSingle();
+        try {
+          // Check if this is a technician
+          const { data: userData, error: userError } = await supabase
+            .from("users")
+            .select("role")
+            .eq("email", session.user.email)
+            .maybeSingle();
 
-        if (!userError && userData && userData.role === "technician") {
-          // This is a technician, redirect to tech portal
-          sessionStorage.setItem("isTechAuthenticated", "true");
-          sessionStorage.setItem(
-            "techUsername",
-            session.user.email?.split("@")[0] || "tech"
-          );
-          navigate("/tech", { replace: true });
-          return;
+          if (userError) {
+            console.error("Error checking user role:", userError);
+            return;
+          }
+
+          if (userData && userData.role === "technician") {
+            // This is a technician, redirect to tech portal
+            navigate("/tech", { replace: true });
+            return;
+          }
+
+          // Not a technician, proceed to admin dashboard
+          navigate(from, { replace: true });
+        } catch (err) {
+          console.error("Error checking auth status:", err);
         }
-
-        // Not a technician, proceed with admin authentication
-        sessionStorage.setItem("isAuthenticated", "true");
-        sessionStorage.setItem(
-          "username",
-          session.user.email?.split("@")[0] || "user"
-        );
-        navigate(from, { replace: true });
       }
     };
 
@@ -66,12 +59,6 @@ const Login = () => {
 
     try {
       if (!supabase) throw new Error("Supabase client not initialized");
-
-      // Clear any existing auth data to prevent conflicts
-      sessionStorage.removeItem("isAuthenticated");
-      sessionStorage.removeItem("isTechAuthenticated");
-      sessionStorage.removeItem("techUsername");
-      sessionStorage.removeItem("username");
 
       // Check if the username exists in our users table
       const { data: userData, error: userError } = await supabase
@@ -100,9 +87,13 @@ const Login = () => {
         return;
       }
 
-      // Use the email from users table if available, otherwise construct demo email
-      const email =
-        userData?.email || `${credentials.username}@airlast-demo.com`;
+      // Use the email from users table
+      const email = userData.email;
+      if (!email) {
+        throw new Error(
+          "User account is missing email address. Please contact your administrator."
+        );
+      }
 
       // Handle different scenarios based on auth_id
       if (!userData.auth_id) {
@@ -117,59 +108,36 @@ const Login = () => {
             import.meta.env.VITE_SUPABASE_URL
           }/functions/v1/create-auth-user`;
 
-          const response = await fetch(functionUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            },
-            body: JSON.stringify({
-              username: credentials.username,
-              password: credentials.password,
-              email: email,
-            }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(
-              errorData.error || "Failed to create authentication account"
-            );
-          }
-
-          const result = await response.json();
-          console.log("Auth account created successfully:", result);
-
-          // Now try to sign in with the newly created auth account
-          const { data, error: signInError } =
-            await supabase.auth.signInWithPassword({
-              email: email,
-              password: credentials.password,
+          const { data: functionData, error: functionError } =
+            await supabase.functions.invoke("create-auth-user", {
+              body: {
+                username: credentials.username,
+                password: credentials.password,
+                email: email,
+              },
             });
 
-          if (signInError) {
-            console.error("Sign in error after auth creation:", signInError);
+          if (functionError) {
+            console.error("Edge function error:", functionError);
             throw new Error(
-              "Authentication account created but sign-in failed. Please try again."
+              "Failed to create authentication account. Please try again."
             );
           }
 
-          // Successfully signed in
-          sessionStorage.setItem("isAuthenticated", "true");
-          sessionStorage.setItem("username", credentials.username);
-          navigate(from, { replace: true });
-          return;
-        } catch (authErr) {
-          console.error("Error creating auth account:", authErr);
+          if (functionData?.error) {
+            throw new Error(functionData.error);
+          }
+
+          console.log("Auth user created successfully, signing in...");
+        } catch (err) {
+          console.error("Error creating auth user:", err);
           throw new Error(
-            authErr instanceof Error
-              ? authErr.message
-              : "Failed to create authentication account"
+            "Failed to create authentication account. Please try again."
           );
         }
-      } else {
-        // User exists and has auth_id - normal sign in
-        console.log("User exists with auth_id, attempting normal sign in");
+      }
+
+      // Now attempt to sign in
       const { data, error: signInError } =
         await supabase.auth.signInWithPassword({
           email: email,
@@ -178,18 +146,26 @@ const Login = () => {
 
       if (signInError) {
         console.error("Sign in error:", signInError);
-        throw new Error("Invalid username or password");
+
+        if (signInError.message.includes("Invalid login credentials")) {
+          throw new Error("Invalid username or password. Please try again.");
+        } else if (signInError.message.includes("Email not confirmed")) {
+          throw new Error(
+            "Please check your email and confirm your account before signing in."
+          );
+        } else {
+          throw new Error("Sign in failed. Please try again.");
         }
       }
 
-      // If we get here, login is successful
-      sessionStorage.setItem("isAuthenticated", "true");
-      sessionStorage.setItem("username", credentials.username);
-      navigate(from, { replace: true });
+      if (data.session) {
+        console.log("Successfully signed in");
+        // The useEffect will handle the redirect based on user role
+      }
     } catch (err) {
       console.error("Login error:", err);
       setError(
-        err instanceof Error ? err.message : "Invalid username or password"
+        err instanceof Error ? err.message : "An unexpected error occurred"
       );
     } finally {
       setIsLoading(false);

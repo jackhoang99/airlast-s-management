@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Authentication - Airlast HVAC</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            margin: 0 0 20px 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        p {
+            margin: 0 0 30px 0;
+            font-size: 16px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+        .button {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 0 10px;
+        }
+        .button:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+        }
+        .button.secondary {
+            background: #6b7280;
+        }
+        .button.secondary:hover {
+            background: #4b5563;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Clear Authentication</h1>
+        <p>
+            This will clear all stored authentication data and redirect you to the login page.<br>
+            Use this if you're stuck on "Verifying authentication..." or experiencing login issues.
+        </p>
+        
+        <div>
+            <button class="button" onclick="clearAuth()">Clear Auth & Redirect</button>
+            <button class="button secondary" onclick="clearAuthAndReload()">Clear Auth & Reload</button>
+        </div>
+        
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        function showStatus(message, isError = false) {
+            const status = document.getElementById('status');
+            status.style.display = 'block';
+            status.style.background = isError ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)';
+            status.textContent = message;
+        }
+
+        function clearAuth() {
+            try {
+                // Clear all storage
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Clear specific Supabase tokens
+                localStorage.removeItem('supabase.auth.token');
+                localStorage.removeItem('supabase.auth.expires_at');
+                localStorage.removeItem('supabase.auth.refresh_token');
+                
+                showStatus('✅ Authentication data cleared successfully!');
+                
+                // Redirect to login page after 2 seconds
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+                
+            } catch (error) {
+                showStatus('❌ Error clearing authentication data: ' + error.message, true);
+            }
+        }
+
+        function clearAuthAndReload() {
+            try {
+                // Clear all storage
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Clear specific Supabase tokens
+                localStorage.removeItem('supabase.auth.token');
+                localStorage.removeItem('supabase.auth.expires_at');
+                localStorage.removeItem('supabase.auth.refresh_token');
+                
+                showStatus('✅ Authentication data cleared successfully! Reloading...');
+                
+                // Reload the page after 2 seconds
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+                
+            } catch (error) {
+                showStatus('❌ Error clearing authentication data: ' + error.message, true);
+            }
+        }
+
+        // Auto-clear on page load if coming from stuck auth
+        if (window.location.search.includes('stuck=true')) {
+            clearAuth();
+        }
+    </script>
+</body>
+</html>

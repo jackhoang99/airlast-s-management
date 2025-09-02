@@ -1,7 +1,14 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useSupabase } from '../../lib/supabase-context';
-import { ArrowLeft, Package, Calendar, Info, Building2, AlertTriangle } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { useSupabase } from "../../lib/supabase-context";
+import {
+  ArrowLeft,
+  Package,
+  Calendar,
+  Info,
+  Building2,
+  AlertTriangle,
+} from "lucide-react";
 
 const CustomerUnitAssets = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,23 +23,24 @@ const CustomerUnitAssets = () => {
 
   useEffect(() => {
     // Check if user is logged in
-    const companyId = sessionStorage.getItem('customerPortalCompanyId');
+    const companyId = sessionStorage.getItem("customerPortalCompanyId");
     if (!companyId) {
-      navigate('/customer/login');
+      navigate("/customer/login");
       return;
     }
     setCompanyId(companyId);
-    
+
     const fetchUnitAndAssets = async () => {
       if (!supabase || !id) return;
 
       try {
         setIsLoading(true);
-        
+
         // Fetch unit details
         const { data: unitData, error: unitError } = await supabase
-          .from('units')
-          .select(`
+          .from("units")
+          .select(
+            `
             *,
             locations (
               id,
@@ -46,56 +54,58 @@ const CustomerUnitAssets = () => {
                 name
               )
             )
-          `)
-          .eq('id', id)
+          `
+          )
+          .eq("id", id)
           .single();
-          
+
         if (unitError) throw unitError;
-        
+
         if (!unitData) {
-          throw new Error('Unit not found');
+          throw new Error("Unit not found");
         }
-        
+
         // Verify this unit belongs to the logged-in company
         if (unitData.locations?.company_id !== companyId) {
-          throw new Error('You do not have access to this unit');
+          throw new Error("You do not have access to this unit");
         }
-        
+
         setUnit(unitData);
-        
+
         // Fetch assets for this unit
         const { data: assetsData, error: assetsError } = await supabase
-          .from('assets')
-          .select('*')
-          .eq('unit_id', id)
-          .order('inspection_date', { ascending: false });
-          
+          .from("assets")
+          .select("*")
+          .eq("unit_id", id)
+          .order("inspection_date", { ascending: false });
+
         if (assetsError) throw assetsError;
         setAssets(assetsData || []);
-        
+
         // Set the first asset as selected by default
         if (assetsData && assetsData.length > 0) {
           setSelectedAsset(assetsData[0]);
         }
-        
       } catch (err) {
-        console.error('Error fetching unit assets:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load unit assets');
+        console.error("Error fetching unit assets:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to load unit assets"
+        );
       } finally {
         setIsLoading(false);
       }
     };
-    
+
     fetchUnitAndAssets();
   }, [supabase, id, navigate]);
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
@@ -111,8 +121,10 @@ const CustomerUnitAssets = () => {
     return (
       <div className="bg-white rounded-lg shadow p-6 text-center">
         <AlertTriangle className="h-12 w-12 text-error-500 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Unit</h3>
-        <p className="text-gray-500 mb-4">{error || 'Unit not found'}</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          Error Loading Unit
+        </h3>
+        <p className="text-gray-500 mb-4">{error || "Unit not found"}</p>
         <Link to="/customer/units" className="btn btn-primary">
           Back to Units
         </Link>
@@ -124,7 +136,10 @@ const CustomerUnitAssets = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to={`/customer/units/${id}`} className="text-gray-500 hover:text-gray-700">
+          <Link
+            to={`/customer/units/${id}`}
+            className="text-gray-500 hover:text-gray-700"
+          >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <h1 className="text-2xl font-bold">Unit {unit.unit_number} Assets</h1>
