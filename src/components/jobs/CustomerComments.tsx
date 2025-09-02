@@ -1,40 +1,37 @@
 import { useState, useEffect } from "react";
 import { useSupabase } from "../../lib/supabase-context";
 import {
-  User,
-  Mail,
-  Phone,
-  Shield,
-  Key,
-  Save,
-  X,
-  AlertTriangle,
   MessageSquare,
   Send,
   Edit,
   Trash2,
+  User,
+  AlertTriangle,
 } from "lucide-react";
 
-type JobCommentsProps = {
+type CustomerCommentsProps = {
   jobId: string;
 };
 
-type Comment = {
+type CustomerComment = {
   id: string;
   job_id: string;
   user_id: string;
   content: string;
   created_at: string;
+  updated_at: string;
   user?: {
     first_name: string;
     last_name: string;
   };
 };
 
-const JobComments = ({ jobId }: JobCommentsProps) => {
+const CustomerComments = ({ jobId }: CustomerCommentsProps) => {
   const { supabase, session } = useSupabase();
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<CustomerComment[]>([]);
   const [newComment, setNewComment] = useState("");
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,9 +40,6 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
   const [userMap, setUserMap] = useState<{
     [key: string]: { first_name: string; last_name: string };
   }>({});
-  const [authUserMap, setAuthUserMap] = useState<{ [key: string]: string }>({});
-  const [editingComment, setEditingComment] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState("");
 
   useEffect(() => {
     const fetchComments = async () => {
@@ -54,16 +48,17 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
       try {
         setIsLoading(true);
 
-        // Fetch job comments
+        // Fetch customer comments
         const { data: commentsData, error: commentsError } = await supabase
-          .from("job_comments")
+          .from("customer_comments")
           .select(
             `
             id,
             job_id,
             user_id,
             content,
-            created_at
+            created_at,
+            updated_at
           `
           )
           .eq("job_id", jobId)
@@ -78,7 +73,6 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
 
         // Fetch user details
         if (userIds.length > 0) {
-          // First, fetch direct user matches
           const { data: userData, error: userError } = await supabase
             .from("users")
             .select("id, first_name, last_name")
@@ -87,145 +81,86 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
           if (userError) {
             console.error("Error fetching users for comments:", userError);
           } else if (userData) {
-            // Create a map of user IDs to names
             const userMapData: {
               [key: string]: { first_name: string; last_name: string };
             } = {};
-
             userData.forEach((user) => {
               userMapData[user.id] = {
                 first_name: user.first_name || "",
                 last_name: user.last_name || "",
               };
             });
-
             setUserMap(userMapData);
+
+            // Process comments with user info
+            const processedComments =
+              commentsData?.map((comment) => {
+                return {
+                  ...comment,
+                  user: userMapData[comment.user_id] || {
+                    first_name: "",
+                    last_name: "",
+                  },
+                };
+              }) || [];
+
+            setComments(processedComments);
           }
-
-          // Now try to map auth IDs to user IDs
-          try {
-            // Get all users with auth_id
-            const { data: usersWithAuth, error: usersError } = await supabase
-              .from("users")
-              .select("id, auth_id, first_name, last_name")
-              .not("auth_id", "is", null);
-
-            if (!usersError && usersWithAuth) {
-              const authMap: { [key: string]: string } = {};
-              const additionalUserMap: {
-                [key: string]: { first_name: string; last_name: string };
-              } = {};
-
-              usersWithAuth.forEach((user) => {
-                if (user.auth_id) {
-                  authMap[user.auth_id] = user.id;
-                  additionalUserMap[user.id] = {
-                    first_name: user.first_name || "",
-                    last_name: user.last_name || "",
-                  };
-                }
-              });
-
-              setAuthUserMap(authMap);
-              setUserMap((prev) => ({ ...prev, ...additionalUserMap }));
-            }
-          } catch (err) {
-            console.error("Error mapping auth IDs to users for comments:", err);
-          }
-        }
-
-        // Process comments with user info
-        const processedComments =
-          commentsData?.map((comment) => {
-            return {
-              ...comment,
-              user: getUserInfo(comment.user_id),
-            };
-          }) || [];
-
-        setComments(processedComments);
-
-        // Get current user ID
-        if (session?.user) {
-          setCurrentUserId(session.user.id);
-
-          // Get current user name
-          const { data: userData, error: userError } = await supabase
-            .from("users")
-            .select("first_name, last_name")
-            .eq("id", session.user.id)
-            .maybeSingle();
-
-          if (!userError && userData) {
-            setCurrentUserName(
-              `${userData.first_name || ""} ${userData.last_name || ""}`
-            );
-          } else {
-            // Try to find by auth_id
-            const { data: authUserData, error: authUserError } = await supabase
-              .from("users")
-              .select("first_name, last_name")
-              .eq("auth_id", session.user.id)
-              .maybeSingle();
-
-            if (!authUserError && authUserData) {
-              setCurrentUserName(
-                `${authUserData.first_name || ""} ${
-                  authUserData.last_name || ""
-                }`
-              );
-            }
-          }
+        } else {
+          // No users to fetch, just set comments
+          setComments(commentsData || []);
         }
       } catch (err) {
-        console.error("Error fetching comments:", err);
+        console.error("Error fetching customer comments:", err);
         setError("Failed to load comments");
       } finally {
         setIsLoading(false);
       }
     };
 
+    const getCurrentUser = async () => {
+      if (!supabase || !session?.user) return;
+
+      try {
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("id, first_name, last_name")
+          .eq("auth_id", session.user.id)
+          .single();
+
+        if (!userError && userData) {
+          setCurrentUserId(userData.id);
+          setCurrentUserName(
+            `${userData.first_name || ""} ${userData.last_name || ""}`
+          );
+
+          // Add current user to userMap
+          setUserMap((prev) => ({
+            ...prev,
+            [userData.id]: {
+              first_name: userData.first_name || "",
+              last_name: userData.last_name || "",
+            },
+          }));
+        }
+      } catch (err) {
+        console.error("Error getting current user:", err);
+      }
+    };
+
     fetchComments();
+    getCurrentUser();
   }, [supabase, jobId, session]);
 
-  const getUserInfo = (
-    userId: string
-  ): { first_name: string; last_name: string } => {
-    // First check if this is a direct match in our user map
-    if (userMap[userId]) {
-      return userMap[userId];
-    }
-
-    // Next, check if this is an auth ID that maps to a user ID
-    const mappedUserId = authUserMap[userId];
-    if (mappedUserId && userMap[mappedUserId]) {
-      return userMap[mappedUserId];
-    }
-
-    // If we still don't have a name, return empty values
-    return { first_name: "", last_name: "" };
-  };
-
-  const getUserDisplayName = (userId: string): string => {
-    const userInfo = getUserInfo(userId);
-
-    if (userInfo.first_name || userInfo.last_name) {
-      return `${userInfo.first_name} ${userInfo.last_name}`.trim();
-    }
-
-    // If we still don't have a name, return a default
-    return "User";
-  };
-
-  const handleAddComment = async () => {
-    if (!supabase || !jobId || !currentUserId || !newComment.trim()) return;
+  const handleSubmit = async () => {
+    if (!supabase || !currentUserId || !newComment.trim()) return;
 
     setIsSubmitting(true);
     setError(null);
 
     try {
       const { data, error } = await supabase
-        .from("job_comments")
+        .from("customer_comments")
         .insert({
           job_id: jobId,
           user_id: currentUserId,
@@ -250,7 +185,7 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
 
       setNewComment("");
     } catch (err) {
-      console.error("Error adding comment:", err);
+      console.error("Error adding customer comment:", err);
       setError("Failed to add comment. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -265,9 +200,10 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
       setError(null);
 
       const { error: updateError } = await supabase
-        .from("job_comments")
+        .from("customer_comments")
         .update({
           content: editContent.trim(),
+          updated_at: new Date().toISOString(),
         })
         .eq("id", commentId);
 
@@ -280,13 +216,17 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
       setComments((prevComments) =>
         prevComments.map((comment) =>
           comment.id === commentId
-            ? { ...comment, content: editContent.trim() }
+            ? {
+                ...comment,
+                content: editContent.trim(),
+                updated_at: new Date().toISOString(),
+              }
             : comment
         )
       );
     } catch (err) {
-      console.error("Error updating comment:", err);
-      setError("Failed to update comment. Please try again.");
+      console.error("Error updating customer comment:", err);
+      setError("Failed to update comment");
     } finally {
       setIsSubmitting(false);
     }
@@ -301,7 +241,7 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
       setError(null);
 
       const { error: deleteError } = await supabase
-        .from("job_comments")
+        .from("customer_comments")
         .delete()
         .eq("id", commentId);
 
@@ -312,14 +252,14 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
         prevComments.filter((comment) => comment.id !== commentId)
       );
     } catch (err) {
-      console.error("Error deleting comment:", err);
-      setError("Failed to delete comment. Please try again.");
+      console.error("Error deleting customer comment:", err);
+      setError("Failed to delete comment");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const startEdit = (comment: Comment) => {
+  const startEdit = (comment: CustomerComment) => {
     setEditingComment(comment.id);
     setEditContent(comment.content);
   };
@@ -329,36 +269,66 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
     setEditContent("");
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <MessageSquare className="h-5 w-5 text-primary-600" />
+          <h3 className="text-lg font-semibold">Customer Comments</h3>
+        </div>
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h3 className="text-lg font-medium flex items-center mb-4">
         <MessageSquare className="h-5 w-5 mr-2 text-primary-600" />
-        Job Comments
+        Customer Comments
+        <span className="text-sm text-gray-500 ml-2">
+          (Visible to customers)
+        </span>
       </h3>
 
-      <div className="mb-4">
-        <textarea
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          placeholder="Add a comment..."
-          className="input w-full h-24"
-          disabled={isSubmitting}
-        ></textarea>
-        <div className="flex justify-end mt-2">
-          <button
-            onClick={handleAddComment}
-            className="btn btn-primary"
-            disabled={isSubmitting || !newComment.trim()}
-          >
-            {isSubmitting ? (
-              <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
-            ) : (
-              <Send size={16} className="mr-2" />
-            )}
-            Add Comment
-          </button>
+      {currentUserId && (
+        <div className="mb-4">
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Add a comment that will be visible to the customer..."
+            className="input w-full h-24"
+            disabled={isSubmitting}
+          ></textarea>
+          <div className="flex justify-end mt-2">
+            <button
+              onClick={handleSubmit}
+              className="btn btn-primary"
+              disabled={isSubmitting || !newComment.trim()}
+            >
+              {isSubmitting ? (
+                <span className="animate-spin inline-block h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></span>
+              ) : (
+                <Send size={16} className="mr-2" />
+              )}
+              Add Comment
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {error && (
         <div className="bg-error-50 text-error-700 p-3 rounded-md mb-4">
@@ -379,17 +349,20 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
             <div key={comment.id} className="p-4 bg-gray-50 rounded-lg">
               <div className="flex justify-between items-start">
                 <div className="font-medium">
-                  {comment.user?.first_name || comment.user?.last_name
-                    ? `${comment.user.first_name || ""} ${
-                        comment.user.last_name || ""
-                      }`.trim()
-                    : getUserDisplayName(comment.user_id)}
+                  {comment.user?.first_name && comment.user?.last_name
+                    ? `${comment.user.first_name} ${comment.user.last_name}`
+                    : userMap[comment.user_id]?.first_name &&
+                      userMap[comment.user_id]?.last_name
+                    ? `${userMap[comment.user_id].first_name} ${
+                        userMap[comment.user_id].last_name
+                      }`
+                    : "Unknown User"}
                 </div>
                 <div className="text-xs text-gray-500">
-                  {new Date(comment.created_at).toLocaleString()}
+                  {formatDate(comment.created_at)}
+                  {comment.updated_at !== comment.created_at && " (edited)"}
                 </div>
               </div>
-
               {editingComment === comment.id ? (
                 <div className="space-y-2 mt-2">
                   <textarea
@@ -445,10 +418,12 @@ const JobComments = ({ jobId }: JobCommentsProps) => {
           ))}
         </div>
       ) : (
-        <p className="text-gray-500 text-center py-4">No comments yet</p>
+        <p className="text-gray-500 text-center py-4">
+          No customer comments yet
+        </p>
       )}
     </div>
   );
 };
 
-export default JobComments;
+export default CustomerComments;

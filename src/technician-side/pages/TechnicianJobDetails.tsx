@@ -37,6 +37,7 @@ import JobInvoiceSection from "../../components/jobs/JobInvoiceSection";
 import TechnicianNavigation from "../components/navigation/TechnicianNavigation";
 import JobTimeTracking from "../../components/jobs/JobTimeTracking";
 import JobComments from "../../components/jobs/JobComments";
+import CustomerComments from "../../components/jobs/CustomerComments";
 import ClockInOut from "../components/jobs/ClockInOut";
 import JobUnitSection from "../../components/jobs/JobUnitSection";
 import PermitSectionMobile from "../../components/permits/PermitSectionMobile";
@@ -1019,6 +1020,10 @@ const TechnicianJobDetails = () => {
       {/* Comments */}
       <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
         <JobComments jobId={id || ""} />
+      </div>
+      {/* Customer Comments */}
+      <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
+        <CustomerComments jobId={id || ""} />
       </div>
 
       {/* Navigation Modal */}

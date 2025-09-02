@@ -18,6 +18,7 @@ import {
   Mail,
   Clipboard,
   FileInput,
+  MessageSquare,
 } from "lucide-react";
 import Map from "../../components/ui/Map";
 
@@ -35,6 +36,7 @@ const CustomerJobDetails = () => {
   const [additionalContacts, setAdditionalContacts] = useState<any[]>([]);
   const [replacementData, setReplacementData] = useState<any[]>([]);
   const [replacementTotal, setReplacementTotal] = useState<number>(0);
+  const [customerComments, setCustomerComments] = useState<any[]>([]);
 
   useEffect(() => {
     // Check if user is logged in
@@ -122,6 +124,30 @@ const CustomerJobDetails = () => {
 
         if (assetsError) throw assetsError;
         setJobAssets(assetsData || []);
+
+        // Fetch customer comments
+        const { data: commentsData, error: commentsError } = await supabase
+          .from("customer_comments")
+          .select(
+            `
+            id,
+            content,
+            created_at,
+            updated_at,
+            users:user_id (
+              first_name,
+              last_name
+            )
+          `
+          )
+          .eq("job_id", id)
+          .order("created_at", { ascending: false });
+
+        if (commentsError) {
+          console.error("Error fetching customer comments:", commentsError);
+        } else {
+          setCustomerComments(commentsData || []);
+        }
 
         // Fetch invoices
         const { data: invoicesData, error: invoicesError } = await supabase
@@ -745,6 +771,52 @@ const CustomerJobDetails = () => {
                       </div>
                     </div>
                   </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Customer Comments */}
+          <div className="card">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary-600" />
+              Updates from Our Team
+            </h2>
+
+            {customerComments.length === 0 ? (
+              <div className="text-center py-6 bg-gray-50 rounded-md">
+                <MessageSquare className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                <p className="text-gray-500">No updates yet</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Our team will post updates here to keep you informed
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {customerComments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="border border-gray-200 rounded-lg p-4"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <User size={16} className="text-gray-400" />
+                        <span className="font-medium text-sm">
+                          {comment.users?.first_name && comment.users?.last_name
+                            ? `${comment.users.first_name} ${comment.users.last_name}`
+                            : "Team Member"}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {formatDateTime(comment.created_at)}
+                          {comment.updated_at !== comment.created_at &&
+                            " (edited)"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-gray-700 whitespace-pre-wrap">
+                      {comment.content}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}

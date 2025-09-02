@@ -37,6 +37,7 @@ import QuotePDFViewer from "../components/quotes/QuotePDFViewer";
 import JobReminderBanner from "../components/jobs/JobReminderBanner";
 import AdminTimeTracking from "../components/jobs/AdminTimeTracking";
 import JobComments from "../components/jobs/JobComments";
+import CustomerComments from "../components/jobs/CustomerComments";
 import JobReminderList from "../components/jobs/JobReminderList";
 import PermitSection from "../components/permits/PermitSection";
 import AttachmentSection from "../components/jobs/AttachmentSection";
@@ -1184,6 +1185,10 @@ const JobDetails = () => {
 
           <div className="card">
             <JobComments jobId={job.id} />
+          </div>
+
+          <div className="card">
+            <CustomerComments jobId={job.id} />
           </div>
 
           {/* Reminders */}
