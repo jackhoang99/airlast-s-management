@@ -32,7 +32,7 @@ const defaultModel = {
   model_number: "",
   serial_number: "",
   comment: "",
-  system_type: "RTU",
+  system_type: "",
 };
 
 const AddAssetForm = ({
@@ -323,15 +323,14 @@ const AddAssetForm = ({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             System Type
           </label>
-          <select
+          <input
             name="system_type"
+            type="text"
             className="input w-full"
             value={model.system_type}
             onChange={handleModelChange}
-          >
-            <option value="RTU">RTU</option>
-            <option value="Split System">Split System</option>
-          </select>
+            placeholder="Enter system type"
+          />
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">

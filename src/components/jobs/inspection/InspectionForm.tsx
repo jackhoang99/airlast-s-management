@@ -6,11 +6,12 @@ type InspectionData = {
   id?: string;
   job_id?: string;
   model_number: string;
+  manufacture_name: string;
   serial_number: string;
   age: string;
   tonnage: string;
   unit_type: "Gas" | "Electric";
-  system_type: "RTU" | "Split System";
+  system_type: string;
   comment?: string;
   job_unit_id?: string; // Use job_unit_id instead of unit_id
 };
@@ -37,11 +38,12 @@ const InspectionForm = ({
   const [inspectionData, setInspectionData] = useState<InspectionData>(
     initialData || {
       model_number: "",
+      manufacture_name: "",
       serial_number: "",
       age: "",
       tonnage: "",
       unit_type: "Gas",
-      system_type: "RTU",
+      system_type: "",
       comment: "",
       // If only one unit, set job_unit_id by default
       ...(jobUnits && jobUnits.length === 1
@@ -83,6 +85,7 @@ const InspectionForm = ({
           .from("job_inspections")
           .update({
             model_number: inspectionData.model_number,
+            manufacture_name: inspectionData.manufacture_name,
             serial_number: inspectionData.serial_number,
             age: inspectionData.age ? parseInt(inspectionData.age) : null,
             tonnage: inspectionData.tonnage || null,
@@ -102,6 +105,7 @@ const InspectionForm = ({
           .insert({
             job_id: jobId,
             model_number: inspectionData.model_number,
+            manufacture_name: inspectionData.manufacture_name,
             serial_number: inspectionData.serial_number,
             age: inspectionData.age ? parseInt(inspectionData.age) : null,
             tonnage: inspectionData.tonnage || null,
@@ -202,6 +206,29 @@ const InspectionForm = ({
                 />
               </div>
             ) : null}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Manufacture Name
+              </label>
+              <input
+                type="text"
+                value={inspectionData.manufacture_name}
+                onChange={(e) =>
+                  setInspectionData((prev) => ({
+                    ...prev,
+                    manufacture_name: e.target.value,
+                  }))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="input w-full text-base sm:text-sm"
+                placeholder="Enter manufacture name"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Model Number
@@ -322,12 +349,13 @@ const InspectionForm = ({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 System Type
               </label>
-              <select
+              <input
+                type="text"
                 value={inspectionData.system_type}
                 onChange={(e) =>
                   setInspectionData((prev) => ({
                     ...prev,
-                    system_type: e.target.value as "RTU" | "Split System",
+                    system_type: e.target.value,
                   }))
                 }
                 onKeyDown={(e) => {
@@ -336,11 +364,9 @@ const InspectionForm = ({
                     e.currentTarget.blur();
                   }
                 }}
-                className="select w-full text-base sm:text-sm"
-              >
-                <option value="RTU">RTU</option>
-                <option value="Split System">Split System</option>
-              </select>
+                className="input w-full text-base sm:text-sm"
+                placeholder="Enter system type"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -232,6 +232,7 @@ const InspectionSection = ({
             unit_type: inspection.unit_type,
             system_type: inspection.system_type,
             model_number: inspection.model_number,
+            manufacture_name: inspection.manufacture_name,
             serial_number: inspection.serial_number,
             inspection_id: inspection.id,
             comment: inspection.comment,
@@ -343,6 +344,14 @@ const InspectionSection = ({
                     </div>
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">
+                        Manufacture Name
+                      </p>
+                      <p className="text-sm">
+                        {inspection.manufacture_name || "N/A"}
+                      </p>
+                    </div>
                     <div>
                       <p className="text-xs font-medium text-gray-500">
                         Model Number

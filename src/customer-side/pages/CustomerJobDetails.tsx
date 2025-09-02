@@ -597,6 +597,12 @@ const CustomerJobDetails = () => {
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                         <div>
+                          <p className="text-gray-600">Manufacture Name:</p>
+                          <p className="font-medium">
+                            {asset.model?.manufacture_name || "N/A"}
+                          </p>
+                        </div>
+                        <div>
                           <p className="text-gray-600">Model Number:</p>
                           <p className="font-medium">
                             {asset.model?.model_number || "N/A"}

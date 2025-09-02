@@ -27,6 +27,7 @@ const Assets = () => {
   const [assets, setAssets] = useState<any[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
   const [columnSearches, setColumnSearches] = useState({
+    manufactureName: "",
     modelNumber: "",
     serialNumber: "",
     age: "",
@@ -216,6 +217,7 @@ const Assets = () => {
     if (!hasColumnSearches) return true;
 
     // Column-specific searches
+    const manufactureName = asset.model?.manufacture_name?.toLowerCase() || "";
     const modelNumber = asset.model?.model_number?.toLowerCase() || "";
     const serialNumber = asset.model?.serial_number?.toLowerCase() || "";
     const age = asset.model?.age?.toString() || "";
@@ -232,6 +234,10 @@ const Assets = () => {
     const comments = asset.model?.comment?.toLowerCase() || "";
 
     return (
+      (columnSearches.manufactureName === "" ||
+        manufactureName.includes(
+          columnSearches.manufactureName.toLowerCase()
+        )) &&
       (columnSearches.modelNumber === "" ||
         modelNumber.includes(columnSearches.modelNumber.toLowerCase())) &&
       (columnSearches.serialNumber === "" ||
@@ -321,7 +327,16 @@ const Assets = () => {
             <div className="text-sm font-medium text-gray-700 mb-2">
               Search Assets:
             </div>
-            <div className="grid grid-cols-11 gap-2 text-xs bg-gray-50 p-2 rounded">
+            <div className="grid grid-cols-12 gap-2 text-xs bg-gray-50 p-2 rounded">
+              <input
+                type="text"
+                placeholder="Manufacture"
+                value={columnSearches.manufactureName}
+                onChange={(e) =>
+                  handleColumnSearchChange("manufactureName", e.target.value)
+                }
+                className="px-2 py-1 border border-gray-300 rounded text-xs"
+              />
               <input
                 type="text"
                 placeholder="Model #"
@@ -467,6 +482,9 @@ const Assets = () => {
               <thead className="bg-gray-50 text-left">
                 <tr>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
+                    MANUFACTURE NAME
+                  </th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
                     MODEL NUMBER
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
@@ -504,6 +522,9 @@ const Assets = () => {
               <tbody className="divide-y divide-gray-200">
                 {filteredAssets.map((asset) => (
                   <tr key={asset.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm">
+                      {asset.model?.manufacture_name || "N/A"}
+                    </td>
                     <td className="px-4 py-3 text-sm font-medium">
                       {asset.model?.model_number || "N/A"}
                     </td>

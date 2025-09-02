@@ -415,6 +415,11 @@ const CustomerAssets = () => {
                   <div className="flex items-center">
                     <Package size={16} className="text-primary-600 mr-2" />
                     <h3 className="font-medium">
+                      {asset.model?.manufacture_name && (
+                        <span className="text-gray-600 mr-1">
+                          {asset.model.manufacture_name} -{" "}
+                        </span>
+                      )}
                       {asset.model?.model_number || "No model number"}
                     </h3>
                   </div>
@@ -452,6 +457,10 @@ const CustomerAssets = () => {
             </button>
             <h3 className="text-lg font-semibold mb-2">Asset Details</h3>
             <div className="space-y-2">
+              <div>
+                <b>Manufacture Name:</b>{" "}
+                {selectedAsset.model?.manufacture_name || "N/A"}
+              </div>
               <div>
                 <b>Model Number:</b>{" "}
                 {selectedAsset.model?.model_number || "N/A"}

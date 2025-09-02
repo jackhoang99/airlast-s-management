@@ -409,10 +409,19 @@ const PublicUnitDetails = () => {
               {assets.map((asset) => (
                 <div key={asset.id} className="border rounded-lg p-4">
                   <div className="font-medium text-primary-700 mb-2">
+                    {asset.model?.manufacture_name && (
+                      <span className="text-gray-600">
+                        {asset.model.manufacture_name} -{" "}
+                      </span>
+                    )}
                     {asset.model?.model_number || "(No Model #)"} -{" "}
                     {asset.model?.serial_number || "(No Serial #)"}
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-700">
+                    <div>
+                      <span className="font-semibold">Manufacture:</span>{" "}
+                      {asset.model?.manufacture_name ?? "-"}
+                    </div>
                     <div>
                       <span className="font-semibold">Age:</span>{" "}
                       {asset.model?.age ?? "-"}

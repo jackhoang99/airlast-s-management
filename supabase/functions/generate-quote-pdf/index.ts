@@ -879,6 +879,8 @@ serve(async (req) => {
         // Draw inspection details in two-column format like the image
         const leftColumn = [];
         const rightColumn = [];
+        if (insp.manufacture_name)
+          leftColumn.push(`Manufacture Name: ${insp.manufacture_name}`);
         if (insp.model_number)
           leftColumn.push(`Model Number: ${insp.model_number}`);
         if (insp.age) leftColumn.push(`Age: ${insp.age} years`);

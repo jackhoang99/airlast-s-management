@@ -34,13 +34,14 @@ const EditAssetForm = ({ asset, onSuccess, onCancel }: EditAssetFormProps) => {
   const [selectedUnit, setSelectedUnit] = useState<string>("");
 
   const [model, setModel] = useState<any>({
+    manufacture_name: "",
     age: "",
     tonnage: "",
     unit_type: "Gas",
     model_number: "",
     serial_number: "",
     comment: "",
-    system_type: "RTU",
+    system_type: "",
   });
   const [inspectionDate, setInspectionDate] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -50,13 +51,14 @@ const EditAssetForm = ({ asset, onSuccess, onCancel }: EditAssetFormProps) => {
   useEffect(() => {
     if (asset) {
       setModel({
+        manufacture_name: asset.model?.manufacture_name || "",
         age: asset.model?.age?.toString() || "",
         tonnage: asset.model?.tonnage || "",
         unit_type: asset.model?.unit_type || "Gas",
         model_number: asset.model?.model_number || "",
         serial_number: asset.model?.serial_number || "",
         comment: asset.model?.comment || "",
-        system_type: asset.model?.system_type || "RTU",
+        system_type: asset.model?.system_type || "",
       });
       setInspectionDate(
         asset.inspection_date ? asset.inspection_date.split("T")[0] : ""
@@ -237,6 +239,18 @@ const EditAssetForm = ({ asset, onSuccess, onCancel }: EditAssetFormProps) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
+            Manufacture Name
+          </label>
+          <input
+            name="manufacture_name"
+            className="input w-full"
+            value={model.manufacture_name}
+            onChange={handleModelChange}
+            placeholder="Enter manufacture name"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Model Number
           </label>
           <input
@@ -303,15 +317,14 @@ const EditAssetForm = ({ asset, onSuccess, onCancel }: EditAssetFormProps) => {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             System Type
           </label>
-          <select
+          <input
             name="system_type"
+            type="text"
             className="input w-full"
             value={model.system_type}
             onChange={handleModelChange}
-          >
-            <option value="RTU">RTU</option>
-            <option value="Split System">Split System</option>
-          </select>
+            placeholder="Enter system type"
+          />
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">

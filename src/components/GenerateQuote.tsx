@@ -59,7 +59,7 @@ type InspectionData = {
   age: number | null;
   tonnage: string | null;
   unit_type: "Gas" | "Electric" | null;
-  system_type: "RTU" | "Split System" | null;
+  system_type: string | null;
   comment: string | null;
   created_at: string;
   updated_at: string;
@@ -225,7 +225,7 @@ const GenerateQuote = ({
         const { data: inspData, error: inspError } = await supabase
           .from("job_inspections")
           .select(
-            "id, model_number, serial_number, age, tonnage, unit_type, system_type, comment, completed"
+            "id, model_number, manufacture_name, serial_number, age, tonnage, unit_type, system_type, comment, completed"
           )
           .eq("job_id", jobId)
           .eq("completed", true);
@@ -602,6 +602,7 @@ const GenerateQuote = ({
       const inspectionData = dataToUse.selectedInspections.map((insp: any) => ({
         id: insp.id,
         model_number: insp.model_number,
+        manufacture_name: insp.manufacture_name,
         serial_number: insp.serial_number,
         age: insp.age,
         tonnage: insp.tonnage,
@@ -1026,9 +1027,27 @@ const GenerateQuote = ({
                   />
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium">
-                        {inspection.model_number || "Unknown Model"}
-                      </span>
+                      <div>
+                        <span className="font-medium">
+                          {inspection.manufacture_name ? (
+                            <>
+                              <span className="text-gray-600">
+                                {inspection.manufacture_name}
+                              </span>
+                              <span className="mx-1">-</span>
+                            </>
+                          ) : null}
+                          {inspection.model_number || "Unknown Model"}
+                          {inspection.serial_number && (
+                            <>
+                              <span className="mx-1">-</span>
+                              <span className="text-gray-600">
+                                {inspection.serial_number}
+                              </span>
+                            </>
+                          )}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2">
                         {isInspectionUsedInQuotes(inspection.id) && (
                           <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
@@ -1046,11 +1065,6 @@ const GenerateQuote = ({
                       {inspection.tonnage && `${inspection.tonnage} ton`} •{" "}
                       {inspection.unit_type} • {inspection.system_type}
                     </div>
-                    {inspection.serial_number && (
-                      <div className="text-xs text-gray-500">
-                        S/N: {inspection.serial_number}
-                      </div>
-                    )}
                     {inspection.comment && (
                       <div className="text-xs text-gray-600 mt-1 p-2 bg-gray-50 rounded">
                         <strong>Comment:</strong> {inspection.comment}

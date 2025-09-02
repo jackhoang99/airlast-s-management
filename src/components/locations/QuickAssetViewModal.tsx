@@ -187,6 +187,11 @@ const QuickAssetViewModal = ({
             {assets.map((asset) => (
               <div key={asset.id} className="bg-gray-50 rounded p-4 border">
                 <div className="font-medium text-primary-700 mb-1">
+                  {asset.model?.manufacture_name && (
+                    <span className="text-gray-600">
+                      {asset.model.manufacture_name} -{" "}
+                    </span>
+                  )}
                   {asset.model?.model_number || "(No Model #)"} -{" "}
                   {asset.model?.serial_number || "(No Serial #)"}
                 </div>
@@ -213,6 +218,10 @@ const QuickAssetViewModal = ({
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-700 mt-2">
+                  <div>
+                    <span className="font-semibold">Manufacture:</span>{" "}
+                    {asset.model?.manufacture_name ?? "-"}
+                  </div>
                   <div>
                     <span className="font-semibold">Age:</span>{" "}
                     {asset.model?.age ?? "-"}

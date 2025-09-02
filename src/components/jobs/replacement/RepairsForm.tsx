@@ -47,7 +47,7 @@ type InspectionData = {
   age: number | null;
   tonnage: string | null;
   unit_type: "Gas" | "Electric" | null;
-  system_type: "RTU" | "Split System" | null;
+  system_type: string | null;
   created_at: string;
   updated_at: string;
   completed: boolean;

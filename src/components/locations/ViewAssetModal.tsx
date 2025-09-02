@@ -41,6 +41,11 @@ const ViewAssetModal = ({ asset, onClose }: ViewAssetModalProps) => {
             {/* Asset Identifier */}
             <div className="mb-4">
               <h3 className="text-lg font-bold text-primary-600">
+                {asset.model?.manufacture_name && (
+                  <span className="text-gray-600">
+                    {asset.model.manufacture_name} -{" "}
+                  </span>
+                )}
                 {asset.model?.model_number} - {asset.model?.serial_number}
               </h3>
             </div>
@@ -49,6 +54,14 @@ const ViewAssetModal = ({ asset, onClose }: ViewAssetModalProps) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left Column */}
               <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">
+                    Manufacture Name:
+                  </label>
+                  <p className="text-gray-900">
+                    {asset.model?.manufacture_name || "N/A"}
+                  </p>
+                </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">
                     Unit:
@@ -153,8 +166,6 @@ const ViewAssetModal = ({ asset, onClose }: ViewAssetModalProps) => {
                 </p>
               </div>
             )}
-
-
           </div>
         </div>
       </div>

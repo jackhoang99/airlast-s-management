@@ -179,6 +179,11 @@ const CustomerUnitAssets = () => {
                         </span>
                       </div>
                       <div className="text-xs text-gray-500">
+                        {asset.model?.manufacture_name && (
+                          <span className="font-medium">
+                            {asset.model.manufacture_name} -{" "}
+                          </span>
+                        )}
                         {asset.model?.model_number || "No model"}
                       </div>
                     </div>
@@ -208,6 +213,14 @@ const CustomerUnitAssets = () => {
                     Model Information
                   </h3>
                   <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
+                    <div>
+                      <label className="text-xs text-gray-500">
+                        Manufacture Name
+                      </label>
+                      <p className="font-medium">
+                        {selectedAsset.model?.manufacture_name || "N/A"}
+                      </p>
+                    </div>
                     <div>
                       <label className="text-xs text-gray-500">
                         Model Number
