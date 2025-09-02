@@ -53,6 +53,45 @@ serve(async (req) => {
       if (updateQuoteError) {
         throw updateQuoteError;
       }
+
+      // Store quote ID for notification (will be sent after all processing is complete)
+      const quoteIdForNotification = approved ? quoteData.id : null;
+
+      // Send notification email to admin if quote is approved (consolidated logic)
+      if (approved && quoteIdForNotification) {
+        try {
+          const notificationResponse = await fetch(
+            `${Deno.env.get(
+              "SUPABASE_URL"
+            )}/functions/v1/quote-confirmation-notification`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${Deno.env.get(
+                  "SUPABASE_SERVICE_ROLE_KEY"
+                )}`,
+              },
+              body: JSON.stringify({
+                quoteId: quoteIdForNotification,
+              }),
+            }
+          );
+
+          if (!notificationResponse.ok) {
+            console.warn(
+              "Failed to send notification email:",
+              await notificationResponse.text()
+            );
+          } else {
+            console.log("Notification email sent successfully");
+          }
+        } catch (notificationError) {
+          console.warn("Error sending notification email:", notificationError);
+          // Don't fail the quote confirmation if notification fails
+        }
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -105,6 +144,45 @@ serve(async (req) => {
     if (insertError) {
       throw insertError;
     }
+
+    // Store quote ID for notification (will be sent after all processing is complete)
+    const quoteIdForNotification = approved ? newQuote.id : null;
+
+    // Send notification email to admin if quote is approved (consolidated logic)
+    if (approved && quoteIdForNotification) {
+      try {
+        const notificationResponse = await fetch(
+          `${Deno.env.get(
+            "SUPABASE_URL"
+          )}/functions/v1/quote-confirmation-notification`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get(
+                "SUPABASE_SERVICE_ROLE_KEY"
+              )}`,
+            },
+            body: JSON.stringify({
+              quoteId: quoteIdForNotification,
+            }),
+          }
+        );
+
+        if (!notificationResponse.ok) {
+          console.warn(
+            "Failed to send notification email:",
+            await notificationResponse.text()
+          );
+        } else {
+          console.log("Notification email sent successfully");
+        }
+      } catch (notificationError) {
+        console.warn("Error sending notification email:", notificationError);
+        // Don't fail the quote confirmation if notification fails
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

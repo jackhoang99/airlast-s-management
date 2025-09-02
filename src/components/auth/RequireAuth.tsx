@@ -1,16 +1,25 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { useSupabase } from '../../lib/supabase-context';
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useSupabase } from "../../lib/supabase-context";
 
 const RequireAuth = () => {
   const location = useLocation();
-  const { supabase, session } = useSupabase();
-  const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('isAuthenticated') === 'true');
+  const { supabase, session, canCheckAuth } = useSupabase();
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    sessionStorage.getItem("isAuthenticated") === "true"
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
   useEffect(() => {
     const ensureAuthenticated = async () => {
+      // Prevent excessive auth checks
+      if (!canCheckAuth() && hasCheckedAuth) {
+        console.log("Skipping auth check - too recent or already checked");
+        return;
+      }
+
       if (!supabase) {
         setIsLoading(false);
         return;
@@ -18,69 +27,82 @@ const RequireAuth = () => {
 
       try {
         setIsLoading(true);
-        
+        setHasCheckedAuth(true);
+
         // Check if we already have a session
         if (session) {
           // Check if this user is a technician trying to access admin
           const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('role')
-            .eq('email', session.user.email)
+            .from("users")
+            .select("role")
+            .eq("email", session.user.email)
             .maybeSingle();
-            
-          if (!userError && userData && userData.role === 'technician') {
+
+          if (!userError && userData && userData.role === "technician") {
             // This is a technician trying to access admin area
-            console.log('Technician trying to access admin area, redirecting to tech portal');
-            sessionStorage.removeItem('isAuthenticated');
-            sessionStorage.setItem('isTechAuthenticated', 'true');
-            sessionStorage.setItem('techUsername', session.user.email?.split('@')[0] || 'tech');
+            console.log(
+              "Technician trying to access admin area, redirecting to tech portal"
+            );
+            sessionStorage.removeItem("isAuthenticated");
+            sessionStorage.setItem("isTechAuthenticated", "true");
+            sessionStorage.setItem(
+              "techUsername",
+              session.user.email?.split("@")[0] || "tech"
+            );
             setIsAuthenticated(false);
             setIsLoading(false);
             return;
           }
-          
+
           // Not a technician, proceed with admin authentication
           setIsAuthenticated(true);
-          sessionStorage.setItem('isAuthenticated', 'true');
-          sessionStorage.setItem('username', session.user.email?.split('@')[0] || 'user');
+          sessionStorage.setItem("isAuthenticated", "true");
+          sessionStorage.setItem(
+            "username",
+            session.user.email?.split("@")[0] || "user"
+          );
           setIsLoading(false);
           return;
         }
-        
+
         // If session storage says we're authenticated but Supabase doesn't have a session,
         // try to sign in with stored credentials
-        if (isAuthenticated && !session) {
-          const username = sessionStorage.getItem('username') || 'user';
+        if (sessionStorage.getItem("isAuthenticated") === "true" && !session) {
+          const username = sessionStorage.getItem("username") || "user";
           const email = `${username}@airlast-demo.com`;
-          
+
           // Try to sign in with demo credentials
-          const { data, error: signInError } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: 'hvac123'
-          });
-          
+          const { data, error: signInError } =
+            await supabase.auth.signInWithPassword({
+              email: email,
+              password: "hvac123",
+            });
+
           if (signInError) {
-            console.warn('Auto-authentication failed:', signInError);
-            setError('Failed to authenticate automatically');
+            console.warn("Auto-authentication failed:", signInError);
+            setError("Failed to authenticate automatically");
             setIsAuthenticated(false);
-            sessionStorage.removeItem('isAuthenticated');
+            sessionStorage.removeItem("isAuthenticated");
           } else if (data.session) {
             // Successfully signed in
             setIsAuthenticated(true);
           }
+        } else {
+          // No session and not in session storage
+          setIsAuthenticated(false);
         }
       } catch (err) {
-        console.error('Error during auto-authentication:', err);
-        setError(err instanceof Error ? err.message : 'Authentication error');
+        console.error("Error during auto-authentication:", err);
+        setError(err instanceof Error ? err.message : "Authentication error");
         setIsAuthenticated(false);
-        sessionStorage.removeItem('isAuthenticated');
+        sessionStorage.removeItem("isAuthenticated");
       } finally {
         setIsLoading(false);
       }
     };
 
     ensureAuthenticated();
-  }, [supabase, session, isAuthenticated]);
+  }, [supabase, session, canCheckAuth, hasCheckedAuth]);
 
   if (isLoading) {
     return (
@@ -96,7 +118,7 @@ const RequireAuth = () => {
   }
 
   if (error) {
-    console.warn('Auth warning:', error);
+    console.warn("Auth warning:", error);
   }
 
   return <Outlet />;

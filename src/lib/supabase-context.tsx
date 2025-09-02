@@ -1,209 +1,218 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { SupabaseClient, createClient, Session } from "@supabase/supabase-js";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createClient, Session, SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../types/supabase";
 
-type SupabaseContext = {
+type SupabaseCtx = {
   supabase: SupabaseClient<Database> | null;
   session: Session | null;
   isLoading: boolean;
   error: string | null;
+  isAuthenticated: boolean;
+  // Keep helpers, but make them stable & non-rerendering:
+  canCheckAuth: () => boolean;
+  setTabSwitchCooldown: () => void;
 };
 
-const SupabaseContext = createContext<SupabaseContext>({
+const SupabaseContext = createContext<SupabaseCtx>({
   supabase: null,
   session: null,
   isLoading: true,
   error: null,
+  isAuthenticated: false,
+  canCheckAuth: () => false,
+  setTabSwitchCooldown: () => {},
 });
 
 export const useSupabase = () => useContext(SupabaseContext);
 
-type SupabaseProviderProps = {
-  children: React.ReactNode;
-};
+type Props = { children: React.ReactNode };
 
-export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
+export const SupabaseProvider = ({ children }: Props) => {
+  // Keep these as state because consumers actually care about them:
   const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(
     null
   );
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Use REFs for throttling so we don't rerender the whole tree
+  const lastAuthCheckRef = useRef<number>(0);
+  const tabCooldownRef = useRef<boolean>(false);
+
+  const canCheckAuth = useCallback((): boolean => {
+    const now = Date.now();
+    if (now - lastAuthCheckRef.current < 5000) return false;
+    if (tabCooldownRef.current) return false;
+    lastAuthCheckRef.current = now;
+    return true;
+  }, []);
+
+  const setTabSwitchCooldown = useCallback(() => {
+    tabCooldownRef.current = true;
+    // Use a single timer; no state updates here → no app-wide rerender
+    setTimeout(() => {
+      tabCooldownRef.current = false;
+    }, 2000);
+  }, []);
 
   useEffect(() => {
-    const initializeSupabase = async () => {
-      // Prevent multiple initializations
-      if (isInitialized) {
-        return;
-      }
+    let mounted = true;
+    let unsubscribeAuth: (() => void) | null = null;
+
+    const handleVisibilityChange = () => {
+      // Only start cooldown when the tab becomes VISIBLE (focus returns)
+      if (!document.hidden) setTabSwitchCooldown();
+    };
+
+    const init = async () => {
       try {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
         if (!supabaseUrl || !supabaseAnonKey) {
-          throw new Error(
-            "Supabase credentials not found in environment variables"
-          );
+          throw new Error("Supabase credentials missing");
         }
 
-        const supabaseClient = createClient<Database>(
-          supabaseUrl,
-          supabaseAnonKey,
-          {
-            auth: {
-              persistSession: true,
-              storageKey: "supabase.auth.token",
-              autoRefreshToken: true,
-              detectSessionInUrl: true,
-              flowType: "pkce",
-              storage: {
-                getItem: (key) => {
-                  try {
-                    return localStorage.getItem(key);
-                  } catch (error) {
-                    console.warn("Error reading from localStorage:", error);
-                    return null;
-                  }
-                },
-                setItem: (key, value) => {
-                  try {
-                    localStorage.setItem(key, value);
-                  } catch (error) {
-                    console.warn("Error writing to localStorage:", error);
-                  }
-                },
-                removeItem: (key) => {
-                  try {
-                    localStorage.removeItem(key);
-                  } catch (error) {
-                    console.warn("Error removing from localStorage:", error);
-                  }
-                },
+        // Create client ONCE
+        const client = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            persistSession: true,
+            storageKey: "supabase.auth.token",
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            flowType: "pkce",
+            storage: {
+              getItem: (k) => {
+                try {
+                  return localStorage.getItem(k);
+                } catch (e) {
+                  console.warn("localStorage.getItem error:", e);
+                  return null;
+                }
+              },
+              setItem: (k, v) => {
+                try {
+                  localStorage.setItem(k, v);
+                } catch (e) {
+                  console.warn("localStorage.setItem error:", e);
+                }
+              },
+              removeItem: (k) => {
+                try {
+                  localStorage.removeItem(k);
+                } catch (e) {
+                  console.warn("localStorage.removeItem error:", e);
+                }
               },
             },
-          }
-        );
+          },
+        });
 
-        setSupabase(supabaseClient);
-        setIsInitialized(true);
+        if (!mounted) return;
+        setSupabase(client);
 
-        // Check what's in localStorage before getting session
-        const storedAuth = localStorage.getItem("supabase.auth.token");
-
-        // Get initial session with improved retry logic
-        let retryCount = 0;
-        const maxRetries = 5;
-
-        const getInitialSession = async (): Promise<Session | null> => {
+        // Initial session (retry w/ simple backoff)
+        let attempt = 0;
+        let initial: Session | null = null;
+        while (attempt < 5) {
           try {
-            console.log(
-              `Session restoration attempt ${retryCount + 1}/${maxRetries}`
+            const { data, error } = await client.auth.getSession();
+            if (error) throw error;
+            initial = data.session ?? null;
+            break;
+          } catch {
+            attempt++;
+            if (attempt >= 5) break;
+            await new Promise((r) =>
+              setTimeout(r, Math.min(1000 * 2 ** (attempt - 1), 5000))
             );
-
-            const {
-              data: { session },
-              error: sessionError,
-            } = await supabaseClient.auth.getSession();
-
-            if (sessionError) {
-              console.error("Error getting initial session:", sessionError);
-              throw sessionError;
-            }
-
-            if (session) {
-              console.log("Session found:", session.user.email);
-              return session;
-            } else {
-              console.log("No session found in attempt", retryCount + 1);
-              return null;
-            }
-          } catch (err) {
-            console.error(
-              `Session restoration attempt ${retryCount + 1} failed:`,
-              err
-            );
-            if (retryCount < maxRetries) {
-              retryCount++;
-              // Exponential backoff for retries
-              const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 5000);
-              console.log(
-                `Waiting ${delay}ms before retry ${retryCount + 1}...`
-              );
-              await new Promise((resolve) => setTimeout(resolve, delay));
-              return getInitialSession();
-            }
-            throw err;
           }
-        };
+        }
+        if (!mounted) return;
 
-        try {
-          const initialSession = await getInitialSession();
-          if (initialSession) {
-            console.log("Session restored for:", initialSession.user.email);
-            // Set session storage immediately for technician auth
-            sessionStorage.setItem("isAuthenticated", "true");
-            sessionStorage.setItem(
-              "username",
-              initialSession.user.email?.split("@")[0] || "user"
-            );
-          } else {
-            console.log("No session restored after all attempts");
-          }
-          setSession(initialSession);
-        } catch (sessionErr) {
-          console.error("Error during session restoration:", sessionErr);
-          // Continue without session
+        setSession(initial);
+        if (initial) {
+          sessionStorage.setItem("isAuthenticated", "true");
+          sessionStorage.setItem(
+            "username",
+            initial.user.email?.split("@")[0] || "user"
+          );
         }
 
-        // Listen for auth changes
-        const {
-          data: { subscription },
-        } = supabaseClient.auth.onAuthStateChange((event, session) => {
-          console.log(
-            "Auth state change:",
-            event,
-            session ? "Session present" : "No session"
-          );
-          setSession(session);
+        // Subscribe to auth events
+        const { data } = client.auth.onAuthStateChange((event, newSession) => {
+          // Always process SIGNED_IN / SIGNED_OUT immediately
+          const highPriority = event === "SIGNED_IN" || event === "SIGNED_OUT";
+          if (!highPriority && !canCheckAuth()) {
+            // throttle low-priority events like TOKEN_REFRESHED
+            return;
+          }
 
-          // Update session storage when session changes
-          if (session) {
+          setSession((prev) => {
+            // If you want to always reflect token refresh, just return newSession ?? null;
+            if (prev?.user?.id === newSession?.user?.id)
+              return newSession ?? prev;
+            return newSession ?? null;
+          });
+
+          if (newSession) {
             sessionStorage.setItem("isAuthenticated", "true");
             sessionStorage.setItem(
               "username",
-              session.user.email?.split("@")[0] || "user"
+              newSession.user.email?.split("@")[0] || "user"
             );
-          } else {
-            // Only clear session storage on explicit logout, not on refresh
-            if (event === "SIGNED_OUT") {
-              sessionStorage.removeItem("isAuthenticated");
-              sessionStorage.removeItem("username");
-              sessionStorage.removeItem("isTechAuthenticated");
-              sessionStorage.removeItem("techUsername");
-              console.log("User signed out, cleared session storage");
-            }
+          } else if (event === "SIGNED_OUT") {
+            sessionStorage.removeItem("isAuthenticated");
+            sessionStorage.removeItem("username");
+            sessionStorage.removeItem("isTechAuthenticated");
+            sessionStorage.removeItem("techUsername");
           }
         });
 
-        return () => subscription.unsubscribe();
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : "Failed to initialize Supabase client";
-        console.error("Supabase initialization error:", errorMessage);
-        setError(errorMessage);
+        unsubscribeAuth = () => data.subscription.unsubscribe();
+
+        // Visibility listener AFTER client is ready
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+      } catch (e: any) {
+        if (mounted) setError(e?.message ?? "Failed to initialize Supabase");
       } finally {
-        setIsLoading(false);
+        if (mounted) setIsLoading(false);
       }
     };
 
-    initializeSupabase();
-  }, []);
+    init();
+
+    return () => {
+      mounted = false;
+      if (unsubscribeAuth) unsubscribeAuth();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [canCheckAuth, setTabSwitchCooldown]);
+
+  // Keep the Provider value STABLE so children don’t remount:
+  const ctxValue = useMemo(
+    () => ({
+      supabase,
+      session,
+      isLoading,
+      error,
+      isAuthenticated: !!session,
+      canCheckAuth,
+      setTabSwitchCooldown,
+    }),
+    [supabase, session, isLoading, error, canCheckAuth, setTabSwitchCooldown]
+  );
 
   return (
-    <SupabaseContext.Provider value={{ supabase, session, isLoading, error }}>
+    <SupabaseContext.Provider value={ctxValue}>
       {children}
     </SupabaseContext.Provider>
   );
