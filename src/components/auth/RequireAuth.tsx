@@ -7,16 +7,41 @@ const RequireAuth = () => {
   const { supabase, session, isLoading: supabaseLoading } = useSupabase();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [timeoutReached, setTimeoutReached] = useState(false);
+
+  // Add timeout to prevent infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      console.log("🔍 RequireAuth: Timeout reached, forcing initialization");
+      setTimeoutReached(true);
+      setIsInitialized(true);
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timeout);
+  }, []);
 
   // Initialize authentication state once when component mounts
   useEffect(() => {
     const initializeAuth = async () => {
-      if (!supabase || supabaseLoading) return;
+      console.log("🔍 RequireAuth: Starting initialization", {
+        hasSupabase: !!supabase,
+        supabaseLoading,
+        hasSession: !!session,
+        sessionEmail: session?.user?.email,
+      });
+
+      if (!supabase || supabaseLoading) {
+        console.log("🔍 RequireAuth: Waiting for Supabase client");
+        return;
+      }
 
       try {
         // If we have a session, check user role once
         if (session) {
-          console.log("Session found, checking user role...");
+          console.log(
+            "🔍 RequireAuth: Session found, checking user role for:",
+            session.user.email
+          );
 
           const { data: userData, error: userError } = await supabase
             .from("users")
@@ -24,18 +49,37 @@ const RequireAuth = () => {
             .eq("email", session.user.email)
             .maybeSingle();
 
+          console.log("🔍 RequireAuth: User query result", {
+            userData,
+            userError,
+            hasData: !!userData,
+            role: userData?.role,
+          });
+
           if (userError) {
-            console.error("Error fetching user role:", userError);
+            console.error(
+              "🔍 RequireAuth: Error fetching user role:",
+              userError
+            );
             setUserRole(null);
           } else if (userData) {
-            console.log("User role determined:", userData.role);
+            console.log("🔍 RequireAuth: User role determined:", userData.role);
             setUserRole(userData.role);
+          } else {
+            console.log(
+              "🔍 RequireAuth: No user data found for email:",
+              session.user.email
+            );
+            setUserRole(null);
           }
+        } else {
+          console.log("🔍 RequireAuth: No session found");
         }
       } catch (err) {
-        console.error("Error initializing auth:", err);
+        console.error("🔍 RequireAuth: Error initializing auth:", err);
         setUserRole(null);
       } finally {
+        console.log("🔍 RequireAuth: Initialization complete");
         setIsInitialized(true);
       }
     };

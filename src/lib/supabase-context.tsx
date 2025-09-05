@@ -18,8 +18,6 @@ const SupabaseContext = createContext<SupabaseCtx>({
   isAuthenticated: false,
 });
 
-export const useSupabase = () => useContext(SupabaseContext);
-
 type Props = { children: React.ReactNode };
 
 // Module-level singleton - this ensures only one client ever exists
@@ -233,3 +231,8 @@ export const SupabaseProvider = ({ children }: Props) => {
     </SupabaseContext.Provider>
   );
 };
+
+// Export the hook after the provider is defined to ensure Fast Refresh compatibility
+export function useSupabase() {
+  return useContext(SupabaseContext);
+}

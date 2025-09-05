@@ -712,6 +712,11 @@ const DispatchSchedule = () => {
 
   const handleAssignTechnicians = async (appointment: {
     technicianIds: string[];
+    technicianSchedules?: {
+      technicianId: string;
+      scheduleDate: string;
+      scheduleTime: string;
+    }[];
   }) => {
     if (!supabase || !selectedJobForModal) return;
 
@@ -729,13 +734,38 @@ const DispatchSchedule = () => {
 
       if (deleteError) throw deleteError;
 
-      // Then add the new technicians
+      // Then add the new technicians with their schedules
       const technicianEntries = appointment.technicianIds.map(
-        (techId, index) => ({
-          job_id: selectedJobForModal.id,
-          technician_id: techId,
-          is_primary: index === 0, // First technician is primary
-        })
+        (techId, index) => {
+          // Find the schedule for this technician
+          const schedule = appointment.technicianSchedules?.find(
+            (s) => s.technicianId === techId
+          );
+
+          let scheduledAt = null;
+          if (schedule?.scheduleDate && schedule?.scheduleTime) {
+            // Parse the date and time
+            const [year, month, day] = schedule.scheduleDate
+              .split("-")
+              .map(Number);
+            const [hours, minutes] = schedule.scheduleTime
+              .split(":")
+              .map(Number);
+
+            // Create a date object in Eastern Time
+            const easternDate = new Date(year, month - 1, day, hours, minutes);
+
+            // Convert to ISO string for storage
+            scheduledAt = easternDate.toISOString();
+          }
+
+          return {
+            job_id: selectedJobForModal.id,
+            technician_id: techId,
+            is_primary: index === 0, // First technician is primary
+            scheduled_at: scheduledAt,
+          };
+        }
       );
 
       if (appointment.technicianIds.length > 0) {

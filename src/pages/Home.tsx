@@ -716,6 +716,79 @@ const Home = () => {
         totalIssuedAmount,
       });
 
+      // Fetch detailed jobs for daily schedule (same logic as in fetchDashboardData)
+      const { data: allJobsData, error: jobsError } = await supabase
+        .from("jobs")
+        .select(
+          `
+          id,
+          number,
+          name,
+          status,
+          type,
+          additional_type,
+          job_technicians (
+            technician_id,
+            is_primary,
+            scheduled_at,
+            users:technician_id (
+              first_name,
+              last_name
+            )
+          ),
+          locations (
+            name,
+            companies (
+              name
+            )
+          ),
+          job_units (
+            unit_id,
+            units:unit_id (
+              id,
+              unit_number
+            )
+          )
+        `
+        )
+        .neq("status", "completed")
+        .neq("status", "cancelled")
+        .order("created_at", { ascending: false });
+
+      if (!jobsError && allJobsData) {
+        // Filter jobs that have scheduled_at for the selected date
+        const startOfDay = new Date(selectedDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(selectedDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const scheduledJobsForDate = allJobsData.filter((job) => {
+          if (!job.job_technicians || job.job_technicians.length === 0) {
+            return false;
+          }
+
+          // Check if any technician has a scheduled_at for the selected date
+          return job.job_technicians.some((tech) => {
+            if (!tech.scheduled_at) return false;
+            const scheduledDate = new Date(tech.scheduled_at);
+            return scheduledDate >= startOfDay && scheduledDate <= endOfDay;
+          });
+        });
+
+        // Transform the data to match the expected format
+        const transformedJobs = scheduledJobsForDate.map((job) => ({
+          ...job,
+          units: job.job_units?.map((ju: any) => ju.units) || [],
+        }));
+
+        console.log(
+          `Found ${
+            transformedJobs.length
+          } scheduled jobs for ${selectedDate.toDateString()} (from fetchStatsManually)`
+        );
+        setScheduledJobs(transformedJobs);
+      }
+
       console.log("Manual stats fetched successfully");
     } catch (err) {
       console.error("Error fetching manual stats:", err);
@@ -1097,6 +1170,11 @@ const Home = () => {
 
   const handleAssignTechnicians = async (appointment: {
     technicianIds: string[];
+    technicianSchedules?: {
+      technicianId: string;
+      scheduleDate: string;
+      scheduleTime: string;
+    }[];
   }) => {
     if (!supabase || !selectedJobForModal) return;
 
@@ -1114,13 +1192,38 @@ const Home = () => {
 
       if (deleteError) throw deleteError;
 
-      // Then add the new technicians
+      // Then add the new technicians with their schedules
       const technicianEntries = appointment.technicianIds.map(
-        (techId, index) => ({
-          job_id: selectedJobForModal.id,
-          technician_id: techId,
-          is_primary: index === 0, // First technician is primary
-        })
+        (techId, index) => {
+          // Find the schedule for this technician
+          const schedule = appointment.technicianSchedules?.find(
+            (s) => s.technicianId === techId
+          );
+
+          let scheduledAt = null;
+          if (schedule?.scheduleDate && schedule?.scheduleTime) {
+            // Parse the date and time
+            const [year, month, day] = schedule.scheduleDate
+              .split("-")
+              .map(Number);
+            const [hours, minutes] = schedule.scheduleTime
+              .split(":")
+              .map(Number);
+
+            // Create a date object in Eastern Time
+            const easternDate = new Date(year, month - 1, day, hours, minutes);
+
+            // Convert to ISO string for storage
+            scheduledAt = easternDate.toISOString();
+          }
+
+          return {
+            job_id: selectedJobForModal.id,
+            technician_id: techId,
+            is_primary: index === 0, // First technician is primary
+            scheduled_at: scheduledAt,
+          };
+        }
       );
 
       const { error: insertError } = await supabase
@@ -1600,28 +1703,9 @@ const Home = () => {
               )}
             </div>
 
-            {/* Drag Mode Toggle */}
-            {!dragModeActive ? (
-              <button
-                className="btn btn-success text-sm"
-                onClick={handleActivateDragMode}
-                type="button"
-              >
-                Enable Drag Mode
-              </button>
-            ) : (
-              <button
-                className="btn btn-outline-secondary text-sm"
-                onClick={handleJobDragEnd}
-                type="button"
-              >
-                Cancel Drag Mode
-              </button>
-            )}
-
             <Link
               to="/jobs/dispatch"
-              className="text-sm text-primary-600 hover:text-primary-800 flex items-center gap-1"
+              className="btn btn-success text-sm flex items-center gap-1"
             >
               Dispatch & Schedule
               <ArrowRight size={14} />
@@ -1668,6 +1752,7 @@ const Home = () => {
             isDraggingEnabled={
               dragModeActive && selectedJobToDrag ? selectedJobToDrag : null
             }
+            isLoading={isLoading}
             onDragToggle={handleDragToggle}
             dragModeActive={dragModeActive}
             selectedJobToDrag={selectedJobToDrag}

@@ -74,6 +74,7 @@ interface TechnicianScheduleProps {
   dragModeActive?: boolean;
   selectedJobToDrag?: string | null;
   highlightedJobId?: string | null;
+  isLoading?: boolean;
   onActivateDragMode?: () => void;
   isJobPastDue?: (job: Job) => boolean;
 }
@@ -98,6 +99,7 @@ const TechnicianSchedule = ({
   dragModeActive,
   selectedJobToDrag,
   highlightedJobId,
+  isLoading = false,
   onActivateDragMode,
   isJobPastDue,
   ...rest
@@ -589,11 +591,18 @@ const TechnicianSchedule = ({
           })}
         </div>
 
-        {technicians.length === 0 && (
+        {isLoading ? (
+          <div className="text-center py-8 text-gray-500">
+            <div className="flex justify-center items-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
+              <p className="ml-3">Loading schedule...</p>
+            </div>
+          </div>
+        ) : technicians.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <p className="mb-4">No technicians found</p>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Technician Reassignment Modal */}
