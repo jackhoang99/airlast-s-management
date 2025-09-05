@@ -395,68 +395,86 @@ const Home = () => {
         setDetailedQuotes(quotesData);
       }
 
-      // Fetch scheduled jobs for the selected date
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(selectedDate);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      const { data: scheduledJobsData, error: scheduledJobsError } =
-        await supabase
-          .from("jobs")
-          .select(
-            `
-            id,
-            number,
-            name,
-            status,
-            type,
-            additional_type,
-            schedule_start,
-            schedule_duration,
-            locations (
-              name,
-              zip
-            ),
-            job_technicians (
-              technician_id,
-              is_primary,
-              users:technician_id (
-                first_name,
-                last_name
-              )
-            ),
-            job_units (
-              unit_id,
-              units:unit_id (
-                id,
-                unit_number
-              )
-            )
+      // Fetch all jobs and filter by scheduled_at in job_technicians
+      const { data: allJobsData, error: jobsError } = await supabase
+        .from("jobs")
+        .select(
           `
+          id,
+          number,
+          name,
+          status,
+          type,
+          additional_type,
+          locations (
+            name,
+            zip
+          ),
+          job_technicians (
+            technician_id,
+            is_primary,
+            scheduled_at,
+            users:technician_id (
+              first_name,
+              last_name
+            )
+          ),
+          job_units (
+            unit_id,
+            units:unit_id (
+              id,
+              unit_number
+            )
           )
-          .gte("schedule_start", startOfDay.toISOString())
-          .lte("schedule_start", endOfDay.toISOString())
-          .order("schedule_start");
+        `
+        )
+        .neq("status", "completed")
+        .neq("status", "cancelled")
+        .order("created_at", { ascending: false });
 
-      if (!scheduledJobsError && scheduledJobsData) {
+      if (!jobsError && allJobsData) {
+        // Filter jobs that have scheduled_at for the selected date
+        const startOfDay = new Date(selectedDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(selectedDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const scheduledJobsForDate = allJobsData.filter((job) => {
+          if (!job.job_technicians || job.job_technicians.length === 0) {
+            return false;
+          }
+
+          // Check if any technician has a scheduled_at for the selected date
+          return job.job_technicians.some((tech) => {
+            if (!tech.scheduled_at) return false;
+            const scheduledDate = new Date(tech.scheduled_at);
+            return scheduledDate >= startOfDay && scheduledDate <= endOfDay;
+          });
+        });
+
         // Transform the data to match the expected format
-        const transformedJobs = scheduledJobsData.map((job) => ({
+        const transformedJobs = scheduledJobsForDate.map((job) => ({
           ...job,
           units: job.job_units?.map((ju: any) => ju.units) || [],
         }));
+
+        console.log(
+          `Found ${
+            transformedJobs.length
+          } scheduled jobs for ${selectedDate.toDateString()}`
+        );
         setScheduledJobs(transformedJobs);
       }
 
       // Build jobs by date for calendar
-      const { data: allJobsData } = await supabase
+      const { data: calendarJobsData } = await supabase
         .from("jobs")
         .select("schedule_start")
         .not("schedule_start", "is", null);
 
-      if (allJobsData) {
+      if (calendarJobsData) {
         const jobsByDateMap: Record<string, number> = {};
-        allJobsData.forEach((job) => {
+        calendarJobsData.forEach((job) => {
           if (job.schedule_start) {
             const dateKey = new Date(job.schedule_start)
               .toISOString()
