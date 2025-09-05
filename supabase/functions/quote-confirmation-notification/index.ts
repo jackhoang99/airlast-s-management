@@ -1,13 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import sgMail from "npm:@sendgrid/mail";
 import { createClient } from "npm:@supabase/supabase-js";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -15,18 +13,14 @@ serve(async (req) => {
       headers: corsHeaders,
     });
   }
-
   try {
     const { SENDGRID_API_KEY } = Deno.env.toObject();
     if (!SENDGRID_API_KEY) {
       throw new Error("SENDGRID_API_KEY is not set");
     }
-
     sgMail.setApiKey(SENDGRID_API_KEY);
-
     // Parse request body
     const { quoteId, jobId, token } = await req.json();
-
     if (!quoteId && !token) {
       return new Response(
         JSON.stringify({
@@ -41,56 +35,31 @@ serve(async (req) => {
         }
       );
     }
-
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set");
+    }
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // ATOMIC CLAIM: Try to claim this quote for notification by setting admin_notification_sent_at
-    // Only one invocation will succeed - others will get 0 rows affected
+    // Prepare timestamp
+    const timestamp = new Date().toISOString();
     let quoteData;
     let jobData;
     let claimSuccess = false;
-
-    // Create timestamp with error handling
-    const now = new Date();
-    console.log("Date object:", now);
-    console.log("Date type:", typeof now);
-    console.log("Date value:", now.valueOf());
-
-    // Generate timestamp - use a more reliable approach
-    const timestamp = now.toISOString();
-    console.log("Generated timestamp:", timestamp);
-    console.log("Timestamp type:", typeof timestamp);
-
-    // Validate timestamp
-    if (!timestamp || timestamp === "null" || timestamp === "undefined") {
-      throw new Error(`Failed to generate valid timestamp: ${timestamp}`);
-    }
-
-    console.log("Final timestamp being used:", timestamp);
-
     if (quoteId) {
-      // Try to claim by quote ID
-      console.log("About to update with timestamp:", timestamp);
-      console.log("Update payload:", { admin_notification_sent_at: timestamp });
-
-      // Use direct SQL to avoid any serialization issues
+      // Claim by quote ID: set admin_notification_sent_at only if currently NULL
       const { data: claimResult, error: claimError } = await supabase
         .from("job_quotes")
-        .update({ admin_notification_sent_at: timestamp })
+        .update({
+          admin_notification_sent_at: timestamp,
+        })
         .eq("id", quoteId)
-        .eq("admin_notification_sent_at", null)
+        .is("admin_notification_sent_at", null)
         .select("id");
-
-      if (claimError) {
-        throw claimError;
-      }
-
-      // Check if we successfully claimed the quote (any rows returned means success)
+      if (claimError) throw claimError;
       if (!claimResult || claimResult.length === 0) {
-        console.log("Quote already claimed for notification, skipping...");
+        // Already claimed by another invocation
         return new Response(
           JSON.stringify({
             success: true,
@@ -106,8 +75,7 @@ serve(async (req) => {
           }
         );
       }
-
-      // Fetch the updated quote data
+      // Fetch the updated quote (with job+location)
       const { data: fetchedQuote, error: fetchError } = await supabase
         .from("job_quotes")
         .select(
@@ -131,51 +99,30 @@ serve(async (req) => {
         )
         .eq("id", quoteId)
         .single();
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
+      if (fetchError) throw fetchError;
       quoteData = fetchedQuote;
       jobData = fetchedQuote.jobs;
       claimSuccess = true;
     } else {
-      // Try to claim by token
-      console.log("About to update with timestamp (token):", timestamp);
-      console.log("Update payload (token):", {
-        admin_notification_sent_at: timestamp,
-      });
-
-      // First get the quote ID from the token
+      // Claim by token: get quote ID first
       const { data: quoteByToken, error: tokenError } = await supabase
         .from("job_quotes")
         .select("id")
         .eq("token", token)
         .single();
-
-      if (tokenError) {
-        throw tokenError;
-      }
-
-      if (!quoteByToken) {
-        throw new Error("Quote not found with provided token");
-      }
-
-      // Use direct SQL to avoid any serialization issues
+      if (tokenError) throw tokenError;
+      if (!quoteByToken) throw new Error("Quote not found with provided token");
       const { data: claimResult, error: claimError } = await supabase
         .from("job_quotes")
-        .update({ admin_notification_sent_at: timestamp })
+        .update({
+          admin_notification_sent_at: timestamp,
+        })
         .eq("id", quoteByToken.id)
-        .eq("admin_notification_sent_at", null)
+        .is("admin_notification_sent_at", null)
         .select("id");
-
-      if (claimError) {
-        throw claimError;
-      }
-
-      // Check if we successfully claimed the quote (any rows returned means success)
+      if (claimError) throw claimError;
       if (!claimResult || claimResult.length === 0) {
-        console.log("Quote already claimed for notification, skipping...");
+        // Already claimed by another invocation
         return new Response(
           JSON.stringify({
             success: true,
@@ -191,8 +138,7 @@ serve(async (req) => {
           }
         );
       }
-
-      // Fetch the updated quote data
+      // Fetch the updated quote (with job+location)
       const { data: fetchedQuote, error: fetchError } = await supabase
         .from("job_quotes")
         .select(
@@ -216,35 +162,29 @@ serve(async (req) => {
         )
         .eq("id", quoteByToken.id)
         .single();
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
+      if (fetchError) throw fetchError;
       quoteData = fetchedQuote;
       jobData = fetchedQuote.jobs;
       claimSuccess = true;
     }
-
-    // If we didn't successfully claim the quote, something went wrong
     if (!claimSuccess || !quoteData || !jobData) {
       throw new Error(
         "Failed to claim quote for notification or quote/job not found"
       );
     }
-
-    // Get the origin for building the job link
+    // Get origin for building the job link
     const origin =
       req.headers.get("origin") || "https://airlast-management.com";
     const jobLink = `${origin}/jobs/${jobData.id}`;
-
-    // Format the amount
-    const formattedAmount = quoteData.amount
-      ? `$${parseFloat(quoteData.amount).toLocaleString()}`
-      : "Not specified";
-
-    // Get quote type display name
-    const getQuoteTypeDisplay = (type: string) => {
+    // Safe amount formatting
+    const formattedAmount =
+      typeof quoteData.amount === "number"
+        ? `$${quoteData.amount.toLocaleString()}`
+        : quoteData.amount
+        ? `$${Number.parseFloat(String(quoteData.amount)).toLocaleString()}`
+        : "Not specified";
+    // Quote type display
+    const getQuoteTypeDisplay = (type) => {
       switch (type) {
         case "repair":
           return "Repair Quote";
@@ -255,15 +195,18 @@ serve(async (req) => {
         case "inspection":
           return "Inspection Quote";
         default:
-          return type.charAt(0).toUpperCase() + type.slice(1) + " Quote";
+          return type
+            ? type.charAt(0).toUpperCase() + type.slice(1) + " Quote"
+            : "Quote";
       }
     };
-
     const quoteTypeDisplay = getQuoteTypeDisplay(quoteData.quote_type);
-
-    // Build email content
+    // Confirmed at display (avoid Invalid Date if null)
+    const confirmedAtDisplay = quoteData.confirmed_at
+      ? new Date(quoteData.confirmed_at).toLocaleString()
+      : "N/A";
+    // Email content
     const subject = `Quote Confirmed - ${quoteTypeDisplay} for Job #${jobData.number}`;
-
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #0672be; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
@@ -294,9 +237,7 @@ serve(async (req) => {
               </tr>
               <tr>
                 <td style="padding: 8px; border: 1px solid #dee2e6; font-weight: bold;">Confirmed At:</td>
-                <td style="padding: 8px; border: 1px solid #dee2e6;">${new Date(
-                  quoteData.confirmed_at
-                ).toLocaleString()}</td>
+                <td style="padding: 8px; border: 1px solid #dee2e6;">${confirmedAtDisplay}</td>
               </tr>
             </table>
           </div>
@@ -361,7 +302,6 @@ serve(async (req) => {
         </div>
       </div>
     `;
-
     const emailText = `
 Quote Confirmed - ${quoteTypeDisplay} for Job #${jobData.number}
 
@@ -371,7 +311,7 @@ QUOTE DETAILS:
 - Quote Type: ${quoteTypeDisplay}
 - Amount: ${formattedAmount}
 - Quote Number: ${quoteData.quote_number || "N/A"}
-- Confirmed At: ${new Date(quoteData.confirmed_at).toLocaleString()}
+- Confirmed At: ${confirmedAtDisplay}
 
 JOB INFORMATION:
 - Job Number: ${jobData.number}
@@ -388,19 +328,31 @@ View Job Details: ${jobLink}
 
 This is an automated notification from Airlast Management System.
     `;
-
-    // Send email (we already claimed this quote, so we're guaranteed to be the only sender)
-    const msg = {
-      to: "jackhoang.99@gmail.com",
-      from: "support@airlast-management.com",
-      subject: subject,
-      text: emailText,
-      html: emailHtml,
-    };
-
-    await sgMail.send(msg);
-    console.log("Quote confirmation notification sent successfully");
-
+    // Send to all admin users (this invocation has claimed the quote)
+    const adminEmails = [
+      "jackhoang.99@gmail.com",
+      "brandy@airlast.com",
+      "charlie@airlast.com",
+      "dillon@airlast.com",
+    ];
+    for (const email of adminEmails) {
+      const msg = {
+        to: email,
+        from: "support@airlast-management.com",
+        subject,
+        text: emailText,
+        html: emailHtml,
+      };
+      try {
+        await sgMail.send(msg);
+        console.log(
+          `Quote confirmation notification sent successfully to ${email}`
+        );
+      } catch (emailError) {
+        console.error(`Failed to send email to ${email}:`, emailError);
+        // continue to next
+      }
+    }
     return new Response(
       JSON.stringify({
         success: true,
@@ -418,7 +370,7 @@ This is an automated notification from Airlast Management System.
     console.error("Error sending quote confirmation notification:", error);
     return new Response(
       JSON.stringify({
-        error: error.message || "Failed to send notification",
+        error: error?.message || "Failed to send notification",
       }),
       {
         status: 500,

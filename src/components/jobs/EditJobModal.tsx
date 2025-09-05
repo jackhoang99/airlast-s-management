@@ -9,6 +9,7 @@ import {
   Phone,
   Mail,
   Plus,
+  CheckSquare,
 } from "lucide-react";
 import { useSupabase } from "../../lib/supabase-context";
 import { Job } from "../../types/job";
@@ -33,6 +34,9 @@ const EditJobModal = ({
   const [error, setError] = useState<string | null>(null);
   const [serviceLines, setServiceLines] = useState<any[]>([]);
   const [jobTypes, setJobTypes] = useState<any[]>([]);
+  const [isJobCompleted, setIsJobCompleted] = useState(false);
+  const [isLoadingCompletionStatus, setIsLoadingCompletionStatus] =
+    useState(true);
 
   const [companies, setCompanies] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
@@ -92,6 +96,89 @@ const EditJobModal = ({
     po_number: job.po_number || "",
   });
 
+  // Fetch job completion status
+  const fetchJobCompletionStatus = async () => {
+    if (!supabase || !job) {
+      console.error("Missing supabase or job for completion status fetch:", {
+        supabase: !!supabase,
+        job: !!job,
+      });
+      return;
+    }
+
+    try {
+      console.log("=== FETCHING COMPLETION STATUS DEBUG ===");
+      console.log("Job ID:", job.id);
+      console.log("Job object:", job);
+      console.log("Job status from object:", job.status);
+
+      // Check if job is marked as completed in the main jobs table (admin completion only)
+      const isAdminCompleted = job.status === "completed";
+
+      console.log(`Job ${job.id} admin completion status:`, {
+        mainStatus: job.status,
+        isAdminCompleted,
+      });
+
+      setIsJobCompleted(isAdminCompleted);
+      console.log("Set isJobCompleted state to:", isAdminCompleted);
+    } catch (err) {
+      console.error("Error fetching job completion status:", err);
+    }
+  };
+
+  // Handle completion status change
+  const handleCompletionStatusChange = async (checked: boolean) => {
+    if (!supabase || !job) {
+      console.error("Missing supabase or job object:", {
+        supabase: !!supabase,
+        job: !!job,
+      });
+      return;
+    }
+
+    try {
+      console.log("=== COMPLETION STATUS CHANGE DEBUG ===");
+      console.log("Job ID:", job.id);
+      console.log("Current job status:", job.status);
+      console.log("Current isJobCompleted state:", isJobCompleted);
+      console.log("New checked value:", checked);
+      console.log("Target status:", checked ? "completed" : "scheduled");
+
+      const newStatus = checked ? "completed" : "scheduled";
+
+      console.log("Updating job status to:", newStatus);
+      const { data, error: jobError } = await supabase
+        .from("jobs")
+        .update({ status: newStatus })
+        .eq("id", job.id)
+        .select();
+
+      console.log("Update result:", { data, error: jobError });
+
+      if (jobError) {
+        console.error("Database error:", jobError);
+        throw jobError;
+      }
+
+      console.log("Successfully updated job status in database");
+      setIsJobCompleted(checked);
+      console.log("Updated local state isJobCompleted to:", checked);
+
+      // Also update the job object passed to parent
+      if (onJobUpdated) {
+        const updatedJob = { ...job, status: newStatus };
+        console.log("Calling onJobUpdated with:", updatedJob);
+        onJobUpdated(updatedJob);
+      }
+
+      console.log(`Job ${job.id} admin completion status updated successfully`);
+    } catch (err) {
+      console.error("Error updating job completion status:", err);
+      setError(`Failed to update job completion status: ${err.message || err}`);
+    }
+  };
+
   // Fetch data on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -140,13 +227,18 @@ const EditJobModal = ({
           serviceLinesData?.length || 0
         );
         console.log("Total job types loaded:", jobTypesData?.length || 0);
+
+        // Fetch job completion status
+        await fetchJobCompletionStatus();
       } catch (err) {
         console.error("Error fetching data:", err);
+      } finally {
+        setIsLoadingCompletionStatus(false);
       }
     };
 
     fetchData();
-  }, [supabase]);
+  }, [supabase, job]);
 
   // Load job contacts when job changes
   useEffect(() => {
@@ -594,6 +686,58 @@ const EditJobModal = ({
                 {error}
               </div>
             )}
+
+            {/* Job Completion Status */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <CheckSquare className="h-5 w-5 text-primary-600 mr-3" />
+                  <div>
+                    <h2 className="text-lg font-medium text-gray-900">
+                      Admin Job Status
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      Mark this job as completed or uncompleted (admin
+                      completion only)
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  {isLoadingCompletionStatus ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary-600"></div>
+                  ) : (
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isJobCompleted}
+                        onChange={(e) =>
+                          handleCompletionStatusChange(e.target.checked)
+                        }
+                        className="sr-only"
+                      />
+                      <div
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          isJobCompleted ? "bg-primary-600" : "bg-gray-200"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            isJobCompleted ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </div>
+                      <span
+                        className={`ml-3 text-sm font-medium ${
+                          isJobCompleted ? "text-primary-600" : "text-gray-500"
+                        }`}
+                      >
+                        {isJobCompleted ? "Completed" : "Not Completed"}
+                      </span>
+                    </label>
+                  )}
+                </div>
+              </div>
+            </div>
 
             {/* Customer Details */}
             <div className="bg-white rounded-lg shadow p-6">

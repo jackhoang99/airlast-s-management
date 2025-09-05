@@ -10,9 +10,15 @@ import {
 
 type JobDetailsCardProps = {
   job: Job;
+  technicianStatus?: string | null;
+  isLoadingTechnicianStatus?: boolean;
 };
 
-const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
+const JobDetailsCard = ({
+  job,
+  technicianStatus,
+  isLoadingTechnicianStatus,
+}: JobDetailsCardProps) => {
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case "scheduled":
@@ -42,6 +48,21 @@ const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
         return "bg-blue-100 text-blue-800 border-blue-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
+  const getTechnicianStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case "tech completed":
+        return "bg-green-100 text-green-800";
+      case "in progress":
+        return "bg-blue-100 text-blue-800";
+      case "on site":
+        return "bg-yellow-100 text-yellow-800";
+      case "en route":
+        return "bg-purple-100 text-purple-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -79,6 +100,20 @@ const JobDetailsCard = ({ job }: JobDetailsCardProps) => {
                 Quote Confirmed
               </span>
             )}
+            {isLoadingTechnicianStatus ? (
+              <span className="badge bg-gray-100 text-gray-500">
+                <span className="animate-spin inline-block h-3 w-3 border-t-2 border-b-2 border-gray-500 rounded-full mr-1"></span>
+                Tech Status...
+              </span>
+            ) : technicianStatus ? (
+              <span
+                className={`badge ${getTechnicianStatusBadgeClass(
+                  technicianStatus
+                )}`}
+              >
+                Tech: {technicianStatus}
+              </span>
+            ) : null}
           </div>
           <h2 className="text-xl font-semibold">{job.name}</h2>
           {job.locations && (

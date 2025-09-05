@@ -49,6 +49,7 @@ const CustomerComments = ({ jobId }: CustomerCommentsProps) => {
         setIsLoading(true);
 
         // Fetch customer comments
+        console.log("Fetching customer comments for job:", jobId);
         const { data: commentsData, error: commentsError } = await supabase
           .from("customer_comments")
           .select(
@@ -64,15 +65,23 @@ const CustomerComments = ({ jobId }: CustomerCommentsProps) => {
           .eq("job_id", jobId)
           .order("created_at", { ascending: false });
 
-        if (commentsError) throw commentsError;
+        if (commentsError) {
+          console.error("Error fetching customer comments:", commentsError);
+          throw commentsError;
+        }
+
+        console.log("Customer comments data:", commentsData);
 
         // Get all unique user IDs from comments
         const userIds = [
           ...new Set(commentsData?.map((comment) => comment.user_id) || []),
         ];
 
+        console.log("User IDs from comments:", userIds);
+
         // Fetch user details
         if (userIds.length > 0) {
+          console.log("Fetching user details for IDs:", userIds);
           const { data: userData, error: userError } = await supabase
             .from("users")
             .select("id, first_name, last_name")
@@ -81,6 +90,7 @@ const CustomerComments = ({ jobId }: CustomerCommentsProps) => {
           if (userError) {
             console.error("Error fetching users for comments:", userError);
           } else if (userData) {
+            console.log("User data fetched:", userData);
             const userMapData: {
               [key: string]: { first_name: string; last_name: string };
             } = {};
@@ -90,6 +100,7 @@ const CustomerComments = ({ jobId }: CustomerCommentsProps) => {
                 last_name: user.last_name || "",
               };
             });
+            console.log("User map created:", userMapData);
             setUserMap(userMapData);
 
             // Process comments with user info
@@ -104,6 +115,10 @@ const CustomerComments = ({ jobId }: CustomerCommentsProps) => {
                 };
               }) || [];
 
+            console.log(
+              "Processed comments with user info:",
+              processedComments
+            );
             setComments(processedComments);
           }
         } else {
@@ -122,13 +137,17 @@ const CustomerComments = ({ jobId }: CustomerCommentsProps) => {
       if (!supabase || !session?.user) return;
 
       try {
+        console.log("Getting current user for session:", session.user.id);
+
+        // First try to find by auth_id
         const { data: userData, error: userError } = await supabase
           .from("users")
           .select("id, first_name, last_name")
           .eq("auth_id", session.user.id)
-          .single();
+          .maybeSingle();
 
         if (!userError && userData) {
+          console.log("Found user by auth_id:", userData);
           setCurrentUserId(userData.id);
           setCurrentUserName(
             `${userData.first_name || ""} ${userData.last_name || ""}`
@@ -142,9 +161,47 @@ const CustomerComments = ({ jobId }: CustomerCommentsProps) => {
               last_name: userData.last_name || "",
             },
           }));
+        } else {
+          // Try to find by direct ID (for technicians who might not have auth_id)
+          console.log("No user found by auth_id, trying direct ID lookup");
+          const { data: directUserData, error: directUserError } =
+            await supabase
+              .from("users")
+              .select("id, first_name, last_name")
+              .eq("id", session.user.id)
+              .maybeSingle();
+
+          if (!directUserError && directUserData) {
+            console.log("Found user by direct ID:", directUserData);
+            setCurrentUserId(directUserData.id);
+            setCurrentUserName(
+              `${directUserData.first_name || ""} ${
+                directUserData.last_name || ""
+              }`
+            );
+
+            // Add current user to userMap
+            setUserMap((prev) => ({
+              ...prev,
+              [directUserData.id]: {
+                first_name: directUserData.first_name || "",
+                last_name: directUserData.last_name || "",
+              },
+            }));
+          } else {
+            console.log(
+              "No user found by direct ID either, using session user ID"
+            );
+            // Fallback: use the session user ID directly
+            setCurrentUserId(session.user.id);
+            setCurrentUserName(session.user.email || "Unknown User");
+          }
         }
       } catch (err) {
         console.error("Error getting current user:", err);
+        // Fallback: use the session user ID directly
+        setCurrentUserId(session.user.id);
+        setCurrentUserName(session.user.email || "Unknown User");
       }
     };
 
@@ -172,16 +229,16 @@ const CustomerComments = ({ jobId }: CustomerCommentsProps) => {
       if (error) throw error;
 
       // Add the new comment to the list with user info
-      setComments([
-        {
-          ...data,
-          user: {
-            first_name: currentUserName.split(" ")[0] || "",
-            last_name: currentUserName.split(" ")[1] || "",
-          },
+      const newCommentWithUser = {
+        ...data,
+        user: {
+          first_name: currentUserName.split(" ")[0] || "",
+          last_name: currentUserName.split(" ")[1] || "",
         },
-        ...comments,
-      ]);
+      };
+
+      console.log("Adding new comment with user info:", newCommentWithUser);
+      setComments([newCommentWithUser, ...comments]);
 
       setNewComment("");
     } catch (err) {

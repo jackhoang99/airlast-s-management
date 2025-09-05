@@ -33,8 +33,12 @@ const TechnicianHome = () => {
   const [error, setError] = useState<string | null>(null);
   const [technicianName, setTechnicianName] = useState("");
   const [todayJobs, setTodayJobs] = useState<any[]>([]);
+  const [todayCompletedJobs, setTodayCompletedJobs] = useState<any[]>([]);
   const [upcomingJobs, setUpcomingJobs] = useState<any[]>([]);
   const [completedJobs, setCompletedJobs] = useState<any[]>([]);
+  const [todayJobsView, setTodayJobsView] = useState<"todo" | "completed">(
+    "todo"
+  );
   const [technicianId, setTechnicianId] = useState<string | null>(null);
   const [technicianUsername, setTechnicianUsername] = useState<string | null>(
     null
@@ -420,6 +424,12 @@ const TechnicianHome = () => {
                 last_name
               )
             ),
+            job_technician_status (
+              id,
+              technician_id,
+              status,
+              updated_at
+            ),
             job_units:job_units!inner (
               unit_id,
               units:unit_id (
@@ -430,7 +440,6 @@ const TechnicianHome = () => {
           `
           )
           .in("id", todayJobIdList)
-          .neq("status", "completed")
           .neq("status", "cancelled")
           .order("created_at", { ascending: true });
 
@@ -439,13 +448,48 @@ const TechnicianHome = () => {
           throw todayError;
         }
 
-        console.log("Today's jobs:", todayJobsData);
+        console.log("Today's jobs (before separation):", todayJobsData);
+
         // Flatten units from job_units for todayJobsData
         const todayJobsWithUnits = (todayJobsData || []).map((job: any) => ({
           ...job,
           units: (job.job_units || []).map((ju: any) => ju.units),
         }));
-        setTodayJobs(todayJobsWithUnits);
+
+        // Separate today's jobs into "to do" and "completed" based on technician status
+        const todayToDoJobs: any[] = [];
+        const todayCompletedJobs: any[] = [];
+
+        todayJobsWithUnits.forEach((job: any) => {
+          if (job.job_technician_status && technicianId) {
+            const techStatus = job.job_technician_status.find(
+              (status: any) => status.technician_id === technicianId
+            );
+            const isTechCompleted = techStatus?.status === "tech completed";
+
+            console.log(
+              `Today's job ${job.id}: tech_status=${
+                techStatus?.status || "none"
+              }, isTechCompleted=${isTechCompleted}`
+            );
+
+            if (isTechCompleted) {
+              todayCompletedJobs.push(job);
+            } else {
+              todayToDoJobs.push(job);
+            }
+          } else {
+            // If no technician status, treat as "to do"
+            todayToDoJobs.push(job);
+          }
+        });
+
+        console.log(
+          `Today's jobs separated: ${todayToDoJobs.length} to do, ${todayCompletedJobs.length} completed`
+        );
+
+        setTodayJobs(todayToDoJobs);
+        setTodayCompletedJobs(todayCompletedJobs);
 
         // First, get job IDs that have upcoming schedule
         const { data: upcomingJobIds, error: upcomingJobIdsError } =
@@ -499,7 +543,7 @@ const TechnicianHome = () => {
           `
           )
           .in("id", upcomingJobIdList)
-          .neq("status", "completed")
+          .neq("status", "tech_completed")
           .neq("status", "cancelled")
           .order("time_period_due", { ascending: false })
           .order("time_period_start", { ascending: false })
@@ -544,6 +588,12 @@ const TechnicianHome = () => {
                 last_name
               )
             ),
+            job_technician_status (
+              id,
+              technician_id,
+              status,
+              updated_at
+            ),
             job_units:job_units!inner (
               unit_id,
               units:unit_id (
@@ -554,7 +604,6 @@ const TechnicianHome = () => {
           `
             )
             .in("id", jobIds)
-            .eq("status", "completed")
             .order("updated_at", { ascending: false })
             .limit(5);
 
@@ -563,14 +612,33 @@ const TechnicianHome = () => {
           throw completedError;
         }
 
-        console.log("Completed jobs:", completedJobsData);
-        // Flatten units from job_units for completedJobsData
-        const completedJobsWithUnits = (completedJobsData || []).map(
-          (job: any) => ({
-            ...job,
-            units: (job.job_units || []).map((ju: any) => ju.units),
-          })
+        console.log("Completed jobs (before filtering):", completedJobsData);
+
+        // Filter for jobs where this technician has marked as "tech completed"
+        const techCompletedJobs = (completedJobsData || []).filter(
+          (job: any) => {
+            if (!job.job_technician_status || !technicianId) return false;
+
+            const techStatus = job.job_technician_status.find(
+              (status: any) => status.technician_id === technicianId
+            );
+
+            const isTechCompleted = techStatus?.status === "tech completed";
+            console.log(
+              `Job ${job.id}: tech status = ${techStatus?.status}, isTechCompleted = ${isTechCompleted}`
+            );
+
+            return isTechCompleted;
+          }
         );
+
+        console.log(`Found ${techCompletedJobs.length} tech_completed jobs`);
+
+        // Flatten units from job_units for completedJobsData
+        const completedJobsWithUnits = techCompletedJobs.map((job: any) => ({
+          ...job,
+          units: (job.job_units || []).map((ju: any) => ju.units),
+        }));
         setCompletedJobs(completedJobsWithUnits);
       } catch (err) {
         console.error("Error fetching jobs:", err);
@@ -664,72 +732,105 @@ const TechnicianHome = () => {
         <>
           {/* Today's Jobs */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="p-4 bg-primary-50 border-b border-primary-100 flex justify-between items-center">
-              <h2 className="text-lg font-semibold flex items-center">
-                <Calendar className="h-5 w-5 text-primary-600 mr-2" />
-                Today's Jobs
-              </h2>
-              <Link
-                to="/tech/schedule"
-                className="text-primary-600 text-sm flex items-center"
-              >
-                View Schedule <ArrowRight size={16} className="ml-1" />
-              </Link>
+            <div className="p-4 bg-primary-50 border-b border-primary-100">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-lg font-semibold flex items-center">
+                  <Calendar className="h-5 w-5 text-primary-600 mr-2" />
+                  Today's Jobs
+                </h2>
+                <Link
+                  to="/tech/schedule"
+                  className="text-primary-600 text-sm flex items-center"
+                >
+                  View Schedule <ArrowRight size={16} className="ml-1" />
+                </Link>
+              </div>
+
+              {/* Toggle between To Do and Completed */}
+              <div className="flex bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setTodayJobsView("todo")}
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                    todayJobsView === "todo"
+                      ? "bg-white text-primary-600 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  To Do ({todayJobs.length})
+                </button>
+                <button
+                  onClick={() => setTodayJobsView("completed")}
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                    todayJobsView === "completed"
+                      ? "bg-white text-primary-600 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Completed ({todayCompletedJobs.length})
+                </button>
+              </div>
             </div>
 
-            {todayJobs.length === 0 ? (
-              <div className="p-6 text-center">
-                <p className="text-gray-500">No jobs scheduled for today</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-200">
-                {todayJobs.map((job) => (
-                  <Link
-                    key={job.id}
-                    to={`/tech/jobs/${job.id}`}
-                    className="block p-4 hover:bg-gray-50"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-medium text-gray-900">
-                          {job.name}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {job.locations?.name}
-                          {job.units && job.units.length > 0
-                            ? ` • Units ${job.units
-                                .map((unit) => unit.unit_number)
-                                .join(", ")}`
-                            : ""}
-                        </p>
-                        <div className="flex items-center mt-1 text-xs text-gray-500">
-                          <MapPin size={12} className="mr-1" />
-                          <span>
-                            {job.locations?.address}, {job.locations?.city}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        {job.job_technicians &&
-                        job.job_technicians.length > 0 &&
-                        job.job_technicians[0].scheduled_at ? (
-                          <>
-                            <div className="flex items-center text-sm font-medium text-primary-600">
-                              <Calendar size={14} className="mr-1" />
-                              {formatDate(job.job_technicians[0].scheduled_at)}
+            {/* Show To Do Jobs */}
+            {todayJobsView === "todo" && (
+              <>
+                {todayJobs.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <p className="text-gray-500">No jobs to do today</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-200">
+                    {todayJobs.map((job) => (
+                      <Link
+                        key={job.id}
+                        to={`/tech/jobs/${job.id}`}
+                        className="block p-4 hover:bg-gray-50"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-medium text-gray-900">
+                              {job.name}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              {job.locations?.name}
+                              {job.units && job.units.length > 0
+                                ? ` • Units ${job.units
+                                    .map((unit) => unit.unit_number)
+                                    .join(", ")}`
+                                : ""}
+                            </p>
+                            <div className="flex items-center mt-1 text-xs text-gray-500">
+                              <MapPin size={12} className="mr-1" />
+                              <span>
+                                {job.locations?.address}, {job.locations?.city}
+                              </span>
                             </div>
-                            <div className="flex items-center text-xs text-gray-500 mt-1">
-                              <Clock size={12} className="mr-1" />
-                              {formatTime(job.job_technicians[0].scheduled_at)}
-                            </div>
-                          </>
-                        ) : (
-                          <div className="text-sm text-gray-500">
-                            Unscheduled
                           </div>
-                        )}
-                        <span
-                          className={`text-xs px-2 py-1 rounded-full mt-1 inline-block
+                          <div className="text-right">
+                            {job.job_technicians &&
+                            job.job_technicians.length > 0 &&
+                            job.job_technicians[0].scheduled_at ? (
+                              <>
+                                <div className="flex items-center text-sm font-medium text-primary-600">
+                                  <Calendar size={14} className="mr-1" />
+                                  {formatDate(
+                                    job.job_technicians[0].scheduled_at
+                                  )}
+                                </div>
+                                <div className="flex items-center text-xs text-gray-500 mt-1">
+                                  <Clock size={12} className="mr-1" />
+                                  {formatTime(
+                                    job.job_technicians[0].scheduled_at
+                                  )}
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-sm text-gray-500">
+                                Unscheduled
+                              </div>
+                            )}
+                            <span
+                              className={`text-xs px-2 py-1 rounded-full mt-1 inline-block
                           ${
                             job.status === "scheduled"
                               ? "bg-blue-100 text-blue-800"
@@ -737,14 +838,87 @@ const TechnicianHome = () => {
                               ? "bg-yellow-100 text-yellow-800"
                               : "bg-gray-100 text-gray-800"
                           }`}
-                        >
-                          {job.status}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+                            >
+                              {job.status}
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Show Completed Jobs */}
+            {todayJobsView === "completed" && (
+              <>
+                {todayCompletedJobs.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <p className="text-gray-500">No completed jobs today</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-200">
+                    {todayCompletedJobs.map((job) => (
+                      <Link
+                        key={job.id}
+                        to={`/tech/jobs/${job.id}`}
+                        className="block p-4 hover:bg-gray-50"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-medium text-gray-900">
+                              {job.name}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              {job.locations?.name}
+                              {job.units && job.units.length > 0
+                                ? ` • Units ${job.units
+                                    .map((unit) => unit.unit_number)
+                                    .join(", ")}`
+                                : ""}
+                            </p>
+                            <div className="flex items-center mt-1 text-xs text-gray-500">
+                              <MapPin size={12} className="mr-1" />
+                              <span>
+                                {job.locations?.address}, {job.locations?.city}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="flex items-center text-xs text-green-600 mb-1">
+                              <CheckSquare size={14} className="mr-1" />
+                              Completed
+                            </div>
+                            {job.job_technicians &&
+                            job.job_technicians.length > 0 &&
+                            job.job_technicians[0].scheduled_at ? (
+                              <>
+                                <div className="flex items-center text-sm font-medium text-primary-600">
+                                  <Calendar size={14} className="mr-1" />
+                                  {formatDate(
+                                    job.job_technicians[0].scheduled_at
+                                  )}
+                                </div>
+                                <div className="flex items-center text-xs text-gray-500 mt-1">
+                                  <Clock size={12} className="mr-1" />
+                                  {formatTime(
+                                    job.job_technicians[0].scheduled_at
+                                  )}
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-sm text-gray-500">
+                                Unscheduled
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
 

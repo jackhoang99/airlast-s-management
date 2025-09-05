@@ -35,7 +35,6 @@ import JobPartsOrderedSection from "../components/jobs/JobPartsOrderedSection";
 import AppointmentModal from "../components/jobs/AppointmentModal";
 import QuotePDFViewer from "../components/quotes/QuotePDFViewer";
 import JobReminderBanner from "../components/jobs/JobReminderBanner";
-import AdminTimeTracking from "../components/jobs/AdminTimeTracking";
 import JobComments from "../components/jobs/JobComments";
 import CustomerComments from "../components/jobs/CustomerComments";
 import JobReminderList from "../components/jobs/JobReminderList";
@@ -94,6 +93,9 @@ const JobDetails = () => {
     useState(true);
   const [isMaintenanceChecklistComplete, setIsMaintenanceChecklistComplete] =
     useState(false);
+  const [technicianStatus, setTechnicianStatus] = useState<string | null>(null);
+  const [isLoadingTechnicianStatus, setIsLoadingTechnicianStatus] =
+    useState(true);
 
   useEffect(() => {
     const fetchJobDetails = async () => {
@@ -278,6 +280,67 @@ const JobDetails = () => {
 
     fetchJobDetails();
   }, [supabase, id]);
+
+  // Fetch technician status
+  const fetchTechnicianStatus = async () => {
+    if (!supabase || !job) {
+      setIsLoadingTechnicianStatus(false);
+      return;
+    }
+
+    try {
+      console.log("Fetching technician status for job:", job.id);
+
+      // Get the latest technician status from job_technician_status table
+      const { data: techStatusData, error: techStatusError } = await supabase
+        .from("job_technician_status")
+        .select("status, updated_at, users(first_name, last_name)")
+        .eq("job_id", job.id)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (techStatusError) {
+        console.error("Error fetching technician status:", techStatusError);
+        setTechnicianStatus(null);
+      } else if (techStatusData && techStatusData.length > 0) {
+        const latestStatus = techStatusData[0];
+        console.log("Latest technician status:", latestStatus);
+        setTechnicianStatus(latestStatus.status);
+      } else {
+        console.log("No technician status found for job:", job.id);
+        setTechnicianStatus(null);
+      }
+    } catch (err) {
+      console.error("Error fetching technician status:", err);
+      setTechnicianStatus(null);
+    } finally {
+      setIsLoadingTechnicianStatus(false);
+    }
+  };
+
+  // Fetch technician status when job changes
+  useEffect(() => {
+    if (job) {
+      setIsLoadingTechnicianStatus(true);
+      fetchTechnicianStatus();
+    }
+  }, [job]);
+
+  // Get badge class for technician status
+  const getTechnicianStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case "tech completed":
+        return "bg-green-100 text-green-800";
+      case "in progress":
+        return "bg-blue-100 text-blue-800";
+      case "on site":
+        return "bg-yellow-100 text-yellow-800";
+      case "en route":
+        return "bg-purple-100 text-purple-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
 
   const handleItemsUpdated = async () => {
     if (!supabase || !id) return;
@@ -770,7 +833,11 @@ const JobDetails = () => {
             scheduleStart={job.schedule_start}
           />
 
-          <JobDetailsCard job={job} />
+          <JobDetailsCard
+            job={job}
+            technicianStatus={technicianStatus}
+            isLoadingTechnicianStatus={isLoadingTechnicianStatus}
+          />
 
           {/* Location and Contact - Collapsible */}
           {job.status !== "completed" && job.status !== "cancelled" && (
@@ -852,9 +919,6 @@ const JobDetails = () => {
               </div>
             )}
           </div>
-
-          {/* Attachment Section */}
-          <AttachmentSection jobId={job.id} title="Job Attachments" />
 
           {/* Unit Section - Collapsible */}
           <div className="card">
@@ -959,6 +1023,9 @@ const JobDetails = () => {
               title="Location Comments"
             />
           )}
+
+          {/* Attachment Section */}
+          <AttachmentSection jobId={job.id} title="Job Attachments" />
 
           {/* Maintenance Checklist Section */}
           {job.type === "maintenance" &&
@@ -1172,15 +1239,6 @@ const JobDetails = () => {
                 />
               </div>
             )}
-          </div>
-
-          {/* Time Tracking and Comments */}
-          <div className="card">
-            <AdminTimeTracking
-              jobId={job.id}
-              jobTechnicians={job.job_technicians}
-              onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
-            />
           </div>
 
           <div className="card">

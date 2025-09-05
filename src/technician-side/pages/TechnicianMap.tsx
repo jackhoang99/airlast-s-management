@@ -186,7 +186,7 @@ const TechnicianMap = () => {
           `
           )
           .eq("is_primary", true)
-          .neq("jobs.status", "completed")
+          .neq("jobs.status", "tech_completed")
           .neq("jobs.status", "cancelled");
 
         if (jobError) throw jobError;
@@ -295,7 +295,7 @@ const TechnicianMap = () => {
             )
           `
           )
-          .neq("status", "completed")
+          .neq("status", "tech_completed")
           .neq("status", "cancelled");
 
         if (error) throw error;
@@ -403,7 +403,7 @@ const TechnicianMap = () => {
       // Update job status to completed
       const { error } = await supabase
         .from("jobs")
-        .update({ status: "completed" })
+        .update({ status: "tech_completed" })
         .eq("id", jobId);
 
       if (error) throw error;
@@ -411,7 +411,7 @@ const TechnicianMap = () => {
       // Update local state
       setJobs((prev) =>
         prev.map((job) =>
-          job.id === jobId ? { ...job, status: "completed" } : job
+          job.id === jobId ? { ...job, status: "tech_completed" } : job
         )
       );
 

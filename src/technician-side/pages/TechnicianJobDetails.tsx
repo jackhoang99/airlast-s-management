@@ -35,7 +35,6 @@ import QuoteSection from "../../components/jobs/QuoteSection";
 import JobQuoteHistorySection from "../../components/jobs/JobQuoteHistorySection";
 import JobInvoiceSection from "../../components/jobs/JobInvoiceSection";
 import TechnicianNavigation from "../components/navigation/TechnicianNavigation";
-import JobTimeTracking from "../../components/jobs/JobTimeTracking";
 import JobComments from "../../components/jobs/JobComments";
 import CustomerComments from "../../components/jobs/CustomerComments";
 import ClockInOut from "../components/jobs/ClockInOut";
@@ -62,7 +61,7 @@ const TechnicianJobDetails = () => {
   const [technicianName, setTechnicianName] = useState("");
 
   const [jobStatus, setJobStatus] = useState<
-    "scheduled" | "unscheduled" | "completed" | "cancelled"
+    "scheduled" | "unscheduled" | "tech_completed" | "cancelled"
   >("scheduled");
   const [currentClockStatus, setCurrentClockStatus] = useState<
     "clocked_out" | "clocked_in" | "on_break"
@@ -73,7 +72,6 @@ const TechnicianJobDetails = () => {
     null
   );
   const [additionalContacts, setAdditionalContacts] = useState<any[]>([]);
-  const [timeTrackingRefreshKey, setTimeTrackingRefreshKey] = useState(0);
 
   // Collapsible section states
   const [showQuoteSection, setShowQuoteSection] = useState(false);
@@ -416,7 +414,7 @@ const TechnicianJobDetails = () => {
         return "bg-blue-100 text-blue-800";
       case "unscheduled":
         return "bg-yellow-100 text-yellow-800";
-      case "completed":
+      case "tech_completed":
         return "bg-green-100 text-green-800";
       case "cancelled":
         return "bg-red-100 text-red-800";
@@ -815,6 +813,9 @@ const TechnicianJobDetails = () => {
         </div>
       )}
 
+      {/* Attachments */}
+      <AttachmentSectionMobile jobId={id || ""} title="Job Attachments" />
+
       {/* Maintenance Checklist Section */}
       {job?.type === "maintenance" &&
         (job?.additional_type === "PM Cleaning AC" ||
@@ -1011,12 +1012,6 @@ const TechnicianJobDetails = () => {
         </div>
       </div>
       <hr className="my-2 border-gray-200" />
-      {/* Time Tracking */}
-      <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
-        <JobTimeTracking jobId={id || ""} key={timeTrackingRefreshKey} />
-      </div>
-      {/* Attachments */}
-      <AttachmentSectionMobile jobId={id || ""} title="Job Attachments" />
       {/* Comments */}
       <div className="bg-white rounded-lg shadow p-2 sm:p-4 mb-4">
         <JobComments jobId={id || ""} />

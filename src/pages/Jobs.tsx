@@ -554,6 +554,35 @@ const Jobs = () => {
       : "bg-blue-100 text-blue-800";
   };
 
+  const getTechnicianStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case "tech completed":
+        return "bg-green-100 text-green-800";
+      case "in progress":
+        return "bg-blue-100 text-blue-800";
+      case "on site":
+        return "bg-yellow-100 text-yellow-800";
+      case "en route":
+        return "bg-purple-100 text-purple-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getLatestTechnicianStatus = (job: any) => {
+    if (!job.job_technician_status || job.job_technician_status.length === 0) {
+      return null;
+    }
+
+    // Sort by updated_at descending and get the latest status
+    const sortedStatuses = job.job_technician_status.sort(
+      (a: any, b: any) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+
+    return sortedStatuses[0].status;
+  };
+
   // Calculate total cost from job items
   const getJobTotalCost = (job: Job) => {
     return (job.job_items || []).reduce(
@@ -1064,6 +1093,15 @@ const Jobs = () => {
                           {job.is_training && (
                             <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
                               training
+                            </span>
+                          )}
+                          {getLatestTechnicianStatus(job) && (
+                            <span
+                              className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getTechnicianStatusBadgeClass(
+                                getLatestTechnicianStatus(job)
+                              )}`}
+                            >
+                              Tech: {getLatestTechnicianStatus(job)}
                             </span>
                           )}
                           {job.job_items && job.job_items.length > 0 && (

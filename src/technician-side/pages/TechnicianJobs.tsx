@@ -236,10 +236,14 @@ const TechnicianJobs = () => {
 
         // Apply status filter - respect showCompletedJobs setting
         if (filterStatus === "uncompleted" && !showCompletedJobs) {
-          query = query.not("status", "eq", "completed");
-        } else if (filterStatus !== "all") {
+          query = query.not("status", "eq", "tech_completed");
+        } else if (
+          filterStatus !== "all" &&
+          filterStatus !== "tech_completed"
+        ) {
           query = query.eq("status", filterStatus);
         }
+        // Note: tech_completed filtering will be done in JavaScript after fetching
 
         // Apply type filter if not 'all'
         if (filterType !== "all") {
@@ -265,6 +269,21 @@ const TechnicianJobs = () => {
         }
 
         console.log("Found jobs:", jobsData);
+        console.log("Filter status:", filterStatus);
+        console.log("Show completed jobs:", showCompletedJobs);
+        console.log("Technician ID:", technicianId);
+
+        // Log each job's status for debugging
+        jobsData?.forEach((job: any) => {
+          const techStatus = job.job_technician_status?.find(
+            (status: any) => status.technician_id === technicianId
+          );
+          console.log(
+            `Job ${job.id} (${job.name}): main_status=${
+              job.status
+            }, tech_status=${techStatus?.status || "none"}`
+          );
+        });
 
         // Apply date range filtering in JavaScript since we can't filter by scheduled_at in the query
         let filteredJobsData = jobsData || [];
@@ -300,11 +319,43 @@ const TechnicianJobs = () => {
           });
         }
 
-        // Apply completed jobs filter
-        if (!showCompletedJobs) {
-          filteredJobsData = filteredJobsData.filter(
-            (job: any) => job.status !== "completed"
-          );
+        // Apply tech_completed filtering based on job_technician_status
+        if (filterStatus === "tech_completed") {
+          console.log("Filtering for tech_completed jobs...");
+          filteredJobsData = filteredJobsData.filter((job: any) => {
+            if (!job.job_technician_status || !technicianId) return false;
+
+            const techStatus = job.job_technician_status.find(
+              (status: any) => status.technician_id === technicianId
+            );
+
+            const isTechCompleted = techStatus?.status === "tech completed";
+            console.log(
+              `Job ${job.id}: tech status = ${techStatus?.status}, isTechCompleted = ${isTechCompleted}`
+            );
+
+            return isTechCompleted;
+          });
+          console.log(`Found ${filteredJobsData.length} tech_completed jobs`);
+        }
+
+        // Apply completed jobs filter - but don't filter if status filter is set to tech_completed
+        if (!showCompletedJobs && filterStatus !== "tech_completed") {
+          filteredJobsData = filteredJobsData.filter((job: any) => {
+            // Check if this job is tech completed by looking at job_technician_status
+            if (job.job_technician_status && technicianId) {
+              const techStatus = job.job_technician_status.find(
+                (status: any) => status.technician_id === technicianId
+              );
+              const isTechCompleted = techStatus?.status === "tech completed";
+              console.log(
+                `Job ${job.id}: filtering out tech_completed = ${isTechCompleted}`
+              );
+              return !isTechCompleted;
+            }
+            // Fallback to main job status if no technician status
+            return job.status !== "tech_completed";
+          });
         }
 
         // Sort by scheduled time if date sorting is selected
@@ -487,7 +538,7 @@ const TechnicianJobs = () => {
                   <option value="uncompleted">Uncompleted</option>
                   <option value="scheduled">Scheduled</option>
                   <option value="unscheduled">Unscheduled</option>
-                  <option value="completed">Completed</option>
+                  <option value="tech_completed">Tech Completed</option>
                 </select>
               </div>
 
@@ -638,7 +689,7 @@ const TechnicianJobs = () => {
                           ? "bg-blue-100 text-blue-800"
                           : job.status === "unscheduled"
                           ? "bg-yellow-100 text-yellow-800"
-                          : job.status === "completed"
+                          : job.status === "tech_completed"
                           ? "bg-green-100 text-green-800"
                           : "bg-gray-100 text-gray-800"
                       }`}
@@ -675,7 +726,7 @@ const TechnicianJobs = () => {
                   </div>
                 </div>
                 <div className="text-right flex flex-col items-end gap-1 min-w-[90px]">
-                  {job.status === "completed" ? (
+                  {job.status === "tech_completed" ? (
                     <div className="flex items-center text-xs text-success-600">
                       <CheckSquare size={14} className="mr-1" />
                       Completed
@@ -693,7 +744,7 @@ const TechnicianJobs = () => {
                       {/* Show technician completion status */}
                       {(() => {
                         const techStatus = getTechnicianCompletionStatus(job);
-                        if (techStatus === "completed") {
+                        if (techStatus === "tech_completed") {
                           return (
                             <div className="flex items-center text-xs text-green-600 mt-1">
                               <CheckSquare size={12} className="mr-1" />
