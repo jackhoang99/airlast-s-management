@@ -171,9 +171,14 @@ const AddPermitModal: React.FC<AddPermitModalProps> = ({
       console.log("Proceeding with file upload to permits bucket");
 
       const fileExt = file.name.split(".").pop();
-      const fileName = `${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2)}.${fileExt}`;
+
+      // Sanitize filename by removing/replacing invalid characters
+      const sanitizedFileName = file.name
+        .replace(/[^a-zA-Z0-9.-]/g, "_") // Replace invalid chars with underscore
+        .replace(/_{2,}/g, "_") // Replace multiple underscores with single
+        .replace(/^_|_$/g, ""); // Remove leading/trailing underscores
+
+      const fileName = `${Date.now()}-${sanitizedFileName}`;
       const filePath = `permits/${fileName}`;
 
       console.log("Uploading file:", file.name, "to path:", filePath);

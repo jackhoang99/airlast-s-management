@@ -92,7 +92,13 @@ const AttachmentSection: React.FC<AttachmentSectionProps> = ({
 
     try {
       // Upload file to storage
-      const fileName = `${Date.now()}-${attachmentData.file.name}`;
+      // Sanitize filename by removing/replacing invalid characters
+      const sanitizedFileName = attachmentData.file.name
+        .replace(/[^a-zA-Z0-9.-]/g, "_") // Replace invalid chars with underscore
+        .replace(/_{2,}/g, "_") // Replace multiple underscores with single
+        .replace(/^_|_$/g, ""); // Remove leading/trailing underscores
+
+      const fileName = `${Date.now()}-${sanitizedFileName}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("job-attachments")
         .upload(fileName, attachmentData.file);

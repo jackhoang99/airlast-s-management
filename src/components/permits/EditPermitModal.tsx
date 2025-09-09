@@ -144,7 +144,14 @@ const EditPermitModal: React.FC<EditPermitModalProps> = ({
       // Upload new file if selected
       if (selectedFile) {
         const fileExt = selectedFile.name.split(".").pop();
-        const fileNameWithExt = `${Date.now()}-${selectedFile.name}`;
+
+        // Sanitize filename by removing/replacing invalid characters
+        const sanitizedFileName = selectedFile.name
+          .replace(/[^a-zA-Z0-9.-]/g, "_") // Replace invalid chars with underscore
+          .replace(/_{2,}/g, "_") // Replace multiple underscores with single
+          .replace(/^_|_$/g, ""); // Remove leading/trailing underscores
+
+        const fileNameWithExt = `${Date.now()}-${sanitizedFileName}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("permits")
@@ -305,7 +312,9 @@ const EditPermitModal: React.FC<EditPermitModalProps> = ({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 City
                 {formData.location_id && (
-                  <span className="text-xs text-gray-500 ml-1">(pre-filled from location)</span>
+                  <span className="text-xs text-gray-500 ml-1">
+                    (pre-filled from location)
+                  </span>
                 )}
               </label>
               <input

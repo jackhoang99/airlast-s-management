@@ -81,7 +81,14 @@ const AttachmentSectionMobile: React.FC<AttachmentSectionMobileProps> = ({
     try {
       const file = formData.file;
       const fileExt = file.name.split(".").pop();
-      const fileName = `${Date.now()}.${fileExt}`;
+
+      // Sanitize filename by removing/replacing invalid characters
+      const sanitizedFileName = file.name
+        .replace(/[^a-zA-Z0-9.-]/g, "_") // Replace invalid chars with underscore
+        .replace(/_{2,}/g, "_") // Replace multiple underscores with single
+        .replace(/^_|_$/g, ""); // Remove leading/trailing underscores
+
+      const fileName = `${Date.now()}-${sanitizedFileName}`;
       const filePath = `${jobId}/${fileName}`;
 
       // Upload file to storage

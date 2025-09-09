@@ -126,7 +126,14 @@ const QuoteTemplates = () => {
       if (userError || !user) throw userError || new Error("No user found");
 
       const templateId = crypto.randomUUID();
-      const filePath = `quote-templates/${templateId}/${pdfFile.name}`;
+
+      // Sanitize filename by removing/replacing invalid characters
+      const sanitizedFileName = pdfFile.name
+        .replace(/[^a-zA-Z0-9.-]/g, "_") // Replace invalid chars with underscore
+        .replace(/_{2,}/g, "_") // Replace multiple underscores with single
+        .replace(/^_|_$/g, ""); // Remove leading/trailing underscores
+
+      const filePath = `quote-templates/${templateId}/${sanitizedFileName}`;
       const { error: uploadError } = await supabase.storage
         .from("templates")
         .upload(filePath, pdfFile, {

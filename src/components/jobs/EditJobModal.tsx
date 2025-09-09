@@ -54,6 +54,7 @@ const EditJobModal = ({
     location_name: job.location_name || "",
     unit_id: job.unit_id || "",
     unit_number: job.unit_number || "",
+    selectedUnitIds: job.units?.map((unit) => unit.id).filter(Boolean) || [],
     service_address: job.service_address || "",
     service_city: job.service_city || "",
     service_state: job.service_state || "",
@@ -197,7 +198,7 @@ const EditJobModal = ({
         // Fetch locations
         const { data: locationsData, error: locationsError } = await supabase
           .from("locations")
-          .select("*, companies(name)")
+          .select("*, companies(name), units(id, unit_number)")
           .order("name");
 
         if (locationsError) throw locationsError;
@@ -395,6 +396,7 @@ const EditJobModal = ({
         location_name: locationData.name || "",
         unit_id: firstUnit.id || "",
         unit_number: firstUnit.unit_number || "",
+        selectedUnitIds: units.map((unit) => unit.id).filter(Boolean),
         service_address: locationData.address || "",
         service_city: locationData.city || "",
         service_state: locationData.state || "",
@@ -495,6 +497,28 @@ const EditJobModal = ({
         .single();
 
       if (updateError) throw updateError;
+
+      // Handle unit assignments
+      if (formData.selectedUnitIds && formData.selectedUnitIds.length > 0) {
+        // First, remove existing unit assignments
+        await supabase.from("job_units").delete().eq("job_id", job.id);
+
+        // Add new unit assignments
+        const unitAssignments = formData.selectedUnitIds.map(
+          (unitId: string) => ({
+            job_id: job.id,
+            unit_id: unitId,
+          })
+        );
+
+        const { error: unitError } = await supabase
+          .from("job_units")
+          .insert(unitAssignments);
+
+        if (unitError) {
+          console.error("Error updating unit assignments:", unitError);
+        }
+      }
 
       // Handle additional contacts
       if (additionalContacts.length > 0) {
@@ -880,6 +904,61 @@ const EditJobModal = ({
                 </div>
               </div>
             </div>
+
+            {/* Unit Selection */}
+            {formData.location_id && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-lg font-medium mb-6">
+                  Select Units for this Job *
+                </h2>
+                {filteredLocations.find(
+                  (loc) => loc.id === formData.location_id
+                )?.units &&
+                filteredLocations.find((loc) => loc.id === formData.location_id)
+                  .units.length > 0 ? (
+                  <div className="space-y-2">
+                    {filteredLocations
+                      .find((loc) => loc.id === formData.location_id)
+                      .units.map((unit: any) => (
+                        <label
+                          key={unit.id}
+                          className="flex items-center gap-2"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={
+                              formData.selectedUnitIds?.includes(unit.id) ||
+                              false
+                            }
+                            onChange={(e) => {
+                              const currentIds = formData.selectedUnitIds || [];
+                              if (e.target.checked) {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  selectedUnitIds: [...currentIds, unit.id],
+                                }));
+                              } else {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  selectedUnitIds: currentIds.filter(
+                                    (id: string) => id !== unit.id
+                                  ),
+                                }));
+                              }
+                            }}
+                          />
+                          <span>{unit.unit_number}</span>
+                        </label>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    No units available for this location. Please add units to
+                    this location first.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Job Primary Contact */}
             <div className="bg-white rounded-lg shadow p-6">

@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
-import { Clipboard, Plus, X, ArrowLeft } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useSupabase } from "../../../lib/supabase-context";
+import InspectionAttachmentSection from "../InspectionAttachmentSection";
+import {
+  PendingInspectionAttachmentSection,
+  PendingInspectionAttachment,
+} from "../attachments";
 
 type InspectionData = {
   id?: string;
@@ -35,6 +40,9 @@ const InspectionForm = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<
+    PendingInspectionAttachment[]
+  >([]);
   const [inspectionData, setInspectionData] = useState<InspectionData>(
     initialData || {
       model_number: "",
@@ -63,6 +71,70 @@ const InspectionForm = ({
       }));
     }
   }, [jobUnits, inspectionData.job_unit_id]);
+
+  // Functions to handle pending attachments
+  const addPendingAttachment = (
+    attachment: Omit<PendingInspectionAttachment, "id">
+  ) => {
+    const newAttachment: PendingInspectionAttachment = {
+      ...attachment,
+      id: `pending-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    };
+    setPendingAttachments((prev) => [...prev, newAttachment]);
+  };
+
+  const removePendingAttachment = (id: string) => {
+    setPendingAttachments((prev) => prev.filter((att) => att.id !== id));
+  };
+
+  const processPendingAttachments = async (inspectionId: string) => {
+    if (!supabase || pendingAttachments.length === 0) return;
+
+    for (const pendingAttachment of pendingAttachments) {
+      try {
+        // Upload file to storage
+        // Sanitize filename by removing/replacing invalid characters
+        const sanitizedFileName = pendingAttachment.file.name
+          .replace(/[^a-zA-Z0-9.-]/g, "_") // Replace invalid chars with underscore
+          .replace(/_{2,}/g, "_") // Replace multiple underscores with single
+          .replace(/^_|_$/g, ""); // Remove leading/trailing underscores
+
+        const fileName = `${Date.now()}-${sanitizedFileName}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("inspection-attachments")
+          .upload(fileName, pendingAttachment.file);
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from("inspection-attachments")
+          .getPublicUrl(fileName);
+
+        // Create attachment record
+        const { error: insertError } = await supabase
+          .from("inspection_attachments")
+          .insert({
+            inspection_id: inspectionId,
+            title: pendingAttachment.title,
+            description: pendingAttachment.description || null,
+            file_name: pendingAttachment.file_name,
+            file_path: fileName,
+            file_url: urlData.publicUrl,
+            file_size: pendingAttachment.file_size,
+            file_type: pendingAttachment.file_type,
+          });
+
+        if (insertError) throw insertError;
+      } catch (error) {
+        console.error("Error processing pending attachment:", error);
+        // Continue with other attachments even if one fails
+      }
+    }
+
+    // Clear pending attachments after processing
+    setPendingAttachments([]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,7 +172,7 @@ const InspectionForm = ({
         if (updateError) throw updateError;
       } else {
         // Insert new record
-        const { error: insertError } = await supabase
+        const { data: insertData, error: insertError } = await supabase
           .from("job_inspections")
           .insert({
             job_id: jobId,
@@ -114,9 +186,16 @@ const InspectionForm = ({
             comment: inspectionData.comment || null,
             completed: false,
             job_unit_id: inspectionData.job_unit_id || null, // Use job_unit_id
-          });
+          })
+          .select()
+          .single();
 
         if (insertError) throw insertError;
+
+        // Process pending attachments if any
+        if (insertData && pendingAttachments.length > 0) {
+          await processPendingAttachments(insertData.id);
+        }
       }
 
       setSuccess("Inspection data saved successfully");
@@ -386,6 +465,22 @@ const InspectionForm = ({
                 style={{ minHeight: "100px" }}
               />
             </div>
+          </div>
+
+          {/* Inspection Attachments Section */}
+          <div className="mt-6">
+            {isEditMode && initialData?.id ? (
+              <InspectionAttachmentSection
+                inspectionId={initialData.id}
+                title="Inspection Attachments"
+              />
+            ) : (
+              <PendingInspectionAttachmentSection
+                attachments={pendingAttachments}
+                onAdd={addPendingAttachment}
+                onRemove={removePendingAttachment}
+              />
+            )}
           </div>
 
           <div className="flex justify-end gap-2 mt-6">

@@ -8,9 +8,12 @@ import {
   AlertTriangle,
   FileText,
   X,
+  Eye,
+  Paperclip,
 } from "lucide-react";
 import InspectionForm from "./inspection/InspectionForm";
 import GenerateQuote from "../GenerateQuote";
+import InspectionAttachmentSection from "./InspectionAttachmentSection";
 
 type InspectionSectionProps = {
   jobId: string;
@@ -37,6 +40,11 @@ const InspectionSection = ({
   const [summaryComment, setSummaryComment] = useState<string>("");
   const [currentSummaryComment, setCurrentSummaryComment] =
     useState<string>("");
+  const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+  const [
+    selectedInspectionForAttachments,
+    setSelectedInspectionForAttachments,
+  ] = useState<any>(null);
 
   useEffect(() => {
     setLocalInspectionData(inspectionData);
@@ -75,6 +83,11 @@ const InspectionSection = ({
   const handleEditInspection = (inspection: any) => {
     setInspectionToEdit(inspection);
     setShowInspectionForm(true);
+  };
+
+  const handleViewAttachments = (inspection: any) => {
+    setSelectedInspectionForAttachments(inspection);
+    setShowAttachmentModal(true);
   };
 
   const handleSaveInspection = () => {
@@ -298,7 +311,7 @@ const InspectionSection = ({
                 </button>
                 <button
                   onClick={() => setShowSummaryCommentModal(true)}
-                  className="btn btn-info btn-sm w-full sm:w-auto"
+                  className="btn btn-secondary btn-sm w-full sm:w-auto"
                 >
                   <Clipboard size={14} className="mr-1" /> Summary Comment
                 </button>
@@ -412,6 +425,18 @@ const InspectionSection = ({
                         {inspection.comment || "N/A"}
                       </p>
                     </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">
+                        Attachments
+                      </p>
+                      <button
+                        onClick={() => handleViewAttachments(inspection)}
+                        className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-800 mt-1"
+                      >
+                        <Eye size={14} />
+                        <span>View Attachments</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -430,7 +455,7 @@ const InspectionSection = ({
           )}
 
           {/* Summary Comment Section */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border-2 border-blue-300 shadow-sm">
             <div className="flex justify-between items-start mb-2">
               <h3 className="text-sm font-medium text-blue-800 flex items-center">
                 <Clipboard size={16} className="mr-2" />
@@ -546,6 +571,37 @@ const InspectionSection = ({
                   {isLoading ? "Saving..." : "Save Summary Comment"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inspection Attachments Modal */}
+      {showAttachmentModal && selectedInspectionForAttachments && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <Paperclip className="h-5 w-5 mr-2" />
+                Inspection Attachments -{" "}
+                {selectedInspectionForAttachments.manufacture_name ||
+                  "Inspection"}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowAttachmentModal(false);
+                  setSelectedInspectionForAttachments(null);
+                }}
+                className="p-1 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[calc(90vh-80px)]">
+              <InspectionAttachmentSection
+                inspectionId={selectedInspectionForAttachments.id}
+                title=""
+              />
             </div>
           </div>
         </div>
