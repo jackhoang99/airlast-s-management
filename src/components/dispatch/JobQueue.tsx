@@ -46,6 +46,11 @@ interface Job {
       last_name: string;
     };
   }[];
+  job_technician_status?: {
+    technician_id: string;
+    status: string;
+    updated_at: string;
+  }[];
 }
 
 interface JobQueueProps {

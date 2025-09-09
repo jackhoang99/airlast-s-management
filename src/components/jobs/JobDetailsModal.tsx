@@ -53,6 +53,11 @@ interface JobDetailsModalProps {
         last_name: string;
       };
     }[];
+    job_technician_status?: {
+      technician_id: string;
+      status: string;
+      updated_at: string;
+    }[];
     units?: Array<{
       id?: string;
       unit_number: string;
@@ -74,6 +79,39 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   const [showAssetsModal, setShowAssetsModal] = useState(false);
   const [showAssignTechniciansModal, setShowAssignTechniciansModal] =
     useState(false);
+
+  // Helper function to get technician status for each technician
+  const getTechnicianStatuses = () => {
+    if (!job.job_technician_status || job.job_technician_status.length === 0) {
+      return [];
+    }
+
+    // Group statuses by technician_id and get the latest status for each
+    const statusMap = new Map();
+
+    job.job_technician_status.forEach((status) => {
+      const existing = statusMap.get(status.technician_id);
+      if (
+        !existing ||
+        new Date(status.updated_at) > new Date(existing.updated_at)
+      ) {
+        statusMap.set(status.technician_id, status);
+      }
+    });
+
+    return Array.from(statusMap.values());
+  };
+
+  // Helper function to get technician name by ID
+  const getTechnicianName = (technicianId: string): string => {
+    const tech = job.job_technicians?.find(
+      (t) => t.technician_id === technicianId
+    );
+    return tech
+      ? `${tech.users.first_name} ${tech.users.last_name}`
+      : "Unknown Technician";
+  };
+
   const getJobTypeColorClass = (type: string): string => {
     const colorMap: { [key: string]: string } = {
       maintenance: "bg-purple-100 text-purple-800",
@@ -141,6 +179,35 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   <span className="ml-1">• {job.additional_type}</span>
                 )}
               </span>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Tech Status</p>
+              {getTechnicianStatuses().length > 0 ? (
+                <div className="space-y-1">
+                  {getTechnicianStatuses().map((status) => (
+                    <div
+                      key={status.technician_id}
+                      className="flex items-center gap-2"
+                    >
+                      <span className="text-xs text-gray-600">
+                        {getTechnicianName(status.technician_id)}:
+                      </span>
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          status.status === "tech completed" ||
+                          status.status === "completed"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-blue-100 text-blue-800"
+                        }`}
+                      >
+                        {status.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-gray-500">none</span>
+              )}
             </div>
           </div>
           {job.locations && (

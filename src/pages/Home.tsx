@@ -113,6 +113,7 @@ interface ScheduledJob {
   status: string;
   type: string;
   additional_type?: string;
+  time_period_start?: string;
   time_period_due?: string;
   locations: {
     name: string;
@@ -128,6 +129,11 @@ interface ScheduledJob {
       first_name: string;
       last_name: string;
     };
+  }[];
+  job_technician_status?: {
+    technician_id: string;
+    status: string;
+    updated_at: string;
   }[];
   job_units?: {
     unit_id: string;
@@ -215,15 +221,41 @@ const Home = () => {
   const [showCalendar, setShowCalendar] = useState(false);
   const [jobsByDate, setJobsByDate] = useState<Record<string, number>>({});
 
+  // Helper function to get the latest technician status for a job
+  const getLatestTechnicianStatus = (job: ScheduledJob): string | null => {
+    if (!job.job_technician_status || job.job_technician_status.length === 0) {
+      return null;
+    }
+
+    // Sort by updated_at descending and get the latest status
+    const sortedStatuses = job.job_technician_status.sort(
+      (a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+
+    return sortedStatuses[0].status;
+  };
+
   // Function to check if a job is past dates
   const isJobPastDue = (job: ScheduledJob): boolean => {
     const now = new Date();
 
-    // Check if job has a scheduled start time and it's in the past
-    if (job.schedule_start) {
-      const scheduledDate = new Date(job.schedule_start);
-      if (scheduledDate < now) {
-        return true;
+    // Check if any technician has a scheduled time that's in the past
+    if (job.job_technicians && job.job_technicians.length > 0) {
+      for (const tech of job.job_technicians) {
+        if (tech.scheduled_at) {
+          const scheduledDateTime = new Date(tech.scheduled_at);
+          if (scheduledDateTime < now) {
+            // Check if the technician has completed their work
+            const latestTechStatus = getLatestTechnicianStatus(job);
+            if (
+              latestTechStatus !== "tech completed" &&
+              latestTechStatus !== "completed"
+            ) {
+              return true;
+            }
+          }
+        }
       }
     }
 
@@ -231,7 +263,14 @@ const Home = () => {
     if (job.time_period_due) {
       const dueDate = new Date(job.time_period_due);
       if (dueDate < now) {
-        return true;
+        // Check if the technician has completed their work
+        const latestTechStatus = getLatestTechnicianStatus(job);
+        if (
+          latestTechStatus !== "tech completed" &&
+          latestTechStatus !== "completed"
+        ) {
+          return true;
+        }
       }
     }
 
@@ -406,6 +445,8 @@ const Home = () => {
           status,
           type,
           additional_type,
+          time_period_start,
+          time_period_due,
           locations (
             name,
             zip
@@ -418,6 +459,11 @@ const Home = () => {
               first_name,
               last_name
             )
+          ),
+          job_technician_status (
+            technician_id,
+            status,
+            updated_at
           ),
           job_units (
             unit_id,

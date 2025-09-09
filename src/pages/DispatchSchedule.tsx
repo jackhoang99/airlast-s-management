@@ -52,6 +52,11 @@ type Job = Database["public"]["Tables"]["jobs"]["Row"] & {
       last_name: string;
     };
   }[];
+  job_technician_status?: {
+    technician_id: string;
+    status: string;
+    updated_at: string;
+  }[];
 };
 
 const DispatchSchedule = () => {
@@ -108,6 +113,21 @@ const DispatchSchedule = () => {
     }
   }, []);
 
+  // Helper function to get the latest technician status for a job
+  const getLatestTechnicianStatus = (job: Job): string | null => {
+    if (!job.job_technician_status || job.job_technician_status.length === 0) {
+      return null;
+    }
+
+    // Sort by updated_at descending and get the latest status
+    const sortedStatuses = job.job_technician_status.sort(
+      (a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+
+    return sortedStatuses[0].status;
+  };
+
   // Function to check if a job is past dates
   const isJobPastDue = (job: Job): boolean => {
     const now = new Date();
@@ -118,7 +138,14 @@ const DispatchSchedule = () => {
         if (tech.scheduled_at) {
           const scheduledDateTime = new Date(tech.scheduled_at);
           if (scheduledDateTime < now) {
-            return true;
+            // Check if the technician has completed their work
+            const latestTechStatus = getLatestTechnicianStatus(job);
+            if (
+              latestTechStatus !== "tech completed" &&
+              latestTechStatus !== "completed"
+            ) {
+              return true;
+            }
           }
         }
       }
@@ -128,7 +155,14 @@ const DispatchSchedule = () => {
     if (job.time_period_due) {
       const dueDate = new Date(job.time_period_due);
       if (dueDate < now) {
-        return true;
+        // Check if the technician has completed their work
+        const latestTechStatus = getLatestTechnicianStatus(job);
+        if (
+          latestTechStatus !== "tech completed" &&
+          latestTechStatus !== "completed"
+        ) {
+          return true;
+        }
       }
     }
 
@@ -211,6 +245,11 @@ const DispatchSchedule = () => {
               first_name,
               last_name
             )
+          ),
+          job_technician_status (
+            technician_id,
+            status,
+            updated_at
           )
         `
         )
