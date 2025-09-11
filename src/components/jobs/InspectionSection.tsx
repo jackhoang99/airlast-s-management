@@ -14,6 +14,7 @@ import {
 import InspectionForm from "./inspection/InspectionForm";
 import GenerateQuote from "../GenerateQuote";
 import InspectionAttachmentSection from "./InspectionAttachmentSection";
+import InspectionAttachmentPreview from "./InspectionAttachmentPreview";
 
 type InspectionSectionProps = {
   jobId: string;
@@ -45,9 +46,16 @@ const InspectionSection = ({
     selectedInspectionForAttachments,
     setSelectedInspectionForAttachments,
   ] = useState<any>(null);
+  const [attachmentCounts, setAttachmentCounts] = useState<
+    Record<string, number>
+  >({});
+  const [attachmentRefreshTrigger, setAttachmentRefreshTrigger] = useState(0);
 
   useEffect(() => {
     setLocalInspectionData(inspectionData);
+    if (inspectionData.length > 0) {
+      fetchAttachmentCounts(inspectionData);
+    }
   }, [inspectionData]);
 
   // Fetch current summary comment
@@ -85,6 +93,38 @@ const InspectionSection = ({
     setShowInspectionForm(true);
   };
 
+  const fetchAttachmentCounts = async (inspections: any[]) => {
+    if (!supabase || inspections.length === 0) return;
+
+    try {
+      const inspectionIds = inspections.map((inspection) => inspection.id);
+
+      const { data, error } = await supabase
+        .from("inspection_attachments")
+        .select("inspection_id")
+        .in("inspection_id", inspectionIds);
+
+      if (error) throw error;
+
+      // Count attachments per inspection
+      const counts: Record<string, number> = {};
+      inspectionIds.forEach((id) => {
+        counts[id] = 0;
+      });
+
+      if (data) {
+        data.forEach((attachment) => {
+          counts[attachment.inspection_id] =
+            (counts[attachment.inspection_id] || 0) + 1;
+        });
+      }
+
+      setAttachmentCounts(counts);
+    } catch (error) {
+      console.error("Error fetching attachment counts:", error);
+    }
+  };
+
   const handleViewAttachments = (inspection: any) => {
     setSelectedInspectionForAttachments(inspection);
     setShowAttachmentModal(true);
@@ -95,6 +135,10 @@ const InspectionSection = ({
     setInspectionToEdit(null);
     if (onInspectionUpdated) {
       onInspectionUpdated();
+    }
+    // Refresh attachment counts after inspection update
+    if (localInspectionData.length > 0) {
+      fetchAttachmentCounts(localInspectionData);
     }
   };
 
@@ -429,14 +473,29 @@ const InspectionSection = ({
                       <p className="text-xs font-medium text-gray-500">
                         Attachments
                       </p>
-                      <button
-                        onClick={() => handleViewAttachments(inspection)}
-                        className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-800 mt-1"
-                      >
-                        <Eye size={14} />
-                        <span>View Attachments</span>
-                      </button>
+                      {attachmentCounts[inspection.id] > 0 ? (
+                        <button
+                          onClick={() => handleViewAttachments(inspection)}
+                          className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-800 mt-1"
+                        >
+                          <Eye size={14} />
+                          <span>View Attachments</span>
+                        </button>
+                      ) : (
+                        <p className="text-sm text-gray-500 mt-1">None</p>
+                      )}
                     </div>
+                  </div>
+
+                  {/* Attachment Preview Section - Below comment, on the left */}
+                  <div className="mt-4">
+                    <InspectionAttachmentPreview
+                      inspectionId={inspection.id}
+                      onAttachmentClick={() =>
+                        handleViewAttachments(inspection)
+                      }
+                      refreshTrigger={attachmentRefreshTrigger}
+                    />
                   </div>
                 </div>
               ))}
@@ -490,10 +549,10 @@ const InspectionSection = ({
 
       {/* Generate Quote Modal */}
       {showGenerateQuoteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
-            <div className="flex justify-between items-center p-6 border-b">
-              <h2 className="text-xl font-semibold flex items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="flex justify-between items-center p-4 sm:p-6 border-b">
+              <h2 className="text-lg sm:text-xl font-semibold flex items-center">
                 <FileText className="h-5 w-5 mr-2 text-primary-600" />
                 Generate Quote
               </h2>
@@ -504,7 +563,7 @@ const InspectionSection = ({
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <GenerateQuote
                 jobId={jobId}
                 defaultQuoteType="inspection"
@@ -601,6 +660,14 @@ const InspectionSection = ({
               <InspectionAttachmentSection
                 inspectionId={selectedInspectionForAttachments.id}
                 title=""
+                onAttachmentChange={() => {
+                  // Refresh attachment counts when attachments change
+                  if (localInspectionData.length > 0) {
+                    fetchAttachmentCounts(localInspectionData);
+                  }
+                  // Trigger refresh of attachment previews
+                  setAttachmentRefreshTrigger((prev) => prev + 1);
+                }}
               />
             </div>
           </div>

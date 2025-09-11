@@ -1004,11 +1004,13 @@ const GenerateQuote = ({
         selectedQuoteType === "repair") &&
         availableInspections.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-md font-medium text-gray-900 mb-3 flex items-center">
-              <Clipboard className="h-4 w-4 mr-2 text-purple-600" />
-              Select Inspection Results to Include
+            <h3 className="text-md font-medium text-gray-900 mb-3 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-0">
+              <div className="flex items-center">
+                <Clipboard className="h-4 w-4 mr-2 text-purple-600" />
+                Select Inspection Results to Include
+              </div>
               {selectedQuoteType === "inspection" && (
-                <span className="ml-2 text-xs text-purple-600 font-normal">
+                <span className="text-xs text-purple-600 font-normal sm:ml-2">
                   (Required for inspection quotes)
                 </span>
               )}
@@ -1017,7 +1019,7 @@ const GenerateQuote = ({
               {availableInspections.map((inspection) => (
                 <label
                   key={inspection.id}
-                  className="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                  className="flex items-start sm:items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
                 >
                   <input
                     type="checkbox"
@@ -1025,10 +1027,10 @@ const GenerateQuote = ({
                     onChange={() => handleInspectionToggle(inspection.id)}
                     className="mr-3"
                   />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-medium">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <span className="font-medium break-words">
                           {inspection.manufacture_name ? (
                             <>
                               <span className="text-gray-600">
@@ -1048,13 +1050,13 @@ const GenerateQuote = ({
                           )}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {isInspectionUsedInQuotes(inspection.id) && (
-                          <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
+                          <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full whitespace-nowrap">
                             Used in previous quote
                           </span>
                         )}
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-gray-500 whitespace-nowrap">
                           {inspection.age
                             ? `${inspection.age} years old`
                             : "Age unknown"}

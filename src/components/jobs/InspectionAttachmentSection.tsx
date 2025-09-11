@@ -29,11 +29,16 @@ interface InspectionAttachment {
 interface InspectionAttachmentSectionProps {
   inspectionId: string;
   title?: string;
+  onAttachmentChange?: () => void;
 }
 
 const InspectionAttachmentSection: React.FC<
   InspectionAttachmentSectionProps
-> = ({ inspectionId, title = "Inspection Attachments" }) => {
+> = ({
+  inspectionId,
+  title = "Inspection Attachments",
+  onAttachmentChange,
+}) => {
   const { supabase } = useSupabase();
   const [attachments, setAttachments] = useState<InspectionAttachment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,6 +131,9 @@ const InspectionAttachmentSection: React.FC<
 
       setShowAddModal(false);
       await fetchAttachments();
+      if (onAttachmentChange) {
+        onAttachmentChange();
+      }
     } catch (error) {
       console.error("Error adding attachment:", error);
       alert("Failed to add attachment. Please try again.");
@@ -153,6 +161,9 @@ const InspectionAttachmentSection: React.FC<
       setShowEditModal(false);
       setSelectedAttachment(null);
       await fetchAttachments();
+      if (onAttachmentChange) {
+        onAttachmentChange();
+      }
     } catch (error) {
       console.error("Error updating attachment:", error);
     }
@@ -186,6 +197,9 @@ const InspectionAttachmentSection: React.FC<
       if (error) throw error;
 
       await fetchAttachments();
+      if (onAttachmentChange) {
+        onAttachmentChange();
+      }
     } catch (error) {
       console.error("Error deleting attachment:", error);
       alert("Failed to delete attachment. Please try again.");
