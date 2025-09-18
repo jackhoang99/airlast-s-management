@@ -95,13 +95,22 @@ const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({
 
   const handleSaveEmail = (oldEmail: string) => {
     if (tempEmail.trim()) {
+      const newEmail = tempEmail.trim();
       setAdminEmails((prev) =>
         prev.map((admin) =>
-          admin.email === oldEmail
-            ? { ...admin, email: tempEmail.trim() }
-            : admin
+          admin.email === oldEmail ? { ...admin, email: newEmail } : admin
         )
       );
+
+      // Update selectedAttendees if the old email was selected
+      if (selectedAttendees.has(oldEmail)) {
+        setSelectedAttendees((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(oldEmail);
+          newSet.add(newEmail);
+          return newSet;
+        });
+      }
     }
     setEditingEmail(null);
     setTempEmail("");
@@ -119,13 +128,22 @@ const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({
 
   const handleSaveTechnicianEmail = (oldEmail: string) => {
     if (tempTechnicianEmail.trim()) {
+      const newEmail = tempTechnicianEmail.trim();
       setTechnicianEmails((prev) =>
         prev.map((tech) =>
-          tech.email === oldEmail
-            ? { ...tech, email: tempTechnicianEmail.trim() }
-            : tech
+          tech.email === oldEmail ? { ...tech, email: newEmail } : tech
         )
       );
+
+      // Update selectedAttendees if the old email was selected
+      if (selectedAttendees.has(oldEmail)) {
+        setSelectedAttendees((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(oldEmail);
+          newSet.add(newEmail);
+          return newSet;
+        });
+      }
     }
     setEditingTechnicianEmail(null);
     setTempTechnicianEmail("");
@@ -258,6 +276,22 @@ Address: ${jobData.address}`;
         selectedAttendees: Array.from(selectedAttendees),
         adminEmails,
       };
+
+      console.log("=== FRONTEND DEBUG - Sending to Calendar ===");
+      console.log("selectedAttendees:", Array.from(selectedAttendees));
+      console.log("adminEmails:", adminEmails);
+      console.log("selectedTechnicians:", selectedTechnicians);
+      console.log("Full event data:", eventData);
+
+      // Show which emails will actually be sent
+      const allEmails = [...adminEmails, ...selectedTechnicians];
+      const attendeesToSend = allEmails.filter((p) =>
+        selectedAttendees.has(p.email)
+      );
+      console.log(
+        "=== EMAILS THAT WILL BE SENT ===",
+        attendeesToSend.map((a) => a.email)
+      );
 
       // Call the edge function to create the calendar event
       const response = await supabase.functions.invoke(
