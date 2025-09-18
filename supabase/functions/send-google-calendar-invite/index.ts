@@ -57,13 +57,49 @@ serve(async (req) => {
       ...adminEmails.map(normalize),
       ...selectedTechnicians.map(normalize),
     ];
-    const attendees = allEmails
-      .filter((p) => selectedAttendees.includes(p.email))
-      .map((p) => ({
-        email: p.email,
-        displayName: p.name,
-      }));
+    console.log("=== ATTENDEE DEBUG INFO ===");
+    console.log("selectedAttendees:", selectedAttendees);
+    console.log("allEmails:", allEmails);
+    console.log("adminEmails:", adminEmails);
+    console.log("selectedTechnicians:", selectedTechnicians);
+
+    // Debug the filtering process
+    console.log("=== FILTERING DEBUG ===");
+    console.log("selectedAttendees type:", typeof selectedAttendees);
+    console.log(
+      "selectedAttendees is array:",
+      Array.isArray(selectedAttendees)
+    );
+
+    // Handle the case where selectedAttendees might contain edited emails
+    // that don't match the original emails in allEmails
+    const attendees = [];
+
+    // First, try to match selectedAttendees with allEmails
+    for (const selectedEmail of selectedAttendees) {
+      console.log(`Processing selected email: ${selectedEmail}`);
+      const foundEmail = allEmails.find((p) => p.email === selectedEmail);
+      if (foundEmail) {
+        attendees.push({
+          email: foundEmail.email,
+          displayName: foundEmail.name,
+        });
+        console.log(
+          `✅ Matched selected email: ${selectedEmail} → ${foundEmail.email}`
+        );
+      } else {
+        // If no match found, it might be an edited email
+        // Create attendee with the selected email directly
+        attendees.push({
+          email: selectedEmail,
+          displayName: selectedEmail.split("@")[0], // Use email prefix as name
+        });
+        console.log(`✅ Using edited email directly: ${selectedEmail}`);
+      }
+    }
+
     console.log("=== FINAL ATTENDEE LIST (REQUEST) ===", attendees);
+    console.log("Number of attendees being sent:", attendees.length);
     // Primary technician scheduling
     const primaryTechnician = selectedTechnicians.find((t) => t.scheduledTime);
     const scheduledTime = primaryTechnician?.scheduledTime;
@@ -149,6 +185,11 @@ Address: ${jobData.address}`;
       }
     );
     const calendarData = await calendarResponse.json();
+
+    console.log("=== GOOGLE CALENDAR API RESPONSE ===");
+    console.log("Response status:", calendarResponse.status);
+    console.log("Full response:", JSON.stringify(calendarData, null, 2));
+
     if (!calendarResponse.ok) {
       throw new Error(
         `Google Calendar API error: ${JSON.stringify(calendarData)}`

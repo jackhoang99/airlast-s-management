@@ -293,6 +293,28 @@ Address: ${jobData.address}`;
         attendeesToSend.map((a) => a.email)
       );
 
+      // Debug: Show the mismatch between selectedAttendees and available emails
+      console.log("=== EMAIL MISMATCH DEBUG ===");
+      console.log("selectedAttendees:", Array.from(selectedAttendees));
+      console.log(
+        "allEmails:",
+        allEmails.map((a) => a.email)
+      );
+      console.log(
+        "attendeesToSend:",
+        attendeesToSend.map((a) => a.email)
+      );
+
+      // Check for mismatches
+      Array.from(selectedAttendees).forEach((selectedEmail) => {
+        const found = allEmails.find((email) => email.email === selectedEmail);
+        console.log(
+          `Selected email ${selectedEmail}: ${
+            found ? "FOUND" : "NOT FOUND"
+          } in allEmails`
+        );
+      });
+
       // Call the edge function to create the calendar event
       const response = await supabase.functions.invoke(
         "send-google-calendar-invite",
