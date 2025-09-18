@@ -60,6 +60,8 @@ type InspectionData = {
   tonnage: string | null;
   unit_type: "Gas" | "Electric" | null;
   system_type: string | null;
+  belt_size: string | null;
+  filter_size: string | null;
   comment: string | null;
   created_at: string;
   updated_at: string;
@@ -225,12 +227,27 @@ const GenerateQuote = ({
         const { data: inspData, error: inspError } = await supabase
           .from("job_inspections")
           .select(
-            "id, model_number, manufacture_name, serial_number, age, tonnage, unit_type, system_type, comment, completed"
+            "id, model_number, manufacture_name, serial_number, age, tonnage, unit_type, system_type, belt_size, filter_size, comment, completed, job_unit_id, created_at, updated_at"
           )
           .eq("job_id", jobId)
           .eq("completed", true);
 
         if (inspError) throw inspError;
+        console.log("Fetched inspection data:", inspData);
+        console.log(
+          "Database query result structure:",
+          inspData?.[0] ? Object.keys(inspData[0]) : "No data"
+        );
+        console.log(
+          "Belt size values:",
+          inspData?.map((insp) => ({
+            id: insp.id,
+            belt_size: insp.belt_size,
+            filter_size: insp.filter_size,
+            hasBeltSize: "belt_size" in insp,
+            hasFilterSize: "filter_size" in insp,
+          }))
+        );
         setAvailableInspections(inspData || []);
 
         // Fetch available replacements (optimized - only fetch phase2 since that's what's being used)
@@ -608,6 +625,8 @@ const GenerateQuote = ({
         tonnage: insp.tonnage,
         unit_type: insp.unit_type,
         system_type: insp.system_type,
+        belt_size: insp.belt_size,
+        filter_size: insp.filter_size,
         comment: insp.comment || null,
       }));
 
@@ -767,9 +786,24 @@ const GenerateQuote = ({
                       : {},
                   inspectionData:
                     selectedQuoteType === "inspection"
-                      ? availableInspections.filter((insp) =>
-                          selectedInspections.includes(insp.id)
-                        )
+                      ? (() => {
+                          const filtered = availableInspections.filter((insp) =>
+                            selectedInspections.includes(insp.id)
+                          );
+                          console.log(
+                            "Filtered inspection data being sent to PDF:",
+                            filtered
+                          );
+                          console.log(
+                            "Belt/Filter sizes in filtered data:",
+                            filtered.map((insp) => ({
+                              id: insp.id,
+                              belt_size: insp.belt_size,
+                              filter_size: insp.filter_size,
+                            }))
+                          );
+                          return filtered;
+                        })()
                       : [],
                   repairItems:
                     selectedQuoteType === "repair"

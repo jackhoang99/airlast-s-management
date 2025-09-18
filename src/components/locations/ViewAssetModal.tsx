@@ -104,6 +104,15 @@ const ViewAssetModal = ({ asset, onClose }: ViewAssetModalProps) => {
                     {asset.model?.unit_type || "N/A"}
                   </p>
                 </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">
+                    Belt Size:
+                  </label>
+                  <p className="text-gray-900">
+                    {asset.model?.belt_size || "N/A"}
+                  </p>
+                </div>
               </div>
 
               {/* Right Column */}
@@ -141,6 +150,15 @@ const ViewAssetModal = ({ asset, onClose }: ViewAssetModalProps) => {
                   </label>
                   <p className="text-gray-900">
                     {asset.model?.system_type || "N/A"}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-500">
+                    Filter Size:
+                  </label>
+                  <p className="text-gray-900">
+                    {asset.model?.filter_size || "N/A"}
                   </p>
                 </div>
 

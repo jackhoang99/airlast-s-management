@@ -228,6 +228,14 @@ const UnitAssets = () => {
                       <span className="font-semibold">Serial #:</span>{" "}
                       {asset.model?.serial_number ?? "-"}
                     </div>
+                    <div>
+                      <span className="font-semibold">Belt Size:</span>{" "}
+                      {asset.model?.belt_size ?? "-"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Filter Size:</span>{" "}
+                      {asset.model?.filter_size ?? "-"}
+                    </div>
                     <div className="col-span-2">
                       <span className="font-semibold">Comment:</span>{" "}
                       {asset.model?.comment ?? "-"}

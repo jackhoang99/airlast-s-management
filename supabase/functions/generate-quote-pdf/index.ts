@@ -61,6 +61,23 @@ serve(async (req) => {
       hasPMQuotes: !!pmQuotes,
       pmQuotesCount: Array.isArray(pmQuotes) ? pmQuotes.length : 0,
     });
+
+    // Debug inspection data specifically
+    if (Array.isArray(inspectionData) && inspectionData.length > 0) {
+      console.log("=== INSPECTION DATA DEBUG ===");
+      console.log(
+        "Inspection data structure:",
+        inspectionData.map((insp) => ({
+          id: insp.id,
+          hasBeltSize: "belt_size" in insp,
+          beltSizeValue: insp.belt_size,
+          beltSizeType: typeof insp.belt_size,
+          hasFilterSize: "filter_size" in insp,
+          filterSizeValue: insp.filter_size,
+          filterSizeType: typeof insp.filter_size,
+        }))
+      );
+    }
     // Debug the repair condition
     console.log("Repair condition check:", {
       quoteType,
@@ -774,8 +791,17 @@ serve(async (req) => {
     if (Array.isArray(inspectionData) && inspectionData.length > 0) {
       console.log("=== INSPECTION RESULTS SECTION ENTERED ===");
       console.log(
+        "Full request body received:",
+        JSON.stringify(req.body, null, 2)
+      );
+      console.log(
         "Inspection data received:",
         JSON.stringify(inspectionData, null, 2)
+      );
+      console.log("First inspection belt_size:", inspectionData[0]?.belt_size);
+      console.log(
+        "First inspection filter_size:",
+        inspectionData[0]?.filter_size
       );
       // Check if we need a new page
       if (y < 200) {
@@ -805,8 +831,14 @@ serve(async (req) => {
         console.log(`Processing inspection ${i + 1}:`, {
           id: insp.id,
           manufacture_name: insp.manufacture_name,
+          belt_size: insp.belt_size,
+          filter_size: insp.filter_size,
           comment: insp.comment,
         });
+        console.log(
+          `Full inspection object for ${i + 1}:`,
+          JSON.stringify(insp, null, 2)
+        );
 
         // Fetch attachments for this inspection
         let inspectionAttachments = [];
@@ -902,11 +934,27 @@ serve(async (req) => {
           leftColumn.push(`Model Number: ${insp.model_number}`);
         if (insp.age) leftColumn.push(`Age: ${insp.age} years`);
         if (insp.unit_type) leftColumn.push(`Unit Type: ${insp.unit_type}`);
+        console.log(
+          `Belt size value: "${
+            insp.belt_size
+          }", type: ${typeof insp.belt_size}, is null: ${
+            insp.belt_size === null
+          }, is undefined: ${insp.belt_size === undefined}`
+        );
+        leftColumn.push(`Belt Size: ${insp.belt_size || "N/A"}`);
         if (insp.serial_number)
           rightColumn.push(`Serial Number: ${insp.serial_number}`);
         if (insp.tonnage) rightColumn.push(`Tonnage: ${insp.tonnage}`);
         if (insp.system_type)
           rightColumn.push(`System Type: ${insp.system_type}`);
+        console.log(
+          `Filter size value: "${
+            insp.filter_size
+          }", type: ${typeof insp.filter_size}, is null: ${
+            insp.filter_size === null
+          }, is undefined: ${insp.filter_size === undefined}`
+        );
+        rightColumn.push(`Filter Size: ${insp.filter_size || "N/A"}`);
         // Draw left column
         let leftY = y;
         for (const detail of leftColumn) {

@@ -20,6 +20,7 @@ import ArrowBack from "../components/ui/ArrowBack";
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
 import AppointmentModal from "../components/jobs/AppointmentModal";
+import GoogleCalendarModal from "../components/jobs/GoogleCalendarModal";
 
 type Location = Database["public"]["Tables"]["locations"]["Row"] & {
   companies: {
@@ -62,6 +63,10 @@ const CreateJob = () => {
   );
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [showGoogleCalendarModal, setShowGoogleCalendarModal] = useState(false);
+  const [unitDetails, setUnitDetails] = useState<{
+    [key: string]: { unit_number: string };
+  }>({});
   const [presetName, setPresetName] = useState("");
   const [presets, setPresets] = useState<any[]>([]);
   const [selectedTechnicians, setSelectedTechnicians] = useState<User[]>([]);
@@ -651,6 +656,29 @@ const CreateJob = () => {
     return Object.keys(errors).length === 0;
   };
 
+  const fetchUnitDetails = async (unitIds: string[]) => {
+    if (!supabase || unitIds.length === 0) return {};
+
+    try {
+      const { data: units, error } = await supabase
+        .from("units")
+        .select("id, unit_number")
+        .in("id", unitIds);
+
+      if (error) throw error;
+
+      const unitDetailsMap: { [key: string]: { unit_number: string } } = {};
+      units?.forEach((unit) => {
+        unitDetailsMap[unit.id] = { unit_number: unit.unit_number };
+      });
+
+      return unitDetailsMap;
+    } catch (err) {
+      console.error("Error fetching unit details:", err);
+      return {};
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) return;
@@ -660,6 +688,19 @@ const CreateJob = () => {
       // Don't set a generic error message, let the individual field errors show
       return;
     }
+
+    // Fetch unit details if we have selected units
+    if (selectedUnitIds.length > 0) {
+      const details = await fetchUnitDetails(selectedUnitIds);
+      setUnitDetails(details);
+    }
+
+    // Show Google Calendar modal instead of directly creating the job
+    setShowGoogleCalendarModal(true);
+  };
+
+  const handleCreateJob = async () => {
+    if (!supabase) return;
 
     setIsLoading(true);
     setError(null);
@@ -2117,6 +2158,45 @@ const CreateJob = () => {
         onSave={handleScheduleAppointment}
         selectedTechnicianIds={formData.technician_ids}
         jobId={undefined}
+      />
+
+      {/* Google Calendar Modal */}
+      <GoogleCalendarModal
+        isOpen={showGoogleCalendarModal}
+        onClose={() => setShowGoogleCalendarModal(false)}
+        onConfirm={handleCreateJob}
+        jobData={{
+          address: `${formData.service_address}, ${formData.service_city}, ${formData.service_state} ${formData.service_zip}`,
+          jobType: formData.type,
+          description: formData.description,
+          problemDescription: formData.problem_description,
+          startDate: formData.time_period_start,
+          dueDate: formData.time_period_due,
+          contactName:
+            `${formData.contact_first_name} ${formData.contact_last_name}`.trim(),
+          contactPhone: formData.contact_phone,
+          contactEmail: formData.contact_email,
+          unitInfo:
+            selectedUnitIds.length > 0
+              ? selectedUnitIds
+                  .map((unitId) => {
+                    const unit =
+                      unitDetails[unitId] ||
+                      unitsForLocation.find((u) => u.id === unitId);
+                    return unit ? unit.unit_number : unitId.slice(-4); // Fallback to last 4 chars of ID
+                  })
+                  .join(", ")
+              : formData.unit_number || "N/A",
+          companyName:
+            selectedLocation?.companies?.name || formData.company_name,
+          locationName: selectedLocation?.name || formData.location_name,
+        }}
+        selectedTechnicians={selectedTechnicians.map((tech) => ({
+          id: tech.id,
+          name: `${tech.first_name} ${tech.last_name}`.trim(),
+          email: tech.email || `${tech.username}@airlast.com`,
+          scheduledTime: technicianSchedules[tech.id]?.scheduleTime,
+        }))}
       />
     </div>
   );

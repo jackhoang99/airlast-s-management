@@ -48,6 +48,8 @@ type InspectionData = {
   tonnage: string | null;
   unit_type: "Gas" | "Electric" | null;
   system_type: string | null;
+  belt_size: string | null;
+  filter_size: string | null;
   created_at: string;
   updated_at: string;
   completed: boolean;

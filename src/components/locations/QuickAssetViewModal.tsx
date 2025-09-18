@@ -242,9 +242,17 @@ const QuickAssetViewModal = ({
                     <span className="font-semibold">Serial #:</span>{" "}
                     {asset.model?.serial_number ?? "-"}
                   </div>
-                  <div className="col-span-2">
+                  <div>
                     <span className="font-semibold">System:</span>{" "}
                     {asset.model?.system_type ?? "-"}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Belt Size:</span>{" "}
+                    {asset.model?.belt_size ?? "-"}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Filter Size:</span>{" "}
+                    {asset.model?.filter_size ?? "-"}
                   </div>
                 </div>
                 <div className="text-xs text-gray-500">

@@ -265,6 +265,20 @@ const CustomerUnitAssets = () => {
                         {selectedAsset.model?.system_type || "N/A"}
                       </p>
                     </div>
+                    <div>
+                      <label className="text-xs text-gray-500">Belt Size</label>
+                      <p className="font-medium">
+                        {selectedAsset.model?.belt_size || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">
+                        Filter Size
+                      </label>
+                      <p className="font-medium">
+                        {selectedAsset.model?.filter_size || "N/A"}
+                      </p>
+                    </div>
                   </div>
                 </div>
 

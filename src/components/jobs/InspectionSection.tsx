@@ -14,6 +14,7 @@ import {
 import InspectionForm from "./inspection/InspectionForm";
 import GenerateQuote from "../GenerateQuote";
 import InspectionAttachmentSection from "./InspectionAttachmentSection";
+import InspectionAttachmentModal from "../locations/InspectionAttachmentModal";
 import InspectionAttachmentPreview from "./InspectionAttachmentPreview";
 
 type InspectionSectionProps = {
@@ -461,6 +462,20 @@ const InspectionSection = ({
                           : "N/A"}
                       </p>
                     </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">
+                        Belt Size
+                      </p>
+                      <p className="text-sm">{inspection.belt_size || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">
+                        Filter Size
+                      </p>
+                      <p className="text-sm">
+                        {inspection.filter_size || "N/A"}
+                      </p>
+                    </div>
                     <div className="sm:col-span-2">
                       <p className="text-xs font-medium text-gray-500">
                         Comment
@@ -637,41 +652,25 @@ const InspectionSection = ({
 
       {/* Inspection Attachments Modal */}
       {showAttachmentModal && selectedInspectionForAttachments && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                <Paperclip className="h-5 w-5 mr-2" />
-                Inspection Attachments -{" "}
-                {selectedInspectionForAttachments.manufacture_name ||
-                  "Inspection"}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowAttachmentModal(false);
-                  setSelectedInspectionForAttachments(null);
-                }}
-                className="p-1 text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto max-h-[calc(90vh-80px)]">
-              <InspectionAttachmentSection
-                inspectionId={selectedInspectionForAttachments.id}
-                title=""
-                onAttachmentChange={() => {
-                  // Refresh attachment counts when attachments change
-                  if (localInspectionData.length > 0) {
-                    fetchAttachmentCounts(localInspectionData);
-                  }
-                  // Trigger refresh of attachment previews
-                  setAttachmentRefreshTrigger((prev) => prev + 1);
-                }}
-              />
-            </div>
-          </div>
-        </div>
+        <InspectionAttachmentModal
+          isOpen={showAttachmentModal}
+          onClose={() => {
+            setShowAttachmentModal(false);
+            setSelectedInspectionForAttachments(null);
+          }}
+          inspectionId={selectedInspectionForAttachments.id}
+          title={`Inspection Attachments - ${
+            selectedInspectionForAttachments.manufacture_name || "Inspection"
+          }`}
+          onAttachmentChange={() => {
+            // Refresh attachment counts when attachments change
+            if (localInspectionData.length > 0) {
+              fetchAttachmentCounts(localInspectionData);
+            }
+            // Trigger refresh of attachment previews
+            setAttachmentRefreshTrigger((prev) => prev + 1);
+          }}
+        />
       )}
     </div>
   );

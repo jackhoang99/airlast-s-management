@@ -482,6 +482,12 @@ const CustomerAssets = () => {
                 <b>System Type:</b> {selectedAsset.model?.system_type || "N/A"}
               </div>
               <div>
+                <b>Belt Size:</b> {selectedAsset.model?.belt_size || "N/A"}
+              </div>
+              <div>
+                <b>Filter Size:</b> {selectedAsset.model?.filter_size || "N/A"}
+              </div>
+              <div>
                 <b>Comment:</b> {selectedAsset.model?.comment || ""}
               </div>
               <div>

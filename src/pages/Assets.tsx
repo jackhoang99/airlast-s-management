@@ -12,12 +12,12 @@ import {
   Edit,
   Trash2,
   X,
-  Eye,
 } from "lucide-react";
 import InspectionForm from "../components/jobs/inspection/InspectionForm";
 import AddAssetForm from "../components/locations/AddAssetForm";
 import EditAssetForm from "../components/locations/EditAssetForm";
-import ViewAssetModal from "../components/locations/ViewAssetModal";
+import InspectionAttachmentModal from "../components/locations/InspectionAttachmentModal";
+import AssetAttachmentButton from "../components/locations/AssetAttachmentButton";
 
 const Assets = () => {
   const { supabase } = useSupabase();
@@ -34,6 +34,8 @@ const Assets = () => {
     tonnage: "",
     unitType: "",
     systemType: "",
+    beltSize: "",
+    filterSize: "",
     unit: "",
     location: "",
     company: "",
@@ -57,9 +59,9 @@ const Assets = () => {
   const [showInspectionForm, setShowInspectionForm] = useState(false);
   const [showAddAssetForm, setShowAddAssetForm] = useState(false);
   const [showEditAssetForm, setShowEditAssetForm] = useState(false);
-  const [showViewAssetModal, setShowViewAssetModal] = useState(false);
-  const [viewingAsset, setViewingAsset] = useState<any | null>(null);
   const [editingAsset, setEditingAsset] = useState<any | null>(null);
+  const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+  const [attachmentAsset, setAttachmentAsset] = useState<any | null>(null);
   const [commentModal, setCommentModal] = useState<{
     open: boolean;
     comment: string | null;
@@ -69,6 +71,7 @@ const Assets = () => {
     if (!supabase) return;
     try {
       setIsLoading(true);
+      console.log("Fetching assets with updated query (v2)");
 
       const { data: locationsData, error: locationsError } = await supabase
         .from("locations")
@@ -84,7 +87,10 @@ const Assets = () => {
       if (unitsError) throw unitsError;
       setUnits(unitsData || []);
 
-      let query = supabase.from("assets").select(`
+      let query = supabase
+        .from("assets")
+        .select(
+          `
         *,
         units (
           id,
@@ -100,7 +106,9 @@ const Assets = () => {
             )
           )
         )
-      `);
+      `
+        )
+        .order("created_at", { ascending: false });
 
       if (filters.modelNumber) {
         query = query.ilike("model->>model_number", `%${filters.modelNumber}%`);
@@ -124,10 +132,10 @@ const Assets = () => {
         query = query.eq("unit_id", filters.unit);
       }
       if (filters.dateFrom) {
-        query = query.gte("inspection_date", filters.dateFrom);
+        query = query.gte("created_at", filters.dateFrom);
       }
       if (filters.dateTo) {
-        query = query.lte("inspection_date", filters.dateTo);
+        query = query.lte("created_at", filters.dateTo);
       }
 
       // Apply company filter if company parameter is provided
@@ -224,12 +232,14 @@ const Assets = () => {
     const tonnage = asset.model?.tonnage?.toLowerCase() || "";
     const unitType = asset.model?.unit_type?.toLowerCase() || "";
     const systemType = asset.model?.system_type?.toLowerCase() || "";
+    const beltSize = asset.model?.belt_size?.toLowerCase() || "";
+    const filterSize = asset.model?.filter_size?.toLowerCase() || "";
     const unitNumber = asset.units?.unit_number?.toLowerCase() || "";
     const locationName = asset.units?.locations?.name?.toLowerCase() || "";
     const companyName =
       asset.units?.locations?.companies?.name?.toLowerCase() || "";
-    const inspectionDate = asset.inspection_date
-      ? formatDate(asset.inspection_date).toLowerCase()
+    const createdDate = asset.created_at
+      ? formatDate(asset.created_at).toLowerCase()
       : "";
     const comments = asset.model?.comment?.toLowerCase() || "";
 
@@ -250,6 +260,10 @@ const Assets = () => {
         unitType.includes(columnSearches.unitType.toLowerCase())) &&
       (columnSearches.systemType === "" ||
         systemType.includes(columnSearches.systemType.toLowerCase())) &&
+      (columnSearches.beltSize === "" ||
+        beltSize.includes(columnSearches.beltSize.toLowerCase())) &&
+      (columnSearches.filterSize === "" ||
+        filterSize.includes(columnSearches.filterSize.toLowerCase())) &&
       (columnSearches.unit === "" ||
         unitNumber.includes(columnSearches.unit.toLowerCase())) &&
       (columnSearches.location === "" ||
@@ -257,7 +271,7 @@ const Assets = () => {
       (columnSearches.company === "" ||
         companyName.includes(columnSearches.company.toLowerCase())) &&
       (columnSearches.inspectionDate === "" ||
-        inspectionDate.includes(columnSearches.inspectionDate.toLowerCase())) &&
+        createdDate.includes(columnSearches.inspectionDate.toLowerCase())) &&
       (columnSearches.comments === "" ||
         comments.includes(columnSearches.comments.toLowerCase()))
     );
@@ -384,6 +398,24 @@ const Assets = () => {
               />
               <input
                 type="text"
+                placeholder="Belt Size"
+                value={columnSearches.beltSize}
+                onChange={(e) =>
+                  handleColumnSearchChange("beltSize", e.target.value)
+                }
+                className="px-2 py-1 border border-gray-300 rounded text-xs"
+              />
+              <input
+                type="text"
+                placeholder="Filter Size"
+                value={columnSearches.filterSize}
+                onChange={(e) =>
+                  handleColumnSearchChange("filterSize", e.target.value)
+                }
+                className="px-2 py-1 border border-gray-300 rounded text-xs"
+              />
+              <input
+                type="text"
                 placeholder="Unit"
                 value={columnSearches.unit}
                 onChange={(e) =>
@@ -411,7 +443,7 @@ const Assets = () => {
               />
               <input
                 type="text"
-                placeholder="Date"
+                placeholder="Date Added"
                 value={columnSearches.inspectionDate}
                 onChange={(e) =>
                   handleColumnSearchChange("inspectionDate", e.target.value)
@@ -500,6 +532,12 @@ const Assets = () => {
                     TYPE
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
+                    BELT SIZE
+                  </th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
+                    FILTER SIZE
+                  </th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
                     UNIT
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
@@ -509,13 +547,13 @@ const Assets = () => {
                     COMPANY
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
-                    INSPECTION DATE
+                    DATE ADDED
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
                     COMMENTS
                   </th>
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
-                    DETAILS
+                    ATTACHMENTS
                   </th>
                 </tr>
               </thead>
@@ -541,6 +579,12 @@ const Assets = () => {
                       {asset.model?.unit_type ||
                         asset.model?.system_type ||
                         "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {asset.model?.belt_size || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {asset.model?.filter_size || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {asset.units ? (
@@ -579,7 +623,7 @@ const Assets = () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {formatDate(asset.inspection_date)}
+                      {formatDate(asset.created_at)}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {asset.model?.comment ? (
@@ -599,51 +643,13 @@ const Assets = () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <button
-                        onClick={() => {
-                          setViewingAsset(asset);
-                          setShowViewAssetModal(true);
+                      <AssetAttachmentButton
+                        asset={asset}
+                        onViewAttachments={(asset) => {
+                          setAttachmentAsset(asset);
+                          setShowAttachmentModal(true);
                         }}
-                        className="text-primary-600 hover:text-primary-800 flex items-center gap-1"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        className="ml-2 text-primary-600 hover:text-primary-800"
-                        onClick={() => {
-                          setEditingAsset(asset);
-                          setShowEditAssetForm(true);
-                        }}
-                        title="Edit Asset"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        className="ml-2 text-error-600 hover:text-error-800"
-                        onClick={async () => {
-                          if (
-                            window.confirm(
-                              "Are you sure you want to delete this asset?"
-                            )
-                          ) {
-                            if (!supabase) return;
-                            setIsLoading(true);
-                            await supabase
-                              .from("assets")
-                              .delete()
-                              .eq("id", asset.id);
-                            // Refresh asset list
-                            const { data, error } = await supabase
-                              .from("assets")
-                              .select("*");
-                            if (!error) setAssets(data || []);
-                            setIsLoading(false);
-                          }
-                        }}
-                        title="Delete Asset"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      />
                     </td>
                   </tr>
                 ))}
@@ -730,13 +736,17 @@ const Assets = () => {
         </div>
       )}
 
-      {showViewAssetModal && viewingAsset && (
-        <ViewAssetModal
-          asset={viewingAsset}
+      {showAttachmentModal && attachmentAsset && (
+        <InspectionAttachmentModal
+          isOpen={showAttachmentModal}
           onClose={() => {
-            setShowViewAssetModal(false);
-            setViewingAsset(null);
+            setShowAttachmentModal(false);
+            setAttachmentAsset(null);
           }}
+          inspectionId={attachmentAsset.model?.inspection_id || ""}
+          title={`Inspection Attachments - ${
+            attachmentAsset.model?.manufacture_name || "Asset"
+          }`}
         />
       )}
     </div>

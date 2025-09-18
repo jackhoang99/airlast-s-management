@@ -17,6 +17,8 @@ type InspectionData = {
   tonnage: string;
   unit_type: "Gas" | "Electric";
   system_type: string;
+  belt_size?: string;
+  filter_size?: string;
   comment?: string;
   job_unit_id?: string; // Use job_unit_id instead of unit_id
 };
@@ -52,6 +54,8 @@ const InspectionForm = ({
       tonnage: "",
       unit_type: "Gas",
       system_type: "",
+      belt_size: "",
+      filter_size: "",
       comment: "",
       // If only one unit, set job_unit_id by default
       ...(jobUnits && jobUnits.length === 1
@@ -163,6 +167,8 @@ const InspectionForm = ({
             tonnage: inspectionData.tonnage || null,
             unit_type: inspectionData.unit_type,
             system_type: inspectionData.system_type,
+            belt_size: inspectionData.belt_size || null,
+            filter_size: inspectionData.filter_size || null,
             comment: inspectionData.comment || null,
             updated_at: new Date().toISOString(),
             job_unit_id: inspectionData.job_unit_id || null, // Use job_unit_id
@@ -183,6 +189,8 @@ const InspectionForm = ({
             tonnage: inspectionData.tonnage || null,
             unit_type: inspectionData.unit_type,
             system_type: inspectionData.system_type,
+            belt_size: inspectionData.belt_size || null,
+            filter_size: inspectionData.filter_size || null,
             comment: inspectionData.comment || null,
             completed: false,
             job_unit_id: inspectionData.job_unit_id || null, // Use job_unit_id
@@ -445,6 +453,52 @@ const InspectionForm = ({
                 }}
                 className="input w-full text-base sm:text-sm"
                 placeholder="Enter system type"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Belt Size
+              </label>
+              <input
+                type="text"
+                value={inspectionData.belt_size || ""}
+                onChange={(e) =>
+                  setInspectionData((prev) => ({
+                    ...prev,
+                    belt_size: e.target.value,
+                  }))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="input w-full text-base sm:text-sm"
+                placeholder="Enter belt size"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filter Size
+              </label>
+              <input
+                type="text"
+                value={inspectionData.filter_size || ""}
+                onChange={(e) =>
+                  setInspectionData((prev) => ({
+                    ...prev,
+                    filter_size: e.target.value,
+                  }))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="input w-full text-base sm:text-sm"
+                placeholder="Enter filter size"
               />
             </div>
             <div>

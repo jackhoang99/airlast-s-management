@@ -438,6 +438,14 @@ const PublicUnitDetails = () => {
                       <span className="font-semibold">System Type:</span>{" "}
                       {asset.model?.system_type ?? "-"}
                     </div>
+                    <div>
+                      <span className="font-semibold">Belt Size:</span>{" "}
+                      {asset.model?.belt_size ?? "-"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Filter Size:</span>{" "}
+                      {asset.model?.filter_size ?? "-"}
+                    </div>
                   </div>
                   {asset.model?.comment && (
                     <div className="text-sm text-gray-600 mt-2">

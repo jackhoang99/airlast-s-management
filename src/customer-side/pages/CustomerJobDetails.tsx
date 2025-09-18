@@ -664,6 +664,18 @@ const CustomerJobDetails = () => {
                             {asset.model?.system_type || "N/A"}
                           </p>
                         </div>
+                        <div>
+                          <p className="text-gray-600">Belt Size:</p>
+                          <p className="font-medium">
+                            {asset.model?.belt_size || "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Filter Size:</p>
+                          <p className="font-medium">
+                            {asset.model?.filter_size || "N/A"}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   ))}
