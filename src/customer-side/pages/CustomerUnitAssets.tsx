@@ -9,6 +9,7 @@ import {
   Building2,
   AlertTriangle,
 } from "lucide-react";
+import CustomerInspectionAttachmentPreview from "../components/CustomerInspectionAttachmentPreview";
 
 const CustomerUnitAssets = () => {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,7 @@ const CustomerUnitAssets = () => {
   const [error, setError] = useState<string | null>(null);
   const [unit, setUnit] = useState<any>(null);
   const [assets, setAssets] = useState<any[]>([]);
+  const [jobInspections, setJobInspections] = useState<any[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
 
@@ -81,6 +83,38 @@ const CustomerUnitAssets = () => {
 
         if (assetsError) throw assetsError;
         setAssets(assetsData || []);
+
+        // Fetch job inspections for jobs related to this unit
+        const { data: inspectionsData, error: inspectionsError } =
+          await supabase
+            .from("job_inspections")
+            .select(
+              `
+            *,
+            jobs!inner (
+              id,
+              job_units!inner (
+                unit_id
+              )
+            ),
+            inspection_attachments (
+              id,
+              title,
+              description,
+              file_name,
+              file_path,
+              file_url,
+              file_size,
+              file_type,
+              created_at
+            )
+          `
+            )
+            .eq("jobs.job_units.unit_id", id)
+            .order("created_at", { ascending: false });
+
+        if (inspectionsError) throw inspectionsError;
+        setJobInspections(inspectionsData || []);
 
         // Set the first asset as selected by default
         if (assetsData && assetsData.length > 0) {
@@ -296,6 +330,34 @@ const CustomerUnitAssets = () => {
                       </p>
                     </div>
                   </div>
+
+                  {/* Show job inspections with attachments for this unit */}
+                  {jobInspections.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">
+                        Inspection Attachments
+                      </h4>
+                      <div className="space-y-4">
+                        {jobInspections.map((inspection) => (
+                          <div
+                            key={inspection.id}
+                            className="bg-white p-3 rounded-lg border"
+                          >
+                            <div className="text-sm text-gray-600 mb-2">
+                              Inspection from{" "}
+                              {formatDate(inspection.created_at)}
+                            </div>
+                            {inspection.inspection_attachments &&
+                              inspection.inspection_attachments.length > 0 && (
+                                <CustomerInspectionAttachmentPreview
+                                  inspectionId={inspection.id}
+                                />
+                              )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

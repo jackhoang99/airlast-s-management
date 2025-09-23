@@ -170,7 +170,23 @@ const JobsSection: React.FC<JobsSectionProps> = ({
         if (locationId) {
           query = query.eq("location_id", locationId);
         } else if (companyId) {
-          query = query.eq("locations.company_id", companyId);
+          // First get all locations for this company
+          const { data: locationData, error: locationError } = await supabase
+            .from("locations")
+            .select("id")
+            .eq("company_id", companyId);
+
+          if (locationError) throw locationError;
+
+          if (!locationData || locationData.length === 0) {
+            // No locations found for this company
+            setJobs([]);
+            setLoading(false);
+            return;
+          }
+
+          const locationIds = locationData.map((loc: any) => loc.id);
+          query = query.in("location_id", locationIds);
         } else if (unitId) {
           // For unit filtering, we need to use a different approach
           // First get job IDs that are associated with this unit

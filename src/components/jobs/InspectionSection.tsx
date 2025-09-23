@@ -403,6 +403,14 @@ const InspectionSection = ({
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
                     <div>
+                      <p className="text-xs font-medium text-gray-500">Unit</p>
+                      <p className="text-sm">
+                        {jobUnits?.find(
+                          (ju) => ju.id === inspection.job_unit_id
+                        )?.unit_number || "N/A"}
+                      </p>
+                    </div>
+                    <div>
                       <p className="text-xs font-medium text-gray-500">
                         Manufacture Name
                       </p>

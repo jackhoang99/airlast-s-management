@@ -21,6 +21,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import Map from "../../components/ui/Map";
+import CustomerInspectionAttachmentPreview from "../components/CustomerInspectionAttachmentPreview";
 
 const CustomerJobDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +33,7 @@ const CustomerJobDetails = () => {
   const [jobItems, setJobItems] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [jobAssets, setJobAssets] = useState<any[]>([]);
+  const [jobInspections, setJobInspections] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [additionalContacts, setAdditionalContacts] = useState<any[]>([]);
   const [replacementData, setReplacementData] = useState<any[]>([]);
@@ -69,6 +71,7 @@ const CustomerJobDetails = () => {
               company_id
             ),
             job_units:job_units!inner (
+              id,
               unit_id,
               units:unit_id (
                 id,
@@ -124,6 +127,32 @@ const CustomerJobDetails = () => {
 
         if (assetsError) throw assetsError;
         setJobAssets(assetsData || []);
+
+        // Fetch job inspections with attachments
+        const { data: inspectionsData, error: inspectionsError } =
+          await supabase
+            .from("job_inspections")
+            .select(
+              `
+            *,
+            inspection_attachments (
+              id,
+              title,
+              description,
+              file_name,
+              file_path,
+              file_url,
+              file_size,
+              file_type,
+              created_at
+            )
+          `
+            )
+            .eq("job_id", id)
+            .order("created_at", { ascending: false });
+
+        if (inspectionsError) throw inspectionsError;
+        setJobInspections(inspectionsData || []);
 
         // Fetch customer comments
         const { data: commentsData, error: commentsError } = await supabase
@@ -608,74 +637,95 @@ const CustomerJobDetails = () => {
               </div>
             </div>
 
-            {/* Job Assets Section - Show inspection results */}
-            {jobAssets.length > 0 && (
+            {/* Job Inspections Section - Show inspection results */}
+            {jobInspections.length > 0 && (
               <div className="mt-6">
                 <h3 className="text-md font-medium mb-3">Inspection Results</h3>
                 <div className="space-y-4">
-                  {jobAssets.map((asset) => (
+                  {jobInspections.map((inspection) => (
                     <div
-                      key={asset.id}
+                      key={inspection.id}
                       className="p-4 bg-blue-50 rounded-lg border border-blue-200"
                     >
                       <h4 className="font-medium mb-2">
-                        Inspection from {formatDate(asset.inspection_date)}
+                        Inspection from {formatDate(inspection.created_at)}
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                         <div>
+                          <p className="text-gray-600">Unit:</p>
+                          <p className="font-medium">
+                            {job.job_units?.find(
+                              (ju: any) => ju.id === inspection.job_unit_id
+                            )?.units?.unit_number ||
+                              // Fallback to first unit if job_unit_id is missing
+                              job.job_units?.[0]?.units?.unit_number ||
+                              "N/A"}
+                          </p>
+                        </div>
+                        <div>
                           <p className="text-gray-600">Manufacture Name:</p>
                           <p className="font-medium">
-                            {asset.model?.manufacture_name || "N/A"}
+                            {inspection.manufacture_name || "N/A"}
                           </p>
                         </div>
                         <div>
                           <p className="text-gray-600">Model Number:</p>
                           <p className="font-medium">
-                            {asset.model?.model_number || "N/A"}
+                            {inspection.model_number || "N/A"}
                           </p>
                         </div>
                         <div>
                           <p className="text-gray-600">Serial Number:</p>
                           <p className="font-medium">
-                            {asset.model?.serial_number || "N/A"}
+                            {inspection.serial_number || "N/A"}
                           </p>
                         </div>
                         <div>
                           <p className="text-gray-600">Age:</p>
                           <p className="font-medium">
-                            {asset.model?.age || "N/A"} years
+                            {inspection.age || "N/A"} years
                           </p>
                         </div>
                         <div>
                           <p className="text-gray-600">Tonnage:</p>
                           <p className="font-medium">
-                            {asset.model?.tonnage || "N/A"}
+                            {inspection.tonnage || "N/A"}
                           </p>
                         </div>
                         <div>
                           <p className="text-gray-600">Unit Type:</p>
                           <p className="font-medium">
-                            {asset.model?.unit_type || "N/A"}
+                            {inspection.unit_type || "N/A"}
                           </p>
                         </div>
                         <div>
                           <p className="text-gray-600">System Type:</p>
                           <p className="font-medium">
-                            {asset.model?.system_type || "N/A"}
+                            {inspection.system_type || "N/A"}
                           </p>
                         </div>
                         <div>
                           <p className="text-gray-600">Belt Size:</p>
                           <p className="font-medium">
-                            {asset.model?.belt_size || "N/A"}
+                            {inspection.belt_size || "N/A"}
                           </p>
                         </div>
                         <div>
                           <p className="text-gray-600">Filter Size:</p>
                           <p className="font-medium">
-                            {asset.model?.filter_size || "N/A"}
+                            {inspection.filter_size || "N/A"}
                           </p>
                         </div>
+                      </div>
+
+                      {/* Inspection Attachments */}
+                      <div className="mt-4">
+                        <h5 className="text-sm font-medium text-gray-700 mb-2">
+                          Attachments
+                        </h5>
+                        <CustomerInspectionAttachmentPreview
+                          inspectionId={inspection.id}
+                        />
                       </div>
                     </div>
                   ))}

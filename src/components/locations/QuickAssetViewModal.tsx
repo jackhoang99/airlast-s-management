@@ -1,9 +1,121 @@
 import { useEffect, useState } from "react";
 import { Database } from "../../types/supabase";
 import { useSupabase } from "../../lib/supabase-context";
-import { X, Edit, Trash2 } from "lucide-react";
+import { X, Edit, Trash2, Paperclip } from "lucide-react";
 import { Link } from "react-router-dom";
 import EditAssetForm from "./EditAssetForm";
+import InspectionAttachmentPreview from "../jobs/InspectionAttachmentPreview";
+
+// Wrapper component that shows N/A when no attachments
+const InspectionAttachmentPreviewWithFallback = ({
+  inspectionId,
+}: {
+  inspectionId: string;
+}) => {
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { supabase } = useSupabase();
+
+  useEffect(() => {
+    const fetchAttachments = async () => {
+      if (!supabase || !inspectionId) {
+        setAttachments([]);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from("inspection_attachments")
+          .select("*")
+          .eq("inspection_id", inspectionId)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        setAttachments(data || []);
+      } catch (error) {
+        console.error("Error fetching attachments:", error);
+        setAttachments([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAttachments();
+  }, [supabase, inspectionId]);
+
+  if (loading) {
+    return <div className="text-sm text-gray-500">Loading...</div>;
+  }
+
+  if (attachments.length === 0) {
+    return (
+      <div className="text-sm text-gray-500">
+        No inspection attachments found for this asset.
+      </div>
+    );
+  }
+
+  // Render attachments directly without using InspectionAttachmentPreview
+  const isImageFile = (fileType: string) => {
+    return fileType.startsWith("image/");
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  return (
+    <div className="flex gap-2 flex-wrap">
+      {attachments.map((attachment) => (
+        <div
+          key={attachment.id}
+          className="relative group cursor-pointer"
+          onClick={() => {
+            if (isImageFile(attachment.file_type)) {
+              window.open(attachment.file_url, "_blank");
+            } else {
+              const link = document.createElement("a");
+              link.href = attachment.file_url;
+              link.download = attachment.file_name;
+              link.target = "_blank";
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }
+          }}
+        >
+          <div className="w-16 h-16 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center hover:bg-gray-100 transition-colors">
+            {isImageFile(attachment.file_type) ? (
+              <img
+                src={attachment.file_url}
+                alt={attachment.title || attachment.file_name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="text-xs text-gray-500 text-center p-1">
+                <div className="font-medium">
+                  {attachment.file_name.split(".")[0]}
+                </div>
+                <div className="text-gray-400">
+                  {attachment.file_name.split(".").pop()?.toUpperCase()}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="absolute -top-1 -right-1 bg-primary-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <span>+</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 interface QuickAssetViewModalProps {
   open: boolean;
@@ -257,6 +369,25 @@ const QuickAssetViewModal = ({
                 </div>
                 <div className="text-xs text-gray-500">
                   Comment: {asset.model?.comment || "-"}
+                </div>
+
+                {/* Inspection Attachments Section */}
+                <div className="mt-4 pt-3 border-t border-gray-200">
+                  <div className="flex items-center mb-2">
+                    <Paperclip className="h-4 w-4 mr-2 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-700">
+                      Inspection Attachments
+                    </span>
+                  </div>
+                  {asset.model?.inspection_id ? (
+                    <InspectionAttachmentPreviewWithFallback
+                      inspectionId={asset.model.inspection_id}
+                    />
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      No inspection attachments found for this asset.
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Buttons */}
