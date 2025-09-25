@@ -22,6 +22,7 @@ import UnitQRCode from "../components/units/UnitQRCode";
 import AssetSummary from "../components/locations/AssetSummary";
 import QuickAssetViewModal from "../components/locations/QuickAssetViewModal";
 import JobsSection from "../components/jobs/JobsSection";
+import { UnitDocumentsSection } from "../components/documents";
 import { Dialog } from "@headlessui/react";
 import AddAssetForm from "../components/locations/AddAssetForm";
 
@@ -465,6 +466,14 @@ const UnitDetails = () => {
               />
             </div>
           </div>
+
+          {/* Documents Section */}
+          <UnitDocumentsSection
+            unitId={unit.id}
+            locationId={unit.location_id}
+            companyId={unit.locations.company_id}
+            title="Unit Documents"
+          />
 
           {/* Jobs Section */}
           <JobsSection

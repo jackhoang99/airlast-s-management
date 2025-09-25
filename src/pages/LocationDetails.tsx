@@ -22,6 +22,7 @@ import QuickAssetViewModal from "../components/locations/QuickAssetViewModal";
 import { Dialog } from "@headlessui/react";
 import AddAssetForm from "../components/locations/AddAssetForm";
 import PermitSection from "../components/permits/PermitSection";
+import { LocationDocumentsSection } from "../components/documents";
 import JobsSection from "../components/jobs/JobsSection";
 
 type Location = Database["public"]["Tables"]["locations"]["Row"] & {
@@ -456,6 +457,13 @@ const LocationDetails = () => {
             </div>
             <UnitsList location={location} search={unitSearch} />
           </div>
+
+          {/* Documents Section */}
+          <LocationDocumentsSection
+            locationId={location.id}
+            companyId={location.company_id}
+            title="Location Documents"
+          />
 
           {/* Permits and Comments Section */}
           <PermitSection

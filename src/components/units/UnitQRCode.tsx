@@ -76,9 +76,9 @@ const UnitQRCode = ({ unitId, unitNumber }: UnitQRCodeProps) => {
             level="H"
             includeMargin={true}
             imageSettings={{
-              src: "https://media.licdn.com/dms/image/v2/D560BAQFYGSq9fkNHsA/company-logo_200_200/company-logo_200_200/0/1692026875749/airlast_logo?e=1756339200&v=beta&t=nQtqaAkbHqqI_eyWONgSIo097_pUkn3MEGIAM1KO4l0",
-              height: 40,
-              width: 40,
+              src: "/airlast_logo.jpeg",
+              height: 50,
+              width: 50,
               excavate: true,
             }}
           />
