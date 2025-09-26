@@ -255,7 +255,7 @@ const GenerateQuote = ({
           await supabase
             .from("job_replacements")
             .select(
-              "id, needs_crane, phase2, labor, refrigeration_recovery, start_up_costs, accessories, thermostat_startup, removal_cost, warranty, additional_items, permit_cost, selected_phase, total_cost, requires_permit, requires_big_ladder"
+              "id, needs_crane, phase2, labor, refrigeration_recovery, start_up_costs, accessories, thermostat_startup, removal_cost, warranty, additional_items, permit_cost, selected_phase, total_cost, requires_permit, requires_big_ladder, unit_info"
             )
             .eq("job_id", jobId);
 
@@ -672,6 +672,7 @@ const GenerateQuote = ({
           selectedPhase: rep.selected_phase || "phase2",
           totalCost: rep.total_cost || 0,
           created_at: rep.created_at || new Date().toISOString(),
+          unit_info: rep.unit_info || [],
         };
       });
 

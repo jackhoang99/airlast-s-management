@@ -22,7 +22,14 @@ type AccessoryItem = {
   cost: string | number;
 };
 
+type UnitInfo = {
+  id: string;
+  descriptor: string;
+  modelName: string;
+};
+
 type ReplacementData = {
+  unitInfo: UnitInfo[];
   needsCrane: boolean;
   requiresPermit: boolean;
   requiresBigLadder: boolean;
@@ -78,6 +85,7 @@ const RepairsForm = ({
     // Always initialize with empty values for new replacements
     if (!dbData || !initialData) {
       return {
+        unitInfo: [{ id: "1", descriptor: "", modelName: "Model - " }],
         needsCrane: false,
         requiresPermit: false,
         requiresBigLadder: false,
@@ -102,6 +110,9 @@ const RepairsForm = ({
     };
 
     return {
+      unitInfo: dbData.unit_info || [
+        { id: "1", descriptor: "", modelName: "" },
+      ],
       needsCrane: dbData.needs_crane || false,
       requiresPermit: dbData.requires_permit || false,
       requiresBigLadder: dbData.requires_big_ladder || false,
@@ -125,6 +136,36 @@ const RepairsForm = ({
   const [replacementData, setReplacementData] = useState<ReplacementData>(
     initializeReplacementData(initialData)
   );
+
+  // Helper functions for managing unit info
+  const addUnitInfo = () => {
+    const newId = (replacementData.unitInfo.length + 1).toString();
+    setReplacementData((prev) => ({
+      ...prev,
+      unitInfo: [
+        ...prev.unitInfo,
+        { id: newId, descriptor: "", modelName: "Model - " },
+      ],
+    }));
+  };
+
+  const removeUnitInfo = (id: string) => {
+    if (replacementData.unitInfo.length > 1) {
+      setReplacementData((prev) => ({
+        ...prev,
+        unitInfo: prev.unitInfo.filter((unit) => unit.id !== id),
+      }));
+    }
+  };
+
+  const updateUnitInfo = (id: string, field: keyof UnitInfo, value: string) => {
+    setReplacementData((prev) => ({
+      ...prev,
+      unitInfo: prev.unitInfo.map((unit) =>
+        unit.id === id ? { ...unit, [field]: value } : unit
+      ),
+    }));
+  };
   const [totalCost, setTotalCost] = useState(0);
   const [jobDetails, setJobDetails] = useState<any>(null);
   const [isFormVisible, setIsFormVisible] = useState(true);
@@ -260,6 +301,7 @@ const RepairsForm = ({
       // Create a structure that matches the database schema
       const dataToSave = {
         job_id: jobId,
+        unit_info: replacementData.unitInfo,
         needs_crane: replacementData.needsCrane,
         requires_permit: replacementData.requiresPermit,
         requires_big_ladder: replacementData.requiresBigLadder,
@@ -384,6 +426,86 @@ const RepairsForm = ({
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 flex flex-col gap-4">
+            {/* Unit Info Section */}
+            <div className="border rounded-lg overflow-hidden">
+              <div className="flex justify-between items-center p-3 bg-gray-50">
+                <h3 className="font-medium">Unit Information</h3>
+                <button
+                  type="button"
+                  onClick={addUnitInfo}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  <Plus size={16} />
+                  Add Unit
+                </button>
+              </div>
+              <div className="p-3 flex flex-col gap-4">
+                {replacementData.unitInfo.map((unit, index) => (
+                  <div
+                    key={unit.id}
+                    className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+                  >
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="text-sm font-medium text-gray-700">
+                        Unit {index + 1}
+                      </h4>
+                      {replacementData.unitInfo.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeUnitInfo(unit.id)}
+                          className="text-red-600 hover:text-red-800 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label
+                          htmlFor={`descriptor-${unit.id}`}
+                          className="block text-sm font-medium text-gray-700 mb-1"
+                        >
+                          Descriptor
+                        </label>
+                        <input
+                          type="text"
+                          id={`descriptor-${unit.id}`}
+                          value={unit.descriptor}
+                          onChange={(e) =>
+                            updateUnitInfo(
+                              unit.id,
+                              "descriptor",
+                              e.target.value
+                            )
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter unit descriptor"
+                        />
+                      </div>
+                      <div>
+                        <label
+                          htmlFor={`modelName-${unit.id}`}
+                          className="block text-sm font-medium text-gray-700 mb-1"
+                        >
+                          Model Name
+                        </label>
+                        <input
+                          type="text"
+                          id={`modelName-${unit.id}`}
+                          value={unit.modelName}
+                          onChange={(e) =>
+                            updateUnitInfo(unit.id, "modelName", e.target.value)
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter model name"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Replacement Options Section - Collapsible */}
             <div className="border rounded-lg overflow-hidden">
               <div

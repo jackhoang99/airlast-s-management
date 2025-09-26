@@ -320,6 +320,7 @@ const JobQuoteHistorySection = ({
               selectedPhase: item.selected_phase,
               totalCost: item.total_cost,
               created_at: item.created_at,
+              unit_info: item.unit_info || [],
             };
           });
 

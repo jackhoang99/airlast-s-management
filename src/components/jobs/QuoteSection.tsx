@@ -184,6 +184,7 @@ const QuoteSection = ({
             selectedPhase: item.selected_phase,
             totalCost: item.total_cost,
             created_at: item.created_at,
+            unit_info: item.unit_info || [],
           });
         });
 
@@ -682,6 +683,38 @@ const QuoteSection = ({
                     </div>
                   )}
 
+                  {/* Unit Information */}
+                  {data.unit_info &&
+                    Array.isArray(data.unit_info) &&
+                    data.unit_info.length > 0 && (
+                      <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+                        <div className="flex items-center mb-2">
+                          <span className="text-sm font-medium text-blue-800">
+                            Unit Information
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {data.unit_info.map((unit, unitIndex) => (
+                            <div
+                              key={unit.id || unitIndex}
+                              className="text-sm text-blue-700"
+                            >
+                              <span className="font-medium">
+                                Unit {unitIndex + 1}:
+                              </span>
+                              {unit.descriptor && (
+                                <span className="ml-1">{unit.descriptor}</span>
+                              )}
+                              {unit.descriptor && unit.modelName && (
+                                <span className="text-blue-500"> - </span>
+                              )}
+                              {unit.modelName && <span>{unit.modelName}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                   <div>
                     {data.phase2 && data.phase2.cost > 0 && (
                       <div className="flex justify-between items-center p-3 border-b border-gray-100">
@@ -876,6 +909,7 @@ const QuoteSection = ({
                                         selectedPhase: item.selected_phase,
                                         totalCost: item.total_cost,
                                         created_at: item.created_at,
+                                        unit_info: item.unit_info || [],
                                       });
                                     }
                                   );

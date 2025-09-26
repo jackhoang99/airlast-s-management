@@ -1,6 +1,195 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js";
 import { PDFDocument, rgb, StandardFonts } from "npm:pdf-lib";
+
+// Unified margin system constants
+const MARGINS = {
+  LEFT: 50,
+  RIGHT: 50,
+  TOP: 80,
+  BOTTOM: 100,
+  COLUMN_SPACING: 20,
+};
+// Utility function to sanitize text for PDF rendering
+function sanitizeTextForPDF(text) {
+  if (!text) return "";
+  return String(text)
+    .replace(/\n/g, " ")
+    .replace(/\r/g, " ")
+    .replace(/\t/g, " ")
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+// Utility function to wrap text within column boundaries
+function wrapTextInColumn(text, font, fontSize, maxWidth) {
+  const words = text.split(" ");
+  const lines = [];
+  let currentLine = "";
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const testWidth = font.widthOfTextAtSize(testLine, fontSize);
+    if (testWidth > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  return lines;
+}
+// Utility function to draw text within boundaries
+function drawBoundedText(page, text, x, y, options) {
+  const {
+    font,
+    fontSize,
+    color = undefined,
+    maxWidth,
+    leftMargin,
+    rightMargin,
+    width,
+  } = options;
+  const textLeftBoundary = leftMargin;
+  const textRightBoundary = width - rightMargin;
+  const contentWidth = textRightBoundary - textLeftBoundary;
+  const safeMaxWidth = maxWidth || contentWidth;
+  const boundedX = Math.max(
+    textLeftBoundary,
+    Math.min(x, textRightBoundary - 10)
+  );
+  const wrappedLines = wrapTextInColumn(text, font, fontSize, safeMaxWidth);
+  for (const line of wrappedLines) {
+    page.drawText(line, {
+      x: boundedX,
+      y: y,
+      size: fontSize,
+      font,
+      color,
+    });
+    y -= fontSize * 1.2;
+  }
+  return y;
+}
+// Helper function for consistent page breaks
+function checkPageBreak(
+  y,
+  minY,
+  dynamicPage,
+  newPdfDoc,
+  height,
+  topMargin,
+  bgImage,
+  width
+) {
+  if (y < minY) {
+    const newPage = newPdfDoc.addPage();
+    const newY = height - topMargin;
+    if (bgImage && width) {
+      newPage.drawImage(bgImage, {
+        x: 0,
+        y: 0,
+        width,
+        height,
+      });
+    }
+    return {
+      page: newPage,
+      y: newY,
+    };
+  }
+  return {
+    page: dynamicPage,
+    y,
+  };
+}
+
+// Helper to draw left/right columns with consistent margins & alignment
+function drawTwoColumnRow(page, leftItems, rightItems, y, options) {
+  const {
+    font,
+    fontSize,
+    lineHeight,
+    leftMargin,
+    rightMargin,
+    width,
+    columnSpacing = 20,
+    minY,
+    newPdfDoc,
+    height,
+    topMargin,
+    bgImage,
+  } = options;
+
+  const contentWidth = width - leftMargin - rightMargin;
+  const colWidth = (contentWidth - columnSpacing) / 2;
+
+  const leftX = leftMargin;
+  const rightX = leftMargin + colWidth + columnSpacing;
+
+  const rowCount = Math.max(leftItems.length, rightItems.length);
+
+  for (let i = 0; i < rowCount; i++) {
+    const leftText = leftItems[i] || "";
+    const rightText = rightItems[i] || "";
+
+    // Wrap each field independently within its column width
+    const leftLines = wrapTextInColumn(leftText, font, fontSize, colWidth);
+    const rightLines = wrapTextInColumn(rightText, font, fontSize, colWidth);
+
+    // Calculate the height needed for this row (max of both sides)
+    const maxLines = Math.max(leftLines.length, rightLines.length);
+    const rowHeight = maxLines * lineHeight;
+
+    // Page break check once per row
+    if (y - rowHeight < minY) {
+      const pageBreakResult = checkPageBreak(
+        y,
+        minY,
+        page,
+        newPdfDoc,
+        height,
+        topMargin,
+        bgImage,
+        width
+      );
+      page = pageBreakResult.page;
+      y = pageBreakResult.y;
+    }
+
+    // Draw each field as a row - both sides start at the same Y and stay aligned
+    for (let j = 0; j < maxLines; j++) {
+      const currentY = y - j * lineHeight;
+
+      // Draw left side text if it exists
+      if (leftLines[j]) {
+        page.drawText(leftLines[j], {
+          x: leftX,
+          y: currentY,
+          size: fontSize,
+          font,
+        });
+      }
+
+      // Draw right side text if it exists
+      if (rightLines[j]) {
+        page.drawText(rightLines[j], {
+          x: rightX,
+          y: currentY,
+          size: fontSize,
+          font,
+        });
+      }
+    }
+
+    // Move Y down by the full height of this row
+    y -= rowHeight;
+  }
+
+  return { page, y };
+}
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -31,68 +220,12 @@ serve(async (req) => {
       replacementDataById,
       pmQuotes,
     } = await req.json();
-    // Log received data for debugging
-    console.log("Received data:", {
-      jobId,
-      quoteType,
-      quoteNumber,
-      templateId,
-      hasJobData: !!jobData,
-      jobDataStructure: jobData ? Object.keys(jobData) : null,
-      unitData: jobData?.unit,
-      unitNumber: jobData?.unit?.unit_number,
-      inspectionCount: Array.isArray(inspectionData)
-        ? inspectionData.length
-        : 0,
-      hasReplacementData: !!replacementData,
-      hasReplacementDataById:
-        !!replacementDataById &&
-        Object.keys(replacementDataById || {}).length > 0,
-      hasJobItems: !!jobItems,
-      jobItemsCount: Array.isArray(jobItems) ? jobItems.length : 0,
-      jobItemsData: Array.isArray(jobItems)
-        ? jobItems.map((item) => ({
-            id: item.id,
-            name: item.name,
-            type: item.type,
-            cost: item.total_cost,
-          }))
-        : null,
-      hasPMQuotes: !!pmQuotes,
-      pmQuotesCount: Array.isArray(pmQuotes) ? pmQuotes.length : 0,
-    });
 
-    // Debug inspection data specifically
-    if (Array.isArray(inspectionData) && inspectionData.length > 0) {
-      console.log("=== INSPECTION DATA DEBUG ===");
-      console.log(
-        "Inspection data structure:",
-        inspectionData.map((insp) => ({
-          id: insp.id,
-          hasBeltSize: "belt_size" in insp,
-          beltSizeValue: insp.belt_size,
-          beltSizeType: typeof insp.belt_size,
-          hasFilterSize: "filter_size" in insp,
-          filterSizeValue: insp.filter_size,
-          filterSizeType: typeof insp.filter_size,
-        }))
-      );
-    }
-    // Debug the repair condition
-    console.log("Repair condition check:", {
-      quoteType,
-      isRepair: quoteType === "repair",
-      jobItemsType: typeof jobItems,
-      isArray: Array.isArray(jobItems),
-      jobItemsLength: Array.isArray(jobItems) ? jobItems.length : "not array",
-      conditionMet:
-        quoteType === "repair" &&
-        Array.isArray(jobItems) &&
-        jobItems.length > 0,
-    });
-    console.log("=== AFTER CONDITION CHECK - BEFORE VALIDATION ===");
+    console.log(
+      "DEBUG: Edge function received replacementDataById:",
+      JSON.stringify(replacementDataById, null, 2)
+    );
     if (!jobId || !quoteType) {
-      console.log("=== EXITING DUE TO MISSING FIELDS ===");
       return new Response(
         JSON.stringify({
           error: "Missing required fields: jobId and quoteType",
@@ -106,7 +239,6 @@ serve(async (req) => {
         }
       );
     }
-    console.log("=== AFTER VALIDATION - BEFORE TEMPLATE FETCH ===");
     // Fetch template if templateId is provided
     let templateData = null;
     if (templateId) {
@@ -115,16 +247,12 @@ serve(async (req) => {
         .select("*")
         .eq("id", templateId)
         .single();
-      if (templateError) {
-        console.log("Template not found, using default template");
-      } else {
+      if (!templateError) {
         templateData = fetchedTemplate;
       }
     }
     // Use default template if no template found
     if (!templateData || !templateData.template_data?.fileUrl) {
-      console.log("Using default template for quote generation");
-      // Create a simple default template structure
       templateData = {
         template_data: {
           fileUrl: "https://example.com/default-template.pdf",
@@ -140,29 +268,22 @@ serve(async (req) => {
         "https://example.com/default-template.pdf"
     ) {
       try {
-        // Add timeout to template fetch
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
         const tplRes = await fetch(templateData.template_data.fileUrl, {
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
         if (!tplRes.ok) {
-          console.log("Failed to fetch template PDF, creating new document");
           pdfDoc = await PDFDocument.create();
         } else {
           const tplBytes = await tplRes.arrayBuffer();
           pdfDoc = await PDFDocument.load(tplBytes);
         }
       } catch (error) {
-        console.log(
-          "Template fetch failed or timed out, creating new document:",
-          error
-        );
         pdfDoc = await PDFDocument.create();
       }
     } else {
-      console.log("Creating new PDF document without template");
       pdfDoc = await PDFDocument.create();
     }
     const newPdfDoc = await PDFDocument.create();
@@ -192,7 +313,13 @@ serve(async (req) => {
           if (p === 1) {
             // First page (cover page)
             const { width, height } = addedPage.getSize();
-            const margin = 50; // Define margin here for cover page
+            // Use unified margin system
+            const leftMargin = MARGINS.LEFT;
+            const rightMargin = MARGINS.RIGHT;
+            const contentWidth = width - leftMargin - rightMargin; // Available width for content
+            const columnSpacing = MARGINS.COLUMN_SPACING; // Space between left and right columns
+            const leftColumnWidth = (contentWidth - columnSpacing) / 2; // Width for left column
+            const rightColumnX = leftMargin + leftColumnWidth + columnSpacing; // X position for right column
             // Draw background with exact color specified
             addedPage.drawRectangle({
               x: 0,
@@ -276,82 +403,66 @@ serve(async (req) => {
                     quoteType.charAt(0).toUpperCase() + quoteType.slice(1)
                   } Quote`;
             addedPage.drawText(titleText, {
-              x: 50,
+              x: leftMargin,
               y: 150,
               size: 28,
               font: bold,
               color: rgb(1, 1, 1),
             });
             // Draw date above the title
-            addedPage.drawText(formattedDate, {
-              x: 50,
+            addedPage.drawText(sanitizeTextForPDF(formattedDate), {
+              x: leftMargin,
               y: 190,
               size: 16,
               font: bold,
               color: rgb(0.9, 0.4, 0.2),
             });
             // Draw customer company and location information
-            console.log(
-              "First Page - Full jobData:",
-              JSON.stringify(jobData, null, 2)
-            );
-            console.log("First Page - jobData.job:", jobData?.job);
-            console.log("First Page - jobData.location:", jobData?.location);
-            console.log("First Page - jobData.unit:", jobData?.unit);
             let customerY = 120;
-            // Company name - check both structures
+            // Company name
             const companyName =
               jobData?.locations?.companies?.name ||
-              jobData?.location?.companies?.name ||
-              "N/A";
-            if (companyName && companyName !== "N/A") {
-              console.log("First Page - Drawing company name:", companyName);
-              addedPage.drawText(companyName, {
-                x: 50,
+              jobData?.location?.companies?.name;
+            if (companyName) {
+              addedPage.drawText(sanitizeTextForPDF(companyName), {
+                x: leftMargin,
                 y: customerY,
                 size: 16,
                 font: bold,
                 color: rgb(1, 1, 1),
               });
               customerY -= 20;
-            } else {
-              console.log("First Page - No company name found");
             }
-            // Location name - check both structures
+            // Location name and Address - avoid duplication
             const locationName =
-              jobData?.locations?.name || jobData?.location?.name || "N/A";
-            if (locationName && locationName !== "N/A") {
-              console.log("First Page - Drawing location name:", locationName);
-              addedPage.drawText(locationName, {
-                x: 50,
+              jobData?.locations?.name || jobData?.location?.name;
+            const address =
+              jobData?.locations?.address || jobData?.location?.address;
+
+            // Only display location name if it's different from address
+            if (locationName && locationName !== address) {
+              addedPage.drawText(sanitizeTextForPDF(locationName), {
+                x: leftMargin,
                 y: customerY,
                 size: 14,
                 font: bold,
                 color: rgb(1, 1, 1),
               });
               customerY -= 18;
-            } else {
-              console.log("First Page - No location name found");
             }
-            // Address - check both structures
-            const address =
-              jobData?.locations?.address ||
-              jobData?.location?.address ||
-              "N/A";
-            if (address && address !== "N/A") {
-              console.log("First Page - Drawing address:", address);
-              addedPage.drawText(address, {
-                x: 50,
+
+            // Always display address
+            if (address) {
+              addedPage.drawText(sanitizeTextForPDF(address), {
+                x: leftMargin,
                 y: customerY,
                 size: 14,
                 font,
                 color: rgb(1, 1, 1),
               });
               customerY -= 18;
-            } else {
-              console.log("First Page - No address found");
             }
-            // City, State, ZIP - check both structures
+            // City, State, ZIP
             const city = jobData?.locations?.city || jobData?.location?.city;
             const state = jobData?.locations?.state || jobData?.location?.state;
             const zip = jobData?.locations?.zip || jobData?.location?.zip;
@@ -359,36 +470,32 @@ serve(async (req) => {
               const cityStateZip = [city, state, zip]
                 .filter(Boolean)
                 .join(", ");
-              console.log("First Page - Drawing city/state/zip:", cityStateZip);
-              addedPage.drawText(cityStateZip, {
-                x: 50,
+              addedPage.drawText(sanitizeTextForPDF(cityStateZip), {
+                x: leftMargin,
                 y: customerY,
                 size: 14,
                 font,
                 color: rgb(1, 1, 1),
               });
               customerY -= 18;
-            } else {
-              console.log("First Page - No city/state/zip found");
             }
-            // Unit number - check both structures
-            console.log("First Page - jobData.units:", jobData?.units);
-            console.log("First Page - jobData.unit:", jobData?.unit);
+            // Unit number
             const units =
               jobData?.units || (jobData?.unit ? [jobData.unit] : []);
-            console.log("First Page - Final units array:", units);
             if (units && units.length > 0) {
               if (units.length === 1) {
                 const unitNumber = units[0]?.unit_number;
                 if (unitNumber) {
-                  console.log("First Page - Drawing single unit:", unitNumber);
-                  addedPage.drawText(`Unit: ${unitNumber}`, {
-                    x: 50,
-                    y: customerY,
-                    size: 14,
-                    font: bold,
-                    color: rgb(1, 1, 1),
-                  });
+                  addedPage.drawText(
+                    `Unit: ${sanitizeTextForPDF(unitNumber)}`,
+                    {
+                      x: leftMargin,
+                      y: customerY,
+                      size: 14,
+                      font: bold,
+                      color: rgb(1, 1, 1),
+                    }
+                  );
                 }
               } else {
                 const unitNumbers = units
@@ -396,67 +503,49 @@ serve(async (req) => {
                   .filter(Boolean)
                   .join(", ");
                 if (unitNumbers) {
-                  console.log(
-                    "First Page - Drawing multiple units:",
-                    unitNumbers
+                  addedPage.drawText(
+                    `Units: ${sanitizeTextForPDF(unitNumbers)}`,
+                    {
+                      x: leftMargin,
+                      y: customerY,
+                      size: 14,
+                      font: bold,
+                      color: rgb(1, 1, 1),
+                    }
                   );
-                  addedPage.drawText(`Units: ${unitNumbers}`, {
-                    x: 50,
-                    y: customerY,
-                    size: 14,
-                    font: bold,
-                    color: rgb(1, 1, 1),
-                  });
                 }
               }
-            } else {
-              console.log("First Page - No units found");
             }
             // Add AirLast logo to bottom right
             try {
               const logoUrl =
                 "https://ekxkjnygupehzpoyojwq.supabase.co/storage/v1/object/public/templates/quote-templates/Screenshot%202025-08-06%20at%202.00.14%20PM.png";
-              // Add timeout to logo fetch
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+              const timeoutId = setTimeout(() => controller.abort(), 5000);
               const logoRes = await fetch(logoUrl, {
                 signal: controller.signal,
               });
               clearTimeout(timeoutId);
               if (logoRes.ok) {
                 const logoBytes = await logoRes.arrayBuffer();
-                // Try to embed as PNG first, if that fails, use text fallback
-                try {
-                  const logoImage = await newPdfDoc.embedPng(logoBytes);
-                  // Position logo in bottom right corner
-                  const logoWidth = 120;
-                  const logoHeight = 60;
-                  const logoX = width - logoWidth - 30; // 30px from right edge
-                  const logoY = 5; // 5px from bottom
-                  addedPage.drawImage(logoImage, {
-                    x: logoX,
-                    y: logoY,
-                    width: logoWidth,
-                    height: logoHeight,
-                  });
-                } catch (embedError) {
-                  console.log(
-                    "Error embedding logo as PNG, using text fallback:",
-                    embedError
-                  );
-                  throw new Error("Logo embedding failed");
-                }
+                const logoImage = await newPdfDoc.embedPng(logoBytes);
+                const logoWidth = 120;
+                const logoHeight = 60;
+                const logoX = width - rightMargin - logoWidth;
+                const logoY = 5;
+                addedPage.drawImage(logoImage, {
+                  x: logoX,
+                  y: logoY,
+                  width: logoWidth,
+                  height: logoHeight,
+                });
               } else {
                 throw new Error("Logo fetch failed");
               }
             } catch (error) {
-              console.log(
-                "Error loading AirLast logo, using fallback text:",
-                error
-              );
               // Fallback to text logo
               addedPage.drawText("AIRLAST", {
-                x: width - 120,
+                x: width - rightMargin - 70,
                 y: 70,
                 size: 16,
                 font: bold,
@@ -478,43 +567,60 @@ serve(async (req) => {
       if (bgRes.ok) {
         const bgBytes = await bgRes.arrayBuffer();
         bgImage = await newPdfDoc.embedPng(bgBytes);
-      } else {
-        console.log(
-          "Background image not available, proceeding without background"
-        );
       }
     } catch (error) {
-      console.log("Error loading background image:", error);
+      // Background image not available, proceeding without background
     }
-    const { width, height } = dynamicPage.getSize();
+    // Get page dimensions for background image
+    const { width: pageWidth, height: pageHeight } = dynamicPage.getSize();
     // Draw background image if available
     if (bgImage) {
       dynamicPage.drawImage(bgImage, {
         x: 0,
         y: 0,
-        width,
-        height,
+        width: pageWidth,
+        height: pageHeight,
       });
     }
     // Set up layout (fonts already initialized)
     const fontSize = 12;
     const lineHeight = fontSize * 1.2;
-    const margin = 50;
-    const minY = 100; // Minimum Y position before creating a new page
-    let y = height - 80;
+    // Use unified margin system
+    const leftMargin = MARGINS.LEFT;
+    const rightMargin = MARGINS.RIGHT;
+    const topMargin = MARGINS.TOP;
+    const bottomMargin = MARGINS.BOTTOM;
+    const { width, height } = dynamicPage.getSize();
+    // Content boundaries
+    const textLeftBoundary = leftMargin;
+    const textRightBoundary = width - rightMargin;
+    const contentWidth = textRightBoundary - textLeftBoundary;
+    const minY = bottomMargin;
+    // Column system for two-column layouts
+    const columnSpacing = MARGINS.COLUMN_SPACING;
+    const leftColumnWidth = (contentWidth - columnSpacing) / 2;
+    const rightColumnX = leftMargin + leftColumnWidth + columnSpacing;
+    let y = height - topMargin;
     // Draw header
     const headerText =
       quoteType === "inspection"
         ? "INSPECTION REPORT"
         : `${quoteType.toUpperCase()} QUOTE`;
-    dynamicPage.drawText(headerText, {
-      x: margin,
+    y = drawBoundedText(
+      dynamicPage,
+      sanitizeTextForPDF(headerText),
+      leftMargin,
       y,
-      size: 24,
-      font: bold,
-      color: rgb(0, 0, 0),
-    });
-    y -= 40;
+      {
+        font: bold,
+        fontSize: 24,
+        color: rgb(0, 0, 0),
+        leftMargin,
+        rightMargin,
+        width,
+      }
+    );
+    y -= 10; // Extra spacing after header
     // Customize date format - you can change this to any format you want
     const currentDate = new Date();
     const formattedDate = `${
@@ -523,98 +629,114 @@ serve(async (req) => {
     // Alternative formats you can use:
     // const formattedDate = currentDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     // const formattedDate = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    dynamicPage.drawText(`Date: ${formattedDate}`, {
-      x: margin,
+    y = drawBoundedText(
+      dynamicPage,
+      `Date: ${sanitizeTextForPDF(formattedDate)}`,
+      leftMargin,
       y,
-      size: fontSize,
-      font,
-    });
-    y -= lineHeight;
+      {
+        font,
+        fontSize,
+        leftMargin,
+        rightMargin,
+        width,
+      }
+    );
     // Add customer information under the date
-    console.log("Second Page - Adding customer info under date");
-    console.log("Second Page - jobData.job:", jobData?.job);
-    console.log("Second Page - jobData.location:", jobData?.location);
-    console.log("Second Page - jobData.unit:", jobData?.unit);
-    // Check both data structures for customer information
     const hasLocations = jobData?.locations || jobData?.location;
     if (hasLocations) {
-      // Company name - check both structures
+      // Company name
       const companyName =
         jobData?.locations?.companies?.name ||
         jobData?.location?.companies?.name;
       if (companyName) {
-        console.log("Second Page - Drawing company name:", companyName);
-        dynamicPage.drawText(companyName, {
-          x: margin,
+        y = drawBoundedText(
+          dynamicPage,
+          sanitizeTextForPDF(companyName),
+          leftMargin,
           y,
-          size: fontSize,
-          font: bold,
-        });
-        y -= lineHeight;
-      } else {
-        console.log("Second Page - No company name found");
+          {
+            font: bold,
+            fontSize,
+            leftMargin,
+            rightMargin,
+            width,
+          }
+        );
       }
-      // Location name - check both structures
+      // Location name
       const locationName = jobData?.locations?.name || jobData?.location?.name;
       if (locationName) {
-        console.log("Second Page - Drawing location name:", locationName);
-        dynamicPage.drawText(locationName, {
-          x: margin,
+        y = drawBoundedText(
+          dynamicPage,
+          sanitizeTextForPDF(locationName),
+          leftMargin,
           y,
-          size: fontSize,
-          font: bold,
-        });
-        y -= lineHeight;
-      } else {
-        console.log("Second Page - No location name found");
+          {
+            font: bold,
+            fontSize,
+            leftMargin,
+            rightMargin,
+            width,
+          }
+        );
       }
-      // Address - check both structures
+      // Address
       const address = jobData?.locations?.address || jobData?.location?.address;
       if (address) {
-        console.log("Second Page - Drawing address:", address);
-        dynamicPage.drawText(address, {
-          x: margin,
+        y = drawBoundedText(
+          dynamicPage,
+          sanitizeTextForPDF(address),
+          leftMargin,
           y,
-          size: fontSize,
-          font,
-        });
-        y -= lineHeight;
-      } else {
-        console.log("Second Page - No address found");
+          {
+            font,
+            fontSize,
+            leftMargin,
+            rightMargin,
+            width,
+          }
+        );
       }
-      // City, State, ZIP - check both structures
+      // City, State, ZIP
       const city = jobData?.locations?.city || jobData?.location?.city;
       const state = jobData?.locations?.state || jobData?.location?.state;
       const zip = jobData?.locations?.zip || jobData?.location?.zip;
       if (city || state || zip) {
         const cityStateZip = [city, state, zip].filter(Boolean).join(", ");
-        console.log("Second Page - Drawing city/state/zip:", cityStateZip);
-        dynamicPage.drawText(cityStateZip, {
-          x: margin,
+        y = drawBoundedText(
+          dynamicPage,
+          sanitizeTextForPDF(cityStateZip),
+          leftMargin,
           y,
-          size: fontSize,
-          font,
-        });
-        y -= lineHeight;
-      } else {
-        console.log("Second Page - No city/state/zip found");
+          {
+            font,
+            fontSize,
+            leftMargin,
+            rightMargin,
+            width,
+          }
+        );
       }
-      // Unit information - check both structures
-      console.log("Second Page - jobData.units:", jobData?.units);
-      console.log("Second Page - jobData.unit:", jobData?.unit);
+      // Unit information
       const units = jobData?.units || (jobData?.unit ? [jobData.unit] : []);
-      console.log("Second Page - Final units array:", units);
       if (units && units.length > 0) {
         if (units.length === 1) {
           const unitNumber = units[0]?.unit_number;
           if (unitNumber) {
-            console.log("Second Page - Drawing single unit:", unitNumber);
-            dynamicPage.drawText(`Unit: ${unitNumber}`, {
-              x: margin,
+            y = drawBoundedText(
+              dynamicPage,
+              `Unit: ${sanitizeTextForPDF(unitNumber)}`,
+              leftMargin,
               y,
-              size: fontSize,
-              font: bold,
-            });
+              {
+                font: bold,
+                fontSize,
+                leftMargin,
+                rightMargin,
+                width,
+              }
+            );
           }
         } else {
           const unitNumbers = units
@@ -622,103 +744,30 @@ serve(async (req) => {
             .filter(Boolean)
             .join(", ");
           if (unitNumbers) {
-            console.log("Second Page - Drawing multiple units:", unitNumbers);
-            dynamicPage.drawText(`Units: ${unitNumbers}`, {
-              x: margin,
+            y = drawBoundedText(
+              dynamicPage,
+              `Units: ${sanitizeTextForPDF(unitNumbers)}`,
+              leftMargin,
               y,
-              size: fontSize,
-              font: bold,
-            });
+              {
+                font: bold,
+                fontSize,
+                leftMargin,
+                rightMargin,
+                width,
+              }
+            );
           }
         }
         y -= lineHeight;
-      } else {
-        console.log("Second Page - No units found");
       }
-      y -= lineHeight; // Add extra space before the next section
-    } else {
-      console.log(
-        "Second Page - No jobData.locations or jobData.location found"
-      );
+      y -= lineHeight;
     }
-    // Draw customer info section header
-    if (jobData?.locations) {
-      dynamicPage.drawText("Customer:", {
-        x: margin,
-        y,
-        size: fontSize + 2,
-        font: bold,
-      });
-      y -= lineHeight;
-      dynamicPage.drawText(jobData.locations.companies?.name || "", {
-        x: margin,
-        y,
-        size: fontSize,
-        font,
-      });
-      y -= lineHeight;
-      dynamicPage.drawText(jobData.locations.name || "", {
-        x: margin,
-        y,
-        size: fontSize,
-        font,
-      });
-      y -= lineHeight;
-      dynamicPage.drawText(jobData.locations.address || "", {
-        x: margin,
-        y,
-        size: fontSize,
-        font,
-      });
-      y -= lineHeight;
-      dynamicPage.drawText(
-        `${jobData.locations.city || ""}, ${jobData.locations.state || ""} ${
-          jobData.locations.zip || ""
-        }`,
-        {
-          x: margin,
-          y,
-          size: fontSize,
-          font,
-        }
-      );
-      // Add unit information if available
-      if (jobData.units) {
-        y -= lineHeight;
-        if (jobData.units.length === 1) {
-          dynamicPage.drawText(`Unit: ${jobData.units[0].unit_number}`, {
-            x: margin,
-            y,
-            size: fontSize,
-            font,
-          });
-        } else {
-          const unitNumbers = jobData.units
-            .map((unit) => unit.unit_number)
-            .join(", ");
-          dynamicPage.drawText(`Units: ${unitNumbers}`, {
-            x: margin,
-            y,
-            size: fontSize,
-            font,
-          });
-        }
-      }
-      y -= lineHeight * 2;
-    }
-    // Note: Inspection Results section removed as requested - only Inspection Summary will be shown
-    console.log("=== BEFORE REPLACEMENT CONDITION ===");
     // Process replacement data
     let replacementsToProcess = [];
     if (quoteType === "replacement") {
-      console.log("=== REPLACEMENT QUOTE SECTION ENTERED ===");
-      // Check if replacementDataById is provided in the request (this is the new format with multiple replacements)
+      // Check if replacementDataById is provided in the request
       if (replacementDataById && Object.keys(replacementDataById).length > 0) {
-        console.log(
-          "Using replacementDataById with keys:",
-          Object.keys(replacementDataById)
-        );
-        // Convert the object to an array for processing
         replacementsToProcess = Object.entries(replacementDataById).map(
           ([key, data], index) => ({
             ...data,
@@ -727,17 +776,12 @@ serve(async (req) => {
           })
         );
       } else if (Array.isArray(replacementData) && replacementData.length > 0) {
-        console.log(
-          "Using array replacementData with length:",
-          replacementData.length
-        );
         replacementsToProcess = replacementData.map((data, index) => ({
           ...data,
           replacementNumber: index + 1,
           created_at: data.created_at || new Date().toISOString(),
         }));
       } else if (replacementData && typeof replacementData === "object") {
-        console.log("Using single replacementData object");
         replacementsToProcess = [
           {
             ...replacementData,
@@ -746,7 +790,6 @@ serve(async (req) => {
           },
         ];
       } else {
-        console.log("Fetching replacement data from database");
         // Fetch replacement data for this job
         const { data: fetchedReplacements, error: fetchError } = await supabase
           .from("job_replacements")
@@ -764,414 +807,240 @@ serve(async (req) => {
           }));
         }
       }
-    } else if (quoteType === "repair") {
-      console.log("=== REPAIR CONDITION IN REPLACEMENT SECTION ===");
-      // Use job items for repair quotes
-      if (Array.isArray(jobItems) && jobItems.length > 0) {
-        console.log("=== REPAIR JOB ITEMS CHECK PASSED ===");
-        // We'll handle this separately below
-      }
     }
-    console.log("=== AFTER REPLACEMENT SECTION - BEFORE MAIN CONDITIONS ===");
     // Check if we need a new page
-    if (y < 200) {
-      dynamicPage = newPdfDoc.addPage();
-      y = height - margin;
-      // Add background to new page if available
-      if (bgImage) {
-        dynamicPage.drawImage(bgImage, {
-          x: 0,
-          y: 0,
-          width,
-          height,
-        });
-      }
-    }
+    const pageBreakResult = checkPageBreak(
+      y,
+      minY,
+      dynamicPage,
+      newPdfDoc,
+      height,
+      topMargin,
+      bgImage,
+      width
+    );
+    dynamicPage = pageBreakResult.page;
+    y = pageBreakResult.y;
     // Add inspection results to all quote types (BEFORE replacement data)
     if (Array.isArray(inspectionData) && inspectionData.length > 0) {
-      console.log("=== INSPECTION RESULTS SECTION ENTERED ===");
-      console.log(
-        "Full request body received:",
-        JSON.stringify(req.body, null, 2)
-      );
-      console.log(
-        "Inspection data received:",
-        JSON.stringify(inspectionData, null, 2)
-      );
-      console.log("First inspection belt_size:", inspectionData[0]?.belt_size);
-      console.log(
-        "First inspection filter_size:",
-        inspectionData[0]?.filter_size
-      );
       // Check if we need a new page
-      if (y < 200) {
-        dynamicPage = newPdfDoc.addPage();
-        y = height - margin;
-        // Add background to new page if available
-        if (bgImage) {
-          dynamicPage.drawImage(bgImage, {
-            x: 0,
-            y: 0,
-            width,
-            height,
-          });
-        }
-      }
-      // Draw inspection results header
-      dynamicPage.drawText("Inspection Results:", {
-        x: margin,
+      const pageBreakResult = checkPageBreak(
         y,
-        size: fontSize + 2,
+        minY,
+        dynamicPage,
+        newPdfDoc,
+        height,
+        topMargin,
+        bgImage,
+        width
+      );
+      dynamicPage = pageBreakResult.page;
+      y = pageBreakResult.y;
+      // Draw inspection results header
+      y = drawBoundedText(dynamicPage, "Inspection Results:", leftMargin, y, {
         font: bold,
+        fontSize: fontSize + 2,
+        leftMargin,
+        rightMargin,
+        width,
       });
-      y -= lineHeight * 2;
+      y -= lineHeight; // Extra spacing after header
       // List each inspection with comments
       for (let i = 0; i < inspectionData.length; i++) {
         const insp = inspectionData[i];
-        console.log(`Processing inspection ${i + 1}:`, {
-          id: insp.id,
-          manufacture_name: insp.manufacture_name,
-          belt_size: insp.belt_size,
-          filter_size: insp.filter_size,
-          comment: insp.comment,
-        });
-        console.log(
-          `Full inspection object for ${i + 1}:`,
-          JSON.stringify(insp, null, 2)
-        );
-
         // Fetch attachments for this inspection
         let inspectionAttachments = [];
         try {
-          // First, let's check if there are any attachments at all in the table
-          const { data: allAttachments, error: allAttachmentsError } =
-            await supabase
-              .from("inspection_attachments")
-              .select("id, inspection_id")
-              .limit(5);
-
-          console.log("Sample of all attachments in table:", allAttachments);
-          console.log("All attachments error:", allAttachmentsError);
-
-          // Use service role to bypass RLS policies
           const { data: attachments, error: attachmentError } = await supabase
             .from("inspection_attachments")
             .select("*")
             .eq("inspection_id", insp.id)
-            .order("created_at", { ascending: false });
-
+            .order("created_at", {
+              ascending: false,
+            });
           if (!attachmentError && attachments) {
             inspectionAttachments = attachments;
-            console.log(
-              `Found ${attachments.length} attachments for inspection ${insp.id}`
-            );
-            console.log(
-              "Attachment details:",
-              attachments.map((att) => ({
-                id: att.id,
-                title: att.title,
-                file_name: att.file_name,
-                file_type: att.file_type,
-                file_url: att.file_url,
-              }))
-            );
-          } else {
-            console.log(
-              `No attachments found for inspection ${insp.id}`,
-              attachmentError
-            );
           }
         } catch (error) {
-          console.error("Error fetching inspection attachments:", error);
+          // Error fetching inspection attachments
         }
         // Check if we need a new page
-        if (y < 200) {
-          dynamicPage = newPdfDoc.addPage();
-          y = height - margin;
-          // Add background to new page if available
-          if (bgImage) {
-            dynamicPage.drawImage(bgImage, {
-              x: 0,
-              y: 0,
-              width,
-              height,
-            });
-          }
-        }
+        const pageBreakResult = checkPageBreak(
+          y,
+          minY,
+          dynamicPage,
+          newPdfDoc,
+          height,
+          topMargin,
+          bgImage,
+          width
+        );
+        dynamicPage = pageBreakResult.page;
+        y = pageBreakResult.y;
         // Draw inspection number
         dynamicPage.drawText(`${i + 1})`, {
-          x: margin,
+          x: leftMargin,
           y,
           size: fontSize,
           font: bold,
         });
         y -= lineHeight;
         // Draw unit information header
-        console.log("Checking unit data:", {
-          hasJobData: !!jobData,
-          hasUnit: !!jobData?.unit,
-          unitNumber: jobData?.unit?.unit_number,
-          fullUnitData: jobData?.unit,
-        });
         if (jobData?.unit?.unit_number) {
-          console.log("Drawing unit number:", jobData.unit.unit_number);
-          dynamicPage.drawText(`Unit: ${jobData.unit.unit_number}`, {
-            x: margin,
+          y = drawBoundedText(
+            dynamicPage,
+            `Unit: ${sanitizeTextForPDF(jobData.unit.unit_number)}`,
+            leftMargin,
             y,
-            size: fontSize,
-            font,
-          });
-          y -= lineHeight;
-        } else {
-          console.log("No unit number found, skipping unit display");
+            {
+              font,
+              fontSize,
+              leftMargin,
+              rightMargin,
+              width,
+            }
+          );
         }
         // Draw inspection details in two-column format like the image
         const leftColumn = [];
         const rightColumn = [];
         if (insp.manufacture_name)
-          leftColumn.push(`Manufacture Name: ${insp.manufacture_name}`);
+          leftColumn.push(
+            `Manufacture Name: ${sanitizeTextForPDF(insp.manufacture_name)}`
+          );
         if (insp.model_number)
-          leftColumn.push(`Model Number: ${insp.model_number}`);
+          leftColumn.push(
+            `Model Number: ${sanitizeTextForPDF(insp.model_number)}`
+          );
         if (insp.age) leftColumn.push(`Age: ${insp.age} years`);
-        if (insp.unit_type) leftColumn.push(`Unit Type: ${insp.unit_type}`);
-        console.log(
-          `Belt size value: "${
-            insp.belt_size
-          }", type: ${typeof insp.belt_size}, is null: ${
-            insp.belt_size === null
-          }, is undefined: ${insp.belt_size === undefined}`
+        if (insp.unit_type)
+          leftColumn.push(`Unit Type: ${sanitizeTextForPDF(insp.unit_type)}`);
+        leftColumn.push(
+          `Belt Size: ${sanitizeTextForPDF(insp.belt_size) || "N/A"}`
         );
-        leftColumn.push(`Belt Size: ${insp.belt_size || "N/A"}`);
         if (insp.serial_number)
-          rightColumn.push(`Serial Number: ${insp.serial_number}`);
+          rightColumn.push(
+            `Serial Number: ${sanitizeTextForPDF(insp.serial_number)}`
+          );
         if (insp.tonnage) rightColumn.push(`Tonnage: ${insp.tonnage}`);
         if (insp.system_type)
-          rightColumn.push(`System Type: ${insp.system_type}`);
-        console.log(
-          `Filter size value: "${
-            insp.filter_size
-          }", type: ${typeof insp.filter_size}, is null: ${
-            insp.filter_size === null
-          }, is undefined: ${insp.filter_size === undefined}`
+          rightColumn.push(
+            `System Type: ${sanitizeTextForPDF(insp.system_type)}`
+          );
+        rightColumn.push(
+          `Filter Size: ${sanitizeTextForPDF(insp.filter_size) || "N/A"}`
         );
-        rightColumn.push(`Filter Size: ${insp.filter_size || "N/A"}`);
-        // Draw left column
-        let leftY = y;
-        for (const detail of leftColumn) {
-          // Check if we need a new page before drawing detail
-          if (leftY < 150) {
-            dynamicPage = newPdfDoc.addPage();
-            leftY = height - margin;
-            y = leftY; // Update main y position
-            // Add background to new page if available
-            if (bgImage) {
-              dynamicPage.drawImage(bgImage, {
-                x: 0,
-                y: 0,
-                width,
-                height,
-              });
-            }
-          }
-          dynamicPage.drawText(detail, {
-            x: margin,
-            y: leftY,
-            size: fontSize,
+        // Draw columns using the helper function
+        const columnResult = drawTwoColumnRow(
+          dynamicPage,
+          leftColumn,
+          rightColumn,
+          y,
+          {
             font,
-          });
-          leftY -= lineHeight;
-        }
-        // Draw right column
-        let rightY = y;
-        for (const detail of rightColumn) {
-          // Check if we need a new page before drawing detail
-          if (rightY < 150) {
-            dynamicPage = newPdfDoc.addPage();
-            rightY = height - margin;
-            y = rightY; // Update main y position
-            // Add background to new page if available
-            if (bgImage) {
-              dynamicPage.drawImage(bgImage, {
-                x: 0,
-                y: 0,
-                width,
-                height,
-              });
-            }
+            fontSize,
+            lineHeight,
+            leftMargin,
+            rightMargin,
+            width,
+            columnSpacing,
+            minY,
+            newPdfDoc,
+            height,
+            topMargin,
+            bgImage,
           }
-          dynamicPage.drawText(detail, {
-            x: margin + 250,
-            y: rightY,
-            size: fontSize,
-            font,
-          });
-          rightY -= lineHeight;
-        }
-        // Use the lower Y position for the next element
-        y = Math.min(leftY, rightY);
+        );
+        dynamicPage = columnResult.page;
+        y = columnResult.y;
         // Add comment if available
         if (insp.comment) {
           // Check if we need a new page before drawing comment
-          if (y < 150) {
-            dynamicPage = newPdfDoc.addPage();
-            y = height - margin;
-            // Add background to new page if available
-            if (bgImage) {
-              dynamicPage.drawImage(bgImage, {
-                x: 0,
-                y: 0,
-                width,
-                height,
-              });
-            }
-          }
-          // Split comment into lines if it's too long
-          const commentText = insp.comment;
-          const maxWidth = width - margin * 2;
-          const words = commentText.split(" ");
-          let currentLine = "";
-          let isFirstLine = true;
-          for (const word of words) {
-            const testLine = currentLine ? `${currentLine} ${word}` : word;
-            const testWidth = font.widthOfTextAtSize(testLine, fontSize);
-            if (testWidth > maxWidth && currentLine) {
-              // Check if we need a new page
-              if (y < 150) {
-                dynamicPage = newPdfDoc.addPage();
-                y = height - margin;
-                // Add background to new page if available
-                if (bgImage) {
-                  dynamicPage.drawImage(bgImage, {
-                    x: 0,
-                    y: 0,
-                    width,
-                    height,
-                  });
-                }
-              }
-              // Draw current line - only add "Comment:" prefix on first line
-              const lineText = isFirstLine
-                ? `Comment: ${currentLine}`
-                : currentLine;
-              dynamicPage.drawText(lineText, {
-                x: margin,
-                y,
-                size: fontSize,
-                font,
-              });
-              y -= lineHeight;
-              currentLine = word;
-              isFirstLine = false;
-            } else {
-              currentLine = testLine;
-            }
-          }
-          // Draw the last line
-          if (currentLine) {
-            // Check if we need a new page
-            if (y < 150) {
-              dynamicPage = newPdfDoc.addPage();
-              y = height - margin;
-              // Add background to new page if available
-              if (bgImage) {
-                dynamicPage.drawImage(bgImage, {
-                  x: 0,
-                  y: 0,
-                  width,
-                  height,
-                });
-              }
-            }
-            // Only add "Comment:" prefix if this is the first (and only) line
-            const lineText = isFirstLine
-              ? `Comment: ${currentLine}`
-              : currentLine;
-            dynamicPage.drawText(lineText, {
-              x: margin,
-              y,
-              size: fontSize,
-              font,
-            });
-            y -= lineHeight;
-          }
+          const pageBreakResult = checkPageBreak(
+            y,
+            minY,
+            dynamicPage,
+            newPdfDoc,
+            height,
+            topMargin,
+            bgImage,
+            width
+          );
+          dynamicPage = pageBreakResult.page;
+          y = pageBreakResult.y;
+          // Use drawBoundedText for proper margin handling
+          const commentText = `Comment: ${sanitizeTextForPDF(insp.comment)}`;
+          y = drawBoundedText(dynamicPage, commentText, leftMargin, y, {
+            font,
+            fontSize,
+            leftMargin,
+            rightMargin,
+            width,
+          });
         }
-
         // Add attachments section if there are any
-        console.log(
-          `Processing attachments for inspection ${insp.id}: ${inspectionAttachments.length} attachments found`
-        );
         if (inspectionAttachments.length > 0) {
-          console.log("Adding attachments section to PDF");
           // Check if we need a new page before drawing attachments
-          if (y < 200) {
-            dynamicPage = newPdfDoc.addPage();
-            y = height - margin;
-            // Add background to new page if available
-            if (bgImage) {
-              dynamicPage.drawImage(bgImage, {
-                x: 0,
-                y: 0,
-                width,
-                height,
-              });
-            }
-          }
-
+          const pageBreakResult = checkPageBreak(
+            y,
+            minY,
+            dynamicPage,
+            newPdfDoc,
+            height,
+            topMargin,
+            bgImage,
+            width
+          );
+          dynamicPage = pageBreakResult.page;
+          y = pageBreakResult.y;
           // Draw attachments header
           dynamicPage.drawText("Attachments:", {
-            x: margin,
+            x: leftMargin,
             y,
             size: fontSize,
             font: bold,
           });
           y -= lineHeight;
-
           // Display attachment images (limit to prevent timeout)
           const maxAttachments = Math.min(inspectionAttachments.length, 5); // Limit to 5 images max
           const imageWidth = 100; // Compact width
           const imageHeight = 50; // Compact height
           const spacing = 20;
           const imagesPerRow = Math.floor(
-            (width - 2 * margin) / (imageWidth + spacing)
+            contentWidth / (imageWidth + spacing)
           ); // Calculate how many images fit per row
-
           for (let j = 0; j < maxAttachments; j++) {
             const attachment = inspectionAttachments[j];
-
             // Calculate row and column for this image
             const row = Math.floor(j / imagesPerRow);
             const col = j % imagesPerRow;
-
             // Check if we need a new page (need space for image + some buffer)
             const requiredSpace =
               row === 0 ? 100 : (row + 1) * (imageHeight + 30);
-            if (y - requiredSpace < 100) {
-              dynamicPage = newPdfDoc.addPage();
-              y = height - margin;
-              // Add background to new page if available
-              if (bgImage) {
-                dynamicPage.drawImage(bgImage, {
-                  x: 0,
-                  y: 0,
-                  width,
-                  height,
-                });
-              }
+            if (y - requiredSpace < minY) {
+              const pageBreakResult = checkPageBreak(
+                y,
+                minY,
+                dynamicPage,
+                newPdfDoc,
+                height,
+                topMargin,
+                bgImage,
+                width
+              );
+              dynamicPage = pageBreakResult.page;
+              y = pageBreakResult.y;
             }
-
             try {
               // Try to fetch and embed the image with timeout
               const controller = new AbortController();
               const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout per image
-
               const imageResponse = await fetch(attachment.file_url, {
                 signal: controller.signal,
               });
               clearTimeout(timeoutId);
-
               if (imageResponse.ok) {
                 const imageBytes = await imageResponse.arrayBuffer();
-
                 // Determine image type and embed accordingly
                 let embeddedImage;
                 if (attachment.file_type.startsWith("image/png")) {
@@ -1182,24 +1051,19 @@ serve(async (req) => {
                 ) {
                   embeddedImage = await newPdfDoc.embedJpg(imageBytes);
                 } else {
-                  // Skip non-image files
                   continue;
                 }
-
                 // Calculate position for image with proper row/column layout
-                const imageX = margin + col * (imageWidth + spacing);
+                const imageX = leftMargin + col * (imageWidth + spacing);
                 // Set 50px gap after "Attachments:" header for first row
                 const imageY =
                   y - (row === 0 ? 50 : (row + 1) * (imageHeight + 30) - 20);
-
                 // Draw image with fixed size while maintaining aspect ratio
                 const { width: imgWidth, height: imgHeight } =
                   embeddedImage.scale(1);
                 const aspectRatio = imgWidth / imgHeight;
-
                 let drawWidth = imageWidth;
                 let drawHeight = imageHeight;
-
                 if (aspectRatio > 1) {
                   // Landscape image - fit to width
                   drawHeight = imageWidth / aspectRatio;
@@ -1207,38 +1071,25 @@ serve(async (req) => {
                   // Portrait image - fit to height
                   drawWidth = imageHeight * aspectRatio;
                 }
-
                 // Center the image in the fixed area
                 const centerX = imageX + (imageWidth - drawWidth) / 2;
                 const centerY = imageY + (imageHeight - drawHeight) / 2;
-
                 dynamicPage.drawImage(embeddedImage, {
                   x: centerX,
                   y: centerY,
                   width: drawWidth,
                   height: drawHeight,
                 });
-
                 // No border - clean image display
-
                 // No clickable links or icons - just display the images
-
                 // No text labels below images - clean display
               } else {
-                console.log(`Failed to fetch image: ${attachment.file_url}`);
-                // Skip failed images to save time - just continue to next
                 continue;
               }
             } catch (error) {
-              console.error(
-                `Error processing attachment ${attachment.id}:`,
-                error
-              );
-              // Skip error images to save time - just continue to next
               continue;
             }
           }
-
           // Show note if there are more attachments
           if (inspectionAttachments.length > 5) {
             const totalRows = Math.ceil(maxAttachments / imagesPerRow);
@@ -1250,7 +1101,7 @@ serve(async (req) => {
                 inspectionAttachments.length - 5
               } more attachments (not shown to prevent timeout)`,
               {
-                x: margin,
+                x: leftMargin,
                 y: noteY,
                 size: fontSize - 1,
                 font,
@@ -1264,34 +1115,8 @@ serve(async (req) => {
             const totalSpaceUsed = 50 + (totalRows - 1) * (imageHeight + 30);
             y = y - totalSpaceUsed - 10;
           }
-        } else {
-          console.log(`No attachments to display for inspection ${insp.id}`);
-          // Add a debug section to show that we checked for attachments
-          if (y < 200) {
-            dynamicPage = newPdfDoc.addPage();
-            y = height - margin;
-            if (bgImage) {
-              dynamicPage.drawImage(bgImage, {
-                x: 0,
-                y: 0,
-                width,
-                height,
-              });
-            }
-          }
-          // Show "No attachments" message for debugging
-          dynamicPage.drawText("Attachments: None", {
-            x: margin,
-            y,
-            size: fontSize - 1,
-            font,
-            color: rgb(0.6, 0.6, 0.6),
-          });
-          y -= lineHeight;
         }
-
         y -= lineHeight;
-
         // Add extra spacing below inspection if it had attachments
         if (inspectionAttachments.length > 0) {
           y -= 20; // Add extra spacing when attachments are present
@@ -1305,96 +1130,40 @@ serve(async (req) => {
         jobData.inspection_summary_comment.trim()
       ) {
         // Check if we need a new page for the summary comment
-        if (y < 150) {
-          dynamicPage = newPdfDoc.addPage();
-          y = height - margin;
-          // Add background to new page if available
-          if (bgImage) {
-            dynamicPage.drawImage(bgImage, {
-              x: 0,
-              y: 0,
-              width,
-              height,
-            });
-          }
-        }
-        y -= lineHeight; // Add some spacing before summary comment
-        dynamicPage.drawText("Summary Comment:", {
-          x: margin,
+        const pageBreakResult = checkPageBreak(
           y,
-          size: fontSize + 1,
+          minY,
+          dynamicPage,
+          newPdfDoc,
+          height,
+          topMargin,
+          bgImage,
+          width
+        );
+        dynamicPage = pageBreakResult.page;
+        y = pageBreakResult.y;
+        y -= lineHeight; // Add some spacing before summary comment
+        // Use drawBoundedText for proper margin handling
+        const summaryText = `Summary Comment: ${sanitizeTextForPDF(
+          jobData.inspection_summary_comment
+        )}`;
+        y = drawBoundedText(dynamicPage, summaryText, leftMargin, y, {
           font: bold,
+          fontSize: fontSize + 1,
+          leftMargin,
+          rightMargin,
+          width,
         });
-        y -= lineHeight * 1.5;
-        // Split summary comment into lines if it's too long
-        const summaryText = jobData.inspection_summary_comment;
-        const maxWidth = width - margin * 2;
-        const words = summaryText.split(" ");
-        let currentLine = "";
-        for (const word of words) {
-          const testLine = currentLine ? `${currentLine} ${word}` : word;
-          const testWidth = font.widthOfTextAtSize(testLine, fontSize);
-          if (testWidth > maxWidth && currentLine) {
-            // Check if we need a new page
-            if (y < 150) {
-              dynamicPage = newPdfDoc.addPage();
-              y = height - margin;
-              // Add background to new page if available
-              if (bgImage) {
-                dynamicPage.drawImage(bgImage, {
-                  x: 0,
-                  y: 0,
-                  width,
-                  height,
-                });
-              }
-            }
-            // Draw current line and start new line
-            dynamicPage.drawText(currentLine, {
-              x: margin,
-              y,
-              size: fontSize,
-              font,
-            });
-            y -= lineHeight;
-            currentLine = word;
-          } else {
-            currentLine = testLine;
-          }
-        }
-        // Draw the last line
-        if (currentLine) {
-          // Check if we need a new page
-          if (y < 150) {
-            dynamicPage = newPdfDoc.addPage();
-            y = height - margin;
-            // Add background to new page if available
-            if (bgImage) {
-              dynamicPage.drawImage(bgImage, {
-                x: 0,
-                y: 0,
-                width,
-                height,
-              });
-            }
-          }
-          dynamicPage.drawText(currentLine, {
-            x: margin,
-            y,
-            size: fontSize,
-            font,
-          });
-          y -= lineHeight * 2;
-        }
+        y -= lineHeight; // Extra spacing after summary
       }
       y -= lineHeight * 2; // Add extra space after inspection results
     }
     // Draw replacement summary header (only for replacement quotes)
     if (quoteType === "replacement") {
       // Check if we need a new page before drawing replacement summary
-      if (y < 150) {
+      if (y < minY) {
         dynamicPage = newPdfDoc.addPage();
-        y = height - margin;
+        y = height - topMargin;
         // Add background to new page if available
         if (bgImage) {
           dynamicPage.drawImage(bgImage, {
@@ -1406,27 +1175,22 @@ serve(async (req) => {
         }
       }
       dynamicPage.drawText("Replacement Summary:", {
-        x: margin,
+        x: leftMargin,
         y,
         size: fontSize + 2,
         font: bold,
       });
       y -= lineHeight * 2;
     }
-    console.log("=== BEFORE REPLACEMENT PROCESSING SECTION ===");
     // Process each replacement entry
     let combinedTotal = 0;
     if (quoteType === "replacement" && replacementsToProcess.length > 0) {
-      console.log("=== REPLACEMENT PROCESSING SECTION ENTERED ===");
-      console.log(
-        `Processing ${replacementsToProcess.length} replacement options`
-      );
       // If multiple replacements, show them as a consolidated list
       if (replacementsToProcess.length > 1) {
         // Check if we need a new page before drawing multiple options header
-        if (y < 150) {
+        if (y < minY) {
           dynamicPage = newPdfDoc.addPage();
-          y = height - margin;
+          y = height - topMargin;
           // Add background to new page if available
           if (bgImage) {
             dynamicPage.drawImage(bgImage, {
@@ -1439,7 +1203,7 @@ serve(async (req) => {
         }
         // Draw consolidated header
         dynamicPage.drawText("Multiple Replacement Options:", {
-          x: margin,
+          x: leftMargin,
           y,
           size: fontSize + 1,
           font: bold,
@@ -1451,9 +1215,9 @@ serve(async (req) => {
           const totalCost = Number(entry.totalCost || entry.total_cost || 0);
           combinedTotal += totalCost;
           // Check if we need a new page before drawing option header
-          if (y < 150) {
+          if (y < minY) {
             dynamicPage = newPdfDoc.addPage();
-            y = height - margin;
+            y = height - topMargin;
             // Add background to new page if available
             if (bgImage) {
               dynamicPage.drawImage(bgImage, {
@@ -1468,13 +1232,67 @@ serve(async (req) => {
           dynamicPage.drawText(
             `Option ${entry.replacementNumber}: $${totalCost.toLocaleString()}`,
             {
-              x: margin,
+              x: leftMargin,
               y,
               size: fontSize,
               font: bold,
             }
           );
           y -= lineHeight;
+
+          // Add unit information for this replacement option if available (MOVED TO TOP)
+          console.log(
+            "DEBUG: Multiple replacements - Checking unit_info for entry:",
+            entry.id,
+            "unit_info:",
+            entry.unit_info
+          );
+          if (
+            entry.unit_info &&
+            Array.isArray(entry.unit_info) &&
+            entry.unit_info.length > 0
+          ) {
+            // Check if we need a new page before drawing unit info
+            if (y < minY) {
+              dynamicPage = newPdfDoc.addPage();
+              y = height - topMargin;
+              // Add background to new page if available
+              if (bgImage) {
+                dynamicPage.drawImage(bgImage, {
+                  x: 0,
+                  y: 0,
+                  width,
+                  height,
+                });
+              }
+            }
+
+            dynamicPage.drawText("Unit Information:", {
+              x: leftMargin + 20,
+              y,
+              size: fontSize - 1,
+              font: bold,
+              color: rgb(0.2, 0.4, 0.8),
+            });
+            y -= lineHeight;
+
+            entry.unit_info.forEach((unit, unitIndex) => {
+              if (unit.descriptor || unit.modelName) {
+                const unitText = `- ${unit.descriptor || ""}${
+                  unit.descriptor && unit.modelName ? " - " : ""
+                }${unit.modelName || ""}`;
+                dynamicPage.drawText(sanitizeTextForPDF(unitText), {
+                  x: leftMargin + 40,
+                  y,
+                  size: fontSize - 2,
+                  font,
+                });
+                y -= lineHeight;
+              }
+            });
+            y -= lineHeight * 0.5; // Small spacing after unit info
+          }
+
           // Show key components for this option
           const components = [];
           if (entry.labor && Number(entry.labor) > 0) {
@@ -1562,9 +1380,9 @@ serve(async (req) => {
           // Display components in a compact format with word wrapping
           if (components.length > 0) {
             // Check if we need a new page before drawing components
-            if (y < 150) {
+            if (y < minY) {
               dynamicPage = newPdfDoc.addPage();
-              y = height - margin;
+              y = height - topMargin;
               // Add background to new page if available
               if (bgImage) {
                 dynamicPage.drawImage(bgImage, {
@@ -1577,7 +1395,7 @@ serve(async (req) => {
             }
             const componentsText = components.join(" • ");
             // Split components into lines if they're too long
-            const maxWidth = width - margin * 2 - 20; // Account for left margin offset
+            const maxWidth = contentWidth - 20; // Account for left margin offset
             const words = componentsText.split(" ");
             let currentLine = "";
             for (const word of words) {
@@ -1585,9 +1403,9 @@ serve(async (req) => {
               const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
               if (testWidth > maxWidth && currentLine) {
                 // Check if we need a new page
-                if (y < 150) {
+                if (y < minY) {
                   dynamicPage = newPdfDoc.addPage();
-                  y = height - margin;
+                  y = height - topMargin;
                   // Add background to new page if available
                   if (bgImage) {
                     dynamicPage.drawImage(bgImage, {
@@ -1599,8 +1417,8 @@ serve(async (req) => {
                   }
                 }
                 // Draw current line and start new line
-                dynamicPage.drawText(currentLine, {
-                  x: margin + 20,
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin + 20,
                   y,
                   size: fontSize - 1,
                   font,
@@ -1614,9 +1432,9 @@ serve(async (req) => {
             // Draw the last line
             if (currentLine) {
               // Check if we need a new page
-              if (y < 150) {
+              if (y < minY) {
                 dynamicPage = newPdfDoc.addPage();
-                y = height - margin;
+                y = height - topMargin;
                 // Add background to new page if available
                 if (bgImage) {
                   dynamicPage.drawImage(bgImage, {
@@ -1627,8 +1445,8 @@ serve(async (req) => {
                   });
                 }
               }
-              dynamicPage.drawText(currentLine, {
-                x: margin + 20,
+              dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                x: leftMargin + 20,
                 y,
                 size: fontSize - 1,
                 font,
@@ -1650,7 +1468,7 @@ serve(async (req) => {
           if (requirements.length > 0) {
             // Split requirements into lines if they're too long
             const requirementsText = `Requirements: ${requirements.join(", ")}`;
-            const maxWidth = width - margin * 2 - 20; // Account for left margin offset
+            const maxWidth = contentWidth - 20; // Account for left margin offset
             const words = requirementsText.split(" ");
             let currentLine = "";
             for (const word of words) {
@@ -1658,8 +1476,8 @@ serve(async (req) => {
               const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
               if (testWidth > maxWidth && currentLine) {
                 // Draw current line and start new line
-                dynamicPage.drawText(currentLine, {
-                  x: margin + 20,
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin + 20,
                   y,
                   size: fontSize - 1,
                   font,
@@ -1673,8 +1491,8 @@ serve(async (req) => {
             }
             // Draw the last line
             if (currentLine) {
-              dynamicPage.drawText(currentLine, {
-                x: margin + 20,
+              dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                x: leftMargin + 20,
                 y,
                 size: fontSize - 1,
                 font,
@@ -1683,14 +1501,15 @@ serve(async (req) => {
               y -= lineHeight;
             }
           }
+
           y -= lineHeight * 0.5; // Small spacing between options
         }
         // Draw total line
         y -= lineHeight;
         // Check if we need a new page before drawing total
-        if (y < 150) {
+        if (y < minY) {
           dynamicPage = newPdfDoc.addPage();
-          y = height - margin;
+          y = height - topMargin;
           // Add background to new page if available
           if (bgImage) {
             dynamicPage.drawImage(bgImage, {
@@ -1703,11 +1522,11 @@ serve(async (req) => {
         }
         dynamicPage.drawLine({
           start: {
-            x: margin,
+            x: leftMargin,
             y: y + 5,
           },
           end: {
-            x: width - margin,
+            x: width - rightMargin,
             y: y + 5,
           },
           thickness: 1,
@@ -1715,13 +1534,13 @@ serve(async (req) => {
         });
         y -= lineHeight;
         dynamicPage.drawText("Total Replacement Cost:", {
-          x: margin,
+          x: leftMargin,
           y,
           size: fontSize + 1,
           font: bold,
         });
         dynamicPage.drawText(`$${combinedTotal.toLocaleString()}`, {
-          x: width - margin - 100,
+          x: width - rightMargin - 100,
           y,
           size: fontSize + 1,
           font: bold,
@@ -1733,9 +1552,9 @@ serve(async (req) => {
         const totalCost = Number(entry.totalCost || entry.total_cost || 0);
         combinedTotal = totalCost;
         // Check if we need a new page before drawing single replacement details
-        if (y < 150) {
+        if (y < minY) {
           dynamicPage = newPdfDoc.addPage();
-          y = height - margin;
+          y = height - topMargin;
           // Add background to new page if available
           if (bgImage) {
             dynamicPage.drawImage(bgImage, {
@@ -1748,18 +1567,72 @@ serve(async (req) => {
         }
         // Draw replacement header
         dynamicPage.drawText("Replacement Details:", {
-          x: margin,
+          x: leftMargin,
           y,
           size: fontSize,
           font: bold,
         });
         dynamicPage.drawText(`$${totalCost.toLocaleString()}`, {
-          x: width - margin - 100,
+          x: width - rightMargin - 100,
           y,
           size: fontSize,
           font: bold,
         });
         y -= lineHeight;
+
+        // Add unit information for single replacement if available (MOVED TO TOP)
+        console.log(
+          "DEBUG: Single replacement - Checking unit_info for entry:",
+          entry.id,
+          "unit_info:",
+          entry.unit_info
+        );
+        if (
+          entry.unit_info &&
+          Array.isArray(entry.unit_info) &&
+          entry.unit_info.length > 0
+        ) {
+          // Check if we need a new page before drawing unit info
+          if (y < minY) {
+            dynamicPage = newPdfDoc.addPage();
+            y = height - topMargin;
+            // Add background to new page if available
+            if (bgImage) {
+              dynamicPage.drawImage(bgImage, {
+                x: 0,
+                y: 0,
+                width,
+                height,
+              });
+            }
+          }
+
+          dynamicPage.drawText("Unit Information:", {
+            x: leftMargin + 20,
+            y,
+            size: fontSize - 1,
+            font: bold,
+            color: rgb(0.2, 0.4, 0.8),
+          });
+          y -= lineHeight;
+
+          entry.unit_info.forEach((unit, unitIndex) => {
+            if (unit.descriptor || unit.modelName) {
+              const unitText = `- ${unit.descriptor || ""}${
+                unit.descriptor && unit.modelName ? " - " : ""
+              }${unit.modelName || ""}`;
+              dynamicPage.drawText(sanitizeTextForPDF(unitText), {
+                x: leftMargin + 40,
+                y,
+                size: fontSize - 2,
+                font,
+              });
+              y -= lineHeight;
+            }
+          });
+          y -= lineHeight * 0.5; // Small spacing after unit info
+        }
+
         // For single replacement, show detailed breakdown
         const components = [];
         if (entry.labor && Number(entry.labor) > 0) {
@@ -1850,9 +1723,9 @@ serve(async (req) => {
         if (components.length > 0) {
           for (const component of components) {
             // Check if we need a new page before drawing component
-            if (y < 150) {
+            if (y < minY) {
               dynamicPage = newPdfDoc.addPage();
-              y = height - margin;
+              y = height - topMargin;
               // Add background to new page if available
               if (bgImage) {
                 dynamicPage.drawImage(bgImage, {
@@ -1865,7 +1738,7 @@ serve(async (req) => {
             }
             // Split component into lines if it's too long
             const componentText = `• ${component}`;
-            const maxWidth = width - margin * 2 - 20; // Account for left margin offset
+            const maxWidth = contentWidth - 20; // Account for left margin offset
             const words = componentText.split(" ");
             let currentLine = "";
             for (const word of words) {
@@ -1873,8 +1746,8 @@ serve(async (req) => {
               const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
               if (testWidth > maxWidth && currentLine) {
                 // Draw current line and start new line
-                dynamicPage.drawText(currentLine, {
-                  x: margin + 20,
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin + 20,
                   y,
                   size: fontSize - 1,
                   font,
@@ -1887,8 +1760,8 @@ serve(async (req) => {
             }
             // Draw the last line
             if (currentLine) {
-              dynamicPage.drawText(currentLine, {
-                x: margin + 20,
+              dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                x: leftMargin + 20,
                 y,
                 size: fontSize - 1,
                 font,
@@ -1910,9 +1783,9 @@ serve(async (req) => {
         }
         if (requirements.length > 0) {
           // Check if we need a new page before drawing requirements
-          if (y < 150) {
+          if (y < minY) {
             dynamicPage = newPdfDoc.addPage();
-            y = height - margin;
+            y = height - topMargin;
             // Add background to new page if available
             if (bgImage) {
               dynamicPage.drawImage(bgImage, {
@@ -1925,7 +1798,7 @@ serve(async (req) => {
           }
           // Split requirements into lines if they're too long
           const requirementsText = `Requirements: ${requirements.join(", ")}`;
-          const maxWidth = width - margin * 2 - 20; // Account for left margin offset
+          const maxWidth = contentWidth - 20; // Account for left margin offset
           const words = requirementsText.split(" ");
           let currentLine = "";
           for (const word of words) {
@@ -1933,8 +1806,8 @@ serve(async (req) => {
             const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
             if (testWidth > maxWidth && currentLine) {
               // Draw current line and start new line
-              dynamicPage.drawText(currentLine, {
-                x: margin + 20,
+              dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                x: leftMargin + 20,
                 y,
                 size: fontSize - 1,
                 font,
@@ -1948,8 +1821,8 @@ serve(async (req) => {
           }
           // Draw the last line
           if (currentLine) {
-            dynamicPage.drawText(currentLine, {
-              x: margin + 20,
+            dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+              x: leftMargin + 20,
               y,
               size: fontSize - 1,
               font,
@@ -1958,15 +1831,13 @@ serve(async (req) => {
             y -= lineHeight;
           }
         }
+
         y -= lineHeight;
       }
     }
     // Note: Duplicate inspection results section removed - only the first one is kept
-    console.log("=== BEFORE MAIN IF/ELSE CONDITIONS ===");
     if (quoteType === "inspection") {
       // Handle inspection quotes
-      console.log("=== INSPECTION QUOTE SECTION ENTERED ===");
-      console.log("Processing inspection quote");
       // Add summary comment section if available
       if (
         jobData &&
@@ -1974,9 +1845,9 @@ serve(async (req) => {
         jobData.inspection_summary_comment.trim()
       ) {
         // Check if we need a new page for the summary comment
-        if (y < 150) {
+        if (y < minY) {
           dynamicPage = newPdfDoc.addPage();
-          y = height - margin;
+          y = height - topMargin;
           // Add background to new page if available
           if (bgImage) {
             dynamicPage.drawImage(bgImage, {
@@ -1987,69 +1858,38 @@ serve(async (req) => {
             });
           }
         }
-        dynamicPage.drawText("Summary Comment:", {
-          x: margin,
-          y,
-          size: fontSize + 1,
+        // Use drawBoundedText for proper margin handling
+        const summaryText = `Summary Comment: ${sanitizeTextForPDF(
+          jobData.inspection_summary_comment
+        )}`;
+        y = drawBoundedText(dynamicPage, summaryText, leftMargin, y, {
           font: bold,
+          fontSize: fontSize + 1,
+          leftMargin,
+          rightMargin,
+          width,
         });
-        y -= lineHeight * 1.5;
-        // Split comment into lines if it's too long
-        const commentText = jobData.inspection_summary_comment;
-        const maxWidth = width - margin * 2;
-        const words = commentText.split(" ");
-        let currentLine = "";
-        for (const word of words) {
-          const testLine = currentLine ? `${currentLine} ${word}` : word;
-          const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
-          if (testWidth > maxWidth && currentLine) {
-            // Draw current line and start new line
-            dynamicPage.drawText(currentLine, {
-              x: margin,
-              y,
-              size: fontSize - 1,
-              font,
-            });
-            y -= lineHeight;
-            currentLine = word;
-          } else {
-            currentLine = testLine;
-          }
-        }
-        // Draw the last line
-        if (currentLine) {
-          dynamicPage.drawText(currentLine, {
-            x: margin,
-            y,
-            size: fontSize - 1,
-            font,
-          });
-          y -= lineHeight * 2;
-        }
+        y -= lineHeight; // Extra spacing after summary
       }
     } else if (quoteType === "pm") {
       // Handle PM quotes
-      console.log("Processing PM quote");
       // Use passed PM quotes data if available, otherwise fetch from database
       let pmQuotesToUse = pmQuotes;
       if (!pmQuotesToUse || pmQuotesToUse.length === 0) {
-        console.log("No PM quotes passed, fetching from database");
         const { data: dbPMQuotes, error: pmError } = await supabase
           .from("pm_quotes")
           .select("*")
           .eq("job_id", jobId);
         if (pmError) {
-          console.error("Error fetching PM quotes:", pmError);
           throw new Error("Failed to fetch PM quotes");
         }
         pmQuotesToUse = dbPMQuotes;
       }
       if (!pmQuotesToUse || pmQuotesToUse.length === 0) {
-        console.log("No PM quotes found for job:", jobId);
         // Check if we need a new page
-        if (y < 200) {
+        if (y < minY) {
           dynamicPage = newPdfDoc.addPage();
-          y = height - margin;
+          y = height - topMargin;
           // Add background to new page if available
           if (bgImage) {
             dynamicPage.drawImage(bgImage, {
@@ -2061,7 +1901,7 @@ serve(async (req) => {
           }
         }
         dynamicPage.drawText("No PM quotes available for this job.", {
-          x: margin,
+          x: leftMargin,
           y,
           size: fontSize,
           font,
@@ -2069,14 +1909,13 @@ serve(async (req) => {
         });
         y -= lineHeight * 2;
       } else {
-        console.log(`Found ${pmQuotesToUse.length} PM quotes`);
         // Process each PM quote
         for (let i = 0; i < pmQuotesToUse.length; i++) {
           const pmQuote = pmQuotesToUse[i];
           // Check if we need a new page
-          if (y < 200) {
+          if (y < minY) {
             dynamicPage = newPdfDoc.addPage();
-            y = height - margin;
+            y = height - topMargin;
             // Add background to new page if available
             if (bgImage) {
               dynamicPage.drawImage(bgImage, {
@@ -2089,7 +1928,7 @@ serve(async (req) => {
           }
           // Draw PM quote header
           dynamicPage.drawText("PM Quote Details:", {
-            x: margin,
+            x: leftMargin,
             y,
             size: fontSize + 2,
             font: bold,
@@ -2097,12 +1936,15 @@ serve(async (req) => {
           y -= lineHeight * 2;
           // Show basic information
           if (pmQuote.unit_count) {
-            dynamicPage.drawText(`Number of Units: ${pmQuote.unit_count}`, {
-              x: margin,
-              y,
-              size: fontSize,
-              font: bold,
-            });
+            dynamicPage.drawText(
+              `Number of Units: ${sanitizeTextForPDF(pmQuote.unit_count)}`,
+              {
+                x: leftMargin,
+                y,
+                size: fontSize,
+                font: bold,
+              }
+            );
             y -= lineHeight;
           }
           // Show service configuration
@@ -2111,9 +1953,11 @@ serve(async (req) => {
             pmQuote.comprehensive_visits_count
           ) {
             dynamicPage.drawText(
-              `Comprehensive Visits: ${pmQuote.comprehensive_visits_count}`,
+              `Comprehensive Visits: ${sanitizeTextForPDF(
+                pmQuote.comprehensive_visits_count
+              )}`,
               {
-                x: margin,
+                x: leftMargin,
                 y,
                 size: fontSize,
                 font,
@@ -2126,9 +1970,11 @@ serve(async (req) => {
             pmQuote.filter_visits_count
           ) {
             dynamicPage.drawText(
-              `Filter Change Visits: ${pmQuote.filter_visits_count}`,
+              `Filter Change Visits: ${sanitizeTextForPDF(
+                pmQuote.filter_visits_count
+              )}`,
               {
-                x: margin,
+                x: leftMargin,
                 y,
                 size: fontSize,
                 font,
@@ -2143,7 +1989,7 @@ serve(async (req) => {
           ) {
             y -= lineHeight * 0.5;
             dynamicPage.drawText("Comprehensive Visit Costs:", {
-              x: margin,
+              x: leftMargin,
               y,
               size: fontSize,
               font: bold,
@@ -2153,7 +1999,7 @@ serve(async (req) => {
               dynamicPage.drawText(
                 `Visit ${index + 1}: $${(cost || 0).toLocaleString()}`,
                 {
-                  x: margin + 20,
+                  x: leftMargin + 20,
                   y,
                   size: fontSize - 1,
                   font,
@@ -2168,7 +2014,7 @@ serve(async (req) => {
           ) {
             y -= lineHeight * 0.5;
             dynamicPage.drawText("Filter Change Visit Costs:", {
-              x: margin,
+              x: leftMargin,
               y,
               size: fontSize,
               font: bold,
@@ -2178,7 +2024,7 @@ serve(async (req) => {
               dynamicPage.drawText(
                 `Visit ${index + 1}: $${(cost || 0).toLocaleString()}`,
                 {
-                  x: margin + 20,
+                  x: leftMargin + 20,
                   y,
                   size: fontSize - 1,
                   font,
@@ -2191,9 +2037,11 @@ serve(async (req) => {
           if (pmQuote.service_period) {
             y -= lineHeight * 0.5;
             dynamicPage.drawText(
-              `Comprehensive Service Period: ${pmQuote.service_period}`,
+              `Comprehensive Service Period: ${sanitizeTextForPDF(
+                pmQuote.service_period
+              )}`,
               {
-                x: margin,
+                x: leftMargin,
                 y,
                 size: fontSize - 1,
                 font,
@@ -2203,9 +2051,11 @@ serve(async (req) => {
           }
           if (pmQuote.filter_visit_period) {
             dynamicPage.drawText(
-              `Filter Change Period: ${pmQuote.filter_visit_period}`,
+              `Filter Change Period: ${sanitizeTextForPDF(
+                pmQuote.filter_visit_period
+              )}`,
               {
-                x: margin,
+                x: leftMargin,
                 y,
                 size: fontSize - 1,
                 font,
@@ -2217,7 +2067,7 @@ serve(async (req) => {
           if (pmQuote.scope_of_work) {
             y -= lineHeight * 0.5;
             dynamicPage.drawText("Scope of Work:", {
-              x: margin,
+              x: leftMargin,
               y,
               size: fontSize,
               font: bold,
@@ -2225,7 +2075,7 @@ serve(async (req) => {
             y -= lineHeight;
             // Split text into lines manually
             const scopeText = pmQuote.scope_of_work;
-            const maxWidth = width - margin * 2;
+            const maxWidth = contentWidth;
             const words = scopeText.split(" ");
             let currentLine = "";
             for (const word of words) {
@@ -2233,9 +2083,9 @@ serve(async (req) => {
               const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
               if (testWidth > maxWidth && currentLine) {
                 // Check if we need a new page
-                if (y < 150) {
+                if (y < minY) {
                   dynamicPage = newPdfDoc.addPage();
-                  y = height - margin;
+                  y = height - topMargin;
                   // Add background to new page if available
                   if (bgImage) {
                     dynamicPage.drawImage(bgImage, {
@@ -2247,8 +2097,8 @@ serve(async (req) => {
                   }
                 }
                 // Draw current line and start new line
-                dynamicPage.drawText(currentLine, {
-                  x: margin,
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin,
                   y,
                   size: fontSize - 1,
                   font,
@@ -2262,9 +2112,9 @@ serve(async (req) => {
             // Draw the last line
             if (currentLine) {
               // Check if we need a new page
-              if (y < 150) {
+              if (y < minY) {
                 dynamicPage = newPdfDoc.addPage();
-                y = height - margin;
+                y = height - topMargin;
                 // Add background to new page if available
                 if (bgImage) {
                   dynamicPage.drawImage(bgImage, {
@@ -2275,8 +2125,8 @@ serve(async (req) => {
                   });
                 }
               }
-              dynamicPage.drawText(currentLine, {
-                x: margin,
+              dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                x: leftMargin,
                 y,
                 size: fontSize - 1,
                 font,
@@ -2288,7 +2138,7 @@ serve(async (req) => {
           if (pmQuote.service_breakdown) {
             y -= lineHeight * 0.5;
             dynamicPage.drawText("Service Breakdown:", {
-              x: margin,
+              x: leftMargin,
               y,
               size: fontSize,
               font: bold,
@@ -2296,7 +2146,7 @@ serve(async (req) => {
             y -= lineHeight;
             // Split text into lines manually
             const breakdownText = pmQuote.service_breakdown;
-            const maxWidth = width - margin * 2;
+            const maxWidth = contentWidth;
             const words = breakdownText.split(" ");
             let currentLine = "";
             for (const word of words) {
@@ -2304,9 +2154,9 @@ serve(async (req) => {
               const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
               if (testWidth > maxWidth && currentLine) {
                 // Check if we need a new page
-                if (y < 150) {
+                if (y < minY) {
                   dynamicPage = newPdfDoc.addPage();
-                  y = height - margin;
+                  y = height - topMargin;
                   // Add background to new page if available
                   if (bgImage) {
                     dynamicPage.drawImage(bgImage, {
@@ -2318,8 +2168,8 @@ serve(async (req) => {
                   }
                 }
                 // Draw current line and start new line
-                dynamicPage.drawText(currentLine, {
-                  x: margin,
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin,
                   y,
                   size: fontSize - 1,
                   font,
@@ -2333,9 +2183,9 @@ serve(async (req) => {
             // Draw the last line
             if (currentLine) {
               // Check if we need a new page
-              if (y < 150) {
+              if (y < minY) {
                 dynamicPage = newPdfDoc.addPage();
-                y = height - margin;
+                y = height - topMargin;
                 // Add background to new page if available
                 if (bgImage) {
                   dynamicPage.drawImage(bgImage, {
@@ -2346,8 +2196,8 @@ serve(async (req) => {
                   });
                 }
               }
-              dynamicPage.drawText(currentLine, {
-                x: margin,
+              dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                x: leftMargin,
                 y,
                 size: fontSize - 1,
                 font,
@@ -2369,7 +2219,7 @@ serve(async (req) => {
                 pmQuote.comprehensive_visits_count > 1 ? "s" : ""
               }:`,
               {
-                x: margin,
+                x: leftMargin,
                 y,
                 size: fontSize,
                 font: bold,
@@ -2379,7 +2229,7 @@ serve(async (req) => {
             if (pmQuote.service_period) {
               // Split service period into lines if it's too long
               const scheduleText = `Schedule: ${pmQuote.service_period}`;
-              const maxWidth = width - margin * 2 - 20;
+              const maxWidth = contentWidth - 20;
               const words = scheduleText.split(" ");
               let currentLine = "";
               for (const word of words) {
@@ -2390,8 +2240,8 @@ serve(async (req) => {
                 );
                 if (testWidth > maxWidth && currentLine) {
                   // Draw current line and start new line
-                  dynamicPage.drawText(currentLine, {
-                    x: margin + 20,
+                  dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                    x: leftMargin + 20,
                     y,
                     size: fontSize - 1,
                     font,
@@ -2404,8 +2254,8 @@ serve(async (req) => {
               }
               // Draw the last line
               if (currentLine) {
-                dynamicPage.drawText(currentLine, {
-                  x: margin + 20,
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin + 20,
                   y,
                   size: fontSize - 1,
                   font,
@@ -2417,7 +2267,7 @@ serve(async (req) => {
               pmQuote.comprehensive_visit_description ||
               "During these visits, we will perform a detailed inspection and complete the following tasks";
             // Split text into lines manually
-            const maxWidth = width - margin * 2 - 20;
+            const maxWidth = contentWidth - 20;
             const words = comprehensiveDesc.split(" ");
             let currentLine = "";
             for (const word of words) {
@@ -2425,9 +2275,9 @@ serve(async (req) => {
               const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
               if (testWidth > maxWidth && currentLine) {
                 // Check if we need a new page
-                if (y < 150) {
+                if (y < minY) {
                   dynamicPage = newPdfDoc.addPage();
-                  y = height - margin;
+                  y = height - topMargin;
                   // Add background to new page if available
                   if (bgImage) {
                     dynamicPage.drawImage(bgImage, {
@@ -2439,8 +2289,8 @@ serve(async (req) => {
                   }
                 }
                 // Draw current line and start new line
-                dynamicPage.drawText(currentLine, {
-                  x: margin + 20,
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin + 20,
                   y,
                   size: fontSize - 1,
                   font,
@@ -2454,9 +2304,9 @@ serve(async (req) => {
             // Draw the last line
             if (currentLine) {
               // Check if we need a new page
-              if (y < 150) {
+              if (y < minY) {
                 dynamicPage = newPdfDoc.addPage();
-                y = height - margin;
+                y = height - topMargin;
                 // Add background to new page if available
                 if (bgImage) {
                   dynamicPage.drawImage(bgImage, {
@@ -2467,8 +2317,8 @@ serve(async (req) => {
                   });
                 }
               }
-              dynamicPage.drawText(currentLine, {
-                x: margin + 20,
+              dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                x: leftMargin + 20,
                 y,
                 size: fontSize - 1,
                 font,
@@ -2480,7 +2330,7 @@ serve(async (req) => {
             dynamicPage.drawText(
               "20-Point Safety and Operational Inspection, which includes:",
               {
-                x: margin + 20,
+                x: leftMargin + 20,
                 y,
                 size: fontSize - 1,
                 font: bold,
@@ -2511,9 +2361,9 @@ serve(async (req) => {
             ];
             inspectionTasks.forEach((task) => {
               // Check if we need a new page before drawing each task
-              if (y < 150) {
+              if (y < minY) {
                 dynamicPage = newPdfDoc.addPage();
-                y = height - margin;
+                y = height - topMargin;
                 // Add background to new page if available
                 if (bgImage) {
                   dynamicPage.drawImage(bgImage, {
@@ -2526,7 +2376,7 @@ serve(async (req) => {
               }
               // Split task into lines if it's too long
               const taskText = `• ${task}`;
-              const maxWidth = width - margin * 2 - 30; // Account for left margin offset
+              const maxWidth = contentWidth - 30; // Account for left margin offset
               const words = taskText.split(" ");
               let currentLine = "";
               for (const word of words) {
@@ -2537,8 +2387,8 @@ serve(async (req) => {
                 );
                 if (testWidth > maxWidth && currentLine) {
                   // Draw current line and start new line
-                  dynamicPage.drawText(currentLine, {
-                    x: margin + 30,
+                  dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                    x: leftMargin + 30,
                     y,
                     size: fontSize - 2,
                     font,
@@ -2551,8 +2401,8 @@ serve(async (req) => {
               }
               // Draw the last line
               if (currentLine) {
-                dynamicPage.drawText(currentLine, {
-                  x: margin + 30,
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin + 30,
                   y,
                   size: fontSize - 2,
                   font,
@@ -2578,7 +2428,7 @@ serve(async (req) => {
                 pmQuote.filter_visits_count > 1 ? "s" : ""
               }:`,
               {
-                x: margin,
+                x: leftMargin,
                 y,
                 size: fontSize,
                 font: bold,
@@ -2588,7 +2438,7 @@ serve(async (req) => {
             if (pmQuote.filter_visit_period) {
               // Split filter visit period into lines if it's too long
               const scheduleText = `Schedule: ${pmQuote.filter_visit_period}`;
-              const maxWidth = width - margin * 2 - 20;
+              const maxWidth = contentWidth - 20;
               const words = scheduleText.split(" ");
               let currentLine = "";
               for (const word of words) {
@@ -2599,8 +2449,8 @@ serve(async (req) => {
                 );
                 if (testWidth > maxWidth && currentLine) {
                   // Draw current line and start new line
-                  dynamicPage.drawText(currentLine, {
-                    x: margin + 20,
+                  dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                    x: leftMargin + 20,
                     y,
                     size: fontSize - 1,
                     font,
@@ -2613,8 +2463,8 @@ serve(async (req) => {
               }
               // Draw the last line
               if (currentLine) {
-                dynamicPage.drawText(currentLine, {
-                  x: margin + 20,
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin + 20,
                   y,
                   size: fontSize - 1,
                   font,
@@ -2626,7 +2476,7 @@ serve(async (req) => {
               pmQuote.filter_visit_description ||
               "During these visits, we will perform filter replacement and basic maintenance";
             // Split text into lines manually
-            const maxWidth = width - margin * 2 - 20;
+            const maxWidth = contentWidth - 20;
             const words = filterDesc.split(" ");
             let currentLine = "";
             for (const word of words) {
@@ -2634,9 +2484,9 @@ serve(async (req) => {
               const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
               if (testWidth > maxWidth && currentLine) {
                 // Check if we need a new page
-                if (y < 150) {
+                if (y < minY) {
                   dynamicPage = newPdfDoc.addPage();
-                  y = height - margin;
+                  y = height - topMargin;
                   // Add background to new page if available
                   if (bgImage) {
                     dynamicPage.drawImage(bgImage, {
@@ -2648,8 +2498,8 @@ serve(async (req) => {
                   }
                 }
                 // Draw current line and start new line
-                dynamicPage.drawText(currentLine, {
-                  x: margin + 20,
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin + 20,
                   y,
                   size: fontSize - 1,
                   font,
@@ -2663,9 +2513,9 @@ serve(async (req) => {
             // Draw the last line
             if (currentLine) {
               // Check if we need a new page
-              if (y < 150) {
+              if (y < minY) {
                 dynamicPage = newPdfDoc.addPage();
-                y = height - margin;
+                y = height - topMargin;
                 // Add background to new page if available
                 if (bgImage) {
                   dynamicPage.drawImage(bgImage, {
@@ -2676,8 +2526,8 @@ serve(async (req) => {
                   });
                 }
               }
-              dynamicPage.drawText(currentLine, {
-                x: margin + 20,
+              dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                x: leftMargin + 20,
                 y,
                 size: fontSize - 1,
                 font,
@@ -2687,7 +2537,7 @@ serve(async (req) => {
             // Filter-specific tasks
             y -= lineHeight * 0.5;
             dynamicPage.drawText("Filter Change Services include:", {
-              x: margin + 20,
+              x: leftMargin + 20,
               y,
               size: fontSize - 1,
               font: bold,
@@ -2702,9 +2552,9 @@ serve(async (req) => {
             ];
             filterTasks.forEach((task) => {
               // Check if we need a new page before drawing each task
-              if (y < 150) {
+              if (y < minY) {
                 dynamicPage = newPdfDoc.addPage();
-                y = height - margin;
+                y = height - topMargin;
                 // Add background to new page if available
                 if (bgImage) {
                   dynamicPage.drawImage(bgImage, {
@@ -2717,7 +2567,7 @@ serve(async (req) => {
               }
               // Split task into lines if it's too long
               const taskText = `• ${task}`;
-              const maxWidth = width - margin * 2 - 30; // Account for left margin offset
+              const maxWidth = contentWidth - 30; // Account for left margin offset
               const words = taskText.split(" ");
               let currentLine = "";
               for (const word of words) {
@@ -2728,8 +2578,8 @@ serve(async (req) => {
                 );
                 if (testWidth > maxWidth && currentLine) {
                   // Draw current line and start new line
-                  dynamicPage.drawText(currentLine, {
-                    x: margin + 30,
+                  dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                    x: leftMargin + 30,
                     y,
                     size: fontSize - 2,
                     font,
@@ -2742,8 +2592,8 @@ serve(async (req) => {
               }
               // Draw the last line
               if (currentLine) {
-                dynamicPage.drawText(currentLine, {
-                  x: margin + 30,
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin + 30,
                   y,
                   size: fontSize - 2,
                   font,
@@ -2755,7 +2605,7 @@ serve(async (req) => {
           }
           // Preventative Maintenance Section (Blue background) - Always start on new page
           dynamicPage = newPdfDoc.addPage();
-          y = height - margin;
+          y = height - topMargin;
           // Add background to new page if available
           if (bgImage) {
             dynamicPage.drawImage(bgImage, {
@@ -2766,14 +2616,14 @@ serve(async (req) => {
             });
           }
           dynamicPage.drawRectangle({
-            x: margin - 5,
+            x: leftMargin - 5,
             y: y - 5,
-            width: width - margin * 2 + 10,
+            width: contentWidth + 10,
             height: 40,
             color: rgb(0.23, 0.51, 0.96),
           });
           dynamicPage.drawText("Preventative Maintenance", {
-            x: margin,
+            x: leftMargin,
             y,
             size: fontSize,
             font: bold,
@@ -2788,9 +2638,9 @@ serve(async (req) => {
             ];
           maintenanceServices.forEach((service) => {
             // Check if we need a new page before drawing each service
-            if (y < 150) {
+            if (y < minY) {
               dynamicPage = newPdfDoc.addPage();
-              y = height - margin;
+              y = height - topMargin;
               // Add background to new page if available
               if (bgImage) {
                 dynamicPage.drawImage(bgImage, {
@@ -2803,7 +2653,7 @@ serve(async (req) => {
             }
             // Split service into lines if it's too long
             const serviceText = `• ${service}`;
-            const maxWidth = width - margin * 2;
+            const maxWidth = contentWidth;
             const words = serviceText.split(" ");
             let currentLine = "";
             for (const word of words) {
@@ -2811,8 +2661,8 @@ serve(async (req) => {
               const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
               if (testWidth > maxWidth && currentLine) {
                 // Draw current line and start new line
-                dynamicPage.drawText(currentLine, {
-                  x: margin,
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin,
                   y,
                   size: fontSize - 1,
                   font: bold,
@@ -2825,8 +2675,8 @@ serve(async (req) => {
             }
             // Draw the last line
             if (currentLine) {
-              dynamicPage.drawText(currentLine, {
-                x: margin,
+              dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                x: leftMargin,
                 y,
                 size: fontSize - 1,
                 font: bold,
@@ -2850,7 +2700,7 @@ serve(async (req) => {
             }
             if (description) {
               // Split text into lines manually
-              const maxWidth = width - margin * 2 - 20;
+              const maxWidth = contentWidth - 20;
               const words = description.split(" ");
               let currentLine = "";
               for (const word of words) {
@@ -2861,9 +2711,9 @@ serve(async (req) => {
                 );
                 if (testWidth > maxWidth && currentLine) {
                   // Check if we need a new page
-                  if (y < 150) {
+                  if (y < minY) {
                     dynamicPage = newPdfDoc.addPage();
-                    y = height - margin;
+                    y = height - topMargin;
                     // Add background to new page if available
                     if (bgImage) {
                       dynamicPage.drawImage(bgImage, {
@@ -2875,8 +2725,8 @@ serve(async (req) => {
                     }
                   }
                   // Draw current line and start new line
-                  dynamicPage.drawText(currentLine, {
-                    x: margin + 20,
+                  dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                    x: leftMargin + 20,
                     y,
                     size: fontSize - 2,
                     font,
@@ -2890,9 +2740,9 @@ serve(async (req) => {
               // Draw the last line
               if (currentLine) {
                 // Check if we need a new page
-                if (y < 150) {
+                if (y < minY) {
                   dynamicPage = newPdfDoc.addPage();
-                  y = height - margin;
+                  y = height - topMargin;
                   // Add background to new page if available
                   if (bgImage) {
                     dynamicPage.drawImage(bgImage, {
@@ -2903,8 +2753,8 @@ serve(async (req) => {
                     });
                   }
                 }
-                dynamicPage.drawText(currentLine, {
-                  x: margin + 20,
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin + 20,
                   y,
                   size: fontSize - 2,
                   font,
@@ -2918,11 +2768,11 @@ serve(async (req) => {
           y -= lineHeight;
           dynamicPage.drawLine({
             start: {
-              x: margin,
+              x: leftMargin,
               y: y + 5,
             },
             end: {
-              x: width - margin,
+              x: width - rightMargin,
               y: y + 5,
             },
             thickness: 1,
@@ -2931,13 +2781,13 @@ serve(async (req) => {
           y -= lineHeight;
           const totalCost = pmQuote.total_cost || 0;
           dynamicPage.drawText("Total Annual Cost:", {
-            x: margin,
+            x: leftMargin,
             y,
             size: fontSize + 1,
             font: bold,
           });
           dynamicPage.drawText(`$${totalCost.toLocaleString()}`, {
-            x: width - margin - 100,
+            x: width - rightMargin - 100,
             y,
             size: fontSize + 1,
             font: bold,
@@ -2954,16 +2804,10 @@ serve(async (req) => {
       Array.isArray(jobItems) &&
       jobItems.length > 0
     ) {
-      console.log("=== REPAIR QUOTE SECTION ENTERED ===");
-      console.log(`Processing repair quote with ${jobItems.length} items`);
-      console.log("Current y position:", y);
-      console.log("minY value:", minY);
       // Check if we need a new page
-      if (y < 200) {
-        console.log("Creating new page for repair items - y was:", y);
+      if (y < minY) {
         dynamicPage = newPdfDoc.addPage();
-        y = height - margin;
-        console.log("New page created, y is now:", y);
+        y = height - topMargin;
         // Add background to new page if available
         if (bgImage) {
           dynamicPage.drawImage(bgImage, {
@@ -2973,12 +2817,9 @@ serve(async (req) => {
             height,
           });
         }
-      } else {
-        console.log("Using existing page for repair items - y is:", y);
       }
-      console.log("Drawing 'Items:' header at y position:", y);
       dynamicPage.drawText("Items:", {
-        x: margin,
+        x: leftMargin,
         y,
         size: fontSize + 2,
         font: bold,
@@ -2986,19 +2827,19 @@ serve(async (req) => {
       y -= lineHeight * 1.5;
       // Table header
       dynamicPage.drawText("Item", {
-        x: margin,
+        x: leftMargin,
         y,
         size: fontSize,
         font: bold,
       });
       dynamicPage.drawText("Quantity", {
-        x: 300,
+        x: leftMargin + contentWidth * 0.7,
         y,
         size: fontSize,
         font: bold,
       });
       dynamicPage.drawText("Price", {
-        x: 400,
+        x: leftMargin + contentWidth * 0.85,
         y,
         size: fontSize,
         font: bold,
@@ -3009,25 +2850,11 @@ serve(async (req) => {
       const repairItems = jobItems.filter(
         (item) => item.type?.trim() === "part"
       );
-      console.log(`Found ${repairItems.length} part items for repair quote`);
-      console.log(
-        "Repair items details:",
-        repairItems.map((item) => ({
-          id: item.id,
-          name: item.name,
-          type: item.type,
-          cost: item.total_cost || item.cost,
-        }))
-      );
-      console.log(
-        "Total PDF pages before adding repair items:",
-        newPdfDoc.getPageCount()
-      );
       for (const item of repairItems) {
         // Check if we need a new page
         if (y < minY) {
           dynamicPage = newPdfDoc.addPage();
-          y = height - margin;
+          y = height - topMargin;
           // Add background to new page if available
           if (bgImage) {
             dynamicPage.drawImage(bgImage, {
@@ -3039,19 +2866,19 @@ serve(async (req) => {
           }
           // Redraw table header on new page
           dynamicPage.drawText("Item", {
-            x: margin,
+            x: leftMargin,
             y,
             size: fontSize,
             font: bold,
           });
           dynamicPage.drawText("Quantity", {
-            x: 300,
+            x: leftMargin + contentWidth * 0.7,
             y,
             size: fontSize,
             font: bold,
           });
           dynamicPage.drawText("Price", {
-            x: 400,
+            x: leftMargin + contentWidth * 0.85,
             y,
             size: fontSize,
             font: bold,
@@ -3061,21 +2888,20 @@ serve(async (req) => {
         const name = (item.name || "Unknown").trim();
         const quantity = item.quantity || 1;
         const cost = Number(item.total_cost || item.cost || 0);
-        console.log(`Drawing repair item: ${name} at y position: ${y}`);
         dynamicPage.drawText(name, {
-          x: margin,
+          x: leftMargin,
           y,
           size: fontSize,
           font,
         });
-        dynamicPage.drawText(quantity.toString(), {
-          x: 300,
+        dynamicPage.drawText(sanitizeTextForPDF(quantity.toString()), {
+          x: leftMargin + contentWidth * 0.7,
           y,
           size: fontSize,
           font,
         });
         dynamicPage.drawText(`$${cost.toFixed(2)}`, {
-          x: 400,
+          x: leftMargin + contentWidth * 0.85,
           y,
           size: fontSize,
           font,
@@ -3085,13 +2911,13 @@ serve(async (req) => {
       }
       y -= lineHeight;
       dynamicPage.drawText("Total:", {
-        x: 300,
+        x: leftMargin + contentWidth * 0.7,
         y,
         size: fontSize + 2,
         font: bold,
       });
       dynamicPage.drawText(`$${totalAmount.toFixed(2)}`, {
-        x: 400,
+        x: leftMargin + contentWidth * 0.85,
         y,
         size: fontSize + 2,
         font: bold,

@@ -411,6 +411,7 @@ const SendEmailModal = ({
             selectedPhase: item.selected_phase || "phase2",
             totalCost: item.total_cost || 0,
             created_at: item.created_at || "",
+            unit_info: item.unit_info || [],
           };
         });
       }

@@ -665,6 +665,7 @@ export interface Database {
           selected_phase: string | null;
           total_cost: number | null;
           inspection_id: string | null;
+          unit_info: Json[];
         };
         Insert: {
           id?: string;
@@ -687,6 +688,7 @@ export interface Database {
           selected_phase?: string | null;
           total_cost?: number | null;
           inspection_id?: string | null;
+          unit_info?: Json[];
         };
         Update: {
           id?: string;
@@ -709,6 +711,7 @@ export interface Database {
           selected_phase?: string | null;
           total_cost?: number | null;
           inspection_id?: string | null;
+          unit_info?: Json[];
         };
       };
       job_clock_events: {
