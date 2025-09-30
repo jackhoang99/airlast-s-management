@@ -216,6 +216,30 @@ const Assets = () => {
     });
   };
 
+  const handleDeleteAsset = async (assetId: string) => {
+    if (!supabase) return;
+
+    try {
+      const { error } = await supabase
+        .from("assets")
+        .delete()
+        .eq("id", assetId);
+
+      if (error) {
+        console.error("Error deleting asset:", error);
+        alert("Failed to delete asset. Please try again.");
+        return;
+      }
+
+      // Refresh the assets list
+      await fetchAssets();
+      alert("Asset deleted successfully.");
+    } catch (err) {
+      console.error("Error deleting asset:", err);
+      alert("Failed to delete asset. Please try again.");
+    }
+  };
+
   const filteredAssets = assets.filter((asset) => {
     // Check if any column search has a value
     const hasColumnSearches = Object.values(columnSearches).some(
@@ -555,6 +579,9 @@ const Assets = () => {
                   <th className="px-4 py-3 text-sm font-medium text-gray-500">
                     ATTACHMENTS
                   </th>
+                  <th className="px-4 py-3 text-sm font-medium text-gray-500">
+                    ACTIONS
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -650,6 +677,35 @@ const Assets = () => {
                           setShowAttachmentModal(true);
                         }}
                       />
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => {
+                            setEditingAsset(asset);
+                            setShowEditAssetForm(true);
+                          }}
+                          className="p-1 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded transition-colors"
+                          title="Edit Asset"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                "Are you sure you want to delete this asset? This action cannot be undone."
+                              )
+                            ) {
+                              handleDeleteAsset(asset.id);
+                            }
+                          }}
+                          className="p-1 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Delete Asset"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

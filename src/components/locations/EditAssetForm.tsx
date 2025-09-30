@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSupabase } from "../../lib/supabase-context";
+import { Paperclip } from "lucide-react";
+import InspectionAttachmentModal from "./InspectionAttachmentModal";
 
 interface CompanyOption {
   id: string;
@@ -42,10 +44,13 @@ const EditAssetForm = ({ asset, onSuccess, onCancel }: EditAssetFormProps) => {
     serial_number: "",
     comment: "",
     system_type: "",
+    belt_size: "",
+    filter_size: "",
   });
   const [inspectionDate, setInspectionDate] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAttachmentModal, setShowAttachmentModal] = useState(false);
 
   // Initialize form with asset data
   useEffect(() => {
@@ -59,6 +64,8 @@ const EditAssetForm = ({ asset, onSuccess, onCancel }: EditAssetFormProps) => {
         serial_number: asset.model?.serial_number || "",
         comment: asset.model?.comment || "",
         system_type: asset.model?.system_type || "",
+        belt_size: asset.model?.belt_size || "",
+        filter_size: asset.model?.filter_size || "",
       });
       setInspectionDate(
         asset.inspection_date ? asset.inspection_date.split("T")[0] : ""
@@ -326,6 +333,32 @@ const EditAssetForm = ({ asset, onSuccess, onCancel }: EditAssetFormProps) => {
             placeholder="Enter system type"
           />
         </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Belt Size
+          </label>
+          <input
+            name="belt_size"
+            type="text"
+            className="input w-full"
+            value={model.belt_size}
+            onChange={handleModelChange}
+            placeholder="Enter belt size"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Filter Size
+          </label>
+          <input
+            name="filter_size"
+            type="text"
+            className="input w-full"
+            value={model.filter_size}
+            onChange={handleModelChange}
+            placeholder="Enter filter size"
+          />
+        </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Comment
@@ -350,6 +383,23 @@ const EditAssetForm = ({ asset, onSuccess, onCancel }: EditAssetFormProps) => {
             onChange={(e) => setInspectionDate(e.target.value)}
           />
         </div>
+
+        {/* Attachments Section */}
+        {asset?.model?.inspection_id && (
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Attachments
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowAttachmentModal(true)}
+              className="flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            >
+              <Paperclip className="h-4 w-4 mr-2" />
+              Manage Attachments
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end gap-2 mt-4">
@@ -367,6 +417,16 @@ const EditAssetForm = ({ asset, onSuccess, onCancel }: EditAssetFormProps) => {
           {isLoading ? "Updating..." : "Update Asset"}
         </button>
       </div>
+
+      {/* Attachment Modal */}
+      {showAttachmentModal && asset?.model?.inspection_id && (
+        <InspectionAttachmentModal
+          isOpen={showAttachmentModal}
+          onClose={() => setShowAttachmentModal(false)}
+          inspectionId={asset.model.inspection_id}
+          title="Asset Attachments"
+        />
+      )}
     </form>
   );
 };

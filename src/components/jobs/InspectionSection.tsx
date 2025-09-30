@@ -294,6 +294,8 @@ const InspectionSection = ({
             serial_number: inspection.serial_number,
             inspection_id: inspection.id,
             comment: inspection.comment,
+            belt_size: inspection.belt_size,
+            filter_size: inspection.filter_size,
           };
           await supabase.from("assets").insert({
             unit_id,

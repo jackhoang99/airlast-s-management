@@ -33,6 +33,8 @@ const defaultModel = {
   serial_number: "",
   comment: "",
   system_type: "",
+  belt_size: "",
+  filter_size: "",
 };
 
 const AddAssetForm = ({
@@ -58,6 +60,11 @@ const AddAssetForm = ({
   const [selectedUnit, setSelectedUnit] = useState<string>(unitId || "");
 
   const [model, setModel] = useState<any>(defaultModel);
+
+  // Debug: Log initial model state
+  useEffect(() => {
+    console.log("Initial model state:", model);
+  }, []);
   const [inspectionDate, setInspectionDate] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,6 +138,7 @@ const AddAssetForm = ({
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >
   ) => {
+    console.log("Field changed:", e.target.name, "Value:", e.target.value);
     setModel((prev: any) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
@@ -145,6 +153,7 @@ const AddAssetForm = ({
         return;
       }
       // Insert asset
+      console.log("Model data being saved:", model);
       const { error: insertError } = await supabase.from("assets").insert({
         unit_id: selectedUnit,
         model: {
@@ -330,6 +339,32 @@ const AddAssetForm = ({
             value={model.system_type}
             onChange={handleModelChange}
             placeholder="Enter system type"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Belt Size
+          </label>
+          <input
+            name="belt_size"
+            type="text"
+            className="input w-full"
+            value={model.belt_size}
+            onChange={handleModelChange}
+            placeholder="Enter belt size"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Filter Size
+          </label>
+          <input
+            name="filter_size"
+            type="text"
+            className="input w-full"
+            value={model.filter_size}
+            onChange={handleModelChange}
+            placeholder="Enter filter size"
           />
         </div>
         <div className="md:col-span-2">
