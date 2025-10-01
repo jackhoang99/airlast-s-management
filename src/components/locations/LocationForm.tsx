@@ -61,6 +61,12 @@ const LocationForm = ({
     contact_phone: initialData?.contact_phone || "",
     contact_email: initialData?.contact_email || "",
     contact_type: initialData?.contact_type || "",
+    billing_entity: initialData?.billing_entity || "",
+    billing_email: initialData?.billing_email || "",
+    billing_city: initialData?.billing_city || "",
+    billing_state: initialData?.billing_state || "",
+    billing_zip: initialData?.billing_zip || "",
+    office: initialData?.office || "",
   });
 
   // Load Google Maps API
@@ -805,6 +811,124 @@ const LocationForm = ({
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Billing Information */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-medium mb-6">
+          Location's Billing Information
+        </h2>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="billing_entity"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Billing Entity
+            </label>
+            <input
+              type="text"
+              id="billing_entity"
+              name="billing_entity"
+              value={formData.billing_entity}
+              onChange={handleChange}
+              className="input"
+              placeholder="Billing Entity Name"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="billing_email"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Billing Email
+            </label>
+            <input
+              type="email"
+              id="billing_email"
+              name="billing_email"
+              value={formData.billing_email}
+              onChange={handleChange}
+              className="input"
+              placeholder="billing@example.com"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="billing_city"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Billing City
+            </label>
+            <input
+              type="text"
+              id="billing_city"
+              name="billing_city"
+              value={formData.billing_city}
+              onChange={handleChange}
+              className="input"
+              placeholder="City"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="billing_state"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Billing State
+            </label>
+            <input
+              type="text"
+              id="billing_state"
+              name="billing_state"
+              value={formData.billing_state}
+              onChange={handleChange}
+              className="input"
+              placeholder="State"
+              maxLength={2}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="billing_zip"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Billing Zip
+            </label>
+            <input
+              type="text"
+              id="billing_zip"
+              name="billing_zip"
+              value={formData.billing_zip}
+              onChange={handleChange}
+              className="input"
+              placeholder="Zip Code"
+              maxLength={10}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="office"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Office
+            </label>
+            <input
+              type="text"
+              id="office"
+              name="office"
+              value={formData.office}
+              onChange={handleChange}
+              className="input"
+              placeholder="Main Office"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">

@@ -6,10 +6,13 @@ import {
   Mail,
   Phone,
   Package,
+  StickyNote,
+  Edit,
 } from "lucide-react";
 import { Job } from "../../types/job";
 import { useEffect, useState } from "react";
 import QuickAssetViewModal from "../locations/QuickAssetViewModal";
+import EditUnitNotesModal from "../units/EditUnitNotesModal";
 import { useSupabase } from "../../lib/supabase-context";
 
 type JobUnitSectionProps = {
@@ -26,9 +29,17 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
   const { supabase } = useSupabase();
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
+  const [showEditNotesModal, setShowEditNotesModal] = useState(false);
+  const [selectedUnitForNotes, setSelectedUnitForNotes] = useState<any>(null);
   const [unitContacts, setUnitContacts] = useState<{ [key: string]: any[] }>(
     {}
   );
+  const [units, setUnits] = useState(job.units || []);
+
+  // Sync units state when job prop changes
+  useEffect(() => {
+    setUnits(job.units || []);
+  }, [job.units]);
 
   // Fetch additional contacts for all units
   useEffect(() => {
@@ -67,7 +78,7 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
     fetchUnitContacts();
   }, [job.units]);
 
-  if (!job.units || job.units.length === 0) {
+  if (!units || units.length === 0) {
     return (
       <div className="card">
         <h2 className="text-lg font-medium mb-4">Suite Information</h2>
@@ -75,8 +86,6 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
       </div>
     );
   }
-
-  const units = job.units;
 
   // Find shared fields
   const sharedContactType = getSharedValue(units, "primary_contact_type");
@@ -219,7 +228,7 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
             sharedBillingZip) && (
             <div>
               <div className="font-semibold text-gray-800 mb-2">
-                Billing Information
+                Unit's Billing Information
               </div>
               <div className="space-y-1 ml-1">
                 {sharedBillingEntity && (
@@ -442,6 +451,41 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
                   </div>
                 )
               )}
+
+              {/* Unit Notes */}
+              <div className="mt-3">
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="font-semibold text-gray-800 text-sm">
+                        Unit Notes
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedUnitForNotes(unit);
+                          setShowEditNotesModal(true);
+                        }}
+                        className="text-xs text-primary-600 hover:text-primary-800 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-primary-50 transition-colors"
+                        title="Edit Notes"
+                      >
+                        <Edit className="h-3 w-3" />
+                        {unit.notes ? "Edit" : "Add"}
+                      </button>
+                    </div>
+                    {unit.notes ? (
+                      <div className="text-gray-700 text-sm bg-yellow-50 border border-yellow-200 rounded-md p-2">
+                        {unit.notes}
+                      </div>
+                    ) : (
+                      <div className="text-gray-500 text-sm italic">
+                        No notes added yet. Click "Add" to add notes for this
+                        unit.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {idx !== units.length - 1 && <hr className="my-2" />}
             </div>
           );
@@ -458,6 +502,27 @@ const JobUnitSection = ({ job }: JobUnitSectionProps) => {
           }}
           location={job.locations}
           unit={selectedUnit}
+        />
+      )}
+
+      {/* Edit Notes Modal */}
+      {showEditNotesModal && selectedUnitForNotes && (
+        <EditUnitNotesModal
+          unit={selectedUnitForNotes}
+          onClose={() => {
+            setShowEditNotesModal(false);
+            setSelectedUnitForNotes(null);
+          }}
+          onSave={(notes) => {
+            // Update the unit in the local state
+            setUnits((prevUnits) =>
+              prevUnits.map((u: any) =>
+                u.id === selectedUnitForNotes.id ? { ...u, notes } : u
+              )
+            );
+            setShowEditNotesModal(false);
+            setSelectedUnitForNotes(null);
+          }}
         />
       )}
     </div>

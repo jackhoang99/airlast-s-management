@@ -55,6 +55,12 @@ export interface Database {
           contact_phone: string | null;
           contact_email: string | null;
           contact_type: string | null;
+          billing_entity: string | null;
+          billing_email: string | null;
+          billing_city: string | null;
+          billing_state: string | null;
+          billing_zip: string | null;
+          office: string | null;
           created_at: string;
         };
         Insert: {
@@ -70,6 +76,12 @@ export interface Database {
           contact_phone?: string | null;
           contact_email?: string | null;
           contact_type?: string | null;
+          billing_entity?: string | null;
+          billing_email?: string | null;
+          billing_city?: string | null;
+          billing_state?: string | null;
+          billing_zip?: string | null;
+          office?: string | null;
           created_at?: string;
         };
         Update: {
@@ -85,6 +97,12 @@ export interface Database {
           contact_phone?: string | null;
           contact_email?: string | null;
           contact_type?: string | null;
+          billing_entity?: string | null;
+          billing_email?: string | null;
+          billing_city?: string | null;
+          billing_state?: string | null;
+          billing_zip?: string | null;
+          office?: string | null;
           created_at?: string;
         };
       };
@@ -135,6 +153,7 @@ export interface Database {
           billing_state: string | null;
           billing_zip: string | null;
           office: string | null;
+          notes: string | null;
           created_at: string;
         };
         Insert: {
@@ -151,6 +170,7 @@ export interface Database {
           billing_state?: string | null;
           billing_zip?: string | null;
           office?: string | null;
+          notes?: string | null;
           created_at?: string;
         };
         Update: {
@@ -167,6 +187,7 @@ export interface Database {
           billing_state?: string | null;
           billing_zip?: string | null;
           office?: string | null;
+          notes?: string | null;
           created_at?: string;
         };
       };

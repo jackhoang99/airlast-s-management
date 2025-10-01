@@ -252,6 +252,52 @@ const LocationDetails = () => {
               </div>
             </div>
 
+            {/* Billing Information */}
+            <hr className="my-6" />
+            <div>
+              <h3 className="text-lg font-medium mb-4">
+                Location's Billing Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">
+                    Billing Entity
+                  </label>
+                  <p>{location.billing_entity || "Not specified"}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">
+                    Billing Email
+                  </label>
+                  <p>{location.billing_email || "Not specified"}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">
+                    Billing City
+                  </label>
+                  <p>{location.billing_city || "Not specified"}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">
+                    Billing State
+                  </label>
+                  <p>{location.billing_state || "Not specified"}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">
+                    Billing Zip
+                  </label>
+                  <p>{location.billing_zip || "Not specified"}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">
+                    Office
+                  </label>
+                  <p>{location.office || "Main Office"}</p>
+                </div>
+              </div>
+            </div>
+
             {/* Contact Information */}
             {(location.contact_name ||
               location.contact_phone ||

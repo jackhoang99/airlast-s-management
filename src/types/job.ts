@@ -53,6 +53,12 @@ export interface Job {
     zip: string;
     building_name: string;
     company_id: string;
+    billing_entity: string | null;
+    billing_email: string | null;
+    billing_city: string | null;
+    billing_state: string | null;
+    billing_zip: string | null;
+    office: string | null;
     companies: {
       name: string;
     };

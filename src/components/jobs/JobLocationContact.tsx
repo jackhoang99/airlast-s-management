@@ -1,4 +1,4 @@
-import { Building, MapPin, User, Phone, Mail } from "lucide-react";
+import { Building, MapPin, User, Phone, Mail, FileText } from "lucide-react";
 import { Job } from "../../types/job";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -65,6 +65,62 @@ const JobLocationContact = ({ job }: JobLocationContactProps) => {
                 </p>
               </div>
             </div>
+
+            {/* Location Billing Information */}
+            {(job.locations?.billing_entity ||
+              job.locations?.billing_email ||
+              job.locations?.billing_city ||
+              job.locations?.billing_state ||
+              job.locations?.billing_zip ||
+              job.locations?.office) && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Location Billing Information
+                </h4>
+                <div className="space-y-2 text-sm">
+                  {job.locations?.billing_entity && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 w-20">Entity:</span>
+                      <span>{job.locations.billing_entity}</span>
+                    </div>
+                  )}
+                  {job.locations?.billing_email && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 w-20">Email:</span>
+                      <a
+                        href={`mailto:${job.locations.billing_email}`}
+                        className="text-primary-600 hover:text-primary-800"
+                      >
+                        {job.locations.billing_email}
+                      </a>
+                    </div>
+                  )}
+                  {(job.locations?.billing_city ||
+                    job.locations?.billing_state ||
+                    job.locations?.billing_zip) && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 w-20">Address:</span>
+                      <span>
+                        {[
+                          job.locations?.billing_city,
+                          job.locations?.billing_state,
+                          job.locations?.billing_zip,
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </span>
+                    </div>
+                  )}
+                  {job.locations?.office && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 w-20">Office:</span>
+                      <span>{job.locations.office}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <p className="text-gray-500">No location assigned</p>

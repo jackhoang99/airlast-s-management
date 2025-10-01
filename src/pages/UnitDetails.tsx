@@ -11,6 +11,7 @@ import {
   Phone,
   Edit,
   FileInput as FileInvoice,
+  StickyNote,
 } from "lucide-react";
 import { useSupabase } from "../lib/supabase-context";
 import BackLink from "../components/ui/BackLink";
@@ -23,6 +24,7 @@ import AssetSummary from "../components/locations/AssetSummary";
 import QuickAssetViewModal from "../components/locations/QuickAssetViewModal";
 import JobsSection from "../components/jobs/JobsSection";
 import { UnitDocumentsSection } from "../components/documents";
+import EditUnitNotesModal from "../components/units/EditUnitNotesModal";
 import { Dialog } from "@headlessui/react";
 import AddAssetForm from "../components/locations/AddAssetForm";
 
@@ -80,6 +82,7 @@ const UnitDetails = () => {
   const [error, setError] = useState<string | null>(null);
   const [showAddAssetModal, setShowAddAssetModal] = useState(false);
   const [showUnitAssetsModal, setShowUnitAssetsModal] = useState(false);
+  const [showEditNotesModal, setShowEditNotesModal] = useState(false);
   const [assetsRefreshKey, setAssetsRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -379,7 +382,9 @@ const UnitDetails = () => {
 
             {/* Billing Information */}
             <div>
-              <h3 className="text-lg font-medium mb-4">Billing Information</h3>
+              <h3 className="text-lg font-medium mb-4">
+                Unit's Billing Information
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-500">
@@ -465,6 +470,32 @@ const UnitDetails = () => {
                 className="mt-4"
               />
             </div>
+          </div>
+
+          {/* Unit Notes Section */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                Unit Notes
+              </h2>
+              <button
+                onClick={() => setShowEditNotesModal(true)}
+                className="btn btn-sm btn-outline"
+              >
+                {unit.notes ? "Edit Notes" : "Add Notes"}
+              </button>
+            </div>
+            {unit.notes ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-gray-700 whitespace-pre-wrap">
+                  {unit.notes}
+                </p>
+              </div>
+            ) : (
+              <div className="text-gray-500 italic">
+                No notes added for this unit yet.
+              </div>
+            )}
           </div>
 
           {/* Documents Section */}
@@ -565,6 +596,18 @@ const UnitDetails = () => {
           onClose={() => setShowUnitAssetsModal(false)}
           location={unit.locations as any}
           unit={unit}
+        />
+      )}
+
+      {/* Edit Notes Modal */}
+      {showEditNotesModal && unit && (
+        <EditUnitNotesModal
+          unit={unit}
+          onClose={() => setShowEditNotesModal(false)}
+          onSave={(notes) => {
+            setUnit({ ...unit, notes });
+            setShowEditNotesModal(false);
+          }}
         />
       )}
     </div>

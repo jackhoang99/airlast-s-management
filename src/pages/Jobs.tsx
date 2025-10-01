@@ -1046,8 +1046,8 @@ const Jobs = () => {
                     <Trash2 size={16} />
                   </button>
                   <div className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-sm font-medium text-gray-500">
                             Job #{job.number}
@@ -1218,8 +1218,8 @@ const Jobs = () => {
                           </div>
                         )}
                       </div>
-                      <div className="flex flex-col items-end">
-                        <div className="text-right mr-6">
+                      <div className="flex flex-col items-end flex-shrink-0">
+                        <div className="text-right mr-6 whitespace-nowrap">
                           <div className="text-sm font-medium">
                             Start: {job.time_period_start}
                           </div>

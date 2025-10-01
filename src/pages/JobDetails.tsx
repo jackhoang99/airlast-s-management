@@ -127,6 +127,12 @@ const JobDetails = () => {
               state,
               zip,
               company_id,
+              billing_entity,
+              billing_email,
+              billing_city,
+              billing_state,
+              billing_zip,
+              office,
               companies (
                 name
               )
@@ -146,7 +152,8 @@ const JobDetails = () => {
                 billing_city,
                 billing_state,
                 billing_zip,
-                office
+                office,
+                notes
               )
             ),
             job_technicians (

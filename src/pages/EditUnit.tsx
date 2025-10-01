@@ -49,6 +49,8 @@ const EditUnit = () => {
     billing_city: "",
     billing_state: "",
     billing_zip: "",
+    office: "",
+    notes: "",
   });
 
   useEffect(() => {
@@ -77,6 +79,8 @@ const EditUnit = () => {
           billing_city: unitData.billing_city || "",
           billing_state: unitData.billing_state || "",
           billing_zip: unitData.billing_zip || "",
+          office: unitData.office || "",
+          notes: unitData.notes || "",
         });
 
         // Fetch location
@@ -139,6 +143,8 @@ const EditUnit = () => {
           billing_city: formData.billing_city || null,
           billing_state: formData.billing_state || null,
           billing_zip: formData.billing_zip || null,
+          office: formData.office || null,
+          notes: formData.notes || null,
         })
         .eq("id", unit.id);
 
@@ -539,6 +545,32 @@ const EditUnit = () => {
                   }
                   className="input"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Unit Notes */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-medium mb-4">Unit Notes</h2>
+            <div>
+              <label
+                htmlFor="notes"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Notes
+              </label>
+              <textarea
+                id="notes"
+                value={formData.notes || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, notes: e.target.value }))
+                }
+                placeholder="Enter notes about this unit..."
+                className="w-full h-32 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                maxLength={1000}
+              />
+              <div className="text-sm text-gray-500 mt-1">
+                {(formData.notes || "").length}/1000 characters
               </div>
             </div>
           </div>
