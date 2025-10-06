@@ -904,29 +904,28 @@ serve(async (req) => {
         // Draw inspection details in two-column format like the image
         const leftColumn = [];
         const rightColumn = [];
-        if (insp.manufacture_name)
-          leftColumn.push(
-            `Manufacture Name: ${sanitizeTextForPDF(insp.manufacture_name)}`
-          );
-        if (insp.model_number)
-          leftColumn.push(
-            `Model Number: ${sanitizeTextForPDF(insp.model_number)}`
-          );
-        if (insp.age) leftColumn.push(`Age: ${insp.age} years`);
-        if (insp.unit_type)
-          leftColumn.push(`Unit Type: ${sanitizeTextForPDF(insp.unit_type)}`);
+        leftColumn.push(
+          `Manufacture Name: ${
+            sanitizeTextForPDF(insp.manufacture_name) || "N/A"
+          }`
+        );
+        leftColumn.push(
+          `Model Number: ${sanitizeTextForPDF(insp.model_number) || "N/A"}`
+        );
+        leftColumn.push(`Age: ${insp.age ? `${insp.age} years` : "N/A"}`);
+        leftColumn.push(
+          `Unit Type: ${sanitizeTextForPDF(insp.unit_type) || "N/A"}`
+        );
         leftColumn.push(
           `Belt Size: ${sanitizeTextForPDF(insp.belt_size) || "N/A"}`
         );
-        if (insp.serial_number)
-          rightColumn.push(
-            `Serial Number: ${sanitizeTextForPDF(insp.serial_number)}`
-          );
-        if (insp.tonnage) rightColumn.push(`Tonnage: ${insp.tonnage}`);
-        if (insp.system_type)
-          rightColumn.push(
-            `System Type: ${sanitizeTextForPDF(insp.system_type)}`
-          );
+        rightColumn.push(
+          `Serial Number: ${sanitizeTextForPDF(insp.serial_number) || "N/A"}`
+        );
+        rightColumn.push(`Tonnage: ${insp.tonnage || "N/A"}`);
+        rightColumn.push(
+          `System Type: ${sanitizeTextForPDF(insp.system_type) || "N/A"}`
+        );
         rightColumn.push(
           `Filter Size: ${sanitizeTextForPDF(insp.filter_size) || "N/A"}`
         );

@@ -667,6 +667,8 @@ const JobDetails = () => {
     setJob(updatedJob);
     setLastQuoteUpdateTime(updatedJob.quote_sent_at || null);
     setQuoteNeedsUpdate(false);
+    // Trigger refresh of quote history
+    setRefreshTrigger((prev) => prev + 1);
   };
 
   const handlePreviewQuote = (
@@ -1136,6 +1138,8 @@ const JobDetails = () => {
                           setIsLoadingInspectionData(false);
                         });
                     }
+                    // Trigger refresh of quote history when inspection quote is generated
+                    setRefreshTrigger((prev) => prev + 1);
                   }}
                   jobUnits={job.jobUnits}
                 />

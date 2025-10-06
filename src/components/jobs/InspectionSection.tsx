@@ -351,16 +351,16 @@ const InspectionSection = ({
                   <Plus size={14} className="mr-1" /> Add Inspection
                 </button>
                 <button
-                  onClick={() => setShowGenerateQuoteModal(true)}
-                  className="btn btn-secondary btn-sm w-full sm:w-auto"
-                >
-                  <FileText size={14} className="mr-1" /> Generate Quote
-                </button>
-                <button
                   onClick={() => setShowSummaryCommentModal(true)}
                   className="btn btn-secondary btn-sm w-full sm:w-auto"
                 >
                   <Clipboard size={14} className="mr-1" /> Summary Comment
+                </button>
+                <button
+                  onClick={() => setShowGenerateQuoteModal(true)}
+                  className="btn btn-secondary btn-sm w-full sm:w-auto"
+                >
+                  <FileText size={14} className="mr-1" /> Generate Quote
                 </button>
                 {localInspectionData.length > 0 &&
                   !localInspectionData.every((insp) => insp.completed) && (
