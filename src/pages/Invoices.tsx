@@ -16,6 +16,7 @@ import {
 import ArrowBack from "../components/ui/ArrowBack";
 import InvoicePDFTemplate from "../components/invoices/InvoicePDFTemplate";
 import MarkAsPaidModal from "../components/invoices/MarkAsPaidModal";
+import HorizontalScrollTable from "../components/ui/HorizontalScrollTable";
 
 type JobInvoice = Database["public"]["Tables"]["job_invoices"]["Row"] & {
   jobs: {
@@ -499,7 +500,7 @@ const Invoices = () => {
             invoice.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <HorizontalScrollTable>
             <table className="w-full min-w-[700px]">
               <thead className="bg-gray-50 text-left">
                 <tr>
@@ -646,7 +647,7 @@ const Invoices = () => {
                 ))}
               </tbody>
             </table>
-          </div>
+          </HorizontalScrollTable>
         )}
       </div>
 

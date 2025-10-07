@@ -600,8 +600,8 @@ const QuoteSection = ({
       {/* Replacement Section */}
       {activeTab === "replacement" && (
         <>
-          {!isLoadingReplacementData && replacementData.length > 0 ? (
-            <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-0">
+          {!isLoadingReplacementData ? (
+            <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-2">
               <button
                 onClick={() => {
                   setCurrentReplacementData(null);
@@ -996,177 +996,177 @@ const QuoteSection = ({
       )}
 
       {/* Repair Items Tab */}
-      {activeTab === "repair" &&
-        (jobItems.length > 0 ? (
-          <>
-            <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-0">
-              <button
-                onClick={() => setShowAddPricingModal(true)}
-                className="btn btn-primary btn-sm"
-              >
-                <Plus size={14} className="mr-1" />
-                Add Repair
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedQuoteType("repair");
-                  setShowGenerateQuoteModal(true);
-                }}
-                className="btn btn-secondary btn-sm"
-              >
-                <FileText size={14} className="mr-1" />
-                Generate Quote
-              </button>
+      {activeTab === "repair" && (
+        <>
+          <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-2">
+            <button
+              onClick={() => setShowAddPricingModal(true)}
+              className="btn btn-primary btn-sm"
+            >
+              <Plus size={14} className="mr-1" />
+              Add Repair
+            </button>
+            <button
+              onClick={() => {
+                setSelectedQuoteType("repair");
+                setShowGenerateQuoteModal(true);
+              }}
+              className="btn btn-secondary btn-sm"
+            >
+              <FileText size={14} className="mr-1" />
+              Generate Quote
+            </button>
+          </div>
+
+          {/* Parts Section */}
+          {groupedItems["part"] && groupedItems["part"].length > 0 && (
+            <div className="border rounded-lg overflow-hidden mb-4">
+              <div className="bg-blue-50 p-2 border-b border-blue-100">
+                <h4 className="text-sm font-medium flex items-center">
+                  <Package size={14} className="mr-1 text-blue-500" />
+                  Parts
+                </h4>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {groupedItems["part"].map((item: any) => (
+                  <div
+                    key={item.id}
+                    className="p-3 flex justify-between items-center"
+                  >
+                    <div>
+                      <div className="font-medium text-sm">{item.name}</div>
+                      <div className="text-xs text-gray-500">{item.code}</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500">
+                          Qty: {item.quantity}
+                        </div>
+                        <div className="font-medium">
+                          ${Number(item.total_cost).toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEditItem(item)}
+                          className="p-1 text-primary-600 hover:text-primary-800"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="p-1 text-error-600 hover:text-error-800"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
+          )}
 
-            {/* Parts Section */}
-            {groupedItems["part"] && groupedItems["part"].length > 0 && (
-              <div className="border rounded-lg overflow-hidden mb-4">
-                <div className="bg-blue-50 p-2 border-b border-blue-100">
-                  <h4 className="text-sm font-medium flex items-center">
-                    <Package size={14} className="mr-1 text-blue-500" />
-                    Parts
-                  </h4>
-                </div>
-                <div className="divide-y divide-gray-100">
-                  {groupedItems["part"].map((item: any) => (
-                    <div
-                      key={item.id}
-                      className="p-3 flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-medium text-sm">{item.name}</div>
-                        <div className="text-xs text-gray-500">{item.code}</div>
+          {/* Labor Section */}
+          {groupedItems["labor"] && groupedItems["labor"].length > 0 && (
+            <div className="border rounded-lg overflow-hidden mb-4">
+              <div className="bg-green-50 p-2 border-b border-green-100">
+                <h4 className="text-sm font-medium flex items-center">
+                  <Wrench size={14} className="mr-1 text-green-500" />
+                  Labor
+                </h4>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {groupedItems["labor"].map((item: any) => (
+                  <div
+                    key={item.id}
+                    className="p-3 flex justify-between items-center"
+                  >
+                    <div>
+                      <div className="font-medium text-sm">{item.name}</div>
+                      <div className="text-xs text-gray-500">{item.code}</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500">
+                          Qty: {item.quantity}
+                        </div>
+                        <div className="font-medium">
+                          ${Number(item.total_cost).toFixed(2)}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <div className="text-xs text-gray-500">
-                            Qty: {item.quantity}
-                          </div>
-                          <div className="font-medium">
-                            ${Number(item.total_cost).toFixed(2)}
-                          </div>
-                        </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleEditItem(item)}
-                            className="p-1 text-primary-600 hover:text-primary-800"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteItem(item.id)}
-                            className="p-1 text-error-600 hover:text-error-800"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEditItem(item)}
+                          className="p-1 text-primary-600 hover:text-primary-800"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="p-1 text-error-600 hover:text-error-800"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Labor Section */}
-            {groupedItems["labor"] && groupedItems["labor"].length > 0 && (
-              <div className="border rounded-lg overflow-hidden mb-4">
-                <div className="bg-green-50 p-2 border-b border-green-100">
-                  <h4 className="text-sm font-medium flex items-center">
-                    <Wrench size={14} className="mr-1 text-green-500" />
-                    Labor
-                  </h4>
-                </div>
-                <div className="divide-y divide-gray-100">
-                  {groupedItems["labor"].map((item: any) => (
-                    <div
-                      key={item.id}
-                      className="p-3 flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-medium text-sm">{item.name}</div>
-                        <div className="text-xs text-gray-500">{item.code}</div>
+          {/* Other Items Section */}
+          {groupedItems["item"] && groupedItems["item"].length > 0 && (
+            <div className="border rounded-lg overflow-hidden mb-4">
+              <div className="bg-purple-50 p-2 border-b border-purple-100">
+                <h4 className="text-sm font-medium flex items-center">
+                  <ShoppingCart size={14} className="mr-1 text-purple-500" />
+                  Other Items
+                </h4>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {groupedItems["item"].map((item: any) => (
+                  <div
+                    key={item.id}
+                    className="p-3 flex justify-between items-center"
+                  >
+                    <div>
+                      <div className="font-medium text-sm">{item.name}</div>
+                      <div className="text-xs text-gray-500">{item.code}</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500">
+                          Qty: {item.quantity}
+                        </div>
+                        <div className="font-medium">
+                          ${Number(item.total_cost).toFixed(2)}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <div className="text-xs text-gray-500">
-                            Qty: {item.quantity}
-                          </div>
-                          <div className="font-medium">
-                            ${Number(item.total_cost).toFixed(2)}
-                          </div>
-                        </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleEditItem(item)}
-                            className="p-1 text-primary-600 hover:text-primary-800"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteItem(item.id)}
-                            className="p-1 text-error-600 hover:text-error-800"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEditItem(item)}
+                          className="p-1 text-primary-600 hover:text-primary-800"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="p-1 text-error-600 hover:text-error-800"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Other Items Section */}
-            {groupedItems["item"] && groupedItems["item"].length > 0 && (
-              <div className="border rounded-lg overflow-hidden mb-4">
-                <div className="bg-purple-50 p-2 border-b border-purple-100">
-                  <h4 className="text-sm font-medium flex items-center">
-                    <ShoppingCart size={14} className="mr-1 text-purple-500" />
-                    Other Items
-                  </h4>
-                </div>
-                <div className="divide-y divide-gray-100">
-                  {groupedItems["item"].map((item: any) => (
-                    <div
-                      key={item.id}
-                      className="p-3 flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-medium text-sm">{item.name}</div>
-                        <div className="text-xs text-gray-500">{item.code}</div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <div className="text-xs text-gray-500">
-                            Qty: {item.quantity}
-                          </div>
-                          <div className="font-medium">
-                            ${Number(item.total_cost).toFixed(2)}
-                          </div>
-                        </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleEditItem(item)}
-                            className="p-1 text-primary-600 hover:text-primary-800"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteItem(item.id)}
-                            className="p-1 text-error-600 hover:text-error-800"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Total */}
+          {/* Total - Only show if there are repair items */}
+          {groupedItems["part"] && groupedItems["part"].length > 0 ? (
             <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
               <div className="flex justify-between items-center">
                 <h3 className="font-medium text-blue-800 text-lg flex items-center">
@@ -1178,59 +1178,58 @@ const QuoteSection = ({
                 </span>
               </div>
             </div>
+          ) : (
+            <div className="text-center py-6 bg-gray-50 rounded-lg">
+              <p className="text-gray-500 mb-3">No items added yet</p>
+              <button
+                onClick={() => setShowAddPricingModal(true)}
+                className="btn btn-primary btn-sm"
+              >
+                <Plus size={14} className="mr-1" />
+                Add First Repair
+              </button>
+            </div>
+          )}
 
-            {/* Removed Send Repair Quote button */}
-          </>
-        ) : (
-          <div className="text-center py-6 bg-gray-50 rounded-lg">
-            <p className="text-gray-500 mb-3">No items added yet</p>
-            <button
-              onClick={() => setShowAddPricingModal(true)}
-              className="btn btn-primary btn-sm"
-            >
-              <Plus size={14} className="mr-1" />
-              Add First Repair
-            </button>
-          </div>
-        ))}
+          {/* Removed Send Repair Quote button */}
+        </>
+      )}
 
       {/* PM Quote Section */}
       {activeTab === "pm" && (
         <>
-          {pmQuotes.length > 0 ? (
-            <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-2">
-              <button
-                onClick={() => {
-                  setSelectedPMQuote(null);
-                  setShowPMQuoteModal(true);
-                }}
-                className="btn btn-primary btn-sm"
-                disabled={isPMLoading}
-              >
-                {isPMLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-1"></div>
-                    Adding...
-                  </>
-                ) : (
-                  <>
-                    <Plus size={14} className="mr-1" />
-                    Add PM Quote
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedQuoteType("pm");
-                  setShowGenerateQuoteModal(true);
-                }}
-                className="btn btn-secondary btn-sm"
-              >
-                <FileText size={14} className="mr-1" />
-                Generate Quote
-              </button>
-            </div>
-          ) : null}
+          <div className="flex flex-col sm:flex-row sm:justify-end items-start sm:items-center mb-6 gap-2 sm:gap-2">
+            <button
+              onClick={() => {
+                setSelectedPMQuote(null);
+                setShowPMQuoteModal(true);
+              }}
+              className="btn btn-primary btn-sm"
+              disabled={isPMLoading}
+            >
+              {isPMLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-1"></div>
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus size={14} className="mr-1" />
+                  Add PM Quote
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => {
+                setSelectedQuoteType("pm");
+                setShowGenerateQuoteModal(true);
+              }}
+              className="btn btn-secondary btn-sm"
+            >
+              <FileText size={14} className="mr-1" />
+              Generate Quote
+            </button>
+          </div>
 
           {isPMLoading ? (
             <div className="text-center py-8">

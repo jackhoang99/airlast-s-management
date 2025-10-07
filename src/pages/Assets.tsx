@@ -18,6 +18,7 @@ import AddAssetForm from "../components/locations/AddAssetForm";
 import EditAssetForm from "../components/locations/EditAssetForm";
 import InspectionAttachmentModal from "../components/locations/InspectionAttachmentModal";
 import AssetAttachmentButton from "../components/locations/AssetAttachmentButton";
+import HorizontalScrollTable from "../components/ui/HorizontalScrollTable";
 
 const Assets = () => {
   const { supabase } = useSupabase();
@@ -533,7 +534,7 @@ const Assets = () => {
             No assets found. Try adjusting your search or filters.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <HorizontalScrollTable>
             <table className="w-full">
               <thead className="bg-gray-50 text-left">
                 <tr>
@@ -711,7 +712,7 @@ const Assets = () => {
                 ))}
               </tbody>
             </table>
-          </div>
+          </HorizontalScrollTable>
         )}
         {/* Comment Modal */}
         {commentModal.open && (

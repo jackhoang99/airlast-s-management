@@ -19,6 +19,7 @@ import {
   Home,
 } from "lucide-react";
 import AddJobPricingModal from "../components/jobs/AddJobPricingModal";
+import HorizontalScrollTable from "../components/ui/HorizontalScrollTable";
 
 type JobPartPrice = Database["public"]["Tables"]["job_part_prices"]["Row"];
 
@@ -376,7 +377,7 @@ const ItemPrices = () => {
             No items found. Try adjusting your filters or add a new item.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <HorizontalScrollTable>
             <table className="w-full">
               <thead className="bg-gray-50 text-left">
                 <tr>
@@ -471,7 +472,7 @@ const ItemPrices = () => {
                 })}
               </tbody>
             </table>
-          </div>
+          </HorizontalScrollTable>
         )}
       </div>
 

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useSupabase } from "../lib/supabase-context";
 import { Database } from "../types/supabase";
 import { Building2, Plus, Filter } from "lucide-react";
+import HorizontalScrollTable from "../components/ui/HorizontalScrollTable";
 
 type Unit = Database["public"]["Tables"]["units"]["Row"] & {
   locations: {
@@ -242,7 +243,7 @@ const Units = () => {
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <HorizontalScrollTable>
             <table className="w-full border-collapse">
               <thead className="bg-gray-50">
                 <tr>
@@ -331,7 +332,7 @@ const Units = () => {
                 ))}
               </tbody>
             </table>
-          </div>
+          </HorizontalScrollTable>
         )}
       </div>
     </div>

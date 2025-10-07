@@ -398,7 +398,7 @@ serve(async (req) => {
               quoteType === "pm"
                 ? "Proposal for Preventative Maintenance"
                 : quoteType === "inspection"
-                ? "Inspection Report"
+                ? "Inspection Quote"
                 : `${
                     quoteType.charAt(0).toUpperCase() + quoteType.slice(1)
                   } Quote`;
@@ -604,7 +604,7 @@ serve(async (req) => {
     // Draw header
     const headerText =
       quoteType === "inspection"
-        ? "INSPECTION REPORT"
+        ? "INSPECTION QUOTE"
         : `${quoteType.toUpperCase()} QUOTE`;
     y = drawBoundedText(
       dynamicPage,

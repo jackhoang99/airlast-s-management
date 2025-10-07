@@ -17,6 +17,306 @@ import InspectionAttachmentSection from "./InspectionAttachmentSection";
 import InspectionAttachmentModal from "../locations/InspectionAttachmentModal";
 import InspectionAttachmentPreview from "./InspectionAttachmentPreview";
 
+// Inspection Report Generator Component
+interface InspectionReportGeneratorProps {
+  jobId: string;
+  inspectionData: any[];
+  onReportSent: () => void;
+}
+
+const InspectionReportGenerator = ({
+  jobId,
+  inspectionData,
+  onReportSent,
+}: InspectionReportGeneratorProps) => {
+  const { supabase } = useSupabase();
+  const [selectedInspections, setSelectedInspections] = useState<string[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGenerateReport = async () => {
+    if (selectedInspections.length === 0) {
+      setError("Please select at least one inspection for the report");
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      // Generate report number
+      const reportNumber = `REPORT-${Date.now()}`;
+
+      // Prepare inspection data for the report
+      const selectedInspectionData = inspectionData.filter((insp) =>
+        selectedInspections.includes(insp.id)
+      );
+
+      // Fetch job data
+      const { data: jobData, error: jobError } = await supabase!
+        .from("jobs")
+        .select(
+          `
+          *,
+          locations (
+            name,
+            address,
+            city,
+            state,
+            zip,
+            companies (
+              name
+            )
+          )
+        `
+        )
+        .eq("id", jobId)
+        .single();
+
+      if (jobError) throw jobError;
+
+      // Fetch template for inspection reports (same logic as GenerateQuote)
+      const { data: templates } = await supabase!
+        .from("quote_templates")
+        .select("id, template_data")
+        .eq("template_data->>templateType", "inspection")
+        .limit(1);
+
+      const template = templates?.[0] || null;
+
+      // Call the new inspection report edge function
+      const apiUrl = `${
+        import.meta.env.VITE_SUPABASE_URL
+      }/functions/v1/generate-inspection-report`;
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          jobId,
+          quoteType: "inspection",
+          quoteNumber: reportNumber,
+          templateId: template?.id || null,
+          jobData,
+          inspectionData: selectedInspectionData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate inspection report");
+      }
+
+      const result = await response.json();
+
+      if (result.pdfUrl) {
+        // Save the report to job_quotes table
+        const { error: saveError } = await supabase!.from("job_quotes").insert({
+          job_id: jobId,
+          quote_number: reportNumber,
+          quote_type: "inspection",
+          amount: 180, // Default amount for inspection reports
+          status: "generated",
+          confirmed: false,
+          approved: false,
+          pdf_url: result.pdfUrl,
+          pdf_generated_at: new Date().toISOString(),
+          selected_inspection_options: selectedInspections,
+          quote_data: {
+            jobData,
+            inspectionData: selectedInspectionData,
+            template: template,
+          },
+        });
+
+        if (saveError) {
+          console.error("Error saving inspection report:", saveError);
+          // Still show the PDF even if saving fails
+        }
+
+        // Open the PDF in a new tab
+        window.open(result.pdfUrl, "_blank");
+        onReportSent();
+      }
+    } catch (err) {
+      console.error("Error generating inspection report:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to generate report"
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">
+          Generate Report
+        </h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Select the inspection results you want to include in the report.
+        </p>
+      </div>
+
+      {/* Available Inspections */}
+      {inspectionData.length > 0 ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-md font-medium text-gray-800 flex items-center">
+              <Clipboard className="h-4 w-4 mr-2 text-purple-600" />
+              Select Inspection Results to Include
+            </h4>
+            <span className="text-xs text-purple-600 font-normal">
+              (Required for inspection reports)
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            {inspectionData.map((inspection) => (
+              <label
+                key={inspection.id}
+                className="flex items-start p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedInspections.includes(inspection.id)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedInspections([
+                        ...selectedInspections,
+                        inspection.id,
+                      ]);
+                    } else {
+                      setSelectedInspections(
+                        selectedInspections.filter((id) => id !== inspection.id)
+                      );
+                    }
+                  }}
+                  className="mt-1 mr-3"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">
+                      {inspection.model_number || "Unknown Model"}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
+                        Used in previous report
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {inspection.age
+                          ? `${inspection.age} years`
+                          : "Age unknown"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* All inspection fields displayed briefly */}
+                  <div className="text-xs text-gray-600 mt-2 space-y-1">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <strong>Manufacture:</strong>{" "}
+                        {inspection.manufacture_name || "N/A"}
+                      </div>
+                      <div>
+                        <strong>Model:</strong>{" "}
+                        {inspection.model_number || "N/A"}
+                      </div>
+                      <div>
+                        <strong>Serial:</strong>{" "}
+                        {inspection.serial_number || "N/A"}
+                      </div>
+                      <div>
+                        <strong>Age:</strong>{" "}
+                        {inspection.age ? `${inspection.age} years` : "N/A"}
+                      </div>
+                      <div>
+                        <strong>Unit Type:</strong>{" "}
+                        {inspection.unit_type || "N/A"}
+                      </div>
+                      <div>
+                        <strong>Tonnage:</strong> {inspection.tonnage || "N/A"}
+                      </div>
+                      <div>
+                        <strong>System Type:</strong>{" "}
+                        {inspection.system_type || "N/A"}
+                      </div>
+                      <div>
+                        <strong>Belt Size:</strong>{" "}
+                        {inspection.belt_size || "N/A"}
+                      </div>
+                      <div>
+                        <strong>Filter Size:</strong>{" "}
+                        {inspection.filter_size || "N/A"}
+                      </div>
+                      <div>
+                        <strong>Attachment:</strong>{" "}
+                        {inspection.attachments &&
+                        inspection.attachments.length > 0
+                          ? "Yes"
+                          : "No"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {inspection.comment && (
+                    <div className="text-xs text-gray-600 mt-2">
+                      <strong>Comment:</strong> {inspection.comment}
+                    </div>
+                  )}
+                  <div className="text-xs text-orange-600 mt-2">
+                    <strong>Note:</strong> This inspection was included in a
+                    previous inspection report
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+          <AlertTriangle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+          <p className="text-gray-500 mb-2">No inspection data available</p>
+          <p className="text-sm text-gray-400">Complete inspections first</p>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
+      {/* Generate Report Button */}
+      {inspectionData.length > 0 && (
+        <div className="border-t pt-6">
+          <button
+            onClick={handleGenerateReport}
+            className="btn btn-primary w-full sm:w-auto"
+            disabled={selectedInspections.length === 0 || isGenerating}
+          >
+            {isGenerating ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                Generating Report...
+              </>
+            ) : (
+              <>
+                <Plus size={16} className="mr-2" />
+                Generate Inspection Report
+              </>
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 type InspectionSectionProps = {
   jobId: string;
   inspectionData?: any[];
@@ -360,7 +660,7 @@ const InspectionSection = ({
                   onClick={() => setShowGenerateQuoteModal(true)}
                   className="btn btn-secondary btn-sm w-full sm:w-auto"
                 >
-                  <FileText size={14} className="mr-1" /> Generate Quote
+                  <FileText size={14} className="mr-1" /> Generate Report
                 </button>
                 {localInspectionData.length > 0 &&
                   !localInspectionData.every((insp) => insp.completed) && (
@@ -579,7 +879,7 @@ const InspectionSection = ({
             <div className="flex justify-between items-center p-4 sm:p-6 border-b">
               <h2 className="text-lg sm:text-xl font-semibold flex items-center">
                 <FileText className="h-5 w-5 mr-2 text-primary-600" />
-                Generate Quote
+                Generate Report
               </h2>
               <button
                 onClick={() => setShowGenerateQuoteModal(false)}
@@ -589,18 +889,13 @@ const InspectionSection = ({
               </button>
             </div>
             <div className="p-4 sm:p-6">
-              <GenerateQuote
+              <InspectionReportGenerator
                 jobId={jobId}
-                defaultQuoteType="inspection"
-                availableQuoteTypes={["inspection"]}
-                onQuoteSent={() => {
+                inspectionData={localInspectionData}
+                onReportSent={() => {
                   setShowGenerateQuoteModal(false);
                   // Refresh data
                   if (onInspectionUpdated) onInspectionUpdated();
-                }}
-                onPreviewQuote={(quoteType) => {
-                  // Handle preview - could open PDF or navigate
-                  // Preview functionality handled by parent component
                 }}
               />
             </div>

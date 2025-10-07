@@ -1,0 +1,335 @@
+import { useState, useEffect } from "react";
+import { useSupabase } from "../../lib/supabase-context";
+import {
+  FileText,
+  Trash2,
+  Eye,
+  ChevronUp,
+  ChevronDown,
+  X,
+  Check,
+} from "lucide-react";
+import { Job } from "../../types/job";
+
+type JobReportHistorySectionProps = {
+  job: Job;
+  onReportSent?: (updatedJob: Job) => void;
+  refreshTrigger?: number;
+  inspectionData?: any[];
+};
+
+const JobReportHistorySection = ({
+  job,
+  onReportSent,
+  refreshTrigger = 0,
+  inspectionData = [],
+}: JobReportHistorySectionProps) => {
+  const { supabase } = useSupabase();
+  const [allReports, setAllReports] = useState<any[]>([]);
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeletingReport, setIsDeletingReport] = useState<string | null>(null);
+  const [showReportHistorySection, setShowReportHistorySection] =
+    useState(true);
+
+  // Function to fetch reports for this job
+  const fetchReports = async () => {
+    if (!supabase || !job) return;
+
+    setIsLoadingReports(true);
+    try {
+      // Fetch inspection quotes from job_quotes table (these are our reports)
+      const { data: inspectionQuotes, error } = await supabase
+        .from("job_quotes")
+        .select("*")
+        .eq("job_id", job.id)
+        .eq("quote_type", "inspection")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching inspection quotes:", error);
+        return;
+      }
+
+      // Transform inspection quotes into reports format
+      const reports = (inspectionQuotes || []).map((quote) => ({
+        id: quote.id,
+        report_number: quote.quote_number,
+        report_type: "inspection",
+        amount: quote.amount || 180, // Default amount for inspection reports
+        status: quote.status || "generated",
+        created_at: quote.created_at,
+        pdf_url: quote.pdf_url,
+        pdf_generated_at: quote.pdf_generated_at,
+        confirmed: quote.confirmed,
+        approved: quote.approved,
+        email_sent_at: quote.email_sent_at,
+        quote_data: quote,
+      }));
+
+      setAllReports(reports);
+    } catch (err) {
+      console.error("Error fetching reports:", err);
+    } finally {
+      setIsLoadingReports(false);
+    }
+  };
+
+  // Function to delete a report
+  const handleDeleteReport = async (reportId: string) => {
+    if (!supabase) return;
+
+    setIsDeletingReport(reportId);
+    setDeleteError(null);
+
+    try {
+      // Delete from job_quotes table
+      const { error } = await supabase
+        .from("job_quotes")
+        .delete()
+        .eq("id", reportId);
+
+      if (error) {
+        throw error;
+      }
+
+      // Remove from local state
+      setAllReports((prev) => prev.filter((report) => report.id !== reportId));
+    } catch (err) {
+      console.error("Error deleting report:", err);
+      setDeleteError("Failed to delete report");
+    } finally {
+      setIsDeletingReport(null);
+    }
+  };
+
+  // Function to view report (opens PDF directly)
+  const handleViewReport = (report: any) => {
+    if (report.pdf_url) {
+      // Open existing PDF in new tab
+      window.open(report.pdf_url, "_blank");
+    } else {
+      // Generate PDF on demand if no URL exists
+      handleDownloadReport(report);
+    }
+  };
+
+  // Function to download report PDF
+  const handleDownloadReport = async (report: any) => {
+    if (report.pdf_url) {
+      // Open existing PDF in new tab
+      window.open(report.pdf_url, "_blank");
+    } else {
+      // Generate PDF on demand
+      try {
+        const response = await fetch(
+          `${
+            import.meta.env.VITE_SUPABASE_URL
+          }/functions/v1/generate-inspection-report`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              jobId: job.id,
+              quoteType: "inspection",
+              quoteNumber: report.report_number,
+              templateId: null,
+              jobData: job,
+              inspectionData: inspectionData, // Use current inspection data
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to generate report PDF");
+        }
+
+        const result = await response.json();
+        if (result.pdfUrl) {
+          window.open(result.pdfUrl, "_blank");
+          // Refresh reports to get updated PDF URL
+          fetchReports();
+        }
+      } catch (error) {
+        console.error("Error generating report PDF:", error);
+      }
+    }
+  };
+
+  // Fetch reports when component mounts or job changes
+  useEffect(() => {
+    if (supabase && job) {
+      fetchReports();
+    }
+  }, [supabase, job, refreshTrigger, inspectionData]);
+
+  return (
+    <div className="card">
+      <div
+        className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
+        onClick={() => setShowReportHistorySection(!showReportHistorySection)}
+      >
+        <h2 className="text-lg font-medium">Report History</h2>
+        <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
+          {showReportHistorySection ? (
+            <>
+              Hide <ChevronUp size={16} className="ml-1" />
+            </>
+          ) : (
+            <>
+              Show <ChevronDown size={16} className="ml-1" />
+            </>
+          )}
+        </span>
+      </div>
+
+      {showReportHistorySection && (
+        <div className="mt-4">
+          {/* Reports Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px]">
+              <thead className="bg-gray-50 text-left">
+                <tr>
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                    REPORT #
+                  </th>
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                    TYPE
+                  </th>
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                    DATE
+                  </th>
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                    AMOUNT
+                  </th>
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                    STATUS
+                  </th>
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                    CONFIRMED
+                  </th>
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                    ACTIONS
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Historical Reports */}
+                {(allReports || []).map((report, index) => (
+                  <tr
+                    key={report?.id || index}
+                    className={`border-b hover:bg-primary-50 transition-colors ${
+                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    }`}
+                  >
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
+                      {report.report_number || "-"}
+                    </td>
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                          report.report_type === "inspection"
+                            ? "bg-purple-100 text-purple-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {report.report_type === "inspection"
+                          ? "Inspection"
+                          : report.report_type.charAt(0).toUpperCase() +
+                            report.report_type.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                      {report.created_at
+                        ? new Date(report.created_at).toLocaleDateString()
+                        : "-"}
+                    </td>
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
+                      ${Number(report.amount).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                          report.status === "generated"
+                            ? "bg-green-100 text-green-800"
+                            : report.status === "sent"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {report.status === "generated"
+                          ? "Generated"
+                          : report.status === "sent"
+                          ? "Sent"
+                          : "Pending"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                      {report.confirmed ? (
+                        <span className="text-green-600">
+                          <Check size={16} className="inline" />
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">
+                          <X size={16} className="inline" />
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <button
+                          className="btn btn-secondary btn-xs w-full sm:w-auto"
+                          onClick={() => handleViewReport(report)}
+                          title="View Report"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          className="btn btn-danger btn-xs w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white"
+                          onClick={() => handleDeleteReport(report.id)}
+                          disabled={isDeletingReport === report.id}
+                          title="Delete Report"
+                        >
+                          {isDeletingReport === report.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                          ) : (
+                            <Trash2 size={16} />
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Empty State */}
+            {(!allReports || allReports.length === 0) && (
+              <div className="text-center py-12">
+                <FileText size={48} className="mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No reports available
+                </h3>
+                <p className="text-gray-600">
+                  Use the Inspection Section to generate inspection reports
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Error Display */}
+          {deleteError && (
+            <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              {deleteError}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default JobReportHistorySection;

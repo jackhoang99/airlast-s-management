@@ -28,6 +28,7 @@ import JobTechnicians from "../components/jobs/JobTechnicians";
 import InspectionSection from "../components/jobs/InspectionSection";
 import QuoteSection from "../components/jobs/QuoteSection";
 import JobQuoteHistorySection from "../components/jobs/JobQuoteHistorySection";
+import JobReportHistorySection from "../components/jobs/JobReportHistorySection";
 import JobInvoiceSection from "../components/jobs/JobInvoiceSection";
 import JobSidebar from "../components/jobs/JobSidebar";
 import JobUnitSection from "../components/jobs/JobUnitSection";
@@ -1218,6 +1219,17 @@ const JobDetails = () => {
                 />
               </div>
             )}
+          </div>
+
+          {/* Report History Section - Collapsible */}
+          <div className="card">
+            <div className="mt-4">
+              <JobReportHistorySection
+                job={job}
+                refreshTrigger={refreshTrigger}
+                inspectionData={inspectionData}
+              />
+            </div>
           </div>
 
           {/* Invoice Section - Collapsible */}

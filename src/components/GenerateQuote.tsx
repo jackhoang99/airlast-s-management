@@ -134,7 +134,7 @@ const GenerateQuote = ({
   unitNumber,
   onQuoteSent,
   onPreviewQuote,
-  title = "Generate Quote",
+  title,
   className = "",
   defaultQuoteType = "replacement",
   availableQuoteTypes = ["replacement", "repair", "inspection", "pm"],
@@ -871,7 +871,9 @@ const GenerateQuote = ({
     return (
       <div className={`card ${className}`}>
         <div className="mb-6">
-          <h2 className="text-lg font-medium text-gray-900">{title}</h2>
+          <h2 className="text-lg font-medium text-gray-900">
+            {title || "Generate Quote"}
+          </h2>
         </div>
         <div className="flex flex-col items-center justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mb-4"></div>
@@ -901,7 +903,9 @@ const GenerateQuote = ({
   return (
     <div className={`card ${className}`}>
       <div className="mb-6">
-        <h2 className="text-lg font-medium text-gray-900">{title}</h2>
+        <h2 className="text-lg font-medium text-gray-900">
+          {title || "Generate Quote"}
+        </h2>
       </div>
       {generatedQuoteData && (
         <div className="flex flex-col sm:flex-row justify-end items-start sm:items-center mb-6 gap-3">
@@ -1066,23 +1070,7 @@ const GenerateQuote = ({
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <span className="font-medium break-words">
-                          {inspection.manufacture_name ? (
-                            <>
-                              <span className="text-gray-600">
-                                {inspection.manufacture_name}
-                              </span>
-                              <span className="mx-1">-</span>
-                            </>
-                          ) : null}
                           {inspection.model_number || "Unknown Model"}
-                          {inspection.serial_number && (
-                            <>
-                              <span className="mx-1">-</span>
-                              <span className="text-gray-600">
-                                {inspection.serial_number}
-                              </span>
-                            </>
-                          )}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -1099,8 +1087,30 @@ const GenerateQuote = ({
                       </div>
                     </div>
                     <div className="text-sm text-gray-600">
-                      {inspection.tonnage && `${inspection.tonnage} ton`} •{" "}
-                      {inspection.unit_type} • {inspection.system_type}
+                      {[
+                        inspection.manufacture_name &&
+                          `Manufacture: ${inspection.manufacture_name}`,
+                        inspection.model_number &&
+                          `Model: ${inspection.model_number}`,
+                        inspection.serial_number &&
+                          `Serial: ${inspection.serial_number}`,
+                        inspection.age && `Age: ${inspection.age} years`,
+                        inspection.unit_type &&
+                          `Unit Type: ${inspection.unit_type}`,
+                        inspection.tonnage && `Tonnage: ${inspection.tonnage}`,
+                        inspection.system_type &&
+                          `System Type: ${inspection.system_type}`,
+                        inspection.belt_size &&
+                          `Belt Size: ${inspection.belt_size}`,
+                        inspection.filter_size &&
+                          `Filter Size: ${inspection.filter_size}`,
+                        inspection.attachments &&
+                        inspection.attachments.length > 0
+                          ? "Attachment: Yes"
+                          : "Attachment: No",
+                      ]
+                        .filter(Boolean)
+                        .join(" • ")}
                     </div>
                     {inspection.comment && (
                       <div className="text-xs text-gray-600 mt-1 p-2 bg-gray-50 rounded">
@@ -1111,11 +1121,13 @@ const GenerateQuote = ({
                       <div className="text-xs text-orange-600 mt-1">
                         <strong>Note:</strong> This inspection was included in a
                         previous{" "}
-                        {
-                          getMostRecentQuoteForItem("inspection", inspection.id)
-                            ?.quote_type
-                        }{" "}
-                        quote
+                        {getMostRecentQuoteForItem("inspection", inspection.id)
+                          ?.quote_type === "inspection"
+                          ? "inspection quote"
+                          : getMostRecentQuoteForItem(
+                              "inspection",
+                              inspection.id
+                            )?.quote_type + " quote"}
                       </div>
                     )}
                   </div>
