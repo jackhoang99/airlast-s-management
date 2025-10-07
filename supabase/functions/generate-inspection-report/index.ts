@@ -378,7 +378,7 @@ serve(async (req) => {
               quoteType === "pm"
                 ? "Proposal for Preventative Maintenance"
                 : quoteType === "inspection"
-                ? "Inspection Quote"
+                ? "Inspection Report"
                 : `${
                     quoteType.charAt(0).toUpperCase() + quoteType.slice(1)
                   } Quote`;
@@ -544,7 +544,6 @@ serve(async (req) => {
       const columnSpacing = MARGINS.COLUMN_SPACING;
       const leftColumnWidth = (contentWidth - columnSpacing) / 2;
       const rightColumnX = leftMargin + leftColumnWidth + columnSpacing;
-
       // Draw background with exact color specified
       coverPage.drawRectangle({
         x: 0,
@@ -553,13 +552,11 @@ serve(async (req) => {
         height: height,
         color: rgb(7 / 255, 43 / 255, 48 / 255),
       });
-
       // Define dimensions and position for the larger hexagonal HVAC image
       const imageWidth = width * 0.7;
       const imageHeight = imageWidth;
       const imageX = width - imageWidth;
       const imageY = height - imageHeight;
-
       // Add HVAC image
       try {
         const hvacImageUrl =
@@ -592,12 +589,11 @@ serve(async (req) => {
           color: rgb(1, 1, 1),
         });
       }
-
       // Draw title
       const titleText =
         quoteType === "inspection"
-          ? "Inspection Quote"
-          : `${quoteType.charAt(0).toUpperCase() + quoteType.slice(1)} Quote`;
+          ? "Inspection Report"
+          : `${quoteType.charAt(0).toUpperCase() + quoteType.slice(1)} Report`;
       coverPage.drawText(titleText, {
         x: leftMargin,
         y: 150,
@@ -605,7 +601,6 @@ serve(async (req) => {
         font: bold,
         color: rgb(1, 1, 1),
       });
-
       // Draw date
       const currentDate = new Date();
       const monthNames = [
@@ -632,7 +627,6 @@ serve(async (req) => {
         font: bold,
         color: rgb(0.9, 0.4, 0.2),
       });
-
       // Draw customer information
       let customerY = 120;
       const companyName =
@@ -648,7 +642,6 @@ serve(async (req) => {
         });
         customerY -= 20;
       }
-
       const locationName = jobData?.locations?.name || jobData?.location?.name;
       const address = jobData?.locations?.address || jobData?.location?.address;
       if (locationName && locationName !== address) {
@@ -661,7 +654,6 @@ serve(async (req) => {
         });
         customerY -= 18;
       }
-
       if (address) {
         coverPage.drawText(sanitizeTextForPDF(address), {
           x: leftMargin,
@@ -672,7 +664,6 @@ serve(async (req) => {
         });
         customerY -= 18;
       }
-
       const city = jobData?.locations?.city || jobData?.location?.city;
       const state = jobData?.locations?.state || jobData?.location?.state;
       const zip = jobData?.locations?.zip || jobData?.location?.zip;
@@ -687,7 +678,6 @@ serve(async (req) => {
         });
         customerY -= 18;
       }
-
       // Unit information
       const units = jobData?.units || (jobData?.unit ? [jobData.unit] : []);
       if (units && units.length > 0) {
@@ -718,7 +708,6 @@ serve(async (req) => {
           }
         }
       }
-
       // Add AirLast logo
       try {
         const logoUrl =
@@ -755,7 +744,6 @@ serve(async (req) => {
         });
       }
     }
-
     // Create dynamic page
     let dynamicPage = newPdfDoc.addPage();
     // Add background image with error handling
@@ -804,7 +792,7 @@ serve(async (req) => {
     // Draw header
     const headerText =
       quoteType === "inspection"
-        ? "INSPECTION QUOTE"
+        ? "INSPECTION REPORT"
         : `${quoteType.toUpperCase()} QUOTE`;
     y = drawBoundedText(
       dynamicPage,
@@ -1312,7 +1300,6 @@ serve(async (req) => {
       }
       y -= lineHeight * 2; // Add extra space after inspection results
     }
-
     // Copy remaining preserved pages (for templates with multiple pages)
     for (let i = insertPos; i < sorted.length; i++) {
       const p = sorted[i];
@@ -1321,30 +1308,24 @@ serve(async (req) => {
         newPdfDoc.addPage(copied);
       }
     }
-
     // Generate PDF bytes and upload to storage
     const pdfBytes = await newPdfDoc.save();
-
     // Upload PDF to storage
-    const fileName = `inspection-quote-${jobId}-${Date.now()}.pdf`;
+    const fileName = `inspection-report-${jobId}-${Date.now()}.pdf`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("quote-pdfs")
       .upload(fileName, pdfBytes, {
         contentType: "application/pdf",
         upsert: false,
       });
-
     if (uploadError) {
       throw new Error(`Failed to upload PDF: ${uploadError.message}`);
     }
-
     // Get public URL
     const { data: urlData } = supabase.storage
       .from("quote-pdfs")
       .getPublicUrl(fileName);
-
     const pdfUrl = urlData.publicUrl;
-
     return new Response(
       JSON.stringify({
         success: true,

@@ -848,7 +848,17 @@ const CreateJob = () => {
         if (jobUnitsError) throw jobUnitsError;
       }
 
-      navigate("/jobs");
+      // Navigate based on number of units selected
+      if (selectedUnitIds.length === 1) {
+        // Single unit selected - go to unit details
+        navigate(`/units/${selectedUnitIds[0]}`);
+      } else if (selectedUnitIds.length > 1) {
+        // Multiple units selected - go to location details
+        navigate(`/locations/${formData.location_id}`);
+      } else {
+        // No units selected - go to location details as fallback
+        navigate(`/locations/${formData.location_id}`);
+      }
     } catch (err: any) {
       // Improved error logging for debugging
       console.error("Error creating job:", err);
