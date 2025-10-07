@@ -112,19 +112,17 @@ const InspectionReportGenerator = ({
       const result = await response.json();
 
       if (result.pdfUrl) {
-        // Save the report to job_quotes table
-        const { error: saveError } = await supabase!.from("job_quotes").insert({
+        // Save the report to reports table
+        const { error: saveError } = await supabase!.from("reports").insert({
           job_id: jobId,
-          quote_number: reportNumber,
-          quote_type: "inspection",
-          amount: 180, // Default amount for inspection reports
-          status: "generated",
-          confirmed: false,
-          approved: false,
+          report_number: reportNumber,
+          report_type: "inspection report",
+          title: `Inspection Report - ${reportNumber}`,
+          description: `Inspection report generated for ${selectedInspections.length} inspection(s)`,
           pdf_url: result.pdfUrl,
           pdf_generated_at: new Date().toISOString(),
           selected_inspection_options: selectedInspections,
-          quote_data: {
+          report_data: {
             jobData,
             inspectionData: selectedInspectionData,
             template: template,

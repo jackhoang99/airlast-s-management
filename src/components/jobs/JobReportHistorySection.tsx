@@ -1,14 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSupabase } from "../../lib/supabase-context";
-import {
-  FileText,
-  Trash2,
-  Eye,
-  ChevronUp,
-  ChevronDown,
-  X,
-  Check,
-} from "lucide-react";
+import { FileText, Trash2, Eye, ChevronUp, ChevronDown } from "lucide-react";
 import { Job } from "../../types/job";
 
 type JobReportHistorySectionProps = {
@@ -38,36 +30,20 @@ const JobReportHistorySection = ({
 
     setIsLoadingReports(true);
     try {
-      // Fetch inspection quotes from job_quotes table (these are our reports)
-      const { data: inspectionQuotes, error } = await supabase
-        .from("job_quotes")
+      // Fetch reports from reports table
+      const { data: reports, error } = await supabase
+        .from("reports")
         .select("*")
         .eq("job_id", job.id)
-        .eq("quote_type", "inspection")
+        .eq("report_type", "inspection report")
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Error fetching inspection quotes:", error);
+        console.error("Error fetching reports:", error);
         return;
       }
 
-      // Transform inspection quotes into reports format
-      const reports = (inspectionQuotes || []).map((quote) => ({
-        id: quote.id,
-        report_number: quote.quote_number,
-        report_type: "inspection",
-        amount: quote.amount || 180, // Default amount for inspection reports
-        status: quote.status || "generated",
-        created_at: quote.created_at,
-        pdf_url: quote.pdf_url,
-        pdf_generated_at: quote.pdf_generated_at,
-        confirmed: quote.confirmed,
-        approved: quote.approved,
-        email_sent_at: quote.email_sent_at,
-        quote_data: quote,
-      }));
-
-      setAllReports(reports);
+      setAllReports(reports || []);
     } catch (err) {
       console.error("Error fetching reports:", err);
     } finally {
@@ -83,9 +59,9 @@ const JobReportHistorySection = ({
     setDeleteError(null);
 
     try {
-      // Delete from job_quotes table
+      // Delete from reports table
       const { error } = await supabase
-        .from("job_quotes")
+        .from("reports")
         .delete()
         .eq("id", reportId);
 
@@ -194,22 +170,13 @@ const JobReportHistorySection = ({
               <thead className="bg-gray-50 text-left">
                 <tr>
                   <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
-                    REPORT #
+                    REPORT NUMBER
                   </th>
                   <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
-                    TYPE
+                    REPORT TYPE
                   </th>
                   <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
-                    DATE
-                  </th>
-                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
-                    AMOUNT
-                  </th>
-                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
-                    STATUS
-                  </th>
-                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
-                    CONFIRMED
+                    CREATED DATE
                   </th>
                   <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
                     ACTIONS
@@ -246,37 +213,6 @@ const JobReportHistorySection = ({
                       {report.created_at
                         ? new Date(report.created_at).toLocaleDateString()
                         : "-"}
-                    </td>
-                    <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
-                      ${Number(report.amount).toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
-                          report.status === "generated"
-                            ? "bg-green-100 text-green-800"
-                            : report.status === "sent"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {report.status === "generated"
-                          ? "Generated"
-                          : report.status === "sent"
-                          ? "Sent"
-                          : "Pending"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
-                      {report.confirmed ? (
-                        <span className="text-green-600">
-                          <Check size={16} className="inline" />
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">
-                          <X size={16} className="inline" />
-                        </span>
-                      )}
                     </td>
                     <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
                       <div className="flex flex-wrap gap-2 items-center">
