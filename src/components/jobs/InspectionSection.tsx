@@ -200,16 +200,11 @@ const InspectionReportGenerator = ({
                     <span className="font-medium text-sm">
                       {inspection.model_number || "Unknown Model"}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
-                        Used in previous report
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {inspection.age
-                          ? `${inspection.age} years`
-                          : "Age unknown"}
-                      </span>
-                    </div>
+                    <span className="text-xs text-gray-500">
+                      {inspection.age
+                        ? `${inspection.age} years`
+                        : "Age unknown"}
+                    </span>
                   </div>
 
                   {/* All inspection fields displayed briefly */}
@@ -265,10 +260,6 @@ const InspectionReportGenerator = ({
                       <strong>Comment:</strong> {inspection.comment}
                     </div>
                   )}
-                  <div className="text-xs text-orange-600 mt-2">
-                    <strong>Note:</strong> This inspection was included in a
-                    previous inspection report
-                  </div>
                 </div>
               </label>
             ))}
