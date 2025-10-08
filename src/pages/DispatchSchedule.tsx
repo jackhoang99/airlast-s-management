@@ -130,43 +130,31 @@ const DispatchSchedule = () => {
 
   // Function to check if a job is past dates
   const isJobPastDue = (job: Job): boolean => {
+    if (!job.time_period_due) return false;
+
+    // Get latest technician status
+    const latestTechStatus = getLatestTechnicianStatus(job);
+    if (["tech completed", "completed"].includes(latestTechStatus || "")) {
+      return false;
+    }
+
+    // Compare in UTC only
     const now = new Date();
+    const todayUTC = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate()
+    );
 
-    // Check if any technician has a scheduled time that's in the past
-    if (job.job_technicians && job.job_technicians.length > 0) {
-      for (const tech of job.job_technicians) {
-        if (tech.scheduled_at) {
-          const scheduledDateTime = new Date(tech.scheduled_at);
-          if (scheduledDateTime < now) {
-            // Check if the technician has completed their work
-            const latestTechStatus = getLatestTechnicianStatus(job);
-            if (
-              latestTechStatus !== "tech completed" &&
-              latestTechStatus !== "completed"
-            ) {
-              return true;
-            }
-          }
-        }
-      }
-    }
+    const due = new Date(job.time_period_due);
+    const dueUTC = Date.UTC(
+      due.getUTCFullYear(),
+      due.getUTCMonth(),
+      due.getUTCDate()
+    );
 
-    // Check if job has a due date and it's past due
-    if (job.time_period_due) {
-      const dueDate = new Date(job.time_period_due);
-      if (dueDate < now) {
-        // Check if the technician has completed their work
-        const latestTechStatus = getLatestTechnicianStatus(job);
-        if (
-          latestTechStatus !== "tech completed" &&
-          latestTechStatus !== "completed"
-        ) {
-          return true;
-        }
-      }
-    }
-
-    return false;
+    // Mark past due only if due date (UTC) is strictly before today (UTC)
+    return dueUTC < todayUTC;
   };
 
   // Function to get past dates jobs count

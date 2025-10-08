@@ -520,7 +520,7 @@ const TechnicianSchedule = ({
                             e.preventDefault();
                             e.dataTransfer.dropEffect = "move";
                           }}
-                          className={`absolute top-1 h-10 rounded text-xs p-1 overflow-hidden border shadow-sm z-20 ${
+                          className={`absolute top-0 h-12 rounded text-xs px-1 py-1 overflow-hidden border shadow-sm z-20 ${
                             isDraggingEnabled === job.id
                               ? "cursor-move border-2 border-primary-500"
                               : "cursor-pointer"
@@ -540,46 +540,25 @@ const TechnicianSchedule = ({
                           style={{
                             left: `${Math.max(0, left)}%`,
                             width: `${Math.max(8, Math.min(width, 30))}%`,
-                            minHeight: 32,
+                            minHeight: 48,
+                            maxHeight: 48,
                           }}
                           title={`${job.name} - ${
                             job.locations?.name || ""
                           } (Click to pan to map, double-click for details)`}
                           data-job-id={job.id}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="font-medium break-words flex-1">
-                              {job.name}
+                          <div className="flex items-center justify-between h-full">
+                            <div className="font-medium truncate flex-1 text-xs leading-tight">
+                              {job.name.length > 20
+                                ? job.name.substring(0, 17) + "..."
+                                : job.name}
                               {isJobPastDue && isJobPastDue(job) && (
-                                <span className="ml-1 text-red-600 font-bold">
+                                <span className="ml-1 text-red-600 font-bold text-xs">
                                   ⚠
                                 </span>
                               )}
                             </div>
-                          </div>
-                          {/* Show units if available */}
-                          {(job.units && job.units.length > 0) ||
-                          (job.job_units && job.job_units.length > 0) ? (
-                            <div className="break-words text-xs text-gray-500">
-                              Units:{" "}
-                              {job.units
-                                ? job.units
-                                    .map((unit: any) => unit.unit_number)
-                                    .join(", ")
-                                : job.job_units
-                                    ?.map((ju: any) => ju.units?.unit_number)
-                                    .filter(Boolean)
-                                    .join(", ")}
-                            </div>
-                          ) : null}
-                          <div className="break-words text-xs opacity-75">
-                            {job.locations?.zip}
-                            {job.type === "maintenance" &&
-                              job.additional_type && (
-                                <span className="ml-1">
-                                  • {job.additional_type}
-                                </span>
-                              )}
                           </div>
                         </div>
                       );
