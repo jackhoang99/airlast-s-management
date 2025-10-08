@@ -1,7 +1,8 @@
-import { Edit, CheckCircle, Trash2 } from "lucide-react";
+import { Edit, CheckCircle, Trash2, Calendar } from "lucide-react";
 import ArrowBack from "../ui/ArrowBack";
 import { useSupabase } from "../../lib/supabase-context";
 import { useState, useEffect } from "react";
+import GoogleCalendarModal from "./GoogleCalendarModal";
 
 type JobHeaderProps = {
   job: any;
@@ -21,6 +22,7 @@ const JobHeader = ({
   const { supabase } = useSupabase();
   const [isTechnician, setIsTechnician] = useState(false);
   const [isLoadingRole, setIsLoadingRole] = useState(true);
+  const [showGoogleCalendarModal, setShowGoogleCalendarModal] = useState(false);
 
   // Check if current user is a technician
   useEffect(() => {
@@ -70,6 +72,53 @@ const JobHeader = ({
 
   const checklistRequired = isChecklistRequired();
 
+  // Prepare job data for Google Calendar
+  const getJobDataForCalendar = () => {
+    const address = job.locations?.address
+      ? `${job.locations.address}, ${job.locations.city}, ${job.locations.state} ${job.locations.zip}`
+      : job.service_address || "Address not available";
+
+    const unitInfo =
+      job.units && job.units.length > 0
+        ? job.units.map((unit: any) => unit.unit_number).join(", ")
+        : "N/A";
+
+    return {
+      address,
+      jobType: job.type,
+      description: job.description || "",
+      problemDescription: job.problem_description || "",
+      startDate:
+        job.time_period_start || new Date().toISOString().split("T")[0],
+      dueDate: job.time_period_due || new Date().toISOString().split("T")[0],
+      contactName: job.contact_name || "",
+      contactPhone: job.contact_phone || "",
+      contactEmail: job.contact_email || "",
+      unitInfo,
+      companyName: job.locations?.companies?.name || "",
+      locationName: job.locations?.name || "",
+    };
+  };
+
+  // Get assigned technicians for calendar
+  const getSelectedTechnicians = () => {
+    if (!job.job_technicians || job.job_technicians.length === 0) return [];
+
+    return job.job_technicians.map((jt: any) => ({
+      id: jt.technician_id,
+      name: `${jt.users?.first_name || ""} ${jt.users?.last_name || ""}`.trim(),
+      email: jt.users?.email || "",
+      scheduledTime: jt.scheduled_at
+        ? new Date(jt.scheduled_at).toTimeString().slice(0, 5)
+        : undefined,
+    }));
+  };
+
+  const handleGoogleCalendarConfirm = () => {
+    setShowGoogleCalendarModal(false);
+    // Optionally refresh job data or show success message
+  };
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -80,6 +129,14 @@ const JobHeader = ({
         <h1>Job #{job.number}</h1>
       </div>
       <div className="flex gap-2">
+        <button
+          onClick={() => setShowGoogleCalendarModal(true)}
+          className="btn btn-secondary"
+          title="Send to Google Calendar"
+        >
+          <Calendar size={16} className="mr-2" />
+          Google Calendar
+        </button>
         <button onClick={onEditJob} className="btn btn-secondary">
           <Edit size={16} className="mr-2" />
           Edit Job
@@ -103,10 +160,23 @@ const JobHeader = ({
             Complete Job
           </button>
         )}
-        <button onClick={onDeleteJob} className="btn btn-error" title="Delete Job">
+        <button
+          onClick={onDeleteJob}
+          className="btn btn-error"
+          title="Delete Job"
+        >
           <Trash2 size={16} />
         </button>
       </div>
+
+      {/* Google Calendar Modal */}
+      <GoogleCalendarModal
+        isOpen={showGoogleCalendarModal}
+        onClose={() => setShowGoogleCalendarModal(false)}
+        onConfirm={handleGoogleCalendarConfirm}
+        jobData={getJobDataForCalendar()}
+        selectedTechnicians={getSelectedTechnicians()}
+      />
     </div>
   );
 };
