@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import ArrowBack from "../../components/ui/ArrowBack";
 import { useSupabase } from "../../lib/supabase-context";
+import { formatUnitNumber } from "../../utils/unitUtils";
 import { getScheduledDate, getScheduledTime } from "../../utils/dateUtils";
 import {
   ArrowLeft,
@@ -355,7 +356,7 @@ const CustomerLocationDetails = () => {
                               key={ju.unit_id}
                               className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800"
                             >
-                              Unit {ju.units.unit_number}
+                              {formatUnitNumber(ju.units.unit_number)}
                             </span>
                           ))}
                         </div>

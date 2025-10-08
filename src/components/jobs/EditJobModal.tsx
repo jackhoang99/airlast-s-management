@@ -499,11 +499,11 @@ const EditJobModal = ({
       if (updateError) throw updateError;
 
       // Handle unit assignments
-      if (formData.selectedUnitIds && formData.selectedUnitIds.length > 0) {
-        // First, remove existing unit assignments
-        await supabase.from("job_units").delete().eq("job_id", job.id);
+      // First, remove existing unit assignments
+      await supabase.from("job_units").delete().eq("job_id", job.id);
 
-        // Add new unit assignments
+      if (formData.selectedUnitIds && formData.selectedUnitIds.length > 0) {
+        // Regular unit assignments
         const unitAssignments = formData.selectedUnitIds.map(
           (unitId: string) => ({
             job_id: job.id,
@@ -517,6 +517,61 @@ const EditJobModal = ({
 
         if (unitError) {
           console.error("Error updating unit assignments:", unitError);
+        }
+      } else {
+        // No units selected - create a special location-level unit entry
+        // First, check if a location-level unit already exists for this location
+        let locationUnitId;
+        const { data: existingLocationUnit, error: locationUnitError } =
+          await supabase
+            .from("units")
+            .select("id")
+            .eq("location_id", formData.location_id)
+            .eq("unit_number", "LOCATION")
+            .single();
+
+        if (locationUnitError && locationUnitError.code !== "PGRST116") {
+          // Error other than "not found" - log it but don't throw
+          console.error("Error checking for location unit:", locationUnitError);
+        }
+
+        if (existingLocationUnit) {
+          locationUnitId = existingLocationUnit.id;
+        } else {
+          // Create a special location-level unit
+          const { data: newLocationUnit, error: createLocationUnitError } =
+            await supabase
+              .from("units")
+              .insert({
+                location_id: formData.location_id,
+                unit_number: "LOCATION",
+                status: "active",
+                primary_contact_type: "location",
+              })
+              .select("id")
+              .single();
+
+          if (createLocationUnitError) {
+            console.error(
+              "Error creating location unit:",
+              createLocationUnitError
+            );
+          } else {
+            locationUnitId = newLocationUnit.id;
+          }
+        }
+
+        // Create job_unit entry with the location-level unit
+        if (locationUnitId) {
+          const { error: jobUnitsError } = await supabase
+            .from("job_units")
+            .insert({
+              job_id: job.id,
+              unit_id: locationUnitId,
+            });
+          if (jobUnitsError) {
+            console.error("Error creating job unit assignment:", jobUnitsError);
+          }
         }
       }
 
@@ -911,52 +966,71 @@ const EditJobModal = ({
                 <h2 className="text-lg font-medium mb-6">
                   Select Units for this Job *
                 </h2>
-                {filteredLocations.find(
-                  (loc) => loc.id === formData.location_id
-                )?.units &&
-                filteredLocations.find((loc) => loc.id === formData.location_id)
-                  .units.length > 0 ? (
-                  <div className="space-y-2">
-                    {filteredLocations
-                      .find((loc) => loc.id === formData.location_id)
-                      .units.map((unit: any) => (
-                        <label
-                          key={unit.id}
-                          className="flex items-center gap-2"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={
-                              formData.selectedUnitIds?.includes(unit.id) ||
-                              false
-                            }
-                            onChange={(e) => {
-                              const currentIds = formData.selectedUnitIds || [];
-                              if (e.target.checked) {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  selectedUnitIds: [...currentIds, unit.id],
-                                }));
-                              } else {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  selectedUnitIds: currentIds.filter(
-                                    (id: string) => id !== unit.id
-                                  ),
-                                }));
-                              }
-                            }}
-                          />
-                          <span>{unit.unit_number}</span>
-                        </label>
-                      ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500">
-                    No units available for this location. Please add units to
-                    this location first.
-                  </p>
-                )}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={
+                        !formData.selectedUnitIds ||
+                        formData.selectedUnitIds.length === 0
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            selectedUnitIds: [],
+                          }));
+                        }
+                      }}
+                    />
+                    <span className="text-gray-700 font-medium">
+                      None (use location for this job)
+                    </span>
+                  </label>
+                  {filteredLocations.find(
+                    (loc) => loc.id === formData.location_id
+                  )?.units &&
+                    filteredLocations.find(
+                      (loc) => loc.id === formData.location_id
+                    ).units.length > 0 && (
+                      <>
+                        {filteredLocations
+                          .find((loc) => loc.id === formData.location_id)
+                          .units.map((unit: any) => (
+                            <label
+                              key={unit.id}
+                              className="flex items-center gap-2"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={
+                                  formData.selectedUnitIds?.includes(unit.id) ||
+                                  false
+                                }
+                                onChange={(e) => {
+                                  const currentIds =
+                                    formData.selectedUnitIds || [];
+                                  if (e.target.checked) {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      selectedUnitIds: [...currentIds, unit.id],
+                                    }));
+                                  } else {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      selectedUnitIds: currentIds.filter(
+                                        (id: string) => id !== unit.id
+                                      ),
+                                    }));
+                                  }
+                                }}
+                              />
+                              <span>{unit.unit_number}</span>
+                            </label>
+                          ))}
+                      </>
+                    )}
+                </div>
               </div>
             )}
 

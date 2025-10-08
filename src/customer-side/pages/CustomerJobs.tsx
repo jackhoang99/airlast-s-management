@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useOutletContext, useLocation } from "react-router-dom";
 import { useSupabase } from "../../lib/supabase-context";
 import { getScheduledDate, getScheduledTime } from "../../utils/dateUtils";
+import { formatUnitNumber } from "../../utils/unitUtils";
 import {
   FileText,
   Search,
@@ -495,7 +496,9 @@ const CustomerJobs = () => {
                           <span className="flex items-center">
                             {job.job_units.map((ju) => (
                               <span key={ju.unit_id} className="mr-1">
-                                Unit {ju.units?.unit_number || ju.unit_id}
+                                {formatUnitNumber(
+                                  ju.units?.unit_number || "Unknown"
+                                )}
                               </span>
                             ))}
                           </span>

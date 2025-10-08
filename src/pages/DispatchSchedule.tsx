@@ -6,19 +6,11 @@ import TechnicianSchedule from "../components/dispatch/TechnicianSchedule";
 import DispatchFilters from "../components/dispatch/DispatchFilters";
 import JobTypeLegend from "../components/dispatch/JobTypeLegend";
 import DispatchMap from "../components/dispatch/DispatchMap";
-import {
-  X,
-  MapPin,
-  Calendar,
-  Clock,
-  User,
-  Phone,
-  Mail,
-  ArrowRight,
-} from "lucide-react";
+import ResizableDivider from "../components/ui/ResizableDivider";
+import { useResizable } from "../hooks/useResizable";
+import { User } from "lucide-react";
 import QuickAssetViewModal from "../components/locations/QuickAssetViewModal";
 import JobDetailsModal from "../components/jobs/JobDetailsModal";
-import { Link } from "react-router-dom";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
 
@@ -1007,6 +999,13 @@ const DispatchSchedule = () => {
     toTechId: string;
   } | null>(null);
 
+  // Resizable divider for map and technician schedule
+  const { topHeight, isResizing, resizeRef, handleMouseDown } = useResizable({
+    initialHeight: 60, // Start with 60% for map
+    minHeight: 30, // Minimum 30% for map
+    maxHeight: 80, // Maximum 80% for map
+  });
+
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -1075,9 +1074,9 @@ const DispatchSchedule = () => {
         </div>
 
         {/* Right Side - Map on Top, Technician Schedule on Bottom */}
-        <div className="flex-1 flex flex-col">
-          {/* Top Half - Map */}
-          <div className="flex-1 min-h-0 relative">
+        <div className="flex-1 flex flex-col" ref={resizeRef}>
+          {/* Top Section - Map */}
+          <div className="min-h-0 relative" style={{ height: `${topHeight}%` }}>
             <DispatchMap
               selectedCall={(() => {
                 if (selectedJobId) {
@@ -1128,8 +1127,19 @@ const DispatchSchedule = () => {
               }}
             />
           </div>
-          {/* Bottom Half - Technician Schedule */}
-          <div className="h-80 border-t border-gray-200" ref={scheduleRef}>
+
+          {/* Resizable Divider */}
+          <ResizableDivider
+            onMouseDown={handleMouseDown}
+            isResizing={isResizing}
+          />
+
+          {/* Bottom Section - Technician Schedule */}
+          <div
+            className="min-h-0"
+            style={{ height: `${100 - topHeight}%` }}
+            ref={scheduleRef}
+          >
             <TechnicianSchedule
               technicians={technicians}
               jobs={sortedJobs}

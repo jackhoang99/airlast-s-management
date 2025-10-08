@@ -636,15 +636,7 @@ const CreateJob = () => {
         "Maintenance type is required for maintenance jobs";
 
     // Unit validation - require at least one unit to be selected
-    if (
-      selectedLocation &&
-      (!selectedLocation.units || selectedLocation.units.length === 0)
-    ) {
-      errors.units =
-        "No units available for this location. Please add units to this location first.";
-    } else if (selectedUnitIds.length === 0) {
-      errors.units = "At least one unit must be selected";
-    }
+    // Units validation removed - "None" is now a valid option
 
     setValidationErrors(errors);
 
@@ -837,15 +829,64 @@ const CreateJob = () => {
         }
       }
 
-      if (jobData && selectedUnitIds.length > 0) {
-        const jobUnitsToInsert = selectedUnitIds.map((unitId) => ({
-          job_id: jobData.id,
-          unit_id: unitId,
-        }));
-        const { error: jobUnitsError } = await supabase
-          .from("job_units")
-          .insert(jobUnitsToInsert);
-        if (jobUnitsError) throw jobUnitsError;
+      // Handle unit assignments - if no units selected, create a location-level entry
+      if (jobData) {
+        if (selectedUnitIds.length > 0) {
+          // Regular unit assignments
+          const jobUnitsToInsert = selectedUnitIds.map((unitId) => ({
+            job_id: jobData.id,
+            unit_id: unitId,
+          }));
+          const { error: jobUnitsError } = await supabase
+            .from("job_units")
+            .insert(jobUnitsToInsert);
+          if (jobUnitsError) throw jobUnitsError;
+        } else {
+          // No units selected - create a special location-level unit entry
+          // First, check if a location-level unit already exists for this location
+          let locationUnitId;
+          const { data: existingLocationUnit, error: locationUnitError } =
+            await supabase
+              .from("units")
+              .select("id")
+              .eq("location_id", formData.location_id)
+              .eq("unit_number", "LOCATION")
+              .single();
+
+          if (locationUnitError && locationUnitError.code !== "PGRST116") {
+            // Error other than "not found" - throw it
+            throw locationUnitError;
+          }
+
+          if (existingLocationUnit) {
+            locationUnitId = existingLocationUnit.id;
+          } else {
+            // Create a special location-level unit
+            const { data: newLocationUnit, error: createLocationUnitError } =
+              await supabase
+                .from("units")
+                .insert({
+                  location_id: formData.location_id,
+                  unit_number: "LOCATION",
+                  status: "active",
+                  primary_contact_type: "location",
+                })
+                .select("id")
+                .single();
+
+            if (createLocationUnitError) throw createLocationUnitError;
+            locationUnitId = newLocationUnit.id;
+          }
+
+          // Create job_unit entry with the location-level unit
+          const { error: jobUnitsError } = await supabase
+            .from("job_units")
+            .insert({
+              job_id: jobData.id,
+              unit_id: locationUnitId,
+            });
+          if (jobUnitsError) throw jobUnitsError;
+        }
       }
 
       // Navigate based on number of units selected
@@ -1122,40 +1163,59 @@ const CreateJob = () => {
                 <h2 className="text-lg font-medium mb-6">
                   Select Units for this Job *
                 </h2>
-                {selectedLocation.units && selectedLocation.units.length > 0 ? (
-                  <div className="space-y-2">
-                    {selectedLocation.units.map((unit) => (
-                      <label key={unit.id} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedUnitIds.includes(unit.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedUnitIds((ids) => [...ids, unit.id]);
-                            } else {
-                              setSelectedUnitIds((ids) =>
-                                ids.filter((id) => id !== unit.id)
-                              );
-                            }
-                            // Clear units validation error when any unit is selected/deselected
-                            if (
-                              selectedUnitIds.length > 0 ||
-                              e.target.checked
-                            ) {
-                              clearValidationError("units");
-                            }
-                          }}
-                        />
-                        <span>{unit.unit_number}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500">
-                    No units available for this location. Please add units to
-                    this location first.
-                  </p>
-                )}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedUnitIds.length === 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedUnitIds([]);
+                        }
+                        clearValidationError("units");
+                      }}
+                    />
+                    <span className="text-gray-700 font-medium">
+                      None (use location for this job)
+                    </span>
+                  </label>
+                  {selectedLocation.units &&
+                    selectedLocation.units.length > 0 && (
+                      <>
+                        {selectedLocation.units.map((unit) => (
+                          <label
+                            key={unit.id}
+                            className="flex items-center gap-2"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedUnitIds.includes(unit.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedUnitIds((ids) => [
+                                    ...ids,
+                                    unit.id,
+                                  ]);
+                                } else {
+                                  setSelectedUnitIds((ids) =>
+                                    ids.filter((id) => id !== unit.id)
+                                  );
+                                }
+                                // Clear units validation error when any unit is selected/deselected
+                                if (
+                                  selectedUnitIds.length > 0 ||
+                                  e.target.checked
+                                ) {
+                                  clearValidationError("units");
+                                }
+                              }}
+                            />
+                            <span>{unit.unit_number}</span>
+                          </label>
+                        ))}
+                      </>
+                    )}
+                </div>
                 {validationErrors.units && (
                   <p className="mt-2 text-sm text-error-600">
                     {validationErrors.units}
