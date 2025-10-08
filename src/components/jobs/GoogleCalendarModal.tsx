@@ -56,6 +56,10 @@ const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({
   >(null);
   const [tempTechnicianEmail, setTempTechnicianEmail] = useState("");
 
+  // Time selection state
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("17:00");
+
   // Default admin emails
   const [adminEmails, setAdminEmails] = useState([
     { name: "Charlie", email: "charlie@airlast.com", type: "admin" },
@@ -271,7 +275,11 @@ Address: ${jobData.address}`;
     try {
       // Prepare data for the edge function
       const eventData = {
-        jobData,
+        jobData: {
+          ...jobData,
+          startTime,
+          endTime,
+        },
         selectedTechnicians,
         selectedAttendees: Array.from(selectedAttendees),
         adminEmails,
@@ -376,12 +384,36 @@ Address: ${jobData.address}`;
           {/* Event Details */}
           <div className="bg-gray-50 p-4 rounded-lg">
             <h4 className="font-medium text-gray-900 mb-2">Event Details</h4>
-            <div className="space-y-1 text-sm text-gray-600">
+            <div className="space-y-3 text-sm text-gray-600">
               <div>
                 <strong>Title:</strong> {jobData.address} - {jobData.jobType}
               </div>
               <div>
                 <strong>Date:</strong> {jobData.startDate} to {jobData.dueDate}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
               </div>
               <div>
                 <strong>Location:</strong> {jobData.address}

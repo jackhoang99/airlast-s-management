@@ -100,22 +100,47 @@ serve(async (req) => {
 
     console.log("=== FINAL ATTENDEE LIST (REQUEST) ===", attendees);
     console.log("Number of attendees being sent:", attendees.length);
-    // Primary technician scheduling
-    const primaryTechnician = selectedTechnicians.find((t) => t.scheduledTime);
-    const scheduledTime = primaryTechnician?.scheduledTime;
     const formatDateForGoogle = (dateString, timeString) => {
-      let date;
       if (timeString) {
         const [hours, minutes] = timeString.split(":").map(Number);
         const [year, month, day] = dateString.split("-").map(Number);
-        date = new Date(year, month - 1, day, hours, minutes);
+
+        // Create a date string in Eastern Time format
+        const easternTimeString = `${year}-${month
+          .toString()
+          .padStart(2, "0")}-${day.toString().padStart(2, "0")}T${hours
+          .toString()
+          .padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`;
+
+        // Return the date string with Eastern Time timezone
+        // This tells Google Calendar to interpret the time as Eastern Time
+        return easternTimeString;
       } else {
-        date = new Date(dateString);
+        return new Date(dateString).toISOString();
       }
-      return date.toISOString();
     };
-    const startDateTime = formatDateForGoogle(jobData.startDate, scheduledTime);
-    const endDateTime = formatDateForGoogle(jobData.dueDate, scheduledTime);
+
+    // Validate that start and end times are provided
+    if (!jobData.startTime || !jobData.endTime) {
+      throw new Error(
+        "Start time and end time are required for calendar events"
+      );
+    }
+
+    // Use the start and end times from the modal
+    const startDateTime = formatDateForGoogle(
+      jobData.startDate,
+      jobData.startTime
+    );
+    const endDateTime = formatDateForGoogle(jobData.startDate, jobData.endTime);
+
+    console.log("=== TIME DEBUG ===");
+    console.log("Input times:", {
+      startTime: jobData.startTime,
+      endTime: jobData.endTime,
+    });
+    console.log("Generated datetimes:", { startDateTime, endDateTime });
+    console.log("Date:", jobData.startDate);
     // Event description
     let description = `Job Details:
 - Company: ${jobData.companyName || "N/A"}
@@ -131,23 +156,7 @@ Address: ${jobData.address}`;
     if (selectedTechnicians.length > 0) {
       description += `\n\nAssigned Technicians:`;
       selectedTechnicians.forEach((tech) => {
-        if (tech.scheduledTime) {
-          const [hours, minutes] = tech.scheduledTime.split(":");
-          const timeStr = new Date(
-            2000,
-            0,
-            1,
-            +hours,
-            +minutes
-          ).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          });
-          description += `\n- ${tech.name}: ${timeStr}`;
-        } else {
-          description += `\n- ${tech.name}: Time TBD`;
-        }
+        description += `\n- ${tech.name}`;
       });
     }
     // Event payload
