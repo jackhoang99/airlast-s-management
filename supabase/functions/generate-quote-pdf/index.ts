@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js";
 import { PDFDocument, rgb, StandardFonts } from "npm:pdf-lib";
-
 // Unified margin system constants
 const MARGINS = {
   LEFT: 50,
@@ -105,7 +104,6 @@ function checkPageBreak(
     y,
   };
 }
-
 // Helper to draw left/right columns with consistent margins & alignment
 function drawTwoColumnRow(page, leftItems, rightItems, y, options) {
   const {
@@ -122,27 +120,20 @@ function drawTwoColumnRow(page, leftItems, rightItems, y, options) {
     topMargin,
     bgImage,
   } = options;
-
   const contentWidth = width - leftMargin - rightMargin;
   const colWidth = (contentWidth - columnSpacing) / 2;
-
   const leftX = leftMargin;
   const rightX = leftMargin + colWidth + columnSpacing;
-
   const rowCount = Math.max(leftItems.length, rightItems.length);
-
   for (let i = 0; i < rowCount; i++) {
     const leftText = leftItems[i] || "";
     const rightText = rightItems[i] || "";
-
     // Wrap each field independently within its column width
     const leftLines = wrapTextInColumn(leftText, font, fontSize, colWidth);
     const rightLines = wrapTextInColumn(rightText, font, fontSize, colWidth);
-
     // Calculate the height needed for this row (max of both sides)
     const maxLines = Math.max(leftLines.length, rightLines.length);
     const rowHeight = maxLines * lineHeight;
-
     // Page break check once per row
     if (y - rowHeight < minY) {
       const pageBreakResult = checkPageBreak(
@@ -158,11 +149,9 @@ function drawTwoColumnRow(page, leftItems, rightItems, y, options) {
       page = pageBreakResult.page;
       y = pageBreakResult.y;
     }
-
     // Draw each field as a row - both sides start at the same Y and stay aligned
     for (let j = 0; j < maxLines; j++) {
       const currentY = y - j * lineHeight;
-
       // Draw left side text if it exists
       if (leftLines[j]) {
         page.drawText(leftLines[j], {
@@ -172,7 +161,6 @@ function drawTwoColumnRow(page, leftItems, rightItems, y, options) {
           font,
         });
       }
-
       // Draw right side text if it exists
       if (rightLines[j]) {
         page.drawText(rightLines[j], {
@@ -183,12 +171,13 @@ function drawTwoColumnRow(page, leftItems, rightItems, y, options) {
         });
       }
     }
-
     // Move Y down by the full height of this row
     y -= rowHeight;
   }
-
-  return { page, y };
+  return {
+    page,
+    y,
+  };
 }
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -220,7 +209,6 @@ serve(async (req) => {
       replacementDataById,
       pmQuotes,
     } = await req.json();
-
     console.log(
       "DEBUG: Edge function received replacementDataById:",
       JSON.stringify(replacementDataById, null, 2)
@@ -438,7 +426,6 @@ serve(async (req) => {
               jobData?.locations?.name || jobData?.location?.name;
             const address =
               jobData?.locations?.address || jobData?.location?.address;
-
             // Only display location name if it's different from address
             if (locationName && locationName !== address) {
               addedPage.drawText(sanitizeTextForPDF(locationName), {
@@ -450,7 +437,6 @@ serve(async (req) => {
               });
               customerY -= 18;
             }
-
             // Always display address
             if (address) {
               addedPage.drawText(sanitizeTextForPDF(address), {
@@ -1159,6 +1145,9 @@ serve(async (req) => {
     }
     // Draw replacement summary header (only for replacement quotes)
     if (quoteType === "replacement") {
+      console.log(
+        "DEBUG: Quote type is replacement, processing replacement quotes"
+      );
       // Check if we need a new page before drawing replacement summary
       if (y < minY) {
         dynamicPage = newPdfDoc.addPage();
@@ -1184,8 +1173,17 @@ serve(async (req) => {
     // Process each replacement entry
     let combinedTotal = 0;
     if (quoteType === "replacement" && replacementsToProcess.length > 0) {
+      console.log(
+        "DEBUG: Processing replacement quotes, count:",
+        replacementsToProcess.length
+      );
+      console.log(
+        "DEBUG: Replacement data:",
+        JSON.stringify(replacementsToProcess, null, 2)
+      );
       // If multiple replacements, show them as a consolidated list
       if (replacementsToProcess.length > 1) {
+        console.log("DEBUG: Multiple replacement quotes path");
         // Check if we need a new page before drawing multiple options header
         if (y < minY) {
           dynamicPage = newPdfDoc.addPage();
@@ -1200,20 +1198,12 @@ serve(async (req) => {
             });
           }
         }
-        // Draw consolidated header
-        dynamicPage.drawText("Multiple Replacement Options:", {
-          x: leftMargin,
-          y,
-          size: fontSize + 1,
-          font: bold,
-        });
-        y -= lineHeight * 1.5;
-        // Show each replacement as a numbered option
+        // Show each replacement option in detailed format
         for (let i = 0; i < replacementsToProcess.length; i++) {
           let entry = replacementsToProcess[i];
           const totalCost = Number(entry.totalCost || entry.total_cost || 0);
           combinedTotal += totalCost;
-          // Check if we need a new page before drawing option header
+          // Check if we need a new page before drawing option details
           if (y < minY) {
             dynamicPage = newPdfDoc.addPage();
             y = height - topMargin;
@@ -1227,18 +1217,20 @@ serve(async (req) => {
               });
             }
           }
-          // Draw replacement option header
-          dynamicPage.drawText(
-            `Option ${entry.replacementNumber}: $${totalCost.toLocaleString()}`,
-            {
-              x: leftMargin,
-              y,
-              size: fontSize,
-              font: bold,
-            }
-          );
+          // Draw replacement option header (same format as single replacement)
+          dynamicPage.drawText(`Option ${entry.replacementNumber}:`, {
+            x: leftMargin,
+            y,
+            size: fontSize,
+            font: bold,
+          });
+          dynamicPage.drawText(`$${totalCost.toLocaleString()}`, {
+            x: width - rightMargin - 100,
+            y,
+            size: fontSize,
+            font: bold,
+          });
           y -= lineHeight;
-
           // Add unit information for this replacement option if available (MOVED TO TOP)
           console.log(
             "DEBUG: Multiple replacements - Checking unit_info for entry:",
@@ -1265,7 +1257,6 @@ serve(async (req) => {
                 });
               }
             }
-
             dynamicPage.drawText("Unit Information:", {
               x: leftMargin + 20,
               y,
@@ -1274,7 +1265,6 @@ serve(async (req) => {
               color: rgb(0.2, 0.4, 0.8),
             });
             y -= lineHeight;
-
             entry.unit_info.forEach((unit, unitIndex) => {
               if (unit.descriptor || unit.modelName) {
                 const unitText = `- ${unit.descriptor || ""}${
@@ -1291,8 +1281,7 @@ serve(async (req) => {
             });
             y -= lineHeight * 0.5; // Small spacing after unit info
           }
-
-          // Show key components for this option
+          // Show detailed breakdown (same format as single replacement)
           const components = [];
           if (entry.labor && Number(entry.labor) > 0) {
             components.push(`Labor: $${Number(entry.labor).toLocaleString()}`);
@@ -1302,29 +1291,31 @@ serve(async (req) => {
             Number(entry.refrigerationRecovery) > 0
           ) {
             components.push(
-              `Refrigeration: $${Number(
+              `Refrigeration Recovery: $${Number(
                 entry.refrigerationRecovery
               ).toLocaleString()}`
             );
           }
           if (entry.startUpCosts && Number(entry.startUpCosts) > 0) {
             components.push(
-              `Start-up: $${Number(entry.startUpCosts).toLocaleString()}`
-            );
-          }
-          if (entry.removalCost && Number(entry.removalCost) > 0) {
-            components.push(
-              `Removal: $${Number(entry.removalCost).toLocaleString()}`
+              `Start Up Costs: $${Number(entry.startUpCosts).toLocaleString()}`
             );
           }
           if (entry.thermostatStartup && Number(entry.thermostatStartup) > 0) {
             components.push(
-              `Thermostat: $${Number(entry.thermostatStartup).toLocaleString()}`
+              `Thermostat Startup: $${Number(
+                entry.thermostatStartup
+              ).toLocaleString()}`
+            );
+          }
+          if (entry.removalCost && Number(entry.removalCost) > 0) {
+            components.push(
+              `Removal Cost: $${Number(entry.removalCost).toLocaleString()}`
             );
           }
           if (entry.permitCost && Number(entry.permitCost) > 0) {
             components.push(
-              `Permit: $${Number(entry.permitCost).toLocaleString()}`
+              `Permit Cost: $${Number(entry.permitCost).toLocaleString()}`
             );
           }
           // Add accessories if available
@@ -1333,21 +1324,23 @@ serve(async (req) => {
             Array.isArray(entry.accessories) &&
             entry.accessories.length > 0
           ) {
-            const accessoriesCost = entry.accessories.reduce((sum, acc) => {
-              // Handle both object format and direct cost format
-              if (typeof acc === "object" && acc.cost !== undefined) {
-                return sum + (Number(acc.cost) || 0);
-              } else if (typeof acc === "number") {
-                return sum + Number(acc);
-              } else if (typeof acc === "string" && !isNaN(Number(acc))) {
-                return sum + Number(acc);
-              }
-              return sum;
-            }, 0);
-            if (accessoriesCost > 0) {
-              components.push(
-                `Accessories: $${accessoriesCost.toLocaleString()}`
-              );
+            const validAccessories = entry.accessories.filter(
+              (acc) =>
+                typeof acc === "object" &&
+                acc.cost !== undefined &&
+                Number(acc.cost) > 0
+            );
+            if (validAccessories.length > 0) {
+              const accessoriesList = validAccessories
+                .map((acc) => {
+                  if (acc.name) {
+                    return `${acc.name}: $${Number(acc.cost).toLocaleString()}`;
+                  } else {
+                    return `Accessory: $${Number(acc.cost).toLocaleString()}`;
+                  }
+                })
+                .join(", ");
+              components.push(`Accessories: ${accessoriesList}`);
             }
           }
           // Add additional items if available
@@ -1356,24 +1349,27 @@ serve(async (req) => {
             Array.isArray(entry.additionalItems) &&
             entry.additionalItems.length > 0
           ) {
-            const additionalItemsCost = entry.additionalItems.reduce(
-              (sum, item) => {
-                // Handle both object format and direct cost format
-                if (typeof item === "object" && item.cost !== undefined) {
-                  return sum + (Number(item.cost) || 0);
-                } else if (typeof item === "number") {
-                  return sum + Number(item);
-                } else if (typeof item === "string" && !isNaN(Number(item))) {
-                  return sum + Number(item);
-                }
-                return sum;
-              },
-              0
+            const validAdditionalItems = entry.additionalItems.filter(
+              (item) =>
+                typeof item === "object" &&
+                item.cost !== undefined &&
+                Number(item.cost) > 0
             );
-            if (additionalItemsCost > 0) {
-              components.push(
-                `Additional Items: $${additionalItemsCost.toLocaleString()}`
-              );
+            if (validAdditionalItems.length > 0) {
+              const additionalItemsList = validAdditionalItems
+                .map((item) => {
+                  if (item.name) {
+                    return `${item.name}: $${Number(
+                      item.cost
+                    ).toLocaleString()}`;
+                  } else {
+                    return `Additional Item: $${Number(
+                      item.cost
+                    ).toLocaleString()}`;
+                  }
+                })
+                .join(", ");
+              components.push(`Additional Items: ${additionalItemsList}`);
             }
           }
           // Display components in a compact format with word wrapping
@@ -1392,45 +1388,9 @@ serve(async (req) => {
                 });
               }
             }
-            const componentsText = components.join(" • ");
-            // Split components into lines if they're too long
-            const maxWidth = contentWidth - 20; // Account for left margin offset
-            const words = componentsText.split(" ");
-            let currentLine = "";
-            for (const word of words) {
-              const testLine = currentLine ? `${currentLine} ${word}` : word;
-              const testWidth = font.widthOfTextAtSize(testLine, fontSize - 1);
-              if (testWidth > maxWidth && currentLine) {
-                // Check if we need a new page
-                if (y < minY) {
-                  dynamicPage = newPdfDoc.addPage();
-                  y = height - topMargin;
-                  // Add background to new page if available
-                  if (bgImage) {
-                    dynamicPage.drawImage(bgImage, {
-                      x: 0,
-                      y: 0,
-                      width,
-                      height,
-                    });
-                  }
-                }
-                // Draw current line and start new line
-                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
-                  x: leftMargin + 20,
-                  y,
-                  size: fontSize - 1,
-                  font,
-                });
-                y -= lineHeight;
-                currentLine = word;
-              } else {
-                currentLine = testLine;
-              }
-            }
-            // Draw the last line
-            if (currentLine) {
-              // Check if we need a new page
+            // Display each component on its own line (same format as single replacement)
+            for (const component of components) {
+              // Check if we need a new page before drawing component
               if (y < minY) {
                 dynamicPage = newPdfDoc.addPage();
                 y = height - topMargin;
@@ -1444,13 +1404,42 @@ serve(async (req) => {
                   });
                 }
               }
-              dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
-                x: leftMargin + 20,
-                y,
-                size: fontSize - 1,
-                font,
-              });
-              y -= lineHeight;
+
+              // All components get normal bullet and standard formatting
+              const componentText = `• ${component}`;
+              const maxWidth = contentWidth - 20; // Account for left margin offset
+              const words = componentText.split(" ");
+              let currentLine = "";
+              for (const word of words) {
+                const testLine = currentLine ? `${currentLine} ${word}` : word;
+                const testWidth = font.widthOfTextAtSize(
+                  testLine,
+                  fontSize - 1
+                );
+                if (testWidth > maxWidth && currentLine) {
+                  // Draw current line and start new line
+                  dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                    x: leftMargin + 20,
+                    y,
+                    size: fontSize - 1,
+                    font,
+                  });
+                  y -= lineHeight;
+                  currentLine = word;
+                } else {
+                  currentLine = testLine;
+                }
+              }
+              // Draw the last line
+              if (currentLine) {
+                dynamicPage.drawText(sanitizeTextForPDF(currentLine), {
+                  x: leftMargin + 20,
+                  y,
+                  size: fontSize - 1,
+                  font,
+                });
+                y -= lineHeight;
+              }
             }
           }
           // Add requirements if any
@@ -1500,8 +1489,7 @@ serve(async (req) => {
               y -= lineHeight;
             }
           }
-
-          y -= lineHeight * 0.5; // Small spacing between options
+          y -= lineHeight * 2; // Extra spacing between options
         }
         // Draw total line
         y -= lineHeight;
@@ -1544,11 +1532,29 @@ serve(async (req) => {
           size: fontSize + 1,
           font: bold,
         });
+        y -= lineHeight * 4; // Extra spacing to move deposit line down more
+        // Add deposit requirement line
+        console.log(
+          "DEBUG: Adding deposit line for multiple replacement quotes at y:",
+          y
+        );
+        dynamicPage.drawText("**50% deposit required prior to installation**", {
+          x: leftMargin,
+          y,
+          size: fontSize,
+          font: bold,
+        });
         y -= lineHeight * 2;
       } else {
+        console.log("DEBUG: Single replacement quote path");
         // Single replacement - show detailed breakdown
         let entry = replacementsToProcess[0];
+        console.log(
+          "DEBUG: Single replacement entry:",
+          JSON.stringify(entry, null, 2)
+        );
         const totalCost = Number(entry.totalCost || entry.total_cost || 0);
+        console.log("DEBUG: Single replacement totalCost:", totalCost);
         combinedTotal = totalCost;
         // Check if we need a new page before drawing single replacement details
         if (y < minY) {
@@ -1578,7 +1584,7 @@ serve(async (req) => {
           font: bold,
         });
         y -= lineHeight;
-
+        console.log("DEBUG: After drawing replacement header, y:", y);
         // Add unit information for single replacement if available (MOVED TO TOP)
         console.log(
           "DEBUG: Single replacement - Checking unit_info for entry:",
@@ -1605,7 +1611,6 @@ serve(async (req) => {
               });
             }
           }
-
           dynamicPage.drawText("Unit Information:", {
             x: leftMargin + 20,
             y,
@@ -1614,7 +1619,6 @@ serve(async (req) => {
             color: rgb(0.2, 0.4, 0.8),
           });
           y -= lineHeight;
-
           entry.unit_info.forEach((unit, unitIndex) => {
             if (unit.descriptor || unit.modelName) {
               const unitText = `- ${unit.descriptor || ""}${
@@ -1631,7 +1635,7 @@ serve(async (req) => {
           });
           y -= lineHeight * 0.5; // Small spacing after unit info
         }
-
+        console.log("DEBUG: After unit info section, y:", y);
         // For single replacement, show detailed breakdown
         const components = [];
         if (entry.labor && Number(entry.labor) > 0) {
@@ -1675,21 +1679,23 @@ serve(async (req) => {
           Array.isArray(entry.accessories) &&
           entry.accessories.length > 0
         ) {
-          const accessoriesCost = entry.accessories.reduce((sum, acc) => {
-            // Handle both object format and direct cost format
-            if (typeof acc === "object" && acc.cost !== undefined) {
-              return sum + (Number(acc.cost) || 0);
-            } else if (typeof acc === "number") {
-              return sum + Number(acc);
-            } else if (typeof acc === "string" && !isNaN(Number(acc))) {
-              return sum + Number(acc);
-            }
-            return sum;
-          }, 0);
-          if (accessoriesCost > 0) {
-            components.push(
-              `Accessories: $${accessoriesCost.toLocaleString()}`
-            );
+          const validAccessories = entry.accessories.filter(
+            (acc) =>
+              typeof acc === "object" &&
+              acc.cost !== undefined &&
+              Number(acc.cost) > 0
+          );
+          if (validAccessories.length > 0) {
+            const accessoriesList = validAccessories
+              .map((acc) => {
+                if (acc.name) {
+                  return `${acc.name}: $${Number(acc.cost).toLocaleString()}`;
+                } else {
+                  return `Accessory: $${Number(acc.cost).toLocaleString()}`;
+                }
+              })
+              .join(", ");
+            components.push(`Accessories: ${accessoriesList}`);
           }
         }
         // Add additional items if available
@@ -1698,24 +1704,25 @@ serve(async (req) => {
           Array.isArray(entry.additionalItems) &&
           entry.additionalItems.length > 0
         ) {
-          const additionalItemsCost = entry.additionalItems.reduce(
-            (sum, item) => {
-              // Handle both object format and direct cost format
-              if (typeof item === "object" && item.cost !== undefined) {
-                return sum + (Number(item.cost) || 0);
-              } else if (typeof item === "number") {
-                return sum + Number(item);
-              } else if (typeof item === "string" && !isNaN(Number(item))) {
-                return sum + Number(item);
-              }
-              return sum;
-            },
-            0
+          const validAdditionalItems = entry.additionalItems.filter(
+            (item) =>
+              typeof item === "object" &&
+              item.cost !== undefined &&
+              Number(item.cost) > 0
           );
-          if (additionalItemsCost > 0) {
-            components.push(
-              `Additional Items: $${additionalItemsCost.toLocaleString()}`
-            );
+          if (validAdditionalItems.length > 0) {
+            const additionalItemsList = validAdditionalItems
+              .map((item) => {
+                if (item.name) {
+                  return `${item.name}: $${Number(item.cost).toLocaleString()}`;
+                } else {
+                  return `Additional Item: $${Number(
+                    item.cost
+                  ).toLocaleString()}`;
+                }
+              })
+              .join(", ");
+            components.push(`Additional Items: ${additionalItemsList}`);
           }
         }
         // Display components
@@ -1735,7 +1742,8 @@ serve(async (req) => {
                 });
               }
             }
-            // Split component into lines if it's too long
+
+            // All components get normal bullet and standard formatting
             const componentText = `• ${component}`;
             const maxWidth = contentWidth - 20; // Account for left margin offset
             const words = componentText.split(" ");
@@ -1769,6 +1777,7 @@ serve(async (req) => {
             }
           }
         }
+        console.log("DEBUG: After components section, y:", y);
         // Add requirements if any
         const requirements = [];
         if (entry.needsCrane || entry.needs_crane) {
@@ -1830,8 +1839,19 @@ serve(async (req) => {
             y -= lineHeight;
           }
         }
-
-        y -= lineHeight;
+        y -= lineHeight * 5; // Extra spacing to move deposit line down more
+        // Add deposit requirement line for single replacement
+        console.log(
+          "DEBUG: Adding deposit line for single replacement quote at y:",
+          y
+        );
+        dynamicPage.drawText("**50% deposit required prior to installation**", {
+          x: leftMargin,
+          y,
+          size: fontSize,
+          font: bold,
+        });
+        y -= lineHeight * 2;
       }
     }
     // Note: Duplicate inspection results section removed - only the first one is kept

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSupabase } from "../../lib/supabase-context";
-import { FileText, Trash2, Eye, ChevronUp, ChevronDown } from "lucide-react";
+import { FileText, Trash2, Eye } from "lucide-react";
 import { Job } from "../../types/job";
 
 type JobReportHistorySectionProps = {
@@ -21,8 +21,6 @@ const JobReportHistorySection = ({
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeletingReport, setIsDeletingReport] = useState<string | null>(null);
-  const [showReportHistorySection, setShowReportHistorySection] =
-    useState(true);
 
   // Function to fetch reports for this job
   const fetchReports = async () => {
@@ -143,125 +141,101 @@ const JobReportHistorySection = ({
   }, [supabase, job, refreshTrigger, inspectionData]);
 
   return (
-    <div className="card">
-      <div
-        className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
-        onClick={() => setShowReportHistorySection(!showReportHistorySection)}
-      >
-        <h2 className="text-lg font-medium">Report History</h2>
-        <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
-          {showReportHistorySection ? (
-            <>
-              Hide <ChevronUp size={16} className="ml-1" />
-            </>
-          ) : (
-            <>
-              Show <ChevronDown size={16} className="ml-1" />
-            </>
-          )}
-        </span>
-      </div>
-
-      {showReportHistorySection && (
-        <div className="mt-4">
-          {/* Reports Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
-              <thead className="bg-gray-50 text-left">
-                <tr>
-                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
-                    REPORT NUMBER
-                  </th>
-                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
-                    REPORT TYPE
-                  </th>
-                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
-                    CREATED DATE
-                  </th>
-                  <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
-                    ACTIONS
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* Historical Reports */}
-                {(allReports || []).map((report, index) => (
-                  <tr
-                    key={report?.id || index}
-                    className={`border-b hover:bg-primary-50 transition-colors ${
-                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
+    <div>
+      {/* Reports Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[800px]">
+          <thead className="bg-gray-50 text-left">
+            <tr>
+              <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                REPORT NUMBER
+              </th>
+              <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                REPORT TYPE
+              </th>
+              <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                CREATED DATE
+              </th>
+              <th className="px-3 py-2 sm:px-6 sm:py-3 font-semibold text-gray-500">
+                ACTIONS
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* Historical Reports */}
+            {(allReports || []).map((report, index) => (
+              <tr
+                key={report?.id || index}
+                className={`border-b hover:bg-primary-50 transition-colors ${
+                  index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                }`}
+              >
+                <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
+                  {report.report_number || "-"}
+                </td>
+                <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                  <span
+                    className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                      report.report_type === "inspection"
+                        ? "bg-purple-100 text-purple-800"
+                        : "bg-gray-100 text-gray-800"
                     }`}
                   >
-                    <td className="px-3 py-2 sm:px-6 sm:py-3 font-medium align-middle">
-                      {report.report_number || "-"}
-                    </td>
-                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
-                          report.report_type === "inspection"
-                            ? "bg-purple-100 text-purple-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {report.report_type === "inspection"
-                          ? "Inspection"
-                          : report.report_type.charAt(0).toUpperCase() +
-                            report.report_type.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
-                      {report.created_at
-                        ? new Date(report.created_at).toLocaleDateString()
-                        : "-"}
-                    </td>
-                    <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
-                      <div className="flex flex-wrap gap-2 items-center">
-                        <button
-                          className="btn btn-secondary btn-xs w-full sm:w-auto"
-                          onClick={() => handleViewReport(report)}
-                          title="View Report"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button
-                          className="btn btn-danger btn-xs w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white"
-                          onClick={() => handleDeleteReport(report.id)}
-                          disabled={isDeletingReport === report.id}
-                          title="Delete Report"
-                        >
-                          {isDeletingReport === report.id ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                          ) : (
-                            <Trash2 size={16} />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    {report.report_type === "inspection"
+                      ? "Inspection"
+                      : report.report_type.charAt(0).toUpperCase() +
+                        report.report_type.slice(1)}
+                  </span>
+                </td>
+                <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                  {report.created_at
+                    ? new Date(report.created_at).toLocaleDateString()
+                    : "-"}
+                </td>
+                <td className="px-3 py-2 sm:px-6 sm:py-3 align-middle">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <button
+                      className="btn btn-secondary btn-xs w-full sm:w-auto"
+                      onClick={() => handleViewReport(report)}
+                      title="View Report"
+                    >
+                      <Eye size={16} />
+                    </button>
+                    <button
+                      className="btn btn-danger btn-xs w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white"
+                      onClick={() => handleDeleteReport(report.id)}
+                      disabled={isDeletingReport === report.id}
+                      title="Delete Report"
+                    >
+                      {isDeletingReport === report.id ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                      ) : (
+                        <Trash2 size={16} />
+                      )}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-            {/* Empty State */}
-            {(!allReports || allReports.length === 0) && (
-              <div className="text-center py-12">
-                <FileText size={48} className="mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No reports available
-                </h3>
-                <p className="text-gray-600">
-                  Use the Inspection Section to generate inspection reports
-                </p>
-              </div>
-            )}
+        {/* Empty State */}
+        {(!allReports || allReports.length === 0) && (
+          <div className="text-center py-8 text-gray-500">
+            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 mb-2">No reports available</p>
+            <p className="text-sm text-gray-400">
+              Use the Inspection Section to generate inspection reports
+            </p>
           </div>
+        )}
+      </div>
 
-          {/* Error Display */}
-          {deleteError && (
-            <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {deleteError}
-            </div>
-          )}
+      {/* Error Display */}
+      {deleteError && (
+        <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {deleteError}
         </div>
       )}
     </div>

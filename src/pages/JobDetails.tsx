@@ -83,6 +83,8 @@ const JobDetails = () => {
   // Collapsible section states - all set to true (expanded) by default
   const [showQuoteSection, setShowQuoteSection] = useState(true);
   const [showQuoteHistorySection, setShowQuoteHistorySection] = useState(true);
+  const [showReportHistorySection, setShowReportHistorySection] =
+    useState(true);
   const [showInvoiceSection, setShowInvoiceSection] = useState(true);
   const [showInspectionSection, setShowInspectionSection] = useState(true);
   const [inspectionData, setInspectionData] = useState<any[]>([]);
@@ -850,9 +852,6 @@ const JobDetails = () => {
           />
 
           {/* Location and Contact - Collapsible */}
-          {job.status !== "completed" && job.status !== "cancelled" && (
-            <JobReminderBanner jobId={job.id} />
-          )}
 
           <div className="card">
             <div
@@ -1223,13 +1222,35 @@ const JobDetails = () => {
 
           {/* Report History Section - Collapsible */}
           <div className="card">
-            <div className="mt-4">
-              <JobReportHistorySection
-                job={job}
-                refreshTrigger={refreshTrigger}
-                inspectionData={inspectionData}
-              />
+            <div
+              className="flex justify-between items-center cursor-pointer p-2 hover:bg-gray-50 rounded-md"
+              onClick={() =>
+                setShowReportHistorySection(!showReportHistorySection)
+              }
+            >
+              <h2 className="text-lg font-medium">Report History</h2>
+              <span className="text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-sm flex items-center">
+                {showReportHistorySection ? (
+                  <>
+                    Hide <ChevronUp size={16} className="ml-1" />
+                  </>
+                ) : (
+                  <>
+                    Show <ChevronDown size={16} className="ml-1" />
+                  </>
+                )}
+              </span>
             </div>
+
+            {showReportHistorySection && (
+              <div className="mt-4">
+                <JobReportHistorySection
+                  job={job}
+                  refreshTrigger={refreshTrigger}
+                  inspectionData={inspectionData}
+                />
+              </div>
+            )}
           </div>
 
           {/* Invoice Section - Collapsible */}
