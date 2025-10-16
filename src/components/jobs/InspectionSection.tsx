@@ -67,6 +67,14 @@ const InspectionReportGenerator = ({
             companies (
               name
             )
+          ),
+          job_units:job_units (
+            id,
+            unit_id,
+            units:unit_id (
+              id,
+              unit_number
+            )
           )
         `
         )
@@ -74,6 +82,25 @@ const InspectionReportGenerator = ({
         .single();
 
       if (jobError) throw jobError;
+
+      // Process units data to match expected format
+      const units = (jobData.job_units || []).map((ju: any) => ju.units);
+      const processedJobData = {
+        ...jobData,
+        units,
+        job_units: jobData.job_units,
+      };
+
+      // Debug logging
+      console.log("DEBUG: processed units:", units);
+      console.log("DEBUG: job_units:", jobData.job_units);
+      console.log(
+        "DEBUG: inspectionData with job_unit_id:",
+        inspectionData.map((insp) => ({
+          id: insp.id,
+          job_unit_id: insp.job_unit_id,
+        }))
+      );
 
       // Fetch template for inspection reports (same logic as GenerateQuote)
       const { data: templates } = await supabase!
@@ -100,7 +127,7 @@ const InspectionReportGenerator = ({
           quoteType: "inspection",
           quoteNumber: reportNumber,
           templateId: template?.id || null,
-          jobData,
+          jobData: processedJobData,
           inspectionData: selectedInspectionData,
         }),
       });
@@ -123,7 +150,7 @@ const InspectionReportGenerator = ({
           pdf_generated_at: new Date().toISOString(),
           selected_inspection_options: selectedInspections,
           report_data: {
-            jobData,
+            jobData: processedJobData,
             inspectionData: selectedInspectionData,
             template: template,
           },

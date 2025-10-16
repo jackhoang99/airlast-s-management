@@ -205,6 +205,10 @@ serve(async (req) => {
       jobData,
       inspectionData,
     } = await req.json();
+
+    // Debug logging for unit information
+    console.log("DEBUG: jobData.units:", jobData?.units);
+    console.log("DEBUG: jobData.job_units:", jobData?.job_units);
     if (!jobId || !quoteType) {
       return new Response(
         JSON.stringify({
@@ -1028,21 +1032,50 @@ serve(async (req) => {
           font: bold,
         });
         y -= lineHeight;
-        // Draw unit information header
-        if (jobData?.unit?.unit_number) {
-          y = drawBoundedText(
-            dynamicPage,
-            `Unit: ${sanitizeTextForPDF(jobData.unit.unit_number)}`,
-            leftMargin,
-            y,
-            {
-              font,
-              fontSize,
-              leftMargin,
-              rightMargin,
-              width,
-            }
+        // Draw unit information header - get specific unit for this inspection
+        let unitNumber = null;
+        console.log(
+          "DEBUG: Processing inspection",
+          i + 1,
+          "with job_unit_id:",
+          insp.job_unit_id
+        );
+        console.log("DEBUG: Available job_units:", jobData?.job_units);
+
+        if (insp.job_unit_id && jobData?.job_units) {
+          const jobUnit = jobData.job_units.find(
+            (ju: any) => ju.id === insp.job_unit_id
           );
+          console.log("DEBUG: Found jobUnit:", jobUnit);
+          if (jobUnit?.units?.unit_number) {
+            unitNumber = jobUnit.units.unit_number;
+            console.log("DEBUG: Using specific unit:", unitNumber);
+          }
+        }
+
+        // Fallback to general units if no specific unit found
+        if (!unitNumber) {
+          const units = jobData?.units || (jobData?.unit ? [jobData.unit] : []);
+          if (units && units.length > 0) {
+            if (units.length === 1) {
+              unitNumber = units[0]?.unit_number;
+            } else {
+              unitNumber = units
+                .map((unit) => unit.unit_number)
+                .filter(Boolean)
+                .join(", ");
+            }
+          }
+        }
+
+        if (unitNumber) {
+          dynamicPage.drawText(`Unit: ${sanitizeTextForPDF(unitNumber)}`, {
+            x: leftMargin,
+            y: y,
+            size: fontSize,
+            font,
+          });
+          y -= lineHeight;
         }
         // Draw inspection details in two-column format like the image
         const leftColumn = [];
